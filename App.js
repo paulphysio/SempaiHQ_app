@@ -1,4 +1,4 @@
-import 'react-native-get-random-values'; // Add this line
+import 'react-native-get-random-values';
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -14,9 +14,12 @@ export default function App() {
     <SafeAreaProvider>
       <EmbeddedWalletProvider>
         <NavigationContainer>
-          <Stack.Navigator initialRouteName="Home">
-            <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
-            <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
+          <Stack.Navigator
+            initialRouteName="Home"
+            screenOptions={{ headerShown: false }} // Disable header for all screens
+          >
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </EmbeddedWalletProvider>
