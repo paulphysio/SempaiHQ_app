@@ -20,13 +20,13 @@ import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from '@sol
 import { createTransferInstruction, getOrCreateAssociatedTokenAccount, getAccount } from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import * as SecureStore from 'expo-secure-store'; // Added for secure storage
+import * as SecureStore from 'expo-secure-store';
 import { styles } from '../styles/ChapterScreenStyles';
 import { RPC_URL, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, TARGET_WALLET, SMP_DECIMALS } from '../constants';
 import bs58 from 'bs58';
-import CommentSection from '../components/Comments/CommentSection'; // Added import for CommentSection
+import CommentSection from '../components/Comments/CommentSection';
 
-console.log('Imported TARGET_WALLET:', TARGET_WALLET); // Debug log
+console.log('Imported TARGET_WALLET:', TARGET_WALLET);
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -34,7 +34,7 @@ const ChapterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { novelId, chapterId } = route.params || {};
-  const { wallet } = useContext(EmbeddedWalletContext); // Removed getSecretKey
+  const { wallet } = useContext(EmbeddedWalletContext);
 
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +66,6 @@ const ChapterScreen = () => {
     if (wallet?.publicKey) {
       let publicKeyStr = wallet.publicKey;
       if (typeof publicKeyStr === 'string') {
-        // Assume it's already base58
       } else if (publicKeyStr instanceof Uint8Array || Array.isArray(publicKeyStr)) {
         publicKeyStr = bs58.encode(Buffer.from(publicKeyStr));
       } else if (publicKeyStr instanceof PublicKey) {
@@ -83,17 +82,16 @@ const ChapterScreen = () => {
   }
   const activeWalletAddress = activePublicKey?.toString();
 
-  // Function to retrieve secret key from SecureStore
   const retrieveSecretKey = async (password) => {
     try {
       const key = `wallet-secret-${activeWalletAddress}-${password}`;
-      console.log('Attempting to retrieve secret key with key:', key); // Debug
+      console.log('Attempting to retrieve secret key with key:', key);
       const secretKeyBase58 = await SecureStore.getItemAsync(key);
       if (!secretKeyBase58) {
         console.error('Secret key not found for key:', key);
         throw new Error('Secret key not found or invalid password.');
       }
-      console.log('Secret key retrieved successfully (base58 length):', secretKeyBase58.length); // Debug
+      console.log('Secret key retrieved successfully (base58 length):', secretKeyBase58.length);
       const secretKey = bs58.decode(secretKeyBase58);
       if (secretKey.length !== 64) {
         console.error('Invalid secret key length:', secretKey.length);
@@ -105,7 +103,7 @@ const ChapterScreen = () => {
       throw new Error('Failed to retrieve secret key. Please check your password.');
     }
   };
-  
+
   const fetchPrices = async (retryCount = 3, retryDelay = 1000) => {
     for (let attempt = 1; attempt <= retryCount; attempt++) {
       try {
@@ -295,7 +293,6 @@ const ChapterScreen = () => {
         throw new Error('No valid public key available.');
       }
 
-      // Validate TARGET_WALLET
       let targetPublicKey;
       try {
         if (!TARGET_WALLET || typeof TARGET_WALLET !== 'string') {
@@ -308,7 +305,6 @@ const ChapterScreen = () => {
         throw new Error(`Invalid TARGET_WALLET: ${TARGET_WALLET || 'undefined'}. ${err.message}`);
       }
 
-      // Validate SMP_MINT_ADDRESS
       try {
         new PublicKey(SMP_MINT_ADDRESS);
         console.log('SMP_MINT_ADDRESS validated:', SMP_MINT_ADDRESS);
@@ -316,7 +312,6 @@ const ChapterScreen = () => {
         throw new Error(`Invalid SMP_MINT_ADDRESS: ${err.message}`);
       }
 
-      // Fetch user data
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, weekly_points')
@@ -325,7 +320,6 @@ const ChapterScreen = () => {
       if (userError || !userData) throw new Error(`User not found: ${userError?.message || 'No user data'}`);
       const user = userData;
 
-      // Check chapter access
       const chapterNum = parseInt(chapterId, 10);
       const advanceInfo = novel.advance_chapters?.find((c) => c.index === chapterNum) || {
         is_advance: false,
@@ -347,7 +341,6 @@ const ChapterScreen = () => {
         }
       }
 
-      // Check off-chain SMP balance
       const { data: walletBalance, error: balanceError } = await supabase
         .from('wallet_balances')
         .select('amount')
@@ -357,12 +350,10 @@ const ChapterScreen = () => {
       if (balanceError || !walletBalance) throw new Error(`Wallet balance not found: ${balanceError?.message || 'No balance data'}`);
       if (walletBalance.amount < 1000) throw new Error(`Insufficient SMP balance (off-chain): ${walletBalance.amount} SMP`);
 
-      // Check on-chain SMP balance
       const sourceATA = await getOrCreateAssociatedTokenAccount(connection, activePublicKey, new PublicKey(SMP_MINT_ADDRESS), activePublicKey);
       const smpBalanceOnChain = Number((await getAccount(connection, sourceATA.address)).amount) / 10 ** SMP_DECIMALS;
       if (smpBalanceOnChain < 1000) throw new Error(`Insufficient SMP balance on-chain: ${smpBalanceOnChain.toLocaleString()} SMP`);
 
-      // Fetch novel owner
       const { data: novelOwnerData, error: novelOwnerError } = await supabase
         .from('novels')
         .select('user_id')
@@ -378,7 +369,6 @@ const ChapterScreen = () => {
         .single();
       if (novelOwnerBalanceError || !novelOwner) throw new Error(`Novel owner balance not found: ${novelOwnerBalanceError?.message || 'No owner balance'}`);
 
-      // Generate event details
       const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${chapterId}`.replace(/[^a-zA-Z0-9]/g, '').substring(0, 255);
       const { data: existingEvents, error: eventError } = await supabase
         .from('wallet_events')
@@ -393,7 +383,6 @@ const ChapterScreen = () => {
         return;
       }
 
-      // Create SMP transaction
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
       const destATA = await getOrCreateAssociatedTokenAccount(connection, activePublicKey, new PublicKey(SMP_MINT_ADDRESS), targetPublicKey);
       const transaction = new Transaction({
@@ -409,7 +398,6 @@ const ChapterScreen = () => {
         )
       );
 
-      // Sign and send transaction
       let signature;
       await new Promise((resolve, reject) => {
         requestPassword(async (pwd) => {
@@ -427,10 +415,8 @@ const ChapterScreen = () => {
         });
       });
 
-      // Confirm transaction
       await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 
-      // Update off-chain balances
       const newSmpBalance = walletBalance.amount - 1000;
       await supabase
         .from('wallet_balances')
@@ -438,7 +424,6 @@ const ChapterScreen = () => {
         .eq('wallet_address', activeWalletAddress)
         .eq('currency', 'SMP');
 
-      // Calculate rewards
       let readerReward = 100;
       const authorReward = 500;
       const numericBalance = Number(novelOwner.balance) || 0;
@@ -451,7 +436,6 @@ const ChapterScreen = () => {
       const newReaderBalance = (user.weekly_points || 0) + readerReward;
       const newAuthorBalance = (novelOwner.balance || 0) + authorReward;
 
-      // Update user balances and insert wallet events
       await Promise.all([
         supabase
           .from('users')
@@ -995,7 +979,7 @@ const ChapterScreen = () => {
                   )}
                 </View>
               </View>
-              <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10)} />
+              <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10) + 1} />
             </Animated.View>
           }
           initialNumToRender={10}
@@ -1050,9 +1034,8 @@ const ChapterScreen = () => {
             <Text style={styles.modalNote}>You will be prompted for your wallet password.</Text>
           </Animated.View>
         </View>
-        
-        </Modal>
-      
+      </Modal>
+
       <Modal
         visible={showPasswordModal}
         transparent

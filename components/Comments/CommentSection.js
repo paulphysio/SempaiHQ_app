@@ -109,6 +109,7 @@ const Comment = ({
               size={16}
               color={replyingTo === comment.id ? '#D94F04' : '#fff'}
             />
+            <Text style={styles.actionButtonText}>{replyingTo === comment.id ? 'Replying' : 'Reply'}</Text>
           </TouchableOpacity>
           {replies.length > 0 && (
             <TouchableOpacity
@@ -177,6 +178,11 @@ const CommentSection = ({ novelId, chapter }) => {
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey || null;
 
+  const setTemporaryError = (message) => {
+    setError(message);
+    setTimeout(() => setError(null), 5000);
+  };
+
   useEffect(() => {
     if (!isWalletConnected || !activePublicKey) {
       setCurrentUserId(null);
@@ -194,7 +200,7 @@ const CommentSection = ({ novelId, chapter }) => {
         setCurrentUserId(user.id);
       } catch (err) {
         console.error('Fetch user error:', err);
-        setError('Failed to load user data.');
+        setTemporaryError('Failed to load user data.');
       }
     };
     fetchUserId();
@@ -223,11 +229,12 @@ const CommentSection = ({ novelId, chapter }) => {
       const enrichedComments = data.map((comment) => ({
         ...comment,
         username: comment.username || comment.users?.name || 'Anonymous',
+        replies: comment.replies || [],
       }));
       setComments(enrichedComments);
     } catch (err) {
       console.error('Fetch comments error:', err);
-      setError('Failed to load comments.');
+      setTemporaryError('Failed to load comments.');
     }
   };
 
@@ -238,7 +245,17 @@ const CommentSection = ({ novelId, chapter }) => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'comments',
+          filter: `novel_id=eq.${novelId},chapter=eq.${chapter}`,
+        },
+        fetchComments
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
           schema: 'public',
           table: 'comments',
           filter: `novel_id=eq.${novelId},chapter=eq.${chapter}`,
@@ -251,7 +268,7 @@ const CommentSection = ({ novelId, chapter }) => {
 
   const deleteComment = async (commentId) => {
     if (!currentUserId) {
-      setError('You must be logged in to delete comments.');
+      setTemporaryError('You must be logged in to delete comments.');
       return;
     }
     try {
@@ -264,38 +281,48 @@ const CommentSection = ({ novelId, chapter }) => {
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
       console.error('Delete comment error:', err);
-      setError('Failed to delete comment.');
+      setTemporaryError('Failed to delete comment.');
     }
   };
 
   const handleCommentSubmit = async () => {
     if (!isWalletConnected || !activePublicKey) {
-      setError('You must connect a wallet to comment.');
+      setTemporaryError('You must connect a wallet to comment.');
       return;
     }
     if (!newComment.trim()) {
-      setError('Comment cannot be empty.');
+      setTemporaryError('Comment cannot be empty.');
       return;
     }
     try {
       const { data: user, error: userError } = await supabase
         .from('users')
-        .select('id, name, weekly_points')
+        .select('id, name, weekly_points, wallet_address')
         .eq('wallet_address', activePublicKey)
         .single();
       if (userError || !user) throw new Error('User not found');
 
       const now = new Date();
       const oneMinuteAgo = new Date(now.getTime() - 60 * 1000).toISOString();
+      const today = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+
       const { data: recentComments } = await supabase
         .from('comments')
         .select('*')
         .eq('user_id', user.id)
         .gte('created_at', oneMinuteAgo);
       if (recentComments.length > 0) {
-        setError('Please wait 1 minute before posting again.');
+        setTemporaryError('Please wait 1 minute before posting again.');
         return;
       }
+
+      const { data: rewardedToday } = await supabase
+        .from('comments')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_rewarded', true)
+        .gte('created_at', today);
+      const hasReachedDailyLimit = rewardedToday.length >= 10;
 
       const username = user.name || activePublicKey.slice(0, 6) + '...' + activePublicKey.slice(-4);
       const { data: comment, error: commentError } = await supabase
@@ -308,18 +335,65 @@ const CommentSection = ({ novelId, chapter }) => {
             username,
             content: newComment,
             parent_id: replyingTo || null,
+            is_rewarded: !hasReachedDailyLimit,
           },
         ])
         .select()
         .single();
       if (commentError) throw commentError;
 
+      if (!hasReachedDailyLimit) {
+        const rewardAmount = user.weekly_points >= 5000000 ? 25 :
+                            user.weekly_points >= 1000000 ? 20 :
+                            user.weekly_points >= 500000 ? 17 :
+                            user.weekly_points >= 250000 ? 15 :
+                            user.weekly_points >= 100000 ? 12 : 10;
+
+        await supabase
+          .from('users')
+          .update({ weekly_points: user.weekly_points + rewardAmount })
+          .eq('id', user.id);
+
+        await supabase.from('wallet_events').insert([
+          {
+            destination_user_id: user.id,
+            event_type: 'credit',
+            amount_change: rewardAmount,
+            source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
+            destination_chain: 'SOL',
+            source_currency: 'Token',
+            event_details: 'comment_reward',
+            wallet_address: user.wallet_address,
+            source_chain: 'SOL',
+          },
+        ]);
+      }
+
+      if (replyingTo) {
+        const { data: parentComment } = await supabase
+          .from('comments')
+          .select('user_id')
+          .eq('id', replyingTo)
+          .single();
+        if (parentComment && parentComment.user_id !== user.id) {
+          await supabase.from('notifications').insert([
+            {
+              user_id: parentComment.user_id,
+              novel_id: novelId,
+              chapter,
+              message: `${username} replied to your comment.`,
+              type: 'reply',
+            },
+          ]);
+        }
+      }
+
       setNewComment('');
       setReplyingTo(null);
       fetchComments();
     } catch (err) {
       console.error('Submit comment error:', err);
-      setError('Failed to post comment.');
+      setTemporaryError('Failed to post comment.');
     }
   };
 
@@ -399,7 +473,7 @@ const CommentSection = ({ novelId, chapter }) => {
               accessibilityLabel={replyingTo ? 'Post Reply' : 'Post Comment'}
             >
               <FontAwesome5 name="paper-plane" size={16} color="#fff" />
-              <Text style={styles.postButtonText}>Post</Text>
+              <Text style={styles.postButtonText}>{replyingTo ? 'Post Reply' : 'Post Comment'}</Text>
             </TouchableOpacity>
           </View>
         </View>
