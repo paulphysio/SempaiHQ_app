@@ -24,6 +24,7 @@ import * as SecureStore from 'expo-secure-store'; // Added for secure storage
 import { styles } from '../styles/ChapterScreenStyles';
 import { RPC_URL, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, TARGET_WALLET, SMP_DECIMALS } from '../constants';
 import bs58 from 'bs58';
+import CommentSection from '../components/Comments/CommentSection'; // Added import for CommentSection
 
 console.log('Imported TARGET_WALLET:', TARGET_WALLET); // Debug log
 
@@ -346,7 +347,7 @@ const ChapterScreen = () => {
         }
       }
 
-      //  // Check off-chain SMP balance
+      // Check off-chain SMP balance
       const { data: walletBalance, error: balanceError } = await supabase
         .from('wallet_balances')
         .select('amount')
@@ -960,38 +961,41 @@ const ChapterScreen = () => {
             </>
           }
           ListFooterComponent={
-            <Animated.View entering={FadeIn} style={styles.navigation}>
-              <View style={styles.navRow}>
-                {prevChapter ? (
+            <Animated.View entering={FadeIn}>
+              <View style={styles.navigation}>
+                <View style={styles.navRow}>
+                  {prevChapter ? (
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
+                    >
+                      <Icon name="chevron-left" size={16} color="#ffffff" style={styles.buttonIcon} />
+                      <Text style={styles.navButtonText}>Previous</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.navPlaceholder} />
+                  )}
                   <TouchableOpacity
                     style={styles.navButton}
-                    onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
+                    onPress={() => navigation.navigate('Novel', { novelId })}
                   >
-                    <Icon name="chevron-left" size={16} color="#ffffff" style={styles.buttonIcon} />
-                    <Text style={styles.navButtonText}>Previous</Text>
+                    <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
+                    <Text style={styles.navButtonText}>Back to Novel</Text>
                   </TouchableOpacity>
-                ) : (
-                  <View style={styles.navPlaceholder} />
-                )}
-                <TouchableOpacity
-                  style={styles.navButton}
-                  onPress={() => navigation.navigate('Novel', { novelId })}
-                >
-                  <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
-                  <Text style={styles.navButtonText}>Back to Novel</Text>
-                </TouchableOpacity>
-                {nextChapter ? (
-                  <TouchableOpacity
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
-                  >
-                    <Text style={styles.navButtonText}>Next</Text>
-                    <Icon name="chevron-right" size={16} color="#ffffff" style={styles.buttonIcon} />
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.navPlaceholder} />
-                )}
+                  {nextChapter ? (
+                    <TouchableOpacity
+                      style={styles.navButton}
+                      onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
+                    >
+                      <Text style={styles.navButtonText}>Next</Text>
+                      <Icon name="chevron-right" size={16} color="#ffffff" style={styles.buttonIcon} />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.navPlaceholder} />
+                  )}
+                </View>
               </View>
+              <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10)} />
             </Animated.View>
           }
           initialNumToRender={10}
@@ -1046,8 +1050,9 @@ const ChapterScreen = () => {
             <Text style={styles.modalNote}>You will be prompted for your wallet password.</Text>
           </Animated.View>
         </View>
-      </Modal>
-
+        
+        </Modal>
+      
       <Modal
         visible={showPasswordModal}
         transparent
@@ -1064,7 +1069,7 @@ const ChapterScreen = () => {
               <TextInput
                 style={[styles.passwordInput, passwordError ? styles.inputError : null]}
                 placeholder="Password"
- PLACEHOLDER_TEXT_COLOR="#888"
+                placeholderTextColor="#888"
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
