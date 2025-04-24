@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -12,17 +11,18 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import ConnectButton from '../components/ConnectButton';
-import { supabase } from '../services/SupabaseClient';
+import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
+import { supabase } from '../services/supabaseClient';
 import { styles } from '../styles/HomeStyles';
 
-const { width, height } = Dimensions.get('window'); // Define height here
+const { width, height } = Dimensions.get('window');
 
 const Home = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
+  const { wallet } = useContext(EmbeddedWalletContext); // Access wallet from context
   const [menuOpen, setMenuOpen] = useState(false);
   const [novels, setNovels] = useState([]);
   const [manga, setManga] = useState([]);
@@ -53,30 +53,32 @@ const Home = () => {
   const features = [
     {
       title: "Kaito's Adventure",
-      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers//background.jpg' },
-      path: '/kaito-adventure',
+      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/background.jpg' },
+      path: 'KaitoAdventure',
       requiresWallet: true,
     },
     {
       title: 'DAO Governance',
-      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers//dao.jpg' },
-      path: '/dao-governance',
+      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/dao.jpg' },
+      path: 'DAOGovernance',
       requiresWallet: true,
     },
     {
       title: 'Hoard',
-      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers//novel-3.jpg' },
-      path: '/novels',
+      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/novel-3.jpg' },
+      path: 'Novels',
       requiresWallet: false,
     },
     {
       title: 'KISS',
-      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers//novel-4.jpg' },
-      path: '/keep-it-simple',
-      requiresWallet: true,
+      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/novel-4.jpg' },
+      path: 'KeepItSimple',
+      requiresWallet: false,
     },
   ];
 
+  // Animations for feature cards
+  const scaleAnims = useRef(features.map(() => new Animated.Value(1))).current;
   const fadeAnims = useRef(features.map(() => new Animated.Value(0))).current;
 
   // Animate background
@@ -122,23 +124,38 @@ const Home = () => {
         })
       ),
     ]).start();
-  }, []);
+  }, [heroTextAnim, fadeAnims]);
 
-  // Fetch publicKey
+  // Sync wallet state
   useEffect(() => {
-    const getPublicKey = async () => {
+    const syncWallet = async () => {
       try {
-        const key = await AsyncStorage.getItem('walletAddress');
-        if (key && isMounted.current) {
-          setPublicKey(key);
-          setIsWalletConnected(!!key);
+        console.log('Wallet from context:', wallet);
+        if (wallet?.publicKey) {
+          console.log('Setting publicKey from context:', wallet.publicKey);
+          setPublicKey(wallet.publicKey);
+          setIsWalletConnected(true);
+          // Ensure AsyncStorage is updated
+          await AsyncStorage.setItem('walletAddress', wallet.publicKey);
+        } else {
+          // Fallback to AsyncStorage
+          const key = await AsyncStorage.getItem('walletAddress');
+          console.log('AsyncStorage walletAddress:', key);
+          if (key && isMounted.current) {
+            setPublicKey(key);
+            setIsWalletConnected(true);
+          } else {
+            setIsWalletConnected(false);
+            setPublicKey(null);
+          }
         }
       } catch (err) {
-        console.error('Error fetching publicKey:', err.message);
+        console.error('Error syncing wallet:', err.message);
+        setError('Failed to sync wallet');
       }
     };
-    getPublicKey();
-  }, []);
+    syncWallet();
+  }, [wallet]); // Re-run when wallet context changes
 
   // Fetch announcements
   useEffect(() => {
@@ -264,7 +281,7 @@ const Home = () => {
 
         if (isMounted.current) {
           setNotifications(notificationsData || []);
-          setUnreadCount(notificationsData.filter(n => !n.is_read).length);
+          setUnreadCount(notificationsData ? notificationsData.filter(n => !n.is_read).length : 0);
         }
       } catch (err) {
         console.error('fetchNotifications error:', err.message);
@@ -283,7 +300,7 @@ const Home = () => {
       try {
         const { data: novelsData, error } = await supabase
           .from('novels')
-          .select('id, title, image, summary, user_id, tags');
+          .select('id, title, image, summary, user_id, tags, viewers_count');
 
         if (error) throw new Error(`Novels fetch error: ${error.message}`);
 
@@ -297,17 +314,6 @@ const Home = () => {
 
         const usersMap = usersData.reduce((acc, user) => {
           acc[user.id] = { name: user.name || 'Unknown', isWriter: user.isWriter || false };
-          return acc;
-        }, {});
-
-        const { data: interactionsData, error: interactionsError } = await supabase
-          .from('novel_interactions')
-          .select('novel_id, user_id');
-
-        if (interactionsError) throw new Error(`Interactions fetch error: ${interactionsError.message}`);
-
-        const viewerCounts = interactionsData.reduce((acc, interaction) => {
-          acc[interaction.novel_id] = (acc[interaction.novel_id] || 0) + 1;
           return acc;
         }, {});
 
@@ -330,7 +336,7 @@ const Home = () => {
           return {
             ...novel,
             writer: usersMap[novel.user_id] || { name: 'Unknown', isWriter: false },
-            viewers: viewerCounts[novel.id] || 0,
+            viewers: novel.viewers_count || 0,
             averageRating: averageRating.toFixed(2),
             isAdult: novel.tags && novel.tags.includes('Adult(18+)'),
           };
@@ -525,7 +531,7 @@ const Home = () => {
 
   const handleNavigation = (path) => {
     toggleMenu();
-    router.push(path);
+    navigation.navigate(path);
   };
 
   // Auto-scroll for novels
@@ -557,23 +563,30 @@ const Home = () => {
   }, [manga]);
 
   const renderCarouselItem = ({ item, type }) => (
-    <TouchableOpacity
-      style={styles.contentCard}
-      onPress={() => handleNavigation(`/${type}/${item.id}`)}
-      accessible={true}
-      accessibilityLabel={`View ${item.title}`}
-      accessibilityHint={`Navigate to ${type} details`}
-    >
-      <Image
-        source={{ uri: item.image || 'https://via.placeholder.com/260x200' }}
-        style={styles.contentImage}
-        defaultSource={{ uri: 'https://via.placeholder.com/260x200' }}
-      />
+    <View style={styles.contentCard}>
+      <TouchableOpacity
+        onPress={() => navigation.navigate(type === 'novel' ? 'Novel' : 'Manga', { id: item.id })}
+        accessibilityLabel={`View ${item.title}`}
+        accessible={true}
+        accessibilityHint={`Navigate to ${type} details`}
+      >
+        <Image
+          source={{ uri: item.image || 'https://via.placeholder.com/260x200' }}
+          style={styles.contentImage}
+          defaultSource={{ uri: 'https://via.placeholder.com/260x200' }}
+        />
+      </TouchableOpacity>
       {item.writer[type === 'novel' ? 'isWriter' : 'isArtist'] && (
-        <View style={styles.writerName}>
+        <TouchableOpacity
+          style={styles.writerName}
+          onPress={() => navigation.navigate('WritersProfile', { id: item.user_id })}
+          accessible={true}
+          accessibilityLabel={`View profile of ${item.writer.name}`}
+          accessibilityHint="Navigate to writer profile"
+        >
           <FontAwesome5 name="feather-alt" size={14} color="#fff" style={styles.writerIcon} />
           <Text style={styles.writerNameText}>{item.writer.name}</Text>
-        </View>
+        </TouchableOpacity>
       )}
       <View style={styles.contentOverlay}>
         <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
@@ -590,7 +603,7 @@ const Home = () => {
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   const renderAnnouncementItem = ({ item }) => (
@@ -599,7 +612,7 @@ const Home = () => {
       <Text style={styles.announcementMessage} numberOfLines={3}>{item.message}</Text>
       <View style={styles.announcementDetails}>
         {item.novels && (
-          <TouchableOpacity onPress={() => handleNavigation(`/novel/${item.novels.id}`)}>
+          <TouchableOpacity onPress={() => navigation.navigate('Novel', { id: item.novels.id })}>
             <Text style={styles.announcementLink}>{item.novels.title}</Text>
           </TouchableOpacity>
         )}
@@ -618,7 +631,7 @@ const Home = () => {
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
       style={styles.notificationItem}
-      onPress={() => item.novel_id && handleNavigation(`/novel/${item.novel_id}`)}
+      onPress={() => item.novel_id && navigation.navigate('Novel', { id: item.novel_id })}
       accessible={true}
       accessibilityLabel={item.message}
       accessibilityHint="View notification details"
@@ -631,10 +644,8 @@ const Home = () => {
   );
 
   const renderFeatureItem = ({ item, index }) => {
-    const scaleAnim = new Animated.Value(1);
-
     const onPressIn = () => {
-      Animated.spring(scaleAnim, {
+      Animated.spring(scaleAnims[index], {
         toValue: 0.95,
         friction: 8,
         tension: 40,
@@ -643,7 +654,7 @@ const Home = () => {
     };
 
     const onPressOut = () => {
-      Animated.spring(scaleAnim, {
+      Animated.spring(scaleAnims[index], {
         toValue: 1,
         friction: 8,
         tension: 40,
@@ -659,7 +670,7 @@ const Home = () => {
             opacity: fadeAnims[index],
             transform: [
               { translateY: fadeAnims[index].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) },
-              { scale: scaleAnim },
+              { scale: scaleAnims[index] },
             ],
           },
         ]}
@@ -691,7 +702,7 @@ const Home = () => {
             </Text>
             {item.requiresWallet && (
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}></Text>
+                <Text style={styles.premiumBadgeText}>Premium</Text>
               </View>
             )}
           </View>
@@ -762,8 +773,9 @@ const Home = () => {
       {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
-          source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers//logo.png' }}
+          source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
           style={styles.logoImage}
+          defaultSource={{ uri: 'https://via.placeholder.com/40x40' }}
         />
         <Text style={styles.logoText}>SempaiHQ</Text>
       </View>
@@ -797,7 +809,7 @@ const Home = () => {
           <View style={styles.heroButtons}>
             <TouchableOpacity
               style={styles.heroButton}
-              onPress={() => handleNavigation('/novels')}
+              onPress={() => handleNavigation('Novels')}
               accessible={true}
               accessibilityLabel="Explore novels"
             >
@@ -805,7 +817,7 @@ const Home = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.heroButton}
-              onPress={() => handleNavigation('/manga')}
+              onPress={() => handleNavigation('Manga')}
               accessible={true}
               accessibilityLabel="Explore manga"
             >
@@ -897,14 +909,14 @@ const Home = () => {
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.sidebarContent}>
           {[
-            { path: '/', icon: 'home', label: 'Home' },
-            { path: '/swap', icon: 'exchange-alt', label: 'Swap' },
-            { path: '/stat-page', icon: 'chart-bar', label: 'Stats' },
-            { path: '/editprofile', icon: 'user', label: 'Profile' },
-            { path: '/chat', icon: 'comments', label: 'Chat' },
-            { path: '/kaito-adventure', icon: 'gamepad', label: 'Kaito’s Adventure' },
-            { path: '/wallet-import', icon: 'wallet', label: 'Import Wallet' },
-            { path: '/apply', icon: 'bullhorn', label: 'Become a Creator' },
+            { path: 'Home', icon: 'home', label: 'Home' },
+            { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
+            { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
+            { path: 'EditProfile', icon: 'user', label: 'Profile' },
+            { path: 'Chat', icon: 'comments', label: 'Chat' },
+            { path: 'KaitoAdventure', icon: 'gamepad', label: 'Kaito’s Adventure' },
+            { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
+            { path: 'Apply', icon: 'bullhorn', label: 'Become a Creator' },
           ].map((item, index) => (
             <TouchableOpacity
               key={index}

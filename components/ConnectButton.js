@@ -1,3 +1,4 @@
+// ConnectButton.js
 import React, { useState, useCallback, useEffect, useContext, createContext } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import Modal from 'react-native-modal';
@@ -5,12 +6,13 @@ import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
 import * as solanaWeb3 from '@solana/web3.js';
 import { Buffer } from 'buffer';
+import bs58 from 'bs58';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../services/SupabaseClient';
+import { supabase } from '../services/supabaseClient';
 import { styles } from '../styles/ConnectButtonStyles';
 
 // Embedded Wallet Context
-const EmbeddedWalletContext = createContext();
+export const EmbeddedWalletContext = createContext();
 
 // SecureStore wrapper for web compatibility
 const secureStoreWrapper = {
@@ -73,15 +75,18 @@ export const EmbeddedWalletProvider = ({ children }) => {
       setIsLoading(true);
       const keypair = solanaWeb3.Keypair.generate();
       const publicKey = keypair.publicKey.toString();
-      const privateKey = Buffer.from(keypair.secretKey).toString('hex');
+      const secretKey = keypair.secretKey; // Uint8Array
+      const secretKeyBase58 = bs58.encode(secretKey);
 
-      await secureStoreWrapper.setItemAsync(
-        'embeddedWallet',
-        JSON.stringify({ publicKey, privateKey })
-      );
+      // Store secret key with password
+      const storageKey = `wallet-secret-${publicKey}-${password}`;
+      await secureStoreWrapper.setItemAsync(storageKey, secretKeyBase58);
+
+      // Store public key for wallet state
+      await secureStoreWrapper.setItemAsync('walletPublicKey', publicKey);
 
       setWallet({ publicKey });
-      return { publicKey, privateKey };
+      return { publicKey, privateKey: secretKeyBase58 };
     } catch (err) {
       setError('Failed to create wallet: ' + err.message);
       return null;
@@ -90,20 +95,63 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   };
 
-  const importEmbeddedWallet = async (privateKey, password) => {
+  const importEmbeddedWallet = async (privateKeyInput, password) => {
     try {
       setIsLoading(true);
-      const privateKeyBytes = Buffer.from(privateKey, 'hex');
+
+      // Validate input
+      if (!privateKeyInput || typeof privateKeyInput !== 'string') {
+        throw new Error('Private key is required and must be a string');
+      }
+
+      // Clean the input
+      const cleanedInput = privateKeyInput.trim().replace(/^0x/i, '');
+
+      let privateKeyBytes;
+
+      // Try parsing as JSON array (e.g., [123, 45, ...])
+      try {
+        const parsed = JSON.parse(cleanedInput);
+        if (Array.isArray(parsed) && parsed.length === 64 && parsed.every(n => typeof n === 'number' && n >= 0 && n <= 255)) {
+          privateKeyBytes = Buffer.from(parsed);
+        }
+      } catch {
+        // Not a JSON array, proceed to other formats
+      }
+
+      // Try base58
+      if (!privateKeyBytes) {
+        try {
+          privateKeyBytes = bs58.decode(cleanedInput);
+          if (privateKeyBytes.length !== 64) {
+            throw new Error(`Invalid base58 private key size: expected 64 bytes, got ${privateKeyBytes.length} bytes`);
+          }
+        } catch {
+          // Not base58, try hex
+          if (!/^[0-9a-fA-F]+$/i.test(cleanedInput)) {
+            throw new Error('Private key must be a valid hex string, base58 string, or JSON array of 64 bytes');
+          }
+          privateKeyBytes = Buffer.from(cleanedInput, 'hex');
+          if (privateKeyBytes.length !== 64) {
+            throw new Error(`Invalid hex private key size: expected 64 bytes, got ${privateKeyBytes.length} bytes`);
+          }
+        }
+      }
+
+      // Create keypair
       const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
       const publicKey = keypair.publicKey.toString();
+      const secretKeyBase58 = bs58.encode(privateKeyBytes);
 
-      await secureStoreWrapper.setItemAsync(
-        'embeddedWallet',
-        JSON.stringify({ publicKey, privateKey })
-      );
+      // Store secret key with password
+      const storageKey = `wallet-secret-${publicKey}-${password}`;
+      await secureStoreWrapper.setItemAsync(storageKey, secretKeyBase58);
+
+      // Store public key for wallet state
+      await secureStoreWrapper.setItemAsync('walletPublicKey', publicKey);
 
       setWallet({ publicKey });
-      return { publicKey, privateKey };
+      return { publicKey, privateKey: secretKeyBase58 };
     } catch (err) {
       setError('Failed to import wallet: ' + err.message);
       return null;
@@ -113,16 +161,27 @@ export const EmbeddedWalletProvider = ({ children }) => {
   };
 
   const disconnectWallet = async () => {
-    await secureStoreWrapper.deleteItemAsync('embeddedWallet');
-    setWallet(null);
+    try {
+      // Delete wallet data
+      const storedPublicKey = await secureStoreWrapper.getItemAsync('walletPublicKey');
+      if (storedPublicKey) {
+        // Attempt to delete any potential secret key (password unknown, so this may be limited)
+        // In practice, user must reconnect with correct password to overwrite
+        await secureStoreWrapper.deleteItemAsync(`wallet-secret-${storedPublicKey}-*`);
+      }
+      await secureStoreWrapper.deleteItemAsync('walletPublicKey');
+      await secureStoreWrapper.deleteItemAsync('embeddedWallet'); // Clean up old key
+      setWallet(null);
+    } catch (err) {
+      setError('Failed to disconnect wallet: ' + err.message);
+    }
   };
 
   useEffect(() => {
     const loadWallet = async () => {
       try {
-        const storedWallet = await secureStoreWrapper.getItemAsync('embeddedWallet');
-        if (storedWallet) {
-          const { publicKey } = JSON.parse(storedWallet);
+        const publicKey = await secureStoreWrapper.getItemAsync('walletPublicKey');
+        if (publicKey) {
           setWallet({ publicKey });
         }
       } catch (err) {
@@ -262,7 +321,7 @@ const ConnectButton = () => {
     const result = await createEmbeddedWallet(password);
     if (result) {
       await createUserAndBalance(result.publicKey);
-      setPrivateKey(result.privateKey);
+      setPrivateKey(result.privateKey); // Show base58 private key
       setShowCreateForm(false);
       setPassword('');
       setConfirmPassword('');
@@ -270,6 +329,7 @@ const ConnectButton = () => {
   };
 
   const handleImportWallet = async () => {
+    console.log('Private key input:', privateKeyInput); // Debug input
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match!');
       return;
@@ -290,13 +350,13 @@ const ConnectButton = () => {
       setPassword('');
       setConfirmPassword('');
       setPrivateKeyInput('');
+    } else {
+      Alert.alert('Error', error || 'Failed to import wallet');
     }
   };
 
   const copyPrivateKey = async () => {
     await Clipboard.setStringAsync(privateKey);
-സ്റ
-
     Alert.alert('Success', 'Private key copied to clipboard! Store it securely.');
     setPrivateKey(null);
   };
@@ -420,10 +480,18 @@ const ConnectButton = () => {
             <Text style={styles.cancelButtonTextGradientStyle}>X</Text>
           </TouchableOpacity>
           <Text style={styles.formTitleGradientStyle}>Import Wallet</Text>
-          <Text style={styles.securityNoteGradientStyle}>Enter your private key</Text>
+          <Text style={styles.securityNoteGradientStyle}>
+            Enter your private key (hex, base58, or JSON array)
+          </Text>
+          <Text style={[styles.securityNoteGradientStyle, { fontSize: 12, marginBottom: 10 }]}>
+            TIP: For Solana, private keys can be:
+            {'\n'}- Hex: 128 characters (0-9, a-f)
+            {'\n'}- Base58: ~88 characters (alphanumeric)
+            {'\n'}- JSON: [64 numbers, 0-255]
+          </Text>
           <TextInput
             style={[styles.inputGradientStyle, styles.privateKeyInput]}
-            placeholder="Private Key (hex)"
+            placeholder="Private Key (hex, base58, or JSON)"
             value={privateKeyInput}
             onChangeText={setPrivateKeyInput}
             multiline

@@ -1,49 +1,45 @@
-import 'dotenv/config';     // ← loads your .env into process.env
+import 'dotenv/config';
 
 export default ({ config }) => ({
   ...config,
-
   expo: {
-    ...config.expo,
-
-    // your existing settings:
-    name:           'Solana Wallet App',
-    slug:           'solana-wallet-app',
-    version:        '1.0.0',
-    orientation:    'portrait',
-    icon:           './assets/icon.png',
+    name: 'Solana Wallet App',
+    slug: 'solana-wallet-app',
+    version: '1.0.0',
+    orientation: 'portrait',
+    icon: './assets/icon.png',
     userInterfaceStyle: 'light',
     splash: {
-      image:          './assets/splash.png',
-      resizeMode:     'contain',
-      backgroundColor:'#ffffff',
+      image: './assets/splash-icon.png',
+      resizeMode: 'contain',
+      backgroundColor: '#ffffff',
     },
     assetBundlePatterns: ['**/*'],
-    ios:   { supportsTablet: true },
-    android: {
-      adaptiveIcon: {
-        foregroundImage:'./assets/adaptive-icon.png',
-        backgroundColor:'#ffffff',
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: 'com.turningpointKS.solanawalletapp',
+      buildNumber: '1',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
       },
     },
-    web: { favicon: './assets/favicon.png' },
-
-    // ← this is what we care about
+    android: {
+      package: 'com.turningpointKS.solanawalletapp',
+      versionCode: 1,
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: '#ffffff',
+      },
+    },
+    web: {
+      favicon: './assets/favicon.png',
+    },
     extra: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseKey: process.env.SUPABASE_KEY,
-    },
-  },
-
-  // → And for Expo Web builds (so process.env.* is available there too):
-  web: {
-    ...config.web,
-    build: {
-      ...(config.web?.build || {}),
-      environment: {
-        SUPABASE_URL: process.env.SUPABASE_URL,
-        SUPABASE_KEY: process.env.SUPABASE_KEY,
+      eas: {
+        projectId: '9362ed81-1054-4f84-8c6c-51c720c51948',
       },
-    },
+    }
   },
 });
