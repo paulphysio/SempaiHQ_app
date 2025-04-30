@@ -3,8 +3,8 @@ import 'dotenv/config';
 export default ({ config }) => ({
   ...config,
   expo: {
-    name: 'Solana Wallet App',
-    slug: 'solana-wallet-app',
+    name: 'Sempai HQ', // App name for Play Store
+    slug: 'sempai-hq', // Must match EAS project slug
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -17,14 +17,14 @@ export default ({ config }) => ({
     assetBundlePatterns: ['**/*'],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.turningpointKS.solanawalletapp',
+      bundleIdentifier: 'com.turningpointKS.sempaihq',
       buildNumber: '1',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
-      package: 'com.turningpointKS.solanawalletapp',
+      package: 'com.turningpointKS.sempaihq',
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
@@ -34,12 +34,14 @@ export default ({ config }) => ({
     web: {
       favicon: './assets/favicon.png',
     },
+    owner: 'obinnap350', // Added for new project
+
     extra: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseKey: process.env.SUPABASE_KEY,
       eas: {
-        projectId: '9362ed81-1054-4f84-8c6c-51c720c51948',
+        projectId: 'bc7fe557-0114-4300-a119-33079f98e3b9', // Update if new project created
       },
-    }
+    },
   },
 });

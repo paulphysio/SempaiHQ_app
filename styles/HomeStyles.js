@@ -1,3 +1,4 @@
+// ./styles/HomeStyles.js
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
@@ -587,5 +588,54 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     padding: 16,
+  },
+  // Popup Modal Styles
+  popupModal: {
+    justifyContent: 'center',
+    margin: 0,
+  },
+  popupContainer: {
+    backgroundColor: '#1A1A2E',
+    padding: 20,
+    borderRadius: 12,
+    width: width * 0.8,
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  popupTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  popupButton: {
+    backgroundColor: '#F36316',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  popupButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  popupCancelButton: {
+    backgroundColor: 'rgba(255, 87, 51, 0.2)',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F36316',
+  },
+  popupCancelButtonText: {
+    color: '#F36316',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

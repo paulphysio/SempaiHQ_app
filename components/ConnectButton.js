@@ -1,14 +1,15 @@
-// ConnectButton.js
 import React, { useState, useCallback, useEffect, useContext, createContext } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import * as solanaWeb3 from '@solana/web3.js';
 import { Buffer } from 'buffer';
 import bs58 from 'bs58';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
+import { RPC_URL } from '../constants';
 import { styles } from '../styles/ConnectButtonStyles';
 
 // Embedded Wallet Context
@@ -59,7 +60,7 @@ const secureStoreWrapper = {
       try {
         await SecureStore.deleteItemAsync(key);
       } catch (err) {
-        throw new Error(`Failed to delete item from SecureStore: ${err.message}`);
+        throw new Error(`Failed to delete item in SecureStore: ${err.message}`);
       }
     }
   },
@@ -69,6 +70,37 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
+
+  // Restore wallet state on mount
+  useEffect(() => {
+    const restoreWallet = async () => {
+      try {
+        setIsLoading(true);
+        const publicKey = await secureStoreWrapper.getItemAsync('walletPublicKey');
+        const walletAddress = await secureStoreWrapper.getItemAsync('walletAddress');
+
+        if (publicKey) {
+          setWallet({ publicKey });
+          console.log('Restored wallet from secureStoreWrapper:', publicKey);
+        }
+
+        // Ensure AsyncStorage is in sync
+        if (publicKey && !walletAddress) {
+          await AsyncStorage.setItem('walletAddress', publicKey);
+          await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
+          console.log('Synced walletAddress to AsyncStorage and secureStoreWrapper:', publicKey);
+        }
+      } catch (err) {
+        console.error('Error restoring wallet:', err.message);
+        setError('Failed to restore wallet: ' + err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    restoreWallet();
+  }, []);
 
   const createEmbeddedWallet = async (password) => {
     try {
@@ -82,8 +114,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
       const storageKey = `wallet-secret-${publicKey}-${password}`;
       await secureStoreWrapper.setItemAsync(storageKey, secretKeyBase58);
 
-      // Store public key for wallet state
+      // Store public key and wallet address for persistence
       await secureStoreWrapper.setItemAsync('walletPublicKey', publicKey);
+      await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
+      await AsyncStorage.setItem('walletAddress', publicKey);
 
       setWallet({ publicKey });
       return { publicKey, privateKey: secretKeyBase58 };
@@ -147,8 +181,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
       const storageKey = `wallet-secret-${publicKey}-${password}`;
       await secureStoreWrapper.setItemAsync(storageKey, secretKeyBase58);
 
-      // Store public key for wallet state
+      // Store public key and wallet address for persistence
       await secureStoreWrapper.setItemAsync('walletPublicKey', publicKey);
+      await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
+      await AsyncStorage.setItem('walletAddress', publicKey);
 
       setWallet({ publicKey });
       return { publicKey, privateKey: secretKeyBase58 };
@@ -162,42 +198,66 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
   const disconnectWallet = async () => {
     try {
-      // Delete wallet data
-      const storedPublicKey = await secureStoreWrapper.getItemAsync('walletPublicKey');
-      if (storedPublicKey) {
-        // Attempt to delete any potential secret key (password unknown, so this may be limited)
-        // In practice, user must reconnect with correct password to overwrite
-        await secureStoreWrapper.deleteItemAsync(`wallet-secret-${storedPublicKey}-*`);
-      }
+      // Clear all wallet-related storage keys from secureStoreWrapper
       await secureStoreWrapper.deleteItemAsync('walletPublicKey');
-      await secureStoreWrapper.deleteItemAsync('embeddedWallet'); // Clean up old key
+      await secureStoreWrapper.deleteItemAsync('walletAddress');
+      await secureStoreWrapper.deleteItemAsync('embeddedWallet'); // Clean up legacy key
+      // Clear walletAddress from AsyncStorage (used by Home.js)
+      await AsyncStorage.removeItem('walletAddress');
       setWallet(null);
+      setError(null);
+      setIsLoading(false);
+      console.log('Wallet disconnected, all storage cleared');
     } catch (err) {
+      console.error('Disconnect wallet error:', err);
       setError('Failed to disconnect wallet: ' + err.message);
     }
   };
 
-  useEffect(() => {
-    const loadWallet = async () => {
-      try {
-        const publicKey = await secureStoreWrapper.getItemAsync('walletPublicKey');
-        if (publicKey) {
-          setWallet({ publicKey });
-        }
-      } catch (err) {
-        console.error('Failed to load wallet:', err);
+  const getSecretKey = async (password) => {
+    if (!wallet?.publicKey) {
+      throw new Error('No wallet connected');
+    }
+    const storageKey = `wallet-secret-${wallet.publicKey}-${password}`;
+    const secretKeyBase58 = await secureStoreWrapper.getItemAsync(storageKey);
+    if (!secretKeyBase58) {
+      throw new Error('Invalid password or secret key not found');
+    }
+    try {
+      const secretKeyBytes = bs58.decode(secretKeyBase58);
+      if (secretKeyBytes.length !== 64) {
+        throw new Error('Invalid secret key format');
       }
-    };
-    loadWallet();
-  }, []);
+      return secretKeyBytes; // Return Uint8Array for Keypair
+    } catch (err) {
+      throw new Error('Failed to decode secret key: ' + err.message);
+    }
+  };
+
+  const signAndSendTransaction = async (transaction, password) => {
+    if (!wallet?.publicKey) {
+      throw new Error('No wallet connected');
+    }
+    const secretKey = await getSecretKey(password);
+    const keypair = solanaWeb3.Keypair.fromSecretKey(secretKey);
+    transaction.sign([keypair]);
+    const signature = await connection.sendRawTransaction(transaction.serialize(), {
+      skipPreflight: false,
+      maxRetries: 2,
+    });
+    return signature;
+  };
 
   return (
     <EmbeddedWalletContext.Provider
       value={{
         wallet,
+        isWalletConnected: !!wallet?.publicKey,
         createEmbeddedWallet,
         importEmbeddedWallet,
         disconnectWallet,
+        getSecretKey,
+        signAndSendTransaction,
         isLoading,
         error,
       }}
@@ -221,10 +281,16 @@ const ConnectButton = () => {
   const [showReferralPrompt, setShowReferralPrompt] = useState(false);
 
   const createUserAndBalance = useCallback(async (walletAddress) => {
-    if (!walletAddress) return;
+    if (!walletAddress || !wallet?.publicKey) {
+      console.warn('No active wallet, skipping user creation');
+      return;
+    }
 
     try {
       console.log('Wallet connected:', walletAddress);
+      // Store walletAddress in AsyncStorage for Home.js
+      await AsyncStorage.setItem('walletAddress', walletAddress);
+      // Also store in secureStoreWrapper for consistency
       await secureStoreWrapper.setItemAsync('walletAddress', walletAddress);
 
       const { data: existingUser, error: fetchError } = await supabase
@@ -294,7 +360,6 @@ const ConnectButton = () => {
           });
 
         if (balanceError) {
-          Alert.alert('Error', `Failed to credit 50,000 SMP: ${balanceError.message}`);
           throw new Error(`Failed to create wallet balance: ${balanceError.message}`);
         }
         Alert.alert('Success', '50,000 SMP credited to your wallet!');
@@ -307,7 +372,7 @@ const ConnectButton = () => {
       console.error('Error in createUserAndBalance:', err.message);
       Alert.alert('Error', err.message);
     }
-  }, []);
+  }, [wallet]);
 
   const handleCreateWallet = async () => {
     if (password !== confirmPassword) {
@@ -325,6 +390,8 @@ const ConnectButton = () => {
       setShowCreateForm(false);
       setPassword('');
       setConfirmPassword('');
+    } else {
+      Alert.alert('Error', error || 'Failed to create wallet');
     }
   };
 
