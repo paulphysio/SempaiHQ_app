@@ -15,18 +15,17 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import Modal from 'react-native-modal';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import DraggableFlatList from 'react-native-draggable-flatlist';
-import * as ImagePicker from 'expo-image-picker'; // Updated import for Expo
+import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
 import ConnectButton from '../components/ConnectButton';
 import { styles } from '../styles/NovelDashboardStyles';
-import * as Notifications from 'expo-notifications'; // Added for push notifications
+import * as Notifications from 'expo-notifications';
 
 // Predefined tag options
 const TAG_OPTIONS = [
@@ -52,6 +51,51 @@ const TAG_OPTIONS = [
   { value: 'Josei', label: 'Josei' },
 ];
 
+// Generate picker options
+const years = Array.from({ length: 11 }, (_, i) => new Date().getFullYear() + i); // 2025-2035
+const months = Array.from({ length: 12 }, (_, i) => ({
+  value: (i + 1).toString().padStart(2, '0'),
+  label: new Date(0, i).toLocaleString('en', { month: 'long' }),
+}));
+const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+// Function to validate date
+const validateDate = (year, month, day, hour, minute) => {
+  const dateString = `${year}-${month}-${day} ${hour}:${minute}`;
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return false;
+
+  // Check if date is valid (e.g., not Feb 30)
+  if (date.getDate() !== parseInt(day)) return false;
+
+  // Ensure date is in the future
+  const now = new Date();
+  return date >= now;
+};
+
+// Function to convert selections to ISO string
+const selectionsToISO = (year, month, day, hour, minute) => {
+  if (!year || !month || !day || !hour || !minute) return null;
+  const dateString = `${year}-${month}-${day} ${hour}:${minute}`;
+  const date = new Date(dateString);
+  return isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+// Function to parse ISO date to picker values
+const parseISOToSelections = (isoDate) => {
+  if (!isoDate) return { year: '', month: '', day: '', hour: '', minute: '' };
+  const date = new Date(isoDate);
+  return {
+    year: date.getFullYear().toString(),
+    month: (date.getMonth() + 1).toString().padStart(2, '0'),
+    day: date.getDate().toString().padStart(2, '0'),
+    hour: date.getHours().toString().padStart(2, '0'),
+    minute: date.getMinutes().toString().padStart(2, '0'),
+  };
+};
+
 // Function to schedule a push notification
 const schedulePushNotification = async (title, body, data = {}) => {
   try {
@@ -61,7 +105,7 @@ const schedulePushNotification = async (title, body, data = {}) => {
         body,
         data,
       },
-      trigger: null, // Immediate notification
+      trigger: null,
     });
   } catch (error) {
     console.error('Error scheduling push notification:', error);
@@ -80,8 +124,13 @@ const NovelDashboardScreen = () => {
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newChapterContent, setNewChapterContent] = useState('');
   const [newChapterIsAdvance, setNewChapterIsAdvance] = useState(false);
-  const [newChapterReleaseDate, setNewChapterReleaseDate] = useState(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [chapterReleaseDate, setChapterReleaseDate] = useState({
+    year: '',
+    month: '',
+    day: '',
+    hour: '',
+    minute: '',
+  });
   const [novelsList, setNovelsList] = useState([]);
   const [selectedNovel, setSelectedNovel] = useState(null);
   const [chapterTitles, setChapterTitles] = useState([]);
@@ -96,8 +145,13 @@ const NovelDashboardScreen = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
-  const [announcementReleaseDate, setAnnouncementReleaseDate] = useState(null);
-  const [showAnnouncementDatePicker, setShowAnnouncementDatePicker] = useState(false);
+  const [announcementReleaseDate, setAnnouncementReleaseDate] = useState({
+    year: '',
+    month: '',
+    day: '',
+    hour: '',
+    minute: '',
+  });
   const [tags, setTags] = useState([]);
   const [showTagModal, setShowTagModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -214,10 +268,8 @@ const NovelDashboardScreen = () => {
     }
   }, [currentUserId, isWriter, isSuperuser]);
 
-  // Modified handleImageChange to request permissions
   const handleImageChange = async () => {
     try {
-      // Request media library permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
@@ -227,7 +279,6 @@ const NovelDashboardScreen = () => {
         return;
       }
 
-      // Launch image picker
       const response = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -265,7 +316,29 @@ const NovelDashboardScreen = () => {
       return;
     }
 
+    // Validate release date if advance chapter
+    if (newChapterIsAdvance) {
+      const { year, month, day, hour, minute } = chapterReleaseDate;
+      if (!year || !month || !day || !hour || !minute) {
+        Alert.alert('Error', 'Please select all date and time components for the advance chapter.');
+        return;
+      }
+      if (!validateDate(year, month, day, hour, minute)) {
+        Alert.alert('Error', 'Invalid or past release date. Please select a valid future date.');
+        return;
+      }
+    }
+
     const index = editChapterIndex !== null ? editChapterIndex : chapterTitles.length;
+    const isoDate = newChapterIsAdvance
+      ? selectionsToISO(
+          chapterReleaseDate.year,
+          chapterReleaseDate.month,
+          chapterReleaseDate.day,
+          chapterReleaseDate.hour,
+          chapterReleaseDate.minute
+        )
+      : null;
 
     if (editChapterIndex !== null) {
       setChapterTitles((prev) => {
@@ -283,7 +356,7 @@ const NovelDashboardScreen = () => {
         updated.push({
           index,
           is_advance: newChapterIsAdvance,
-          free_release_date: newChapterIsAdvance ? (newChapterReleaseDate ? newChapterReleaseDate.toISOString() : null) : null,
+          free_release_date: isoDate,
         });
         return updated;
       });
@@ -296,7 +369,7 @@ const NovelDashboardScreen = () => {
         {
           index,
           is_advance: newChapterIsAdvance,
-          free_release_date: newChapterIsAdvance ? (newChapterReleaseDate ? newChapterReleaseDate.toISOString() : null) : null,
+          free_release_date: isoDate,
         },
       ]);
     }
@@ -304,7 +377,7 @@ const NovelDashboardScreen = () => {
     setNewChapterTitle('');
     setNewChapterContent('');
     setNewChapterIsAdvance(false);
-    setNewChapterReleaseDate(null);
+    setChapterReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
   };
 
   const handleEditChapter = (index) => {
@@ -334,7 +407,7 @@ const NovelDashboardScreen = () => {
     setNewChapterTitle(title);
     setNewChapterContent(content);
     setNewChapterIsAdvance(advanceInfo.is_advance);
-    setNewChapterReleaseDate(advanceInfo.free_release_date ? new Date(advanceInfo.free_release_date) : null);
+    setChapterReleaseDate(parseISOToSelections(advanceInfo.free_release_date));
     setEditChapterIndex(index);
   };
 
@@ -459,6 +532,17 @@ const NovelDashboardScreen = () => {
       return;
     }
 
+    // Validate advance chapters' release dates
+    for (const chapter of advanceChapters) {
+      if (chapter.is_advance && chapter.free_release_date) {
+        const { year, month, day, hour, minute } = parseISOToSelections(chapter.free_release_date);
+        if (!validateDate(year, month, day, hour, minute)) {
+          Alert.alert('Error', `Invalid or past release date for chapter ${chapter.index + 1}. Please select a valid future date.`);
+          return;
+        }
+      }
+    }
+
     setLoading(true);
     try {
       let imageUrl = selectedNovel ? selectedNovel.image : '';
@@ -521,7 +605,6 @@ const NovelDashboardScreen = () => {
         const { error: notifError } = await supabase.from('notifications').insert(notifications);
         if (notifError) throw new Error(notifError.message);
 
-        // Schedule push notification for novel update
         await schedulePushNotification(
           selectedNovel ? `New Chapter for ${novelTitle}` : `New Novel: ${novelTitle}`,
           message,
@@ -550,6 +633,19 @@ const NovelDashboardScreen = () => {
       return;
     }
 
+    // Validate announcement release date if provided
+    const { year, month, day, hour, minute } = announcementReleaseDate;
+    if (year || month || day || hour || minute) {
+      if (!year || !month || !day || !hour || !minute) {
+        Alert.alert('Error', 'Please select all date and time components for the announcement.');
+        return;
+      }
+      if (!validateDate(year, month, day, hour, minute)) {
+        Alert.alert('Error', 'Invalid or past announcement release date. Please select a valid future date.');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const { data: readers, error: readersError } = await supabase
@@ -564,7 +660,7 @@ const NovelDashboardScreen = () => {
         novel_id: selectedNovel.id,
         title: announcementTitle,
         message: announcementMessage,
-        release_date: announcementReleaseDate ? announcementReleaseDate.toISOString() : null,
+        release_date: selectionsToISO(year, month, day, hour, minute),
       };
 
       const { error: announcementError } = await supabase
@@ -583,12 +679,11 @@ const NovelDashboardScreen = () => {
         }));
 
         const { error: notifError } = await supabase
-          .from('notifications')
+         me        .from('notifications')
           .insert(notifications);
 
         if (notifError) throw new Error(notifError.message);
 
-        // Schedule push notification for announcement
         await schedulePushNotification(
           announcementTitle,
           announcementMessage,
@@ -599,7 +694,7 @@ const NovelDashboardScreen = () => {
       Alert.alert('Success', 'Announcement sent successfully to readers!');
       setAnnouncementTitle('');
       setAnnouncementMessage('');
-      setAnnouncementReleaseDate(null);
+      setAnnouncementReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
     } catch (err) {
       console.error('Error sending announcement:', err.message);
       Alert.alert('Error', `Failed to send announcement: ${err.message}`);
@@ -616,7 +711,7 @@ const NovelDashboardScreen = () => {
     setNewChapterTitle('');
     setNewChapterContent('');
     setNewChapterIsAdvance(false);
-    setNewChapterReleaseDate(null);
+    setChapterReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
     setChapterTitles([]);
     setChapterContents([]);
     setAdvanceChapters([]);
@@ -625,7 +720,7 @@ const NovelDashboardScreen = () => {
     setTags([]);
     setAnnouncementTitle('');
     setAnnouncementMessage('');
-    setAnnouncementReleaseDate(null);
+    setAnnouncementReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
   };
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
@@ -663,7 +758,7 @@ const NovelDashboardScreen = () => {
           </Text>
           {advanceInfo.is_advance && (
             <Text style={[styles.advanceInfo, styles.darkText]}>
-              Advance (Free on: {advanceInfo.free_release_date || 'TBD'})
+              Advance (Free on: {advanceInfo.free_release_date ? new Date(advanceInfo.free_release_date).toLocaleString('sv-SE').slice(0, 16) : 'TBD'})
             </Text>
           )}
         </View>
@@ -752,6 +847,86 @@ const NovelDashboardScreen = () => {
     </View>
   );
 
+  const renderDatePicker = (type, dateState, setDateState) => (
+    <View style={styles.datePickerContainer}>
+      <View style={styles.datePickerGroup}>
+        <Picker
+          selectedValue={dateState.year}
+          onValueChange={(value) => setDateState((prev) => ({ ...prev, year: value }))}
+          style={[styles.datePicker, styles.darkInput]}
+          itemStyle={styles.pickerItem}
+          accessibilityLabel={`${type} year picker`}
+          accessibilityRole="combobox"
+        >
+          <Picker.Item label="Year" value="" color="#888" />
+          {years.map((year) => (
+            <Picker.Item key={year} label={year.toString()} value={year.toString()} />
+          ))}
+        </Picker>
+      </View>
+      <View style={styles.datePickerGroup}>
+        <Picker
+          selectedValue={dateState.month}
+          onValueChange={(value) => setDateState((prev) => ({ ...prev, month: value }))}
+          style={[styles.datePicker, styles.darkInput]}
+          itemStyle={styles.pickerItem}
+          accessibilityLabel={`${type} month picker`}
+          accessibilityRole="combobox"
+        >
+          <Picker.Item label="Month" value="" color="#888" />
+          {months.map((month) => (
+            <Picker.Item key={month.value} label={month.label} value={month.value} />
+          ))}
+        </Picker>
+      </View>
+      <View style={styles.datePickerGroup}>
+        <Picker
+          selectedValue={dateState.day}
+          onValueChange={(value) => setDateState((prev) => ({ ...prev, day: value }))}
+          style={[styles.datePicker, styles.darkInput]}
+          itemStyle={styles.pickerItem}
+          accessibilityLabel={`${type} day picker`}
+          accessibilityRole="combobox"
+        >
+          <Picker.Item label="Day" value="" color="#888" />
+          {days.map((day) => (
+            <Picker.Item key={day} label={day} value={day} />
+          ))}
+        </Picker>
+      </View>
+      <View style={styles.datePickerGroup}>
+        <Picker
+          selectedValue={dateState.hour}
+          onValueChange={(value) => setDateState((prev) => ({ ...prev, hour: value }))}
+          style={[styles.datePicker, styles.darkInput]}
+          itemStyle={styles.pickerItem}
+          accessibilityLabel={`${type} hour picker`}
+          accessibilityRole="combobox"
+        >
+          <Picker.Item label="Hour" value="" color="#888" />
+          {hours.map((hour) => (
+            <Picker.Item key={hour} label={hour} value={hour} />
+          ))}
+        </Picker>
+      </View>
+      <View style={styles.datePickerGroup}>
+        <Picker
+          selectedValue={dateState.minute}
+          onValueChange={(value) => setDateState((prev) => ({ ...prev, minute: value }))}
+          style={[styles.datePicker, styles.darkInput]}
+          itemStyle={styles.pickerItem}
+          accessibilityLabel={`${type} minute picker`}
+          accessibilityRole="combobox"
+        >
+          <Picker.Item label="Min" value="" color="#888" />
+          {minutes.map((minute) => (
+            <Picker.Item key={minute} label={minute} value={minute} />
+          ))}
+        </Picker>
+      </View>
+    </View>
+  );
+
   const renderMainContent = () => {
     if (!isWalletConnected) {
       return [
@@ -812,10 +987,12 @@ const NovelDashboardScreen = () => {
         key: 'novelForm',
         render: () => (
           <View style={styles.formSection}>
-            <Text style={[styles.sectionTitle, styles.darkText]}>
-              <Icon name="book-open" size={20} color="#fff" />{' '}
-              {selectedNovel ? 'Edit Manuscript' : 'New Manuscript'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Icon name="book-open" size={20} color="#fff" />
+              <Text style={[styles.sectionTitle, styles.darkText]}>
+                {selectedNovel ? 'Edit Manuscript' : 'New Manuscript'}
+              </Text>
+            </View>
             <View style={styles.novelForm}>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, styles.darkText]}>Title</Text>
@@ -885,9 +1062,10 @@ const NovelDashboardScreen = () => {
                 </TouchableOpacity>
               </View>
               <View style={styles.chapterSection}>
-                <Text style={[styles.chapterTitle, styles.darkText]}>
-                  <Icon name="plus" size={16} color="#fff" /> Chapters
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Icon name="plus" size={16} color="#fff" />
+                  <Text style={[styles.chapterTitle, styles.darkText]}>Chapters</Text>
+                </View>
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, styles.darkText]}>Chapter Title</Text>
                   <TextInput
@@ -939,31 +1117,8 @@ const NovelDashboardScreen = () => {
                   </TouchableOpacity>
                   {newChapterIsAdvance && (
                     <View>
-                      <TouchableOpacity
-                        onPress={() => setShowDatePicker(true)}
-                        style={styles.dateButton}
-                        activeOpacity={0.7}
-                        accessible
-                        accessibilityLabel="Select chapter release date"
-                        accessibilityRole="button"
-                      >
-                        <Text style={[styles.dateButtonText, styles.darkText]}>
-                          {newChapterReleaseDate
-                            ? newChapterReleaseDate.toLocaleString()
-                            : 'Select release date'}
-                        </Text>
-                      </TouchableOpacity>
-                      {showDatePicker && (
-                        <DateTimePicker
-                          value={newChapterReleaseDate || new Date()}
-                          mode="datetime"
-                          minimumDate={new Date()}
-                          onChange={(event, date) => {
-                            setShowDatePicker(Platform.OS === 'ios');
-                            if (date) setNewChapterReleaseDate(date);
-                          }}
-                        />
-                      )}
+                      <Text style={[styles.label, styles.darkText]}>Release Date</Text>
+                      {renderDatePicker('Chapter', chapterReleaseDate, setChapterReleaseDate)}
                     </View>
                   )}
                 </View>
@@ -1031,14 +1186,13 @@ const NovelDashboardScreen = () => {
             </View>
             {selectedNovel && (
               <View style={styles.announcementSection}>
-                <Text style={[styles.sectionTitle, styles.darkText]}>
-                  <Icon name="bullhorn" size={20} color="#fff" /> Announce to Readers
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Icon name="bullhorn" size={20} color="#fff" />
+                  <Text style={[styles.sectionTitle, styles.darkText]}>Announce to Readers</Text>
+                </View>
                 <View style={styles.announcementForm}>
                   <View style={styles.inputGroup}>
-                    <Text style={[styles.label, styles.darkText]}>
-                      Announcement Title
-                    </Text>
+                    <Text style={[styles.label, styles.darkText]}>Announcement Title</Text>
                     <TextInput
                       style={[styles.input, styles.darkInput]}
                       value={announcementTitle}
@@ -1068,34 +1222,8 @@ const NovelDashboardScreen = () => {
                     />
                   </View>
                   <View style={styles.inputGroup}>
-                    <Text style={[styles.label, styles.darkText]}>
-                      Release Date (Optional)
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowAnnouncementDatePicker(true)}
-                      style={styles.dateButton}
-                      activeOpacity={0.7}
-                      accessible
-                      accessibilityLabel="Select announcement release date"
-                      accessibilityRole="button"
-                    >
-                      <Text style={[styles.dateButtonText, styles.darkText]}>
-                        {announcementReleaseDate
-                          ? announcementReleaseDate.toLocaleString()
-                          : 'Select release date'}
-                      </Text>
-                    </TouchableOpacity>
-                    {showAnnouncementDatePicker && (
-                      <DateTimePicker
-                        value={announcementReleaseDate || new Date()}
-                        mode="datetime"
-                        minimumDate={new Date()}
-                        onChange={(event, date) => {
-                          setShowAnnouncementDatePicker(Platform.OS === 'ios');
-                          if (date) setAnnouncementReleaseDate(date);
-                        }}
-                      />
-                    )}
+                    <Text style={[styles.label, styles.darkText]}>Release Date (Optional)</Text>
+                    {renderDatePicker('Announcement', announcementReleaseDate, setAnnouncementReleaseDate)}
                   </View>
                   <TouchableOpacity
                     onPress={handleAnnouncementSubmit}
@@ -1125,9 +1253,10 @@ const NovelDashboardScreen = () => {
         key: 'novelsSection',
         render: () => (
           <View style={styles.novelsSection}>
-            <Text style={[styles.sectionTitle, styles.darkText]}>
-              <Icon name="book-open" size={20} color="#fff" /> Your Manuscripts
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <Icon name="book-open" size={20} color="#fff" />
+              <Text style={[styles.sectionTitle, styles.darkText]}>Your Manuscripts</Text>
+            </View>
             {novelsList.length === 0 ? (
               <Text style={[styles.noNovels, styles.darkText]}>
                 No manuscripts yet. Start creating!
@@ -1151,9 +1280,10 @@ const NovelDashboardScreen = () => {
               key: 'writersSection',
               render: () => (
                 <View style={styles.writersSection}>
-                  <Text style={[styles.sectionTitle, styles.darkText]}>
-                    <Icon name="user-shield" size={20} color="#fff" /> Writers
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Icon name="user-shield" size={20} color="#fff" />
+                    <Text style={[styles.sectionTitle, styles.darkText]}>Writers</Text>
+                  </View>
                   {writers.length === 0 ? (
                     <Text style={[styles.noWriters, styles.darkText]}>
                       No writers found.
@@ -1185,7 +1315,6 @@ const NovelDashboardScreen = () => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
-            {/* Navbar */}
             <View style={[styles.navbar, styles.darkNavbar]}>
               <View style={styles.navContainer}>
                 <TouchableOpacity
@@ -1230,7 +1359,6 @@ const NovelDashboardScreen = () => {
               )}
             </View>
 
-            {/* Header */}
             <View style={styles.header}>
               <Text style={[styles.headerTitle, styles.darkText]}>
                 <Icon name="user-shield" size={24} color="#fff" /> Writer’s Vault
@@ -1240,7 +1368,6 @@ const NovelDashboardScreen = () => {
               </Text>
             </View>
 
-            {/* Main Content */}
             <FlatList
               data={renderMainContent()}
               keyExtractor={(item) => item.key}
@@ -1248,7 +1375,6 @@ const NovelDashboardScreen = () => {
               contentContainerStyle={styles.main}
             />
 
-            {/* Tag Selection Modal */}
             <Modal
               isVisible={showTagModal}
               onBackdropPress={() => setShowTagModal(false)}
@@ -1295,7 +1421,6 @@ const NovelDashboardScreen = () => {
               </View>
             </Modal>
 
-            {/* Delete Chapter Confirmation */}
             <Modal
               isVisible={showDeleteConfirm}
               onBackdropPress={() => setShowDeleteConfirm(false)}
@@ -1335,7 +1460,6 @@ const NovelDashboardScreen = () => {
               </View>
             </Modal>
 
-            {/* Delete Novel Confirmation */}
             <Modal
               isVisible={showNovelDeleteConfirm}
               onBackdropPress={() => setShowNovelDeleteConfirm(false)}
@@ -1375,7 +1499,6 @@ const NovelDashboardScreen = () => {
               </View>
             </Modal>
 
-            {/* Footer */}
             <View style={[styles.footer, styles.darkFooter]}>
               <Text style={[styles.footerText, styles.darkText]}>
                 © 2025 Sempai HQ. All rights reserved.

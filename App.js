@@ -14,7 +14,6 @@ import HomeScreen from './screens/HomeScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NovelDetailScreen from './screens/NovelDetailScreen';
 import MangaDetailScreen from './screens/MangaDetailScreen';
-import WritersProfileScreen from './screens/WritersProfileScreen';
 import NovelsPageScreen from './screens/NovelsPageScreen';
 import SwapScreen from './screens/SwapScreen';
 import StatPageScreen from './screens/StatPageScreen';
@@ -29,6 +28,7 @@ import NovelSummaryScreen from './screens/NovelSummaryScreen';
 import NovelDashboardScreen from './screens/NovelDashboardScreen';
 import MangaDashboardScreen from './screens/MangaDashboardScreen';
 import MangaPageScreen from './screens/MangaPageScreen';
+import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -170,7 +170,6 @@ const App = () => {
               <Stack.Screen name="EditProfile" component={EditProfileScreen} />
               <Stack.Screen name="Novel" component={NovelDetailScreen} />
               <Stack.Screen name="Manga" component={MangaPageScreen} />
-              <Stack.Screen name="WritersProfile" component={WritersProfileScreen} />
               <Stack.Screen name="Novels" component={NovelsPageScreen} />
               <Stack.Screen name="Swap" component={SwapScreen} />
               <Stack.Screen name="StatPage" component={StatPageScreen} />
@@ -185,6 +184,7 @@ const App = () => {
               <Stack.Screen name="NovelDashboard" component={NovelDashboardScreen} />
               <Stack.Screen name="MangaDashboard" component={MangaDashboardScreen} />
               <Stack.Screen name="MangaDetail" component={MangaDetailScreen} />
+              <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
             </Stack.Navigator>
           </NavigationContainer>
           <StatusBar

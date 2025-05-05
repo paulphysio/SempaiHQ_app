@@ -1,4 +1,3 @@
-// ./screens/Home.js
 import React, { useState, useEffect, useRef, useContext } from 'react';
 import {
   View,
@@ -10,6 +9,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -25,6 +25,8 @@ const { width, height } = Dimensions.get('window');
 const Home = () => {
   const navigation = useNavigation();
   const { wallet } = useContext(EmbeddedWalletContext);
+
+  // State for UI and data
   const [menuOpen, setMenuOpen] = useState(false);
   const [novels, setNovels] = useState([]);
   const [manga, setManga] = useState([]);
@@ -34,28 +36,30 @@ const Home = () => {
   const [error, setError] = useState(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const slideAnim = useRef(new Animated.Value(280)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-  const announcementAnim = useRef(new Animated.Value(0)).current;
-  const notificationAnim = useRef(new Animated.Value(0)).current;
-  const heroTextAnim = useRef(new Animated.Value(0)).current;
-  const isMounted = useRef(true);
-  const novelFlatListRef = useRef(null);
-  const mangaFlatListRef = useRef(null);
-  const novelIndexRef = useRef(0);
-  const mangaIndexRef = useRef(0);
   const [publicKey, setPublicKey] = useState(null);
+  const [userId, setUserId] = useState(null); // User ID for profile navigation
   const [unreadCount, setUnreadCount] = useState(0);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
-  // New state for user roles and popup
   const [isWriter, setIsWriter] = useState(false);
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [showDashboardPopup, setShowDashboardPopup] = useState(false);
 
+  // Animation refs
+  const slideAnim = useRef(new Animated.Value(280)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const announcementAnim = useRef(new Animated.Value(0)).current;
+  const notificationAnim = useRef(new Animated.Value(0)).current;
+  const heroTextAnim = useRef(new Animated.Value(0)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
+  const isMounted = useRef(true);
+  const novelFlatListRef = useRef(null);
+  const mangaFlatListRef = useRef(null);
+  const novelIndexRef = useRef(0);
+  const mangaIndexRef = useRef(0);
 
+  // Feature cards
   const features = [
     {
       title: "Kaito's Adventure",
@@ -86,6 +90,7 @@ const Home = () => {
   const scaleAnims = useRef(features.map(() => new Animated.Value(1))).current;
   const fadeAnims = useRef(features.map(() => new Animated.Value(0))).current;
 
+  // Background animations
   useEffect(() => {
     Animated.loop(
       Animated.timing(waveAnim, {
@@ -111,6 +116,7 @@ const Home = () => {
     ).start();
   }, [waveAnim, pulseAnim]);
 
+  // Hero and feature animations
   useEffect(() => {
     Animated.parallel([
       Animated.timing(heroTextAnim, {
@@ -129,45 +135,49 @@ const Home = () => {
     ]).start();
   }, [heroTextAnim, fadeAnims]);
 
+  // Sync wallet and fetch user ID/roles
   useEffect(() => {
     const syncWallet = async () => {
       try {
-        console.log('Wallet from context:', wallet);
         if (wallet?.publicKey) {
-          console.log('Setting publicKey from context:', wallet.publicKey);
+          console.log('Wallet publicKey:', wallet.publicKey);
           setPublicKey(wallet.publicKey);
           setIsWalletConnected(true);
           await AsyncStorage.setItem('walletAddress', wallet.publicKey);
 
-          // Fetch user roles
+          // Fetch user ID and roles
           const { data: user, error: userError } = await supabase
             .from('users')
-            .select('isWriter, isArtist, isSuperuser')
+            .select('id, isWriter, isArtist, isSuperuser')
             .eq('wallet_address', wallet.publicKey)
             .single();
 
           if (userError) throw new Error(`User fetch error: ${userError.message}`);
           if (user && isMounted.current) {
+            console.log('User fetched:', { id: user.id, isWriter: user.isWriter, isArtist: user.isArtist });
+            setUserId(user.id);
             setIsWriter(user.isWriter || false);
             setIsArtist(user.isArtist || false);
             setIsSuperuser(user.isSuperuser || false);
           }
         } else {
           const key = await AsyncStorage.getItem('walletAddress');
-          console.log('AsyncStorage walletAddress:', key);
           if (key && isMounted.current) {
+            console.log('AsyncStorage walletAddress:', key);
             setPublicKey(key);
             setIsWalletConnected(true);
 
-            // Fetch user roles
+            // Fetch user ID and roles
             const { data: user, error: userError } = await supabase
               .from('users')
-              .select('isWriter, isArtist, isSuperuser')
+              .select('id, isWriter, isArtist, isSuperuser')
               .eq('wallet_address', key)
               .single();
 
             if (userError) throw new Error(`User fetch error: ${userError.message}`);
             if (user && isMounted.current) {
+              console.log('User fetched:', { id: user.id, isWriter: user.isWriter, isArtist: user.isArtist });
+              setUserId(user.id);
               setIsWriter(user.isWriter || false);
               setIsArtist(user.isArtist || false);
               setIsSuperuser(user.isSuperuser || false);
@@ -175,6 +185,7 @@ const Home = () => {
           } else {
             setIsWalletConnected(false);
             setPublicKey(null);
+            setUserId(null);
             setIsWriter(false);
             setIsArtist(false);
             setIsSuperuser(false);
@@ -188,6 +199,7 @@ const Home = () => {
     syncWallet();
   }, [wallet]);
 
+  // Fetch announcements
   useEffect(() => {
     const fetchAnnouncements = async () => {
       if (!publicKey) return;
@@ -288,6 +300,7 @@ const Home = () => {
     fetchAnnouncements();
   }, [publicKey]);
 
+  // Fetch notifications
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!publicKey) return;
@@ -322,6 +335,7 @@ const Home = () => {
     fetchNotifications();
   }, [publicKey]);
 
+  // Fetch novels
   useEffect(() => {
     const fetchNovels = async () => {
       setLoading(true);
@@ -389,10 +403,10 @@ const Home = () => {
         }
       }
     };
-
     fetchNovels();
   }, []);
 
+  // Fetch manga
   useEffect(() => {
     const fetchManga = async () => {
       setLoading(true);
@@ -470,16 +484,17 @@ const Home = () => {
         }
       }
     };
-
     fetchManga();
   }, []);
 
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       isMounted.current = false;
     };
   }, []);
 
+  // Toggle sidebar
   const toggleMenu = () => {
     const toValue = menuOpen ? 280 : 0;
     const rotateToValue = menuOpen ? 0 : 1;
@@ -500,6 +515,7 @@ const Home = () => {
     }
   };
 
+  // Toggle announcements dropdown
   const toggleAnnouncements = () => {
     const toValue = showAnnouncements ? 0 : 1;
     Animated.timing(announcementAnim, {
@@ -512,6 +528,7 @@ const Home = () => {
     }
   };
 
+  // Toggle notifications dropdown
   const toggleNotifications = () => {
     const toValue = showNotifications ? 0 : 1;
     Animated.timing(notificationAnim, {
@@ -524,6 +541,7 @@ const Home = () => {
     }
   };
 
+  // Mark notifications as read
   const markNotificationsRead = async () => {
     try {
       const { data: user, error: userError } = await supabase
@@ -551,11 +569,24 @@ const Home = () => {
     }
   };
 
-  const handleNavigation = (path) => {
+  // Navigation handler
+  const handleNavigation = (path, params = {}) => {
     toggleMenu();
-    navigation.navigate(path);
+    navigation.navigate(path, params);
   };
 
+  // Profile navigation with wallet check
+  const handleProfileNavigation = () => {
+    if (!isWalletConnected || !userId) {
+      Alert.alert('Wallet Required', 'Please connect your wallet to view your profile.', [
+        { text: 'OK', onPress: () => {} },
+      ]);
+      return;
+    }
+    handleNavigation('CreatorsProfile', { id: userId });
+  };
+
+  // Dashboard navigation
   const handleDashboardNavigation = () => {
     if ((isWriter && isArtist) || isSuperuser) {
       setShowDashboardPopup(true);
@@ -566,6 +597,7 @@ const Home = () => {
     }
   };
 
+  // Auto-scroll novels
   useEffect(() => {
     if (novels.length <= 1) return;
     const interval = setInterval(() => {
@@ -579,6 +611,7 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [novels]);
 
+  // Auto-scroll manga
   useEffect(() => {
     if (manga.length <= 1) return;
     const interval = setInterval(() => {
@@ -592,50 +625,61 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [manga]);
 
-  const renderCarouselItem = ({ item, type }) => (
-    <View style={styles.contentCard}>
-      <TouchableOpacity
-        onPress={() => navigation.navigate(type === 'novel' ? 'Novel' : 'MangaDetail', { id: item.id })}
-        accessibilityLabel={`View ${item.title}`}
-        accessible={true}
-        accessibilityHint={`Navigate to ${type} details`}
-      >
-        <Image
-          source={{ uri: item.image || 'https://via.placeholder.com/260x200' }}
-          style={styles.contentImage}
-          defaultSource={{ uri: 'https://via.placeholder.com/260x200' }}
-        />
-      </TouchableOpacity>
-      {item.writer[type === 'novel' ? 'isWriter' : 'isArtist'] && (
+  // Render novel/manga carousel item
+  const renderCarouselItem = ({ item, type }) => {
+    console.log(`Rendering ${type}:`, {
+      title: item.title,
+      writerName: item.writer.name,
+      isArtist: item.writer.isArtist,
+      isWriter: item.writer.isWriter,
+      userId: item.user_id,
+    });
+    return (
+      <View style={styles.contentCard}>
         <TouchableOpacity
-          style={styles.writerName}
-          onPress={() => navigation.navigate('WritersProfile', { id: item.user_id })}
+          onPress={() => navigation.navigate(type === 'novel' ? 'Novel' : 'MangaDetail', { id: item.id })}
+          accessibilityLabel={`View ${item.title}`}
           accessible={true}
-          accessibilityLabel={`View profile of ${item.writer.name}`}
-          accessibilityHint="Navigate to writer profile"
+          accessibilityHint={`Navigate to ${type} details`}
         >
-          <FontAwesome5 name="feather-alt" size={14} color="#fff" style={styles.writerIcon} />
-          <Text style={styles.writerNameText}>{item.writer.name}</Text>
+          <Image
+            source={{ uri: item.image || 'https://via.placeholder.com/260x200' }}
+            style={styles.contentImage}
+            defaultSource={{ uri: 'https://via.placeholder.com/260x200' }}
+          />
         </TouchableOpacity>
-      )}
-      <View style={styles.contentOverlay}>
-        <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.contentSummary} numberOfLines={2}>
-          {item.summary || 'No summary available.'}
-        </Text>
-        {item.isAdult && <Text style={styles.adultWarning}>Adult(18+)</Text>}
-        <View style={styles.contentStats}>
-          <Text style={styles.viewers}>
-            <FontAwesome5 name="eye" size={14} color="#fff" /> {item.viewers}
+        {item.writer[type === 'novel' ? 'isWriter' : 'isArtist'] && (
+          <TouchableOpacity
+            style={styles.writerName}
+            onPress={() => navigation.navigate('CreatorsProfile', { id: item.user_id })}
+            accessible={true}
+            accessibilityLabel={`View profile of ${item.writer.name}`}
+            accessibilityHint={`Navigate to ${type === 'novel' ? 'writer' : 'artist'} profile`}
+          >
+            <FontAwesome5 name="feather-alt" size={14} color="#fff" style={styles.writerIcon} />
+            <Text style={styles.writerNameText}>{item.writer.name}</Text>
+          </TouchableOpacity>
+        )}
+        <View style={styles.contentOverlay}>
+          <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={styles.contentSummary} numberOfLines={2}>
+            {item.summary || 'No summary available.'}
           </Text>
-          <Text style={styles.rating}>
-            <FontAwesome5 name="star" size={14} color="#ffd700" /> {item.averageRating}
-          </Text>
+          {item.isAdult && <Text style={styles.adultWarning}>Adult(18+)</Text>}
+          <View style={styles.contentStats}>
+            <Text style={styles.viewers}>
+              <FontAwesome5 name="eye" size={14} color="#fff" /> {item.viewers}
+            </Text>
+            <Text style={styles.rating}>
+              <FontAwesome5 name="star" size={14} color="#ffd700" /> {item.averageRating}
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
+  // Render announcement item
   const renderAnnouncementItem = ({ item }) => (
     <View style={styles.announcementCard}>
       <Text style={styles.announcementTitle}>{item.title}</Text>
@@ -658,6 +702,7 @@ const Home = () => {
     </View>
   );
 
+  // Render notification item
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
       style={styles.notificationItem}
@@ -673,6 +718,7 @@ const Home = () => {
     </TouchableOpacity>
   );
 
+  // Render feature item
   const renderFeatureItem = ({ item, index }) => {
     const onPressIn = () => {
       Animated.spring(scaleAnims[index], {
@@ -714,7 +760,7 @@ const Home = () => {
           onPressOut={onPressOut}
           onPress={() => {
             if (item.requiresWallet && !isWalletConnected) {
-              alert('Please connect your wallet');
+              Alert.alert('Wallet Required', 'Please connect your wallet.');
             } else {
               handleNavigation(item.path);
             }
@@ -732,7 +778,7 @@ const Home = () => {
             </Text>
             {item.requiresWallet && (
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}>Premium</Text>
+                <Text style={styles.premiumBadgeText}></Text>
               </View>
             )}
           </View>
@@ -743,6 +789,7 @@ const Home = () => {
 
   return (
     <View style={styles.page}>
+      {/* Background animations */}
       <View style={styles.backgroundAnimation}>
         <LinearGradient
           colors={['rgba(0, 0, 0, 0.8)', 'rgba(243, 99, 22, 0.3)']}
@@ -799,6 +846,7 @@ const Home = () => {
         </Animated.View>
       </View>
 
+      {/* Logo */}
       <View style={styles.logoContainer}>
         <Image
           source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
@@ -808,6 +856,7 @@ const Home = () => {
         <Text style={styles.logoText}>SempaiHQ</Text>
       </View>
 
+      {/* Main content */}
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
@@ -863,6 +912,7 @@ const Home = () => {
           </View>
         ) : (
           <>
+            {/* Novels section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Featured Novels</Text>
               {novels.length === 0 ? (
@@ -883,6 +933,7 @@ const Home = () => {
               )}
             </View>
 
+            {/* Manga section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Featured Manga</Text>
               {manga.length === 0 ? (
@@ -903,6 +954,7 @@ const Home = () => {
               )}
             </View>
 
+            {/* Features section */}
             <View style={styles.featuresSection}>
               <Text style={styles.sectionTitle}>Explore More</Text>
               {features.length === 0 ? (
@@ -921,22 +973,23 @@ const Home = () => {
           </>
         )}
 
+        {/* Footer */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
         </View>
       </ScrollView>
 
+      {/* Sidebar */}
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.sidebarContent}>
           {[
             { path: 'Home', icon: 'home', label: 'Home' },
             { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
             { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
-            { path: 'EditProfile', icon: 'user', label: 'Profile' },
+            { path: 'CreatorsProfile', icon: 'user', label: 'Profile', onPress: handleProfileNavigation },
             { path: 'Chat', icon: 'comments', label: 'Chat' },
             { path: 'KaitoAdventure', icon: 'gamepad', label: 'Kaito’s Adventure' },
             { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
-            // Replace 'Apply' with conditional dashboard link
             {
               path: isWriter && !isArtist ? 'NovelDashboard' : isArtist && !isWriter ? 'MangaDashboard' : '',
               icon: 'bullhorn',
@@ -959,10 +1012,12 @@ const Home = () => {
         </View>
       </Animated.View>
 
+      {/* Sidebar overlay */}
       {menuOpen && (
         <TouchableOpacity style={styles.overlay} onPress={toggleMenu} activeOpacity={1} />
       )}
 
+      {/* Notifications dropdown */}
       {showNotifications && (
         <Animated.View
           style={[
@@ -1005,6 +1060,7 @@ const Home = () => {
         </Animated.View>
       )}
 
+      {/* Announcements dropdown */}
       {showAnnouncements && (
         <Animated.View
           style={[
@@ -1043,7 +1099,7 @@ const Home = () => {
         </Animated.View>
       )}
 
-      {/* Dashboard Selection Popup */}
+      {/* Dashboard selection modal */}
       <Modal
         isVisible={showDashboardPopup}
         onBackdropPress={() => setShowDashboardPopup(false)}
@@ -1078,6 +1134,7 @@ const Home = () => {
         </View>
       </Modal>
 
+      {/* Bottom navbar */}
       <View style={styles.bottomNavbar}>
         <TouchableOpacity
           style={styles.bottomNavButton}

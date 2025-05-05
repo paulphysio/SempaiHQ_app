@@ -1,4 +1,3 @@
-// ./styles/NovelDashboardStyles.js
 import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -154,10 +153,6 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: width < 360 ? 18 : 20,
     fontWeight: 'bold',
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   novelForm: {
     backgroundColor: 'transparent',
@@ -240,7 +235,6 @@ export const styles = StyleSheet.create({
   chapterTitle: {
     fontSize: width < 360 ? 16 : 18,
     fontWeight: 'bold',
-    marginBottom: 12,
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -622,5 +616,30 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginLeft: 5,
+  },
+  // New styles for date pickers
+  datePickerContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  datePickerGroup: {
+    flex: 1,
+    minWidth: width < 360 ? 80 : 100,
+    marginBottom: 8,
+  },
+  datePicker: {
+    borderWidth: 1,
+    borderColor: '#444',
+    borderRadius: 8,
+    backgroundColor: '#2a2a2a',
+    color: '#fff',
+    paddingVertical: 8,
+    minHeight: 48,
+  },
+  pickerItem: {
+    color: '#fff',
+    fontSize: width < 360 ? 14 : 16,
   },
 });

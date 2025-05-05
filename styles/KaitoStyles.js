@@ -1,20 +1,42 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
-const { height: screenHeight } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1a1a1a',
   },
+  flatListContent: {
+    paddingBottom: 20,
+  },
+  header: {
+    padding: 15,
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
+  },
+  headerText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  weatherText: {
+    color: '#aaa',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  // Navbar Styles
   navbar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: '#222',
-    borderBottomWidth: 2,
-    borderBottomColor: '#ff6200',
+    backgroundColor: '#2a2a2a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#444',
   },
   navbarBrand: {
     flexDirection: 'row',
@@ -23,12 +45,12 @@ export const styles = StyleSheet.create({
   logo: {
     width: 40,
     height: 40,
+    marginRight: 10,
   },
   logoText: {
     color: '#ff6200',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginLeft: 12,
+    fontSize: 18,
+    fontWeight: '700',
   },
   menuToggle: {
     padding: 10,
@@ -37,50 +59,47 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     top: 70,
     right: 15,
-    backgroundColor: '#222',
+    backgroundColor: '#2a2a2a',
     borderRadius: 8,
-    padding: 12,
-    zIndex: 1000,
+    padding: 10,
+    elevation: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
   },
   navLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   navLinkActive: {
     backgroundColor: '#ff6200',
     borderRadius: 5,
   },
   navIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   navLinkText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '500',
   },
+  // Connect Button
   connectButtonContainer: {
+    padding: 15,
     alignItems: 'center',
-    marginVertical: 15,
   },
+  // Leaderboard Button
   leaderboardButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'center',
+    justifyContent: 'center',
     backgroundColor: '#ff6200',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    marginVertical: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    padding: 10,
+    marginHorizontal: 15,
+    borderRadius: 8,
+    marginVertical: 10,
   },
   iconPulse: {
     marginRight: 10,
@@ -90,30 +109,24 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  content: {
-    flexGrow: 1,
-    padding: 20,
-  },
+  // Player Info Card
   card: {
-    backgroundColor: '#222',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#ff620033',
+    backgroundColor: '#2a2a2a',
+    margin: 15,
+    borderRadius: 10,
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   cardBody: {
-    flex: 1,
+    padding: 15,
   },
   cardTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   avatar: {
     width: 60,
@@ -123,427 +136,480 @@ export const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#ff6200',
   },
+  cardTitleText: {
+    flex: 1,
+  },
   cardTitle: {
-    color: '#ff6200',
-    fontSize: 24,
-    fontWeight: 'bold',
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  cardSubtitle: {
+    color: '#aaa',
+    fontSize: 14,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 10,
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statText: {
     color: '#fff',
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: 14,
+    marginLeft: 5,
+  },
+  progressBarContainer: {
+    height: 10,
+    backgroundColor: '#444',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginVertical: 10,
   },
   progressBar: {
-    height: 22,
-    backgroundColor: '#333',
-    borderRadius: 11,
-    overflow: 'hidden',
-    marginVertical: 12,
-    position: 'relative',
-  },
-  progressFill: {
     height: '100%',
-    backgroundColor: '#ff6200',
+    backgroundColor: '#00ccff',
   },
-  progressText: {
-    position: 'absolute',
-    color: '#fff',
-    fontSize: 12,
-    textAlign: 'center',
-    width: '100%',
-    lineHeight: 22,
-  },
-  infoText: {
-    color: '#ddd',
-    fontSize: 14,
-    marginVertical: 8,
-  },
-  eventText: {
+  traitText: {
     color: '#ff6200',
     fontSize: 14,
     fontStyle: 'italic',
-    marginVertical: 8,
   },
-  gameMessage: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 12,
-    fontWeight: '500',
+  // Inventory Section
+  sectionHeader: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#333',
   },
   sectionTitle: {
-    color: '#ff6200',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 10,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  button: {
+    backgroundColor: '#ff6200',
+    padding: 10,
+    borderRadius: 8,
+    width: (width - 50) / 3,
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  inventoryContainer: {
+    paddingHorizontal: 15,
   },
   inventoryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  inventoryItemText: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 10,
+    marginVertical: 5,
   },
   itemImage: {
-    width: 32,
-    height: 32,
-    marginRight: 12,
+    width: 40,
+    height: 40,
+    marginRight: 10,
   },
-  inventoryText: {
+  itemDetails: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  itemName: {
     color: '#fff',
     fontSize: 16,
+    flex: 1,
   },
-  rareItem: {
-    color: '#ff6200',
-    fontWeight: 'bold',
-  },
-  inventoryList: {
-    height: screenHeight * 0.25, // Dynamic height based on screen size
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: 12,
+  itemQuantity: {
+    color: '#aaa',
+    fontSize: 14,
+    marginHorizontal: 10,
   },
   actionButton: {
-    backgroundColor: '#ff6200',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 6,
+    backgroundColor: '#444',
+    padding: 5,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontSize: 12,
+  },
+  emptyText: {
+    color: '#aaa',
+    fontSize: 14,
+    textAlign: 'center',
+    padding: 10,
+  },
+  // Rare Items
+  rareItemsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 15,
+  },
+  rareItem: {
+    alignItems: 'center',
+    width: width / 4,
+    marginVertical: 10,
+  },
+  rareItemImage: {
+    width: 40,
+    height: 40,
+    marginBottom: 5,
+  },
+  rareItemText: {
+    color: '#ff6200',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  // Equipment
+  equipmentContainer: {
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  equipmentSlot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 5,
+  },
+  equipmentLabel: {
+    color: '#fff',
+    fontSize: 16,
+    width: 80,
+  },
+  equipmentItem: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  smallButton: {
-    backgroundColor: '#ff6200',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+  equipmentImage: {
+    width: 30,
+    height: 30,
+    marginRight: 10,
   },
-  actionButtonContainer: {
-    marginTop: 20,
+  equipmentText: {
+    color: '#fff',
+    fontSize: 14,
   },
-  disabledButton: {
-    backgroundColor: '#888',
-    opacity: 0.6,
+  // Ingredients
+  ingredientsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 15,
   },
+  ingredientItem: {
+    width: (width - 50) / 3,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  ingredientImage: {
+    width: 40,
+    height: 40,
+    marginBottom: 5,
+  },
+  ingredientText: {
+    color: '#fff',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  // Countdown
+  countdownContainer: {
+    padding: 15,
+    alignItems: 'center',
+  },
+  countdownText: {
+    color: '#ff6200',
+    fontSize: 14,
+    marginVertical: 5,
+  },
+  // Modal Styles
   modal: {
     justifyContent: 'center',
-    margin: 20,
+    margin: 0,
   },
   modalContent: {
-    backgroundColor: '#222',
-    borderRadius: 12,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 10,
     padding: 20,
-    maxHeight: '85%',
-    borderWidth: 1,
-    borderColor: '#ff620033',
+    marginHorizontal: 20,
+    maxHeight: height * 0.8,
   },
   modalTitle: {
-    color: '#ff6200',
-    fontSize: 22,
-    fontWeight: 'bold',
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
     marginBottom: 15,
+    textAlign: 'center',
   },
+  modalSubtitle: {
+    color: '#aaa',
+    fontSize: 14,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalButtonGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  modalButton: {
+    backgroundColor: '#ff6200',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 5,
+    width: '48%',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  modalItemImage: {
+    width: 30,
+    height: 30,
+    marginRight: 10,
+  },
+  // Craft Modal
   tabContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     marginBottom: 15,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 5,
   },
   tab: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 6,
-    backgroundColor: '#333',
+    flex: 1,
+    padding: 10,
+    alignItems: 'center',
+    backgroundColor: '#444',
+    borderRadius: 5,
+    marginHorizontal: 5,
   },
   activeTab: {
     backgroundColor: '#ff6200',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
   },
   tabText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '600',
   },
-  ingredientItem: {
+  ingredientSelection: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  ingredientText: {
-    color: '#fff',
-    fontSize: 16,
-    flex: 1,
-  },
-  ingredientCount: {
-    color: '#ff6200',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  ingredientList: {
-    height: screenHeight * 0.3,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginBottom: 15,
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginTop: 15,
   },
-  modalButton: {
-    backgroundColor: '#ff6200',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flex: 1,
-    marginHorizontal: 5,
+  ingredientButton: {
+    width: (width - 80) / 3,
     alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#444',
+    marginVertical: 5,
   },
-  npcItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+  selectedIngredient: {
+    borderWidth: 2,
+    borderColor: '#ff6200',
   },
-  npcText: {
+  disabledIngredient: {
+    opacity: 0.5,
+  },
+  ingredientButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  npcDialogue: {
-    color: '#ddd',
-    fontSize: 14,
+    fontSize: 12,
+    textAlign: 'center',
     marginTop: 5,
   },
-  npcList: {
-    height: screenHeight * 0.3,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
-  enemyImage: {
-    width: 100,
-    height: 100,
-    marginVertical: 10,
-  },
-  combatText: {
-    color: '#fff',
-    fontSize: 16,
-    marginVertical: 5,
-    textAlign: 'center',
-  },
-  logText: {
-    color: '#ccc',
-    fontSize: 14,
-    marginVertical: 2,
-  },
-  combatLog: {
-    height: screenHeight * 0.2,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    padding: 10,
-  },
-  combatResult: {
-    color: '#ff6200',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+  // Combat Modal
+  combatContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginVertical: 15,
   },
-  skillList: {
-    height: screenHeight * 0.2,
-    backgroundColor: '#2a2a2a',
+  combatant: {
+    alignItems: 'center',
+    width: '45%',
+  },
+  combatantImage: {
+    width: 80,
+    height: 80,
+    marginBottom: 10,
+  },
+  combatantText: {
+    color: '#fff',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  versusText: {
+    color: '#ff6200',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  combatLog: {
+    backgroundColor: '#333',
+    padding: 10,
     borderRadius: 8,
-    paddingHorizontal: 10,
+    maxHeight: 100,
     marginVertical: 10,
   },
-  recipeList: {
-    height: screenHeight * 0.2,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginVertical: 10,
+  combatLogText: {
+    color: '#fff',
+    fontSize: 12,
+    marginVertical: 2,
   },
-  marketItem: {
+  combatLoading: {
+    marginVertical: 20,
+  },
+  combatActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  combatResult: {
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  combatResultText: {
+    color: '#ff6200',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 15,
+  },
+  // Leaderboard
+  leaderboardItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: '#444',
   },
-  marketText: {
+  leaderboardRank: {
+    color: '#ff6200',
+    fontSize: 16,
+    width: 50,
+  },
+  leaderboardName: {
     color: '#fff',
     fontSize: 16,
     flex: 1,
   },
-  marketList: {
-    height: screenHeight * 0.25,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    marginVertical: 10,
+  leaderboardStats: {
+    color: '#aaa',
+    fontSize: 14,
   },
-  leaderboardItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  leaderboardText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  leaderboardList: {
-    height: screenHeight * 0.4,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
+  // Quests & Tasks
   questItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    marginVertical: 5,
   },
   questText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
   },
   questReward: {
-    color: '#ddd',
-    fontSize: 14,
+    color: '#ff6200',
+    fontSize: 12,
     marginTop: 5,
   },
-  questList: {
-    height: screenHeight * 0.3,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
   taskItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    marginVertical: 5,
   },
   taskText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
   },
   taskReward: {
-    color: '#ddd',
-    fontSize: 14,
+    color: '#ff6200',
+    fontSize: 12,
     marginTop: 5,
   },
-  taskList: {
-    height: screenHeight * 0.3,
-    backgroundColor: '#2a2a2a',
+  // NPC Dialogue
+  npcDialogue: {
+    padding: 10,
+    backgroundColor: '#333',
     borderRadius: 8,
-    paddingHorizontal: 10,
     marginVertical: 10,
   },
+  npcDialogueText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  npcQuestText: {
+    color: '#ff6200',
+    fontSize: 12,
+    marginTop: 5,
+  },
+  // Skills
   skillTree: {
-    marginBottom: 15,
+    marginVertical: 10,
+  },
+  skillTreeTitle: {
+    color: '#ff6200',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
   },
   skillItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    marginVertical: 5,
   },
   skillText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  skillEffect: {
-    color: '#ddd',
     fontSize: 14,
+  },
+  // Events
+  eventItem: {
+    padding: 10,
+    backgroundColor: '#333',
+    borderRadius: 8,
+    marginVertical: 5,
+  },
+  eventText: {
+    color: '#fff',
+    fontSize: 14,
+  },
+  eventTimer: {
+    color: '#ff6200',
+    fontSize: 12,
     marginTop: 5,
   },
-  skillTreeList: {
-    height: screenHeight * 0.4,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
-  guildItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  guildText: {
+  // Guide
+  guideText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 15,
   },
-  guildList: {
-    height: screenHeight * 0.3,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
-  townItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
-  },
-  townText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  townList: {
-    height: screenHeight * 0.3,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-  },
+  // Input & Picker
   input: {
-    backgroundColor: '#333',
+    backgroundColor: '#444',
     color: '#fff',
+    padding: 10,
     borderRadius: 8,
-    padding: 12,
-    marginVertical: 12,
-    fontSize: 16,
+    marginBottom: 15,
   },
   picker: {
-    backgroundColor: '#333',
+    backgroundColor: '#444',
     color: '#fff',
     borderRadius: 8,
-    marginVertical: 12,
-  },
-  travelText: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-    marginVertical: 15,
-  },
-  guideText: {
-    color: '#ddd',
-    fontSize: 14,
-    marginVertical: 8,
-  },
-  bold: {
-    fontWeight: 'bold',
-    color: '#ff6200',
+    marginBottom: 15,
   },
 });

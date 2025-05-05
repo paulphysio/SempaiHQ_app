@@ -27,46 +27,46 @@ import { styles } from '../styles/KaitoStyles';
 
 // ---- Constants Section ----
 const avatarImages = {
-  default: require('../assets/images/avatars/default.jpg'),
-  warrior: require('../assets/images/avatars/warrior.jpg'),
-  herbalist: require('../assets/images/avatars/herbalist.jpg'),
-  explorer: require('../assets/images/avatars/explorer.jpg'),
+  default: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/avatars/default.jpg',
+  warrior: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/avatars/warrior.jpg',
+  herbalist: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/avatars/herbalist.jpg',
+  explorer: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/avatars/explorer.jpg',
 };
 
 const itemImages = {
-  water: require('../assets/images/items/water.png'),
-  herbs: require('../assets/images/items/herbs.png'),
-  pepper: require('../assets/images/items/pepper.png'),
-  sugar: require('../assets/images/items/sugar.png'),
-  'mist-essence': require('../assets/images/items/mist-essence.png'),
-  'shadow-root': require('../assets/images/items/shadow-root.png'),
-  'iron-ore': require('../assets/images/items/iron-ore.png'),
-  wood: require('../assets/images/items/wood.png'),
-  'golden-herb': require('../assets/images/items/golden-herb.png'),
-  'iron-shard': require('../assets/images/items/iron-shard.png'),
-  'mist-crystal': require('../assets/images/items/mist-crystal.png'),
-  'herbal-tea': require('../assets/images/items/herbal-tea.png'),
-  'spicy-sake': require('../assets/images/items/spicy-sake.png'),
-  'mist-potion': require('../assets/images/items/mist-potion.png'),
-  'golden-elixir': require('../assets/images/items/golden-elixir.png'),
-  'weak-healing-potion': require('../assets/images/items/weak-healing-potion.png'),
-  'medium-healing-potion': require('../assets/images/items/medium-healing-potion.png'),
-  'strong-healing-potion': require('../assets/images/items/strong-healing-potion.png'),
-  'lucky-gather-potion': require('../assets/images/items/lucky-gather-potion.png'),
-  'swift-gather-potion': require('../assets/images/items/swift-gather-potion.png'),
-  'combat-blade': require('../assets/images/items/combat-blade.png'),
-  'steel-axe': require('../assets/images/items/steel-axe.png'),
-  'shadow-dagger': require('../assets/images/items/shadow-dagger.png'),
-  'leather-armor': require('../assets/images/items/leather-armor.png'),
-  chainmail: require('../assets/images/items/chainmail.png'),
-  'plate-armor': require('../assets/images/items/plate-armor.png'),
-  default: require('../assets/images/items/default.png'),
+  water: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/water.png',
+  herbs: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/herbs.png',
+  pepper: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/pepper.png',
+  sugar: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/sugar.png',
+  'mist-essence': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/mist-essence.png',
+  'shadow-root': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/shadow-root.png',
+  'iron-ore': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/iron-ore.png',
+  wood: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/wood.png',
+  'golden-herb': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/golden-herb.png',
+  'iron-shard': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/iron-shard.png',
+  'mist-crystal': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/mist-crystal.png',
+  'herbal-tea': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/herbal-tea.png',
+  'spicy-sake': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/spicy-sake.png',
+  'mist-potion': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/mist-potion.png',
+  'golden-elixir': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/golden-elixir.png',
+  'weak-healing-potion': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/weak-healing-potion.jpeg',
+  'medium-healing-potion': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/medium-healing-potion.png',
+  'strong-healing-potion': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/strong-healing-potion.jpeg',
+  'lucky-gather-potion': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/lucky-gather-potion.png',
+  'swift-gather-potion': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/swift-gather-potion.png',
+  'combat-blade': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/combat-blade.jpeg',
+  'steel-axe': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/steel-axe.png',
+  'shadow-dagger': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/shadow-dagger.png',
+  'leather-armor': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/leather-armor.png',
+  chainmail: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/chainmail.png',
+  'plate-armor': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/plate-armor.png',
+  default: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/items/default.png',
 };
 
 const enemyImages = {
-  bandit: require('../assets/images/enemies/bandit.png'),
-  'shadow-ninja': require('../assets/images/enemies/shadow-ninja.png'),
-  golem: require('../assets/images/enemies/golem.png'),
+  bandit: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/enemies/bandit.png',
+  'shadow-ninja': 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/enemies/shadow-ninja.png',
+  golem: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/enemies/golem.png',
 };
 
 const defaultPlayer = {
@@ -1588,7 +1588,7 @@ const KaitoAdventureScreen = () => {
           <View style={styles.navbar}>
             <View style={styles.navbarBrand}>
               <Image
-                source={require('../assets/images/logo.png')}
+                source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/logo.png' }}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -1643,290 +1643,283 @@ const KaitoAdventureScreen = () => {
             <View style={styles.cardBody}>
               <View style={styles.cardTitleContainer}>
                 <Image
-                  source={avatarImages[player.avatar] || avatarImages.default}
+                  source={{ uri: avatarImages[player.avatar] || avatarImages.default }}
                   style={styles.avatar}
                   resizeMode="cover"
-                  onError={() => console.warn(`Failed to load avatar: ${player.avatar}`)}
                 />
-                <Text style={styles.cardTitle}>
-                  {player.name} (Level {player.level})
-                </Text>
+                <View style={styles.cardTitleText}>
+                  <Text style={styles.cardTitle}>{player.name}</Text>
+                  <Text style={styles.cardSubtitle}>Level {player.level} | {currentTown}</Text>
+                </View>
               </View>
-              <Text style={styles.statText}>
-                <Icon name="shield-alt" size={16} color="#ff6200" /> Health:{' '}
-                {player.health}/{player.max_health} | <Icon name="coins" size={16} color="#ff6200" />{' '}
-                Gold: {player.gold} | <Icon name="star" size={16} color="#ff6200" /> XP:{' '}
-                {player.xp}
-              </Text>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${xpProgress}%` }]} />
-                <Text style={styles.progressText}>{Math.round(xpProgress)}%</Text>
+              <View style={styles.statsContainer}>
+                <View style={styles.stat}>
+                  <Icon name="heart" size={16} color="#ff4444" />
+                  <Text style={styles.statText}>
+                    {player.health}/{player.max_health} HP
+                  </Text>
+                </View>
+                <View style={styles.stat}>
+                  <Icon name="coins" size={16} color="#ffd700" />
+                  <Text style={styles.statText}>{player.gold} Gold</Text>
+                </View>
+                <View style={styles.stat}>
+                  <Icon name="star" size={16} color="#00ccff" />
+                  <Text style={styles.statText}>{player.xp} XP</Text>
+                </View>
               </View>
-              <Text style={styles.infoText}>
-                Current Town: {currentTown} (Level {townLevels[currentTown]}) | Weather:{' '}
-                {weather.type}
-              </Text>
-              {currentEvent && (
-                <Text style={styles.eventText}>
-                  {currentEvent.description}{' '}
-                  {eventTimer
-                    ? `(${formatCountdown(
-                        Math.max(0, Math.floor((eventTimer - Date.now()) / 1000))
-                      )})`
-                    : ''}
-                </Text>
+              <View style={styles.progressBarContainer}>
+                <View style={[styles.progressBar, { width: `${xpProgress}%` }]} />
+              </View>
+              {player.trait && (
+                <Text style={styles.traitText}>Trait: {player.trait}</Text>
               )}
-              <Text style={styles.gameMessage}>{gameMessage}</Text>
             </View>
           </View>
         );
       case 'inventoryHeader':
         return (
-          <Text style={styles.sectionTitle}>
-            <Icon name="flask" size={20} color="#ff6200" /> Inventory (Max:{' '}
-            {player.inventory_slots})
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Inventory ({player.inventory.length}/{player.inventory_slots})</Text>
+          </View>
         );
       case 'inventoryButtons':
         return (
-          <View style={styles.buttonRow}>
-            <TouchableOpacity style={styles.actionButton} onPress={sortInventory}>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('market')}
+            >
+              <Text style={styles.buttonText}>Market</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={sortInventory}
+            >
               <Text style={styles.buttonText}>Sort</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionButton} onPress={upgradeInventory}>
-              <Text style={styles.buttonText}>Upgrade (+5) <Icon name="coins" size={14} color="#ff6200" /> 50</Text>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={upgradeInventory}
+            >
+              <Text style={styles.buttonText}>Upgrade (50g)</Text>
             </TouchableOpacity>
           </View>
         );
       case 'inventoryList':
         return (
-          <FlatList
-            data={item.data}
-            keyExtractor={(item) => item.name}
-            renderItem={({ item }) => (
-              <View style={styles.inventoryItem}>
-                <View style={styles.inventoryItemText}>
+          <View style={styles.inventoryContainer}>
+            {item.data.length === 0 ? (
+              <Text style={styles.emptyText}>Your inventory is empty!</Text>
+            ) : (
+              item.data.map((invItem, index) => (
+                <View key={index} style={styles.inventoryItem}>
                   <Image
-                    source={itemImages[item.name.toLowerCase().replace(' ', '-')] || itemImages.default}
+                    source={{ uri: itemImages[invItem.name.toLowerCase()] || itemImages.default }}
                     style={styles.itemImage}
                     resizeMode="contain"
-                    onError={() => console.warn(`Failed to load item image: ${item.name}`)}
                   />
-                  <Text
-                    style={[
-                      styles.inventoryText,
-                      rare_items.includes(item.name) && styles.rareItem,
-                    ]}
-                  >
-                    {item.name}: {item.quantity}
-                  </Text>
+                  <View style={styles.itemDetails}>
+                    <Text style={styles.itemName}>{invItem.name}</Text>
+                    <Text style={styles.itemQuantity}>x{invItem.quantity}</Text>
+                    {player.recipes.some((r) => r.name === invItem.name && (r.type === 'sell' || r.sellValue)) && (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => sellDrink(invItem.name)}
+                      >
+                        <Text style={styles.actionButtonText}>Sell</Text>
+                      </TouchableOpacity>
+                    )}
+                    {player.recipes.some((r) => r.name === invItem.name && r.type === 'heal') && (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => {
+                          const recipe = player.recipes.find((r) => r.name === invItem.name);
+                          setPlayer((prev) => ({
+                            ...prev,
+                            health: Math.min(
+                              prev.health + Math.round(prev.max_health * recipe.healPercent),
+                              prev.max_health
+                            ),
+                            inventory: prev.inventory
+                              .map((i) =>
+                                i.name === invItem.name ? { ...i, quantity: i.quantity - 1 } : i
+                              )
+                              .filter((i) => i.quantity > 0),
+                          }));
+                          setGameMessage(`Used ${invItem.name} to heal!`);                        }}
+                      >
+                        <Text style={styles.actionButtonText}>Use</Text>
+                      </TouchableOpacity>
+                    )}
+                    {player.recipes.some((r) => r.name === invItem.name && r.type === 'gather') && (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => useGatherPotion(invItem.name)}
+                      >
+                        <Text style={styles.actionButtonText}>Use</Text>
+                      </TouchableOpacity>
+                    )}
+                    {player.recipes.some((r) => r.name === invItem.name && (r.type === 'equip' || r.type === 'armor')) && (
+                      <TouchableOpacity
+                        style={styles.actionButton}
+                        onPress={() => equipItem(invItem.name)}
+                      >
+                        <Text style={styles.actionButtonText}>Equip</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
-                {(player.recipes.find(
-                  (r) => r.name === item.name && (r.type === 'equip' || r.type === 'armor')
-                )) && (
-                  <TouchableOpacity
-                    style={styles.smallButton}
-                    onPress={() => equipItem(item.name)}
-                  >
-                    <Text style={styles.buttonText}>
-                      <Icon name="sword" size={14} color="#ff6200" /> Equip
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {(player.recipes.find(
-                  (r) => r.name === item.name && r.type === 'gather'
-                )) && (
-                  <TouchableOpacity
-                    style={styles.smallButton}
-                    onPress={() => useGatherPotion(item.name)}
-                  >
-                    <Text style={styles.buttonText}>
-                      <Icon name="flask" size="14" color="#ff6200" /> Use
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              ))
             )}
-            style={styles.inventoryList}
-          />
+          </View>
         );
       case 'rareItems':
         return (
-          <Text style={styles.infoText}>
-            <Icon name="star" size={16} color="#ff6200" /> Rare Items:{' '}
-            {player.rare_items.join(', ') || 'None'}
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Rare Items</Text>
+            {player.rare_items.length === 0 ? (
+              <Text style={styles.emptyText}>No rare items collected!</Text>
+            ) : (
+              <View style={styles.rareItemsContainer}>
+                {player.rare_items.map((rareItem, index) => (
+                  <View key={index} style={styles.rareItem}>
+                    <Image
+                      source={{ uri: itemImages[rareItem.toLowerCase()] || itemImages.default }}
+                      style={styles.rareItemImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.rareItemText}>{rareItem}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         );
       case 'equipment':
         return (
-          <Text style={styles.infoText}>
-            <Icon name="shield-alt" size={16} color="#ff6200" /> Equipped: Weapon:{' '}
-            {player.equipment.weapon || 'None'} | Armor: {player.equipment.armor || 'None'}
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Equipment</Text>
+            <View style={styles.equipmentContainer}>
+              <View style={styles.equipmentSlot}>
+                <Text style={styles.equipmentLabel}>Weapon:</Text>
+                {player.equipment.weapon ? (
+                  <View style={styles.equipmentItem}>
+                    <Image
+                      source={{ uri: itemImages[player.equipment.weapon.toLowerCase()] || itemImages.default }}
+                      style={styles.equipmentImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.equipmentText}>{player.equipment.weapon}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>None</Text>
+                )}
+              </View>
+              <View style={styles.equipmentSlot}>
+                <Text style={styles.equipmentLabel}>Armor:</Text>
+                {player.equipment.armor ? (
+                  <View style={styles.equipmentItem}>
+                    <Image
+                      source={{ uri: itemImages[player.equipment.armor.toLowerCase()] || itemImages.default }}
+                      style={styles.equipmentImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.equipmentText}>{player.equipment.armor}</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.emptyText}>None</Text>
+                )}
+              </View>
+            </View>
+          </View>
         );
       case 'ingredientsHeader':
         return (
-          <Text style={styles.sectionTitle}>
-            <Icon name="map" size={20} color="#ff6200" /> Available Ingredients in{' '}
-            {currentTown}
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Available Ingredients</Text>
+          </View>
         );
       case 'ingredientsList':
         return (
-          <FlatList
-            data={item.data}
-            keyExtractor={(item) => item.name}
-            renderItem={({ item }) => (
-              <View style={styles.inventoryItem}>
+          <View style={styles.ingredientsContainer}>
+            {item.data.map((ing, index) => (
+              <View key={index} style={styles.ingredientItem}>
                 <Image
-                  source={itemImages[item.name.toLowerCase().replace(' ', '-')] || itemImages.default}
-                  style={styles.itemImage}
+                  source={{ uri: itemImages[ing.name.toLowerCase()] || itemImages.default }}
+                  style={styles.ingredientImage}
                   resizeMode="contain"
-                  onError={() => console.warn(`Failed to load item image: ${item.name}`)}
                 />
-                <Text style={styles.inventoryText}>
-                  {item.name}:{' '}
-                  {item.owned
-                    ? item.quantity
-                    : towns
-                        .find((t) => t.name === currentTown)
-                        .ingredients.includes(item.name)
-                    ? '∞ (Town)'
-                    : '0'}
+                <Text style={styles.ingredientText}>
+                  {ing.name}: {ing.quantity}
                 </Text>
               </View>
-            )}
-            style={styles.inventoryList}
-          />
+            ))}
+          </View>
         );
       case 'actionButtons':
         return (
-          <View style={styles.actionButtonContainer}>
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('craft')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="flask" size={16} color="#ffffff" /> Craft
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={startCombat}>
-                <Text style={styles.buttonText}>
-                  <Icon name="skull" size={16} color="#ffffff" /> Combat
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('market')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="map" size={16} color="#ffffff" /> Town
-                </Text>
-                </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('gather')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="leaf" size={16} color="#ffffff" /> Gather
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('quests')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="scroll" size={16} color="#ffffff" /> Quests
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('daily')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="calendar-day" size={16} color="#ffffff" /> Daily
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('stats')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="chart-bar" size={16} color="#ffffff" /> Stats
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('community')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="users" size={16} color="#ffffff" /> Community
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('customize')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="user-edit" size={16} color="#ffffff" /> Customize
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('npc')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="comment" size={16} color="#ffffff" /> NPCs
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('travel')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="map-signs" size={16} color="#ffffff" /> Travel
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('skills')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="bolt" size={16} color="#ffffff" /> Skills
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('events')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="calendar-alt" size={16} color="#ffffff" /> Events
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('guild')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="shield-alt" size={16} color="#ffffff" /> Guild
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => toggleModal('guide')}
-              >
-                <Text style={styles.buttonText}>
-                  <Icon name="book" size={16} color="#ffffff" /> Guide
-                </Text>
-              </TouchableOpacity>
-            </View>
+          <View style={styles.buttonGroup}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('craft')}
+            >
+              <Text style={styles.buttonText}>Craft</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={gatherSingle}
+            >
+              <Text style={styles.buttonText}>Gather</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('gather')}
+            >
+              <Text style={styles.buttonText}>Queue Gather</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={startCombat}
+            >
+              <Text style={styles.buttonText}>Combat</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('quests')}
+            >
+              <Text style={styles.buttonText}>Quests</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('travel')}
+            >
+              <Text style={styles.buttonText}>Travel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('skills')}
+            >
+              <Text style={styles.buttonText}>Skills</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('guild')}
+            >
+              <Text style={styles.buttonText}>Guild</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('customize')}
+            >
+              <Text style={styles.buttonText}>Customize</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={() => toggleModal('npc')}
+            >
+              <Text style={styles.buttonText}>Talk to NPC</Text>
+            </TouchableOpacity>
           </View>
         );
       case 'countdown':
@@ -1939,14 +1932,18 @@ const KaitoAdventureScreen = () => {
             )}
             {queuedCountdown !== null && queuedCountdown > 0 && (
               <Text style={styles.countdownText}>
-                Queued Gather Cooldown: {formatCountdown(queuedCountdown)}
+                Queue Cooldown: {formatCountdown(queuedCountdown)}
               </Text>
             )}
             {gatherBuff && Date.now() < gatherBuff.expires && (
               <Text style={styles.countdownText}>
-                Gather Buff Active: {formatCountdown(
-                  Math.max(0, Math.floor((gatherBuff.expires - Date.now()) / 1000))
-                )}
+                Gather Buff: {formatCountdown(Math.floor((gatherBuff.expires - Date.now()) / 1000))}
+              </Text>
+            )}
+            {currentEvent && eventTimer && (
+              <Text style={styles.countdownText}>
+                Event: {currentEvent.type} ends in{' '}
+                {formatCountdown(Math.floor((eventTimer - Date.now()) / 1000))}
               </Text>
             )}
           </View>
@@ -1955,795 +1952,827 @@ const KaitoAdventureScreen = () => {
         return null;
     }
   };
-
   // ---- Render Modals ----
-  const renderModals = () => (
-    <>
-      {/* Craft Modal */}
-      <Modal
-        isVisible={modals.craft}
-        onBackdropPress={() => toggleModal('craft')}
-        style={styles.modal}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
+  const renderCraftModal = () => (
+    <Modal
+      isVisible={modals.craft}
+      onBackdropPress={() => toggleModal('craft')}
+      style={styles.modal}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalContent}
       >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="flask" size={20} color="#ff6200" /> Craft Item
-          </Text>
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'drinks' && styles.activeTab]}
-              onPress={() => setActiveTab('drinks')}
-            >
-              <Text style={styles.tabText}>Drinks</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'potions' && styles.activeTab]}
-              onPress={() => setActiveTab('potions')}
-            >
-              <Text style={styles.tabText}>Potions</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'equipment' && styles.activeTab]}
-              onPress={() => setActiveTab('equipment')}
-            >
-              <Text style={styles.tabText}>Equipment</Text>
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={getAvailableIngredients}
-            keyExtractor={(item) => item.name}
-            renderItem={({ item }) => (
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Craft Item</Text>
+            <View style={styles.tabContainer}>
               <TouchableOpacity
-                style={[
-                  styles.ingredientItem,
-                  selectedIngredients.includes(item.name) && styles.selectedIngredient,
-                  !item.owned && styles.disabledIngredient,
-                ]}
-                onPress={() => item.owned && toggleIngredient(item.name)}
-                disabled={!item.owned}
+                style={[styles.tab, activeTab === 'drinks' && styles.activeTab]}
+                onPress={() => setActiveTab('drinks')}
               >
-                <Image
-                  source={itemImages[item.name.toLowerCase().replace(' ', '-')] || itemImages.default}
-                  style={styles.itemImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.ingredientText}>
-                  {item.name}: {item.quantity}
-                </Text>
-                {selectedIngredients.includes(item.name) && (
-                  <Text style={styles.ingredientCount}>
-                    x{selectedIngredients.filter((i) => i === item.name).length}
-                  </Text>
-                )}
+                <Text style={styles.tabText}>Drinks</Text>
               </TouchableOpacity>
-            )}
-            style={styles.ingredientList}
-          />
-          <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'potions' && styles.activeTab]}
+                onPress={() => setActiveTab('potions')}
+              >
+                <Text style={styles.tabText}>Potions</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, activeTab === 'equipment' && styles.activeTab]}
+                onPress={() => setActiveTab('equipment')}
+              >
+                <Text style={styles.tabText}>Equipment</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.ingredientSelection}>
+              {allIngredients.map((ing, index) => {
+                const item = getAvailableIngredients.find((i) => i.name === ing);
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.ingredientButton,
+                      selectedIngredients.includes(ing) && styles.selectedIngredient,
+                      !item?.owned && styles.disabledIngredient,
+                    ]}
+                    onPress={() => item?.owned && toggleIngredient(ing)}
+                    disabled={!item?.owned}
+                  >
+                    <Image
+                      source={{ uri: itemImages[ing.toLowerCase()] || itemImages.default }}
+                      style={styles.ingredientImage}
+                      resizeMode="contain"
+                    />
+                    <Text style={styles.ingredientButtonText}>
+                      {ing} ({item?.quantity || 0})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.modalButtonGroup}>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => craftItem('sell')}
+              >
+                <Text style={styles.modalButtonText}>Craft Drink</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => craftItem('heal')}
+              >
+                <Text style={styles.modalButtonText}>Craft Healing Potion</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => craftItem('gather')}
+              >
+                <Text style={styles.modalButtonText}>Craft Gather Potion</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => craftItem('equip', equipItem)}
+              >
+                <Text style={styles.modalButtonText}>Craft Equipment</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={() => {
+                  setSelectedIngredients([]);
+                  toggleModal('craft');
+                }}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+  const renderHealingModal = () => (
+    <Modal
+      isVisible={modals.healing}
+      onBackdropPress={() => toggleModal('healing')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Use Healing Potion</Text>
+        {player.inventory
+          .filter((item) => player.recipes.some((r) => r.name === item.name && r.type === 'heal'))
+          .map((item, index) => (
             <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => craftItem(activeTab === 'drinks' ? 'sell' : activeTab === 'potions' ? 'heal' : 'equip')}
-            >
-              <Text style={styles.buttonText}>Craft</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+              key={index}
               style={styles.modalButton}
               onPress={() => {
-                setSelectedIngredients([]);
-                toggleModal('craft');
+                const recipe = player.recipes.find((r) => r.name === item.name);
+                setPlayer((prev) => ({
+                  ...prev,
+                  health: Math.min(
+                    prev.health + Math.round(prev.max_health * recipe.healPercent),
+                    prev.max_health
+                  ),
+                  inventory: prev.inventory
+                    .map((i) => (i.name === item.name ? { ...i, quantity: i.quantity - 1 } : i))
+                    .filter((i) => i.quantity > 0),
+                }));
+                setGameMessage(`Used ${item.name} to heal!`);
+                toggleModal('healing');
               }}
             >
-              <Text style={styles.buttonText}>Cancel</Text>
+              <Image
+                source={{ uri: itemImages[item.name.toLowerCase()] || itemImages.default }}
+                style={styles.modalItemImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.modalButtonText}>
+                {item.name} (x{item.quantity})
+              </Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Market Modal */}
+          ))}
+        {player.inventory.filter((item) =>
+          player.recipes.some((r) => r.name === item.name && r.type === 'heal')
+        ).length === 0 && (
+          <Text style={styles.emptyText}>No healing potions available!</Text>
+        )}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('healing')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderMarketModal = () => {
+    const town = towns.find((t) => t.name === currentTown);
+    return (
       <Modal
         isVisible={modals.market}
         onBackdropPress={() => toggleModal('market')}
         style={styles.modal}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="map" size={20} color="#ff6200" /> {currentTown} Market
+          <Text style={styles.modalTitle}>Market - {currentTown}</Text>
+          <Text style={styles.modalSubtitle}>
+            Town Level: {townLevels[currentTown]} | Demand Multiplier:{' '}
+            {town.demand ? Object.values(town.demand).join(', ') : '1.0'}
           </Text>
-          <FlatList
-            data={towns.find((t) => t.name === currentTown).npcOffers}
-            keyExtractor={(item) => item.ingredient}
-            renderItem={({ item }) => (
-              <View style={styles.marketItem}>
-                <Image
-                  source={itemImages[item.ingredient.toLowerCase().replace(' ', '-')] || itemImages.default}
-                  style={styles.itemImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.marketText}>
-                  {item.ingredient}: {Math.floor(item.price / townLevels[currentTown])} Gold
-                </Text>
-                <TouchableOpacity
-                  style={styles.smallButton}
-                  onPress={() => buyIngredient(item.ingredient, item.price)}
-                >
-                  <Text style={styles.buttonText}>Buy</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            style={styles.marketList}
-          />
-          <Text style={styles.sectionTitle}>Sell Items</Text>
-          <FlatList
-            data={player.inventory.filter((item) =>
-              player.recipes.find((r) => r.name === item.name && (r.baseGold || r.sellValue))
-            )}
-            keyExtractor={(item) => item.name}
-            renderItem={({ item }) => {
+          {town.npcOffers.map((offer, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.modalButton}
+              onPress={() => buyIngredient(offer.ingredient, offer.price)}
+            >
+              <Image
+                source={{ uri: itemImages[offer.ingredient.toLowerCase()] || itemImages.default }}
+                style={styles.modalItemImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.modalButtonText}>
+                Buy {offer.ingredient} for {Math.floor(offer.price / townLevels[currentTown])} gold
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <Text style={styles.modalSubtitle}>Sell Items</Text>
+          {player.inventory
+            .filter((item) =>
+              player.recipes.some((r) => r.name === item.name && (r.type === 'sell' || r.sellValue))
+            )
+            .map((item, index) => {
               const recipe = player.recipes.find((r) => r.name === item.name);
               const demandMultiplier =
-                (towns.find((t) => t.name === currentTown).demand[item.name] || 1.0) *
+                (town.demand[item.name] || 1.0) *
                 (currentEvent?.type === 'festival' ? 1.5 : 1) *
                 (weather.demandBonus[item.name] || 1);
               const price = Math.floor(
-                (recipe.sellValue || recipe.baseGold) *
-                  towns.find((t) => t.name === currentTown).rewardMultiplier *
-                  demandMultiplier
+                (recipe.sellValue || recipe.baseGold) * town.rewardMultiplier * demandMultiplier
               );
               return (
-                <View style={styles.marketItem}>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.modalButton}
+                  onPress={() => sellDrink(item.name)}
+                >
                   <Image
-                    source={itemImages[item.name.toLowerCase().replace(' ', '-')] || itemImages.default}
-                    style={styles.itemImage}
+                    source={{ uri: itemImages[item.name.toLowerCase()] || itemImages.default }}
+                    style={styles.modalItemImage}
                     resizeMode="contain"
                   />
-                  <Text style={styles.marketText}>
-                    {item.name}: {price} Gold
+                  <Text style={styles.modalButtonText}>
+                    Sell {item.name} for {price} gold
                   </Text>
-                  <TouchableOpacity
-                    style={styles.smallButton}
-                    onPress={() => sellDrink(item.name)}
-                  >
-                    <Text style={styles.buttonText}>Sell</Text>
-                  </TouchableOpacity>
-                </View>
+                </TouchableOpacity>
               );
-            }}
-            style={styles.marketList}
-          />
+            })}
           <TouchableOpacity
             style={styles.modalButton}
             onPress={() => toggleModal('market')}
           >
-            <Text style={styles.buttonText}>Close</Text>
+            <Text style={styles.modalButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </Modal>
-
-      {/* Gather Modal */}
-      <Modal
-        isVisible={modals.gather}
-        onBackdropPress={() => toggleModal('gather')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="leaf" size={20} color="#ff6200" /> Gather in {currentTown}
-          </Text>
-          <TouchableOpacity style={styles.modalButton} onPress={gatherSingle}>
-            <Text style={styles.buttonText}>Gather Once (Free)</Text>
-          </TouchableOpacity>
+    );
+  };
+  const renderGatherModal = () => (
+    <Modal
+      isVisible={modals.gather}
+      onBackdropPress={() => toggleModal('gather')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Queue Gathers</Text>
+        <Text style={styles.modalSubtitle}>
+          Cost: 1 gold per gather (Available: {player.gold} gold)
+        </Text>
+        {[1, 5, 10].map((count, index) => (
           <TouchableOpacity
+            key={index}
             style={styles.modalButton}
-            onPress={() => queueGathers(5)}
+            onPress={() => {
+              queueGathers(count);
+              toggleModal('gather');
+            }}
+            disabled={player.gold < count}
           >
-            <Text style={styles.buttonText}>Queue 5 Gathers (5 Gold)</Text>
+            <Text style={styles.modalButtonText}>Queue {count} Gathers</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => queueGathers(10)}
-          >
-            <Text style={styles.buttonText}>Queue 10 Gathers (10 Gold)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('gather')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Combat Modal */}
-      <Modal
-        isVisible={modals.combat}
-        onBackdropPress={() => toggleModal('combat')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="skull" size={20} color="#ff6200" /> Combat
-          </Text>
-          {combatState && (
-            <>
-              <View style={styles.combatContainer}>
-                <View style={styles.combatSide}>
-                  <Text style={styles.combatText}>
-                    Kaito: {combatState.playerHealth}/{player.max_health}
-                  </Text>
-                  <Image
-                    source={avatarImages[player.avatar] || avatarImages.default}
-                    style={styles.combatImage}
-                    resizeMode="cover"
-                  />
-                </View>
-                <View style={styles.combatSide}>
-                  <Text style={styles.combatText}>
-                    {combatState.enemy.name}: {combatState.enemyHealth}/
-                    {combatState.enemy.health}
-                  </Text>
-                  <Image
-                    source={enemyImages[combatState.enemy.name.toLowerCase().replace(' ', '-')]}
-                    style={styles.combatImage}
-                    resizeMode="contain"
-                  />
-                </View>
+        ))}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('gather')}
+        >
+          <Text style={styles.modalButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderCombatModal = () => (
+    <Modal
+      isVisible={modals.combat}
+      onBackdropPress={() => combatResult && toggleModal('combat')}
+      style={styles.modal}
+      backdropOpacity={0.8}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Combat</Text>
+        {combatState && !combatResult && (
+          <>
+            <View style={styles.combatContainer}>
+              <View style={styles.combatant}>
+                <Image
+                  source={{ uri: avatarImages[player.avatar] || avatarImages.default }}
+                  style={styles.combatantImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.combatantText}>
+                  Kaito: {combatState.playerHealth}/{player.max_health} HP
+                </Text>
               </View>
-              <FlatList
-                data={combatState.log.slice(-3)}
-                keyExtractor={(item, index) => index.toString()}
-                renderItem={({ item }) => (
-                  <Text style={styles.combatLog}>{item}</Text>
-                )}
-                style={styles.combatLogList}
-              />
-              {combatResult ? (
-                <Text style={styles.combatResult}>{combatResult.message}</Text>
-              ) : (
-                <>
-                  <FlatList
-                    data={player.skills}
-                    keyExtractor={(skill) => skill.name}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.modalButton}
-                        onPress={() => attackEnemy(item.name)}
-                        disabled={combatState.isAttacking}
-                      >
-                        <Text style={styles.buttonText}>
-                          Use {item.name} (Lv {item.level})
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                    style={styles.skillList}
-                  />
-                  {combatState.playerHealth <= 0 && (
-                    <FlatList
-                      data={player.recipes.filter((r) => r.type === 'heal')}
-                      keyExtractor={(item) => item.name}
-                      renderItem={({ item }) => (
-                        <TouchableOpacity
-                          style={styles.modalButton}
-                          onPress={() => craftPotionInCombat(item.name)}
-                          disabled={combatState.isAttacking}
-                        >
-                          <Text style={styles.buttonText}>
-                            Craft {item.name}
-                          </Text>
-                        </TouchableOpacity>
-                      )}
-                      style={styles.potionList}
-                    />
-                  )}
-                </>
-              )}
-            </>
-          )}
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('combat')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Leaderboard Modal */}
-      <Modal
-        isVisible={modals.leaderboard}
-        onBackdropPress={() => toggleModal('leaderboard')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="star" size={20} color="#ff6200" /> Leaderboard
-          </Text>
+              <Text style={styles.versusText}>VS</Text>
+              <View style={styles.combatant}>
+                <Image
+                  source={{ uri: enemyImages[combatState.enemy.name.toLowerCase()] || itemImages.default }}
+                  style={styles.combatantImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.combatantText}>
+                  {combatState.enemy.name}: {combatState.enemyHealth}/{combatState.enemy.health} HP
+                </Text>
+              </View>
+            </View>
+            <View style={styles.combatLog}>
+              {combatState.log.slice(-3).map((entry, index) => (
+                <Text key={index} style={styles.combatLogText}>
+                  {entry}
+                </Text>
+              ))}
+            </View>
+            {combatState.isAttacking && (
+              <ActivityIndicator size="large" color="#ff6200" style={styles.combatLoading} />
+            )}
+            {!combatState.isAttacking && (
+              <View style={styles.combatActions}>
+                {player.skills.map((skill, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.modalButton}
+                    onPress={() => attackEnemy(skill.name)}
+                    disabled={combatState.isAttacking}
+                  >
+                    <Text style={styles.modalButtonText}>
+                      {skill.name} (Lv {skill.level})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => toggleModal('healing')}
+                  disabled={combatState.isAttacking}
+                >
+                  <Text style={styles.modalButtonText}>Craft Healing Potion</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+        {combatResult && (
+          <View style={styles.combatResult}>
+            <Text style={styles.combatResultText}>{combatResult.message}</Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setCombatState(null);
+                setCombatResult(null);
+                toggleModal('combat');
+              }}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+  const renderLeaderboardModal = () => (
+    <Modal
+      isVisible={modals.leaderboard}
+      onBackdropPress={() => toggleModal('leaderboard')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Leaderboard</Text>
+        {leaderboardData.length === 0 ? (
+          <Text style={styles.emptyText}>No players on the leaderboard!</Text>
+        ) : (
           <FlatList
             data={leaderboardData}
             keyExtractor={(item) => item.wallet_address}
             renderItem={({ item, index }) => (
               <View style={styles.leaderboardItem}>
-                <Text style={styles.leaderboardText}>
-                  {index + 1}. {item.name} (Lv {item.level}, {item.gold} Gold)
+                <Text style={styles.leaderboardRank}>#{index + 1}</Text>
+                <Text style={styles.leaderboardName}>
+                  {item.name || `Player ${item.wallet_address.slice(0, 6)}`}
+                </Text>
+                <Text style={styles.leaderboardStats}>
+                  Level {item.level} | {item.gold} Gold
                 </Text>
               </View>
             )}
-            style={styles.leaderboardList}
           />
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('leaderboard')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Quests Modal */}
-      <Modal
-        isVisible={modals.quests}
-        onBackdropPress={() => toggleModal('quests')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="scroll" size={20} color="#ff6200" /> Active Quests
-          </Text>
-          <FlatList
-            data={player.quests}
-            keyExtractor={(quest) => quest.id}
-            renderItem={({ item }) => (
-              <View style={styles.questItem}>
-                <Text style={styles.questText}>
-                  {item.description} ({item.progress}/{item.target})
-                </Text>
-                <Text style={styles.questReward}>
-                  Reward: {item.reward.gold} Gold, {item.reward.xp} XP
-                </Text>
-                {item.progress >= item.target && (
-                  <TouchableOpacity
-                    style={styles.smallButton}
-                    onPress={() => completeQuest(item.id)}
-                  >
-                    <Text style={styles.buttonText}>Complete</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            style={styles.questList}
-          />
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('quests')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Daily Tasks Modal */}
-      <Modal
-        isVisible={modals.daily}
-        onBackdropPress={() => toggleModal('daily')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="calendar-day" size={20} color="#ff6200" /> Daily Tasks
-          </Text>
-          <FlatList
-            data={player.daily_tasks}
-            keyExtractor={(task) => task.id}
-            renderItem={({ item }) => (
-              <View style={styles.taskItem}>
-                <Text style={styles.taskText}>
-                  {item.description} ({item.progress}/{item.target})
-                </Text>
-                <Text style={styles.taskReward}>
-                  Reward: {item.reward.gold} Gold, {item.reward.xp} XP
-                </Text>
-                {item.progress >= item.target && !item.completed && (
-                  <TouchableOpacity
-                    style={styles.smallButton}
-                    onPress={() => completeDailyTask(item.id)}
-                  >
-                    <Text style={styles.buttonText}>Complete</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-            style={styles.taskList}
-          />
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('daily')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Stats Modal */}
-      <Modal
-        isVisible={modals.stats}
-        onBackdropPress={() => toggleModal('stats')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="chart-bar" size={20} color="#ff6200" /> Player Stats
-          </Text>
-          <Text style={styles.statText}>
-            Enemies Defeated: {player.stats.enemiesDefeated}
-          </Text>
-          <Text style={styles.statText}>
-            Potions Crafted: {player.stats.potionsCrafted}
-          </Text>
-          <Text style={styles.statText}>
-            Items Sold: {player.stats.itemsSold}
-          </Text>
-          <Text style={styles.statText}>Gathers: {player.stats.gathers}</Text>
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('stats')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Community Modal */}
+        )}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('leaderboard')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderQuestsModal = () => (
+    <Modal
+      isVisible={modals.quests}
+      onBackdropPress={() => toggleModal('quests')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Quests</Text>
+        {player.quests.length === 0 ? (
+          <Text style={styles.emptyText}>No active quests!</Text>
+        ) : (
+          player.quests.map((quest, index) => (
+            <View key={index} style={styles.questItem}>
+              <Text style={styles.questText}>
+                {quest.description}: {quest.progress}/{quest.target}
+              </Text>
+              <Text style={styles.questReward}>
+                Reward: {quest.reward.gold} Gold, {quest.reward.xp} XP
+              </Text>
+              {quest.progress >= quest.target && (
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => completeQuest(quest.id)}
+                >
+                  <Text style={styles.modalButtonText}>Complete</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))
+        )}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('quests')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderDailyModal = () => (
+    <Modal
+      isVisible={modals.daily}
+      onBackdropPress={() => toggleModal('daily')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Daily Tasks</Text>
+        {player.daily_tasks.length === 0 ? (
+          <Text style={styles.emptyText}>No daily tasks available!</Text>
+        ) : (
+          player.daily_tasks.map((task, index) => (
+            <View key={index} style={styles.taskItem}>
+              <Text style={styles.taskText}>
+                {task.description}: {task.progress}/{task.target}
+              </Text>
+              <Text style={styles.taskReward}>
+                Reward: {task.reward.gold} Gold, {task.reward.xp} XP
+              </Text>
+              {task.progress >= task.target && !task.completed && (
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => completeDailyTask(task.id)}
+                >
+                  <Text style={styles.modalButtonText}>Claim</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))
+        )}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('daily')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderStatsModal = () => (
+    <Modal
+      isVisible={modals.stats}
+      onBackdropPress={() => toggleModal('stats')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Player Stats</Text>
+        <Text style={styles.statText}>Gathers: {player.stats.gathers}</Text>
+        <Text style={styles.statText}>Items Sold: {player.stats.itemsSold}</Text>
+        <Text style={styles.statText}>Potions Crafted: {player.stats.potionsCrafted}</Text>
+        <Text style={styles.statText}>Enemies Defeated: {player.stats.enemiesDefeated}</Text>
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('stats')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderCommunityModal = () => {
+    const communityEvent = mockCommunityEvent();
+    return (
       <Modal
         isVisible={modals.community}
         onBackdropPress={() => toggleModal('community')}
         style={styles.modal}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="users" size={20} color="#ff6200" /> Community Event
-          </Text>
-          <Text style={styles.eventText}>
-            {mockCommunityEvent().description}
-          </Text>
+          <Text style={styles.modalTitle}>Community Event</Text>
+          <Text style={styles.modalSubtitle}>{communityEvent.description}</Text>
           <TouchableOpacity
             style={styles.modalButton}
-            onPress={mockCommunityEvent().action}
+            onPress={communityEvent.action}
           >
-            <Text style={styles.buttonText}>Contribute 50 Gold</Text>
+            <Text style={styles.modalButtonText}>Contribute 50 Gold</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.modalButton}
             onPress={() => toggleModal('community')}
           >
-            <Text style={styles.buttonText}>Close</Text>
+            <Text style={styles.modalButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </Modal>
-
-      {/* Customize Modal */}
-      <Modal
-        isVisible={modals.customize}
-        onBackdropPress={() => toggleModal('customize')}
-        style={styles.modal}
+    );
+  };
+  const renderCustomizeModal = () => (
+    <Modal
+      isVisible={modals.customize}
+      onBackdropPress={() => toggleModal('customize')}
+      style={styles.modal}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalContent}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContent}
-        >
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-            <View style={styles.modalInner}>
-              <Text style={styles.modalTitle}>
-                <Icon name="user-edit" size={20} color="#ff6200" /> Customize Character
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={customName}
-                onChangeText={setCustomName}
-                placeholder="Enter Name"
-                placeholderTextColor="#888"
-              />
-              <Picker
-                selectedValue={customAvatar}
-                onValueChange={(value) => setCustomAvatar(value)}
-                style={styles.picker}
-              >
-                {Object.keys(avatarImages).map((avatar) => (
-                  <Picker.Item key={avatar} label={avatar} value={avatar} />
-                ))}
-              </Picker>
-              <Picker
-                selectedValue={customTrait}
-                onValueChange={(value) => setCustomTrait(value)}
-                style={styles.picker}
-              >
-                <Picker.Item label="None" value={null} />
-                <Picker.Item label="Warrior" value="warrior" />
-                <Picker.Item label="Craftsman" value="craftsman" />
-                <Picker.Item label="Explorer" value="explorer" />
-              </Picker>
-              <View style={styles.buttonRow}>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={customizeCharacter}
-                >
-                  <Text style={styles.buttonText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={() => toggleModal('customize')}
-                >
-                  <Text style={styles.buttonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* NPC Modal */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Customize Character</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter name"
+              value={customName}
+              onChangeText={setCustomName}
+            />
+            <Text style={styles.modalSubtitle}>Select Avatar</Text>
+            <Picker
+              selectedValue={customAvatar}
+              onValueChange={(value) => setCustomAvatar(value)}
+              style={styles.picker}
+            >
+              {Object.keys(avatarImages).map((avatar, index) => (
+                <Picker.Item key={index} label={avatar} value={avatar} />
+              ))}
+            </Picker>
+            <Text style={styles.modalSubtitle}>Select Trait</Text>
+            <Picker
+              selectedValue={customTrait}
+              onValueChange={(value) => setCustomTrait(value)}
+              style={styles.picker}
+            >
+              <Picker.Item label="None" value={null} />
+              <Picker.Item label="Warrior" value="warrior" />
+              <Picker.Item label="Craftsman" value="craftsman" />
+              <Picker.Item label="Explorer" value="explorer" />
+            </Picker>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={customizeCharacter}
+            >
+              <Text style={styles.modalButtonText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => toggleModal('customize')}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+  const renderNPCModal = () => {
+    const town = towns.find((t) => t.name === currentTown);
+    return (
       <Modal
         isVisible={modals.npc}
-        onBackdropPress={() => toggleModal('npc')}
+        onBackdropPress={() => {
+          setSelectedNPC(null);
+          toggleModal('npc');
+        }}
         style={styles.modal}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="comment" size={20} color="#ff6200" /> NPCs in {currentTown}
-          </Text>
-          <FlatList
-            data={towns.find((t) => t.name === currentTown).npcs}
-            keyExtractor={(npc) => npc.name}
-            renderItem={({ item }) => (
-              <View style={styles.npcItem}>
-                <Text style={styles.npcText}>{item.name}</Text>
-                <Text style={styles.npcDialogue}>{item.dialogue}</Text>
-                <TouchableOpacity
-                  style={styles.smallButton}
-                  onPress={() => {
-                    setSelectedNPC(item);
-                    addQuest(item.quest);
-                    toggleModal('npc');
-                  }}
-                >
-                  <Text style={styles.buttonText}>Accept Quest</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-            style={styles.npcList}
-          />
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('npc')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Travel Modal */}
-      <Modal
-        isVisible={modals.travel}
-        onBackdropPress={() => toggleModal('travel')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="map-signs" size={20} color="#ff6200" /> Travel
-          </Text>
-          {travelDestination ? (
-            <View style={styles.travelLoading}>
-              <ActivityIndicator size="large" color="#ff6200" />
-              <Text style={styles.travelText}>
-                Traveling to {travelDestination}...
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={towns.filter((t) => t.name !== currentTown)}
-              keyExtractor={(town) => town.name}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={() => travel(item.name)}
-                >
-                  <Text style={styles.buttonText}>{item.name}</Text>
-                </TouchableOpacity>
-              )}
-              style={styles.travelList}
-            />
-          )}
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('travel')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Skills Modal */}
-      <Modal
-        isVisible={modals.skills}
-        onBackdropPress={() => toggleModal('skills')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="bolt" size={20} color="#ff6200" /> Skills
-          </Text>
-          {Object.keys(skillTrees).map((tree) => (
-            <View key={tree} style={styles.skillTree}>
-              <Text style={styles.skillTreeTitle}>{tree}</Text>
-              <FlatList
-                data={skillTrees[tree]}
-                keyExtractor={(skill) => skill.name}
-                renderItem={({ item }) => {
-                  const isUnlocked = player.skills.some((s) => s.name === item.name);
-                  return (
-                    <View style={styles.skillItem}>
-                      <Text style={styles.skillText}>
-                        {item.name} (Cost: {item.cost.gold} Gold)
-                      </Text>
-                      {isUnlocked ? (
-                        <Text style={styles.skillLevel}>
-                          Level {player.skills.find((s) => s.name === item.name).level}
-                        </Text>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.smallButton}
-                          onPress={() => unlockSkill(item.name, tree)}
-                        >
-                          <Text style={styles.buttonText}>Unlock</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  );
-                }}
-                style={styles.skillList}
-              />
-            </View>
+          <Text style={styles.modalTitle}>Talk to NPC</Text>
+          {town.npcs.map((npc, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.modalButton}
+              onPress={() => {
+                setSelectedNPC(npc);
+                if (!player.quests.some((q) => q.id === npc.quest.id)) {
+                  addQuest(npc.quest);
+                  setGameMessage(`Accepted quest: ${npc.quest.description}`);
+                }
+              }}
+            >
+              <Text style={styles.modalButtonText}>{npc.name}</Text>
+            </TouchableOpacity>
           ))}
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('skills')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Events Modal */}
-      <Modal
-        isVisible={modals.events}
-        onBackdropPress={() => toggleModal('events')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="calendar-alt" size={20} color="#ff6200" /> Current Events
-          </Text>
-          {currentEvent ? (
-            <View style={styles.eventItem}>
-              <Text style={styles.eventText}>{currentEvent.description}</Text>
-              <Text style={styles.eventTimer}>
-                {formatCountdown(
-                  Math.max(0, Math.floor((eventTimer - Date.now()) / 1000))
-                )}
+          {selectedNPC && (
+            <View style={styles.npcDialogue}>
+              <Text style={styles.npcDialogueText}>{selectedNPC.dialogue}</Text>
+              <Text style={styles.npcQuestText}>
+                Quest: {selectedNPC.quest.description} ({player.quests.find((q) => q.id === selectedNPC.quest.id)?.progress || 0}/{selectedNPC.quest.target})
               </Text>
             </View>
-          ) : (
-            <Text style={styles.eventText}>No active events.</Text>
           )}
           <TouchableOpacity
             style={styles.modalButton}
-            onPress={() => toggleModal('events')}
+            onPress={() => {
+              setSelectedNPC(null);
+              toggleModal('npc');
+            }}
           >
-            <Text style={styles.buttonText}>Close</Text>
+            <Text style={styles.modalButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
       </Modal>
-
-      {/* Guild Modal */}
-      <Modal
-        isVisible={modals.guild}
-        onBackdropPress={() => toggleModal('guild')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="shield-alt" size={20} color="#ff6200" /> Guild
-          </Text>
-          {player.guild ? (
-            <>
-              <Text style={styles.guildText}>
-                Guild: {player.guild.name}
-              </Text>
-              <Text style={styles.guildProgress}>
-                Progress: {player.guild.progress}/{player.guild.target}
-              </Text>
+    );
+  };
+  const renderTravelModal = () => (
+    <Modal
+      isVisible={modals.travel}
+      onBackdropPress={() => toggleModal('travel')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Travel</Text>
+        {travelDestination ? (
+          <>
+            <ActivityIndicator size="large" color="#ff6200" />
+            <Text style={styles.modalSubtitle}>Traveling to {travelDestination}...</Text>
+          </>
+        ) : (
+          <>
+            {towns.map((town, index) => (
               <TouchableOpacity
+                key={index}
                 style={styles.modalButton}
-                onPress={contributeToGuild}
+                onPress={() => travel(town.name)}
+                disabled={town.name === currentTown}
               >
-                <Text style={styles.buttonText}>Contribute 10 Gold</Text>
+                <Text style={styles.modalButtonText}>{town.name}</Text>
               </TouchableOpacity>
-            </>
-          ) : (
-            <FlatList
-              data={['Brewers Guild', 'Warriors Guild', 'Explorers Guild']}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.modalButton}
-                  onPress={() => joinGuild(item)}
-                >
-                  <Text style={styles.buttonText}>Join {item}</Text>
-                </TouchableOpacity>
-              )}
-              style={styles.guildList}
-            />
-          )}
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('guild')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Guide Modal */}
-      <Modal
-        isVisible={modals.guide}
-        onBackdropPress={() => toggleModal('guide')}
-        style={styles.modal}
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>
-            <Icon name="book" size={20} color="#ff6200" /> Game Guide
-          </Text>
-          <Text style={styles.guideText}>
-            Welcome to Kaito's Adventure! Gather ingredients, craft potions, fight enemies, and complete quests to level up. Connect your wallet to save progress.
-          </Text>
-          <Text style={styles.guideText}>
-            - Gather: Collect ingredients in towns.
-            - Craft: Combine ingredients to make potions or equipment.
-            - Combat: Fight enemies to earn gold and XP.
-            - Quests: Complete tasks for rewards.
-            - Market: Buy ingredients and sell crafted items.
-            - Travel: Visit different towns for unique resources.
-          </Text>
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('guide')}
-          >
-            <Text style={styles.buttonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-    </>
+            ))}
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => toggleModal('travel')}
+            >
+              <Text style={styles.modalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+    </Modal>
   );
-
+  const renderSkillsModal = () => (
+    <Modal
+      isVisible={modals.skills}
+      onBackdropPress={() => toggleModal('skills')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Skills</Text>
+        {Object.keys(skillTrees).map((tree, index) => (
+          <View key={index} style={styles.skillTree}>
+            <Text style={styles.skillTreeTitle}>{tree}</Text>
+            {skillTrees[tree].map((skill, idx) => {
+              const isUnlocked = player.skills.some((s) => s.name === skill.name);
+              return (
+                <View key={idx} style={styles.skillItem}>
+                  <Text style={styles.skillText}>
+                    {skill.name} {isUnlocked ? (`Lv ${player.skills.find((s) => s.name === skill.name)?.level || 1}`) : ''}
+                  </Text>
+                  {!isUnlocked && (
+                    <TouchableOpacity
+                      style={styles.modalButton}
+                      onPress={() => unlockSkill(skill.name, tree)}
+                      disabled={player.gold < skill.cost.gold}
+                    >
+                      <Text style={styles.modalButtonText}>
+                        Unlock ({skill.cost.gold} gold)
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        ))}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('skills')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderEventsModal = () => (
+    <Modal
+      isVisible={modals.events}
+      onBackdropPress={() => toggleModal('events')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Events</Text>
+        {currentEvent ? (
+          <View style={styles.eventItem}>
+            <Text style={styles.eventText}>{currentEvent.description}</Text>
+            <Text style={styles.eventTimer}>
+              Ends in: {formatCountdown(Math.floor((eventTimer - Date.now()) / 1000))}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.emptyText}>No active events!</Text>
+        )}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('events')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderGuildModal = () => (
+    <Modal
+      isVisible={modals.guild}
+      onBackdropPress={() => toggleModal('guild')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Guild</Text>
+        {player.guild ? (
+          <>
+            <Text style={styles.modalSubtitle}>
+              {player.guild.name}: {player.guild.progress}/{player.guild.target} Progress
+            </Text>
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={contributeToGuild}
+            >
+              <Text style={styles.modalButtonText}>Contribute 10 Gold</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.modalSubtitle}>Join a Guild</Text>
+            {['Brewers United', 'Iron Vanguard', 'Mist Seekers'].map((guild, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.modalButton}
+                onPress={() => joinGuild(guild)}
+              >
+                <Text style={styles.modalButtonText}>{guild}</Text>
+              </TouchableOpacity>
+            ))}
+          </>
+        )}
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('guild')}
+        >
+          <Text style={styles.modalButtonText}>Close</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+  const renderGuideModal = () => (
+    <Modal
+      isVisible={modals.guide}
+      onBackdropPress={() => toggleModal('guide')}
+      style={styles.modal}
+    >
+      <View style={styles.modalContent}>
+        <Text style={styles.modalTitle}>Welcome to Kaito's Adventure!</Text>
+        <Text style={styles.guideText}>
+          - Gather ingredients in towns to craft potions and equipment.
+          - Sell crafted drinks at the market for gold.
+          - Fight enemies to earn gold and rare drops.
+          - Complete quests from NPCs for rewards.
+          - Upgrade your inventory and skills to progress faster.
+          - Travel between towns for new ingredients and challenges.
+          - Connect your wallet to save your progress!
+        </Text>
+        <TouchableOpacity
+          style={styles.modalButton}
+          onPress={() => toggleModal('guide')}
+        >
+          <Text style={styles.modalButtonText}>Got it!</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
   // ---- Main Render ----
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.flex}
-      >
-        <FlatList
-          data={renderData}
-          renderItem={renderItem}
-          keyExtractor={(item, index) => `${item.type}-${index}`}
-          contentContainerStyle={styles.flatListContent}
-          showsVerticalScrollIndicator={false}
-        />
-        {renderModals()}
-      </KeyboardAvoidingView>
+      <View style={styles.header}>
+        <Text style={styles.headerText}>{gameMessage}</Text>
+        <Text style={styles.weatherText}>Weather: {weather.type}</Text>
+      </View>
+      <FlatList
+  data={renderData}
+  renderItem={renderItem}
+  keyExtractor={(item, index) => `${item.type}-${index}`}
+  contentContainerStyle={styles.flatListContent}
+/>
+      {renderCraftModal()}
+      {renderHealingModal()}
+      {renderMarketModal()}
+      {renderGatherModal()}
+      {renderCombatModal()}
+      {renderLeaderboardModal()}
+      {renderQuestsModal()}
+      {renderDailyModal()}
+      {renderStatsModal()}
+      {renderCommunityModal()}
+      {renderCustomizeModal()}
+      {renderNPCModal()}
+      {renderTravelModal()}
+      {renderSkillsModal()}
+      {renderEventsModal()}
+      {renderGuildModal()}
+      {renderGuideModal()}
     </SafeAreaView>
   );
 };
-
 export default KaitoAdventureScreen;
+
