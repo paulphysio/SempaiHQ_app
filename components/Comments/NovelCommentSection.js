@@ -1,5 +1,4 @@
-// ./components/Comments/NovelCommentSection.js
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   View,
   Text,
@@ -10,9 +9,14 @@ import {
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
+import { Connection, PublicKey } from '@solana/web3.js';
+import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import ConnectButton, { EmbeddedWalletContext } from '../../components/ConnectButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from '../../styles/CommentSectionStyles';
+import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../../constants';
+
+const connection = new Connection(RPC_URL, 'confirmed');
 
 const formatUsername = (username) => {
   if (!username) return 'Anonymous';
@@ -36,7 +40,7 @@ const Comment = ({
   novelTitle,
 }) => {
   const isOwner = comment.user_id === currentUserId;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -110,7 +114,7 @@ const Comment = ({
             <FontAwesome5
               name="reply"
               size={16}
-              color={replyingTo === comment.id ? '#D94F04' : '#fff'}
+              color={replyingTo === comment.id ? '#F36316' : '#fff'}
             />
           </TouchableOpacity>
           {replies.length > 0 && (
@@ -187,7 +191,31 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const MIN_COMMENT_LENGTH = 2;
 
   const isWalletConnected = !!wallet?.publicKey;
-  const activePublicKey = wallet?.publicKey || null;
+  const activePublicKey = wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
+
+  const fetchAmethystBalance = async () => {
+    if (!isWalletConnected || !activePublicKey) {
+      setBalance(0);
+      return;
+    }
+
+    try {
+      const mintAddress = new PublicKey(AMETHYST_MINT_ADDRESS);
+      const ataAddress = getAssociatedTokenAddressSync(mintAddress, activePublicKey);
+      const ataInfo = await connection.getAccountInfo(ataAddress);
+      let balance = 0;
+      if (ataInfo) {
+        const ata = unpackAccount(ataAddress, ataInfo);
+        balance = Number(ata.amount) / 10 ** SMP_DECIMALS;
+      }
+      setBalance(balance);
+    } catch (error) {
+      console.error('Error fetching Amethyst balance:', error);
+      setError('Failed to fetch balance.');
+      setTimeout(() => setError(null), 5000);
+      setBalance(0);
+    }
+  };
 
   useEffect(() => {
     if (!isWalletConnected || !activePublicKey) {
@@ -201,33 +229,16 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
         const { data: user, error: userError } = await supabase
           .from('users')
           .select('id')
-          .eq('wallet_address', activePublicKey)
+          .eq('wallet_address', activePublicKey.toString())
           .single();
 
-        if (userError) {
-          console.error('Error fetching user ID:', userError.message);
-          setError('Failed to load user data.');
-          return;
-        }
+        if (userError) throw userError;
         setCurrentUserId(user.id);
-
-        const { data: walletBalance, error: balanceError } = await supabase
-          .from('wallet_balances')
-          .select('amount')
-          .eq('user_id', user.id)
-          .eq('currency', 'SMP')
-          .eq('chain', 'SOL')
-          .single();
-
-        if (balanceError) {
-          console.error('Error fetching balance:', balanceError.message);
-          setError('Failed to load balance.');
-        } else {
-          setBalance(walletBalance?.amount || 0);
-        }
+        await fetchAmethystBalance();
       } catch (error) {
         console.error('Error fetching user data:', error.message);
         setError('Failed to load user data.');
+        setTimeout(() => setError(null), 5000);
       }
     };
 
@@ -262,6 +273,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
     } catch (error) {
       console.error('Error fetching comments:', error.message);
       setError('Failed to load comments.');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -273,7 +285,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'comments',
           filter: `novel_id=eq.${novelId}`,
@@ -282,14 +294,13 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
+    return () => supabase.removeChannel(subscription);
   }, [novelId]);
 
   const deleteComment = async (commentId) => {
     if (!currentUserId) {
       setError('You must be logged in to delete comments.');
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
@@ -305,6 +316,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
     } catch (error) {
       console.error('Error deleting comment:', error.message);
       setError('Failed to delete comment.');
+      setTimeout(() => setError(null), 5000);
     }
   };
 
@@ -331,11 +343,13 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const handleCommentSubmit = async () => {
     if (!isWalletConnected || !activePublicKey) {
       setError('You must connect a wallet to comment.');
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
     if (!newComment || newComment.length < MIN_COMMENT_LENGTH) {
       setError(`Comment must be at least ${MIN_COMMENT_LENGTH} characters long.`);
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
@@ -344,6 +358,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
       setError(
         `Please wait ${(COMMENT_COOLDOWN - (now - lastCommentTime)) / 1000} seconds before posting again.`
       );
+      setTimeout(() => setError(null), 5000);
       return;
     }
 
@@ -351,14 +366,10 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('id, name, weekly_points, wallet_address')
-        .eq('wallet_address', activePublicKey)
+        .eq('wallet_address', activePublicKey.toString())
         .single();
 
-      if (userError || !user) {
-        console.error('Error fetching user:', userError?.message);
-        setError('Failed to fetch user data.');
-        return;
-      }
+      if (userError || !user) throw new Error('User not found');
 
       const today = new Date().setHours(0, 0, 0, 0);
       const { data: rewardedToday, error: rewardError } = await supabase
@@ -386,7 +397,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
 
       const username =
         user.name ||
-        user.wallet_address.slice(0, 6) + '...' + user.wallet_address.slice(-4);
+        activePublicKey.toString().slice(0, 6) + '...' + activePublicKey.toString().slice(-4);
 
       const { data: insertedComment, error: commentError } = await supabase
         .from('comments')
@@ -411,36 +422,40 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
           .select('user_id')
           .eq('id', replyingTo)
           .single();
-        if (parentComment?.user_id) {
+        if (parentComment?.user_id && parentComment.user_id !== user.id) {
           await sendNotification(
             parentComment.user_id,
-            `${username} replied to your comment on "${novelTitle}".`
+            `${username} replied to your comment on "${novelTitle}".`,
+            'reply'
           );
         }
       }
 
       await sendNotification(
         user.id,
-        `Your comment on "${novelTitle || 'a novel'}" was posted successfully.`
+        `Your comment on "${novelTitle || 'a novel'}" was posted successfully.`,
+        'comment'
       );
 
       if (!hasReachedDailyLimit) {
-        await supabase
-          .from('users')
-          .update({ weekly_points: user.weekly_points + rewardAmount })
-          .eq('id', user.id);
-        await supabase.from('wallet_events').insert([
-          {
-            destination_user_id: user.id,
-            event_type: 'credit',
-            amount_change: rewardAmount,
-            source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-            destination_chain: 'SOL',
-            source_currency: 'Token',
-            event_details: 'comment_reward',
-            wallet_address: user.wallet_address,
-            source_chain: 'SOL',
-          },
+        await Promise.all([
+          supabase
+            .from('users')
+            .update({ weekly_points: user.weekly_points + rewardAmount })
+            .eq('id', user.id),
+          supabase.from('wallet_events').insert([
+            {
+              destination_user_id: user.id,
+              event_type: 'credit',
+              amount_change: rewardAmount,
+              source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
+              destination_chain: 'SOL',
+              source_currency: 'Token',
+              event_details: 'comment_reward',
+              wallet_address: user.wallet_address,
+              source_chain: 'SOL',
+            },
+          ]),
         ]);
       }
 
@@ -452,6 +467,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
     } catch (error) {
       console.error('Error submitting comment:', error.message);
       setError('Failed to post comment.');
+      setTimeout(() => setError(null), 5000);
     }
   };
 

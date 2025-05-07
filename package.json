@@ -47,17 +47,21 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "^0.76.9",
+    "react-native-chart-kit": "^6.12.0",
     "react-native-date-picker": "^5.0.12",
     "react-native-dotenv": "^3.4.11",
     "react-native-draggable-flatlist": "^4.0.2",
+    "react-native-emoji-selector": "^0.2.0",
     "react-native-gesture-handler": "~2.20.2",
     "react-native-get-random-values": "~1.11.0",
+    "react-native-haptic-feedback": "^2.3.3",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-modal": "^13.0.1",
     "react-native-modal-datetime-picker": "^18.0.0",
     "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "4.12.0",
     "react-native-screens": "~4.4.0",
+    "react-native-svg": "^15.11.2",
     "react-native-system-navigation-bar": "^2.6.4",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.13"
@@ -66,25 +70,27 @@
     "@babel/core": "^7.24.0",
     "babel-preset-expo": "~12.0.11"
   },
- "expo": {
-  "doctor": {
-    "reactNativeDirectoryCheck": {
-      "listUnknownPackages": false,
-      "exclude": [
-        "@solana/spl-token",
-        "@solana/web3.js",
-        "bs58",
-        "buffer",
-        "dotenv",
-        "lodash",
-        "metro",
-        "metro-config",
-        "metro-resolver",
-        "react-native-system-navigation-bar",
-        "react-native-vector-icons"
-      ]
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "listUnknownPackages": false,
+        "exclude": [
+          "@solana/spl-token",
+          "@solana/web3.js",
+          "bs58",
+          "buffer",
+          "dotenv",
+          "lodash",
+          "metro",
+          "metro-config",
+          "metro-resolver",
+          "react-native-system-navigation-bar",
+          "react-native-vector-icons",
+          "react-native-chart-kit", 
+          "react-native-emoji-selector"
+        ]
+      }
     }
-  }
-},
+  },
   "private": true
 }

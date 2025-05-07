@@ -4,7 +4,7 @@ export default ({ config }) => ({
   ...config,
   expo: {
     name: 'Sempai HQ',
-    slug: 'sempai-hq',
+    slug: 'sempai-hq-aojja7oohw8hawi7sbv5',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -35,7 +35,7 @@ export default ({ config }) => ({
     web: {
       favicon: './assets/favicon.png',
     },
-    owner: 'physiotelli',
+    owner: 'emily25099',
     plugins: [
       'expo-router',
       [
@@ -51,7 +51,7 @@ export default ({ config }) => ({
       supabaseKey: process.env.SUPABASE_KEY,
       backendWalletKeypair: process.env.BACKEND_WALLET_KEYPAIR, // Added
       eas: {
-        projectId: 'fcc442fa-fa65-46bb-b9bb-9c3a9aea5bd3',
+        projectId: '02683ec0-bf79-4455-89b2-67b9f4ae2b6a',
       },
     },
   },

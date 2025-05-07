@@ -11,42 +11,62 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
-import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from '@solana/web3.js';
-import { createTransferInstruction, getOrCreateAssociatedTokenAccount, getAccount, getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  Keypair,
+  SystemProgram,
+} from '@solana/web3.js';
+import {
+  createTransferInstruction,
+  getOrCreateAssociatedTokenAccount,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  unpackAccount,
+} from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as SecureStore from 'expo-secure-store';
-import { styles } from '../styles/ChapterScreenStyles';
-import { RPC_URL, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, TARGET_WALLET, SMP_DECIMALS, AMETHYST_MINT_ADDRESS } from '../constants';
+import { styles } from '../styles/MangaChapterStyles';
+import {
+  RPC_URL,
+  SMP_MINT_ADDRESS,
+  USDC_MINT_ADDRESS,
+  TARGET_WALLET,
+  SMP_DECIMALS,
+  AMETHYST_MINT_ADDRESS,
+} from '../constants';
 import bs58 from 'bs58';
-import CommentSection from '../components/Comments/CommentSection';
+import MangaCommentSection from '../components/MangaCommentSection';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const MAX_PASSWORD_ATTEMPTS = 3;
 const PASSWORD_ERROR_TIMEOUT = 5000;
 
-const ChapterScreen = () => {
+const MangaChapterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
-  const { novelId, chapterId } = route.params || {};
+  const { mangaId, chapterId } = route.params || {};
   const { wallet } = useContext(EmbeddedWalletContext);
 
-  const [novel, setNovel] = useState(null);
+  const [manga, setManga] = useState(null);
+  const [chapter, setChapter] = useState(null);
+  const [pages, setPages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
-  const [inputNovelId, setInputNovelId] = useState('');
+  const [inputMangaId, setInputMangaId] = useState('');
   const [inputChapterId, setInputChapterId] = useState('');
   const [useInput, setUseInput] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
   const [userId, setUserId] = useState(null);
-  const [advanceInfo, setAdvanceInfo] = useState(null);
-  const [canUnlockNextThree, setCanUnlockNextThree] = useState(false);
-  const [readingMode, setReadingMode] = useState('free');
+  const [isPremium, setIsPremium] = useState(false);
   const [smpBalance, setSmpBalance] = useState(null);
   const [weeklyPoints, setWeeklyPoints] = useState(null);
   const [showTransactionPopup, setShowTransactionPopup] = useState(false);
@@ -59,7 +79,7 @@ const ChapterScreen = () => {
   const [passwordCallback, setPasswordCallback] = useState(null);
   const [passwordAttempts, setPasswordAttempts] = useState(0);
   const [hasReadChapter, setHasReadChapter] = useState(false);
-  const [amethystBalance, setAmethystBalance] = useState(0); // New state for Amethyst balance
+  const [amethystBalance, setAmethystBalance] = useState(0);
   const usdcPrice = 1;
 
   const isWalletConnected = !!wallet?.publicKey;
@@ -110,22 +130,19 @@ const ChapterScreen = () => {
     }
 
     try {
-      const mintAddress = AMETHYST_MINT_ADDRESS;
-      let balance = 0;
-
+      const mintAddress = new PublicKey(AMETHYST_MINT_ADDRESS);
       const ataAddress = getAssociatedTokenAddressSync(mintAddress, new PublicKey(activeWalletAddress));
       const ataInfo = await connection.getAccountInfo(ataAddress);
+      let balance = 0;
       if (ataInfo) {
         const ata = unpackAccount(ataAddress, ataInfo);
-        balance = Number(ata.amount) / 10 ** SMP_DECIMALS; // 6 decimals for Amethyst
+        balance = Number(ata.amount) / 10 ** SMP_DECIMALS;
       }
       setAmethystBalance(balance);
-      console.log(`Amethyst Balance: ${balance}`);
     } catch (error) {
       console.error('Error fetching Amethyst balance:', error);
-      setError('Failed to fetch Amethyst balance. Please try again.');
+      setError('Failed to fetch Amethyst balance.');
       setTimeout(() => setError(null), 5000);
-      setAmethystBalance(0);
     }
   }, [activeWalletAddress]);
 
@@ -174,44 +191,54 @@ const ChapterScreen = () => {
       if (balanceError) throw new Error(`Failed to fetch SMP balance: ${balanceError.message}`);
       setSmpBalance(balanceData?.amount || 0);
 
-      // Fetch Amethyst balance
       await fetchAmethystBalance();
     } catch (error) {
       console.error('Error fetching user balances:', error);
-      setError('Unable to load wallet balances. Please try again.');
+      setError('Unable to load wallet balances.');
       setTimeout(() => setError(null), 5000);
     }
   }, [activeWalletAddress, fetchAmethystBalance]);
 
-  const fetchNovel = useCallback(async (id, chapter) => {
+  const fetchManga = useCallback(async (mangaId, chapterId) => {
     try {
-      const { data, error } = await supabase
-        .from('novels')
-        .select('id, title, chaptertitles, chaptercontents, advance_chapters, user_id')
-        .eq('id', id)
+      const { data: mangaData, error: mangaError } = await supabase
+        .from('manga')
+        .select('id, title, user_id')
+        .eq('id', mangaId)
         .single();
-      if (error) throw new Error(`Failed to fetch novel: ${error.message}`);
-      if (!data) throw new Error('Novel not found');
-      if (!data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
-      setNovel(data);
-      setAdvanceInfo(
-        data.advance_chapters?.find((c) => c.index === parseInt(chapter)) || {
-          is_advance: false,
-          free_release_date: null,
-        }
-      );
+      if (mangaError) throw new Error(`Failed to fetch manga: ${mangaError.message}`);
+
+      const { data: chapterData, error: chapterError } = await supabase
+        .from('manga_chapters')
+        .select('id, chapter_number, title, is_premium')
+        .eq('manga_id', mangaId)
+        .eq('id', chapterId)
+        .single();
+      if (chapterError) throw new Error(`Failed to fetch chapter: ${chapterError.message}`);
+
+      const { data: pagesData, error: pagesError } = await supabase
+        .from('manga_pages')
+        .select('page_number, image_url')
+        .eq('chapter_id', chapterId)
+        .order('page_number', { ascending: true });
+      if (pagesError) throw new Error(`Failed to fetch pages: ${pagesError.message}`);
+
+      setManga(mangaData);
+      setChapter(chapterData);
+      setPages(pagesData || []);
+      setIsPremium(chapterData.is_premium);
     } catch (error) {
-      console.error('Error fetching novel:', error);
-      setError(`Unable to load chapter: ${error.message}`);
+      console.error('Error fetching manga:', error);
+      setError(`Unable to load manga: ${error.message}`);
     } finally {
       setLoading(false);
     }
   }, []);
 
   const checkHasReadChapter = useCallback(async () => {
-    if (!activeWalletAddress || !novel || !chapterId) return;
+    if (!activeWalletAddress || !manga || !chapterId) return;
     try {
-      const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${chapterId}`
+      const eventDetails = `${activeWalletAddress}${manga.title || 'Untitled'}${chapterId}`
         .replace(/[^a-zA-Z0-9]/g, '')
         .substring(0, 255);
       const { data: existingEvents, error } = await supabase
@@ -227,63 +254,47 @@ const ChapterScreen = () => {
       setError('Failed to verify read status.');
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, novel, chapterId]);
+  }, [activeWalletAddress, manga, chapterId]);
 
-  const checkAccess = useCallback(async (userId, novelData, chapterNum) => {
-    if (!novelData || chapterNum === undefined) return;
+  const checkAccess = useCallback(async (userId, mangaData, chapterData) => {
+    if (!mangaData || !chapterData) return;
     try {
-      const advanceInfo = novelData.advance_chapters?.find((c) => c.index === chapterNum) || {
-        is_advance: false,
-        free_release_date: null,
-      };
-
-      // Non-connected users: Allow up to 2 free chapters (indices 0 and 1)
+      // Non-connected users: Allow up to 2 free chapters
       if (!isWalletConnected) {
-        if (chapterNum <= 1) {
+        if (chapterData.chapter_number <= 2) {
           setIsLocked(false);
-          setCanUnlockNextThree(false);
         } else {
           setIsLocked(true);
-          setCanUnlockNextThree(false);
         }
         return;
       }
 
-      // Connected users: All non-advance chapters are free
-      if (
-        !advanceInfo.is_advance ||
-        (advanceInfo.free_release_date && new Date(advanceInfo.free_release_date) <= new Date())
-      ) {
+      // Connected users: Non-premium chapters are free
+      if (!chapterData.is_premium) {
         setIsLocked(false);
-        setCanUnlockNextThree(true);
         return;
       }
 
-      // Connected users: Check advance chapters for unlock status
+      // Connected users: Check if chapter is unlocked
       if (userId) {
         const { data: unlock, error: unlockError } = await supabase
-          .from('unlocked_story_chapters')
-          .select('chapter_unlocked_till, expires_at')
+          .from('unlocked_manga_chapters')
+          .select('chapter_id, expires_at')
           .eq('user_id', userId)
-          .eq('story_id', novelData.id)
+          .eq('manga_id', mangaData.id)
+          .eq('chapter_id', chapterData.id)
           .single();
         if (unlockError && unlockError.code !== 'PGRST116') throw new Error(`Unlock check failed: ${unlockError.message}`);
         if (unlock && (!unlock.expires_at || new Date(unlock.expires_at) > new Date())) {
-          const totalChapters = Object.keys(novelData.chaptercontents || {}).length;
-          if (unlock.chapter_unlocked_till === -1 || (unlock.chapter_unlocked_till >= chapterNum && chapterNum < totalChapters)) {
-            setIsLocked(false);
-            setCanUnlockNextThree(true);
-            return;
-          }
+          setIsLocked(false);
+          return;
         }
       }
 
-      // Advance chapter not unlocked
       setIsLocked(true);
-      setCanUnlockNextThree(true);
     } catch (error) {
       console.error('Error checking access:', error);
-      setError('Failed to verify chapter access. Please try again.');
+      setError('Failed to verify chapter access.');
       setIsLocked(true);
       setTimeout(() => setError(null), 5000);
     }
@@ -321,7 +332,6 @@ const ChapterScreen = () => {
       const keypair = Keypair.fromSecretKey(secretKey);
       transaction.sign(keypair);
       const signature = await connection.sendRawTransaction(transaction.serialize());
-      // Reset password modal state on success
       setShowPasswordModal(false);
       setPassword('');
       setPasswordError(null);
@@ -353,7 +363,7 @@ const ChapterScreen = () => {
       } catch (err) {
         console.error(`Attempt ${attempt} - Transaction confirmation failed:`, err);
         if (attempt === retries) {
-          throw new Error('Failed to confirm transaction after retries. Please check your network or try again later.');
+          throw new Error('Failed to confirm transaction after retries.');
         }
         await new Promise((resolve) => setTimeout(resolve, delay * attempt));
       }
@@ -361,9 +371,7 @@ const ChapterScreen = () => {
   };
 
   const updateTokenBalance = useCallback(async () => {
-    if (!activeWalletAddress || !novel || !chapterId || readingMode !== 'paid') {
-      return;
-    }
+    if (!activeWalletAddress || !manga || !chapterId || !isPremium) return;
     try {
       if (!activePublicKey) throw new Error('No valid public key available.');
       if (!TARGET_WALLET) throw new Error('TARGET_WALLET is not defined.');
@@ -375,40 +383,14 @@ const ChapterScreen = () => {
         throw new Error(`Invalid TARGET_WALLET: ${err.message}`);
       }
 
-      new PublicKey(SMP_MINT_ADDRESS); // Validate SMP_MINT_ADDRESS
+      new PublicKey(SMP_MINT_ADDRESS);
 
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, weekly_points')
         .eq('wallet_address', activeWalletAddress)
         .single();
-      if (userError || !userData) throw new Error(`User not found: ${userError?.message || 'No user data'}`);
-      const user = userData;
-
-      const chapterNum = parseInt(chapterId, 10);
-      const advanceInfo = novel.advance_chapters?.find((c) => c.index === chapterNum) || {
-        is_advance: false,
-        free_release_date: null,
-      };
-      let hasValidAccess =
-        !advanceInfo.is_advance ||
-        (advanceInfo.free_release_date && new Date(advanceInfo.free_release_date) <= new Date());
-      if (advanceInfo.is_advance && !hasValidAccess) {
-        const { data: unlock, error: unlockError } = await supabase
-          .from('unlocked_story_chapters')
-          .select('chapter_unlocked_till, expires_at')
-          .eq('user_id', user.id)
-          .eq('story_id', novelId)
-          .single();
-        if (unlockError && unlockError.code !== 'PGRST116') throw new Error(`Unlock check failed: ${unlockError.message}`);
-        hasValidAccess =
-          unlock &&
-          (!unlock.expires_at || new Date(unlock.expires_at) > new Date()) &&
-          (unlock.chapter_unlocked_till === -1 || unlock.chapter_unlocked_till >= chapterNum);
-        if (!hasValidAccess) {
-          return;
-        }
-      }
+      if (userError || !userData) throw new Error(`User not found: ${userError?.message}`);
 
       const { data: walletBalance, error: balanceError } = await supabase
         .from('wallet_balances')
@@ -416,7 +398,7 @@ const ChapterScreen = () => {
         .eq('wallet_address', activeWalletAddress)
         .eq('currency', 'SMP')
         .single();
-      if (balanceError || !walletBalance) throw new Error(`Wallet balance not found: ${balanceError?.message || 'No balance data'}`);
+      if (balanceError || !walletBalance) throw new Error(`Wallet balance not found: ${balanceError?.message}`);
       if (walletBalance.amount < 1000) throw new Error(`Insufficient SMP balance: ${walletBalance.amount.toLocaleString()} SMP`);
 
       const sourceATA = await getOrCreateAssociatedTokenAccount(
@@ -428,22 +410,21 @@ const ChapterScreen = () => {
       const smpBalanceOnChain = Number((await getAccount(connection, sourceATA.address)).amount) / 10 ** SMP_DECIMALS;
       if (smpBalanceOnChain < 1000) throw new Error(`Insufficient SMP balance on-chain: ${smpBalanceOnChain.toLocaleString()} SMP`);
 
-      const { data: novelOwnerData, error: novelOwnerError } = await supabase
-        .from('novels')
+      const { data: mangaOwnerData, error: mangaOwnerError } = await supabase
+        .from('manga')
         .select('user_id')
-        .eq('id', novel.id)
+        .eq('id', manga.id)
         .single();
-      if (novelOwnerError || !novelOwnerData) throw new Error(`Novel owner not found: ${novelOwnerError?.message || 'No owner data'}`);
-      const novelOwnerId = novelOwnerData.user_id;
+      if (mangaOwnerError || !mangaOwnerData) throw new Error(`Manga owner not found: ${mangaOwnerError?.message}`);
 
-      const { data: novelOwner, error: novelOwnerBalanceError } = await supabase
+      const { data: mangaOwner, error: mangaOwnerBalanceError } = await supabase
         .from('users')
         .select('id, wallet_address, balance')
-        .eq('id', novelOwnerId)
+        .eq('id', mangaOwnerData.user_id)
         .single();
-      if (novelOwnerBalanceError || !novelOwner) throw new Error(`Novel owner balance not found: ${novelOwnerBalanceError?.message || 'No owner balance'}`);
+      if (mangaOwnerBalanceError || !mangaOwner) throw new Error(`Manga owner balance not found: ${mangaOwnerBalanceError?.message}`);
 
-      const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${chapterId}`
+      const eventDetails = `${activeWalletAddress}${manga.title || 'Untitled'}${chapterId}`
         .replace(/[^a-zA-Z0-9]/g, '')
         .substring(0, 255);
       const { data: existingEvents, error: eventError } = await supabase
@@ -501,39 +482,39 @@ const ChapterScreen = () => {
 
       let readerReward = 100;
       const authorReward = 500;
-      const numericBalance = Number(amethystBalance) || 0; // Use Amethyst balance
+      const numericBalance = Number(amethystBalance) || 0;
       if (numericBalance >= 5000000) readerReward = 250;
       else if (numericBalance >= 1000000) readerReward = 200;
       else if (numericBalance >= 500000) readerReward = 170;
       else if (numericBalance >= 250000) readerReward = 150;
       else if (numericBalance >= 100000) readerReward = 120;
 
-      const newReaderBalance = (user.weekly_points || 0) + readerReward;
-      const newAuthorBalance = novelOwner.balance + authorReward;
+      const newReaderBalance = (userData.weekly_points || 0) + readerReward;
+      const newAuthorBalance = mangaOwner.balance + authorReward;
 
       await Promise.all([
         supabase
           .from('users')
           .update({ weekly_points: newReaderBalance })
-          .eq('id', user.id),
-        novelOwner.id !== user.id &&
+          .eq('id', userData.id),
+        mangaOwner.id !== userData.id &&
           supabase
             .from('users')
             .update({ balance: newAuthorBalance })
-            .eq('id', novelOwner.id),
+            .eq('id', mangaOwner.id),
         supabase.from('wallet_balances').upsert([
           {
-            user_id: novelOwner.id,
+            user_id: mangaOwner.id,
             chain: 'SOL',
             currency: 'SMP',
             amount: newAuthorBalance,
             decimals: 0,
-            wallet_address: novelOwner.wallet_address,
+            wallet_address: mangaOwner.wallet_address,
           },
         ]),
         supabase.from('wallet_events').insert([
           {
-            destination_user_id: user.id,
+            destination_user_id: userData.id,
             event_type: 'deposit',
             event_details: eventDetails,
             source_chain: 'SOL',
@@ -544,25 +525,25 @@ const ChapterScreen = () => {
             destination_chain: 'SOL',
           },
           {
-            destination_user_id: novelOwner.id,
+            destination_user_id: mangaOwner.id,
             event_type: 'deposit',
             event_details: eventDetails,
             source_chain: 'SOL',
             source_currency: 'SMP',
             amount_change: authorReward,
-            wallet_address: novelOwner.wallet_address,
+            wallet_address: mangaOwner.wallet_address,
             source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
             destination_chain: 'SOL',
           },
           {
-            destination_user_id: user.id,
+            destination_user_id: userData.id,
             event_type: 'withdrawal',
             event_details: eventDetails,
             source_chain: 'SOL',
             source_currency: 'SMP',
             amount_change: -1000,
             wallet_address: activeWalletAddress,
-            source_user_id: user.id,
+            source_user_id: userData.id,
             destination_chain: 'SOL',
           },
         ]),
@@ -582,16 +563,16 @@ const ChapterScreen = () => {
       );
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, novel, chapterId, readingMode, novelId, activePublicKey, requestPassword, amethystBalance]);
+  }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, requestPassword, amethystBalance]);
 
-  const initiatePayment = async (subscriptionType, currency) => {
+  const initiatePayment = async (currency) => {
     if (!activeWalletAddress || !activePublicKey) {
       setError('Please connect your wallet to proceed.');
       return;
     }
     try {
       await fetchPrices();
-      const usdAmount = subscriptionType === '3CHAPTERS' ? 3 : 15;
+      const usdAmount = 2.5; // Default payment amount for a single chapter
       let amount, decimals, mint, displayAmount;
 
       if (currency === 'SOL') {
@@ -608,7 +589,7 @@ const ChapterScreen = () => {
         displayAmount = (amount / 10 ** decimals).toFixed(2);
       }
 
-      setTransactionDetails({ subscriptionType, currency, amount, displayAmount, decimals, mint });
+      setTransactionDetails({ currency, amount, displayAmount, decimals, mint });
       setShowTransactionPopup(true);
     } catch (error) {
       console.error('Error initiating payment:', error);
@@ -619,7 +600,7 @@ const ChapterScreen = () => {
 
   const confirmPayment = async () => {
     if (!transactionDetails) return;
-    const { subscriptionType, currency, amount, decimals, mint } = transactionDetails;
+    const { currency, amount, decimals, mint } = transactionDetails;
     try {
       let targetPublicKey;
       try {
@@ -661,7 +642,7 @@ const ChapterScreen = () => {
         });
 
         await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-        await processUnlock(subscriptionType, signature, amount / 1_000_000_000, currency);
+        await processUnlock(signature, amount / 1_000_000_000, currency);
       } else {
         const sourceATA = await getOrCreateAssociatedTokenAccount(
           connection,
@@ -692,7 +673,7 @@ const ChapterScreen = () => {
         });
 
         await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-        await processUnlock(subscriptionType, signature, amount / 10 ** decimals, currency);
+        await processUnlock(signature, amount / 10 ** decimals, currency);
       }
     } catch (error) {
       console.error('Error confirming payment:', error);
@@ -709,18 +690,17 @@ const ChapterScreen = () => {
     }
   };
 
-  const processUnlock = async (subscriptionType, signature, amount, currency) => {
+  const processUnlock = async (signature, amount, currency) => {
     try {
-      const response = await fetch('https://sempaihq.xyz/api/unlock-chapter', {
+      const response = await fetch('https://sempaihq.xyz/api/unlock-manga-chapter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
-          story_id: novelId,
-          subscription_type: subscriptionType,
+          manga_id: mangaId,
+          chapter_id: chapterId,
           signature,
           userPublicKey: activeWalletAddress,
-          current_chapter: parseInt(chapterId, 10),
           amount,
           currency,
           solPrice,
@@ -730,17 +710,15 @@ const ChapterScreen = () => {
       const result = await response.json();
       if (response.ok) {
         setIsLocked(false);
-        setSuccessMessage(
-          subscriptionType === 'FULL' ? 'All chapters unlocked!' : `Up to Chapter ${result.chapter_unlocked_till + 1} unlocked.`
-        );
+        setSuccessMessage('Chapter unlocked successfully!');
         setTimeout(() => setSuccessMessage(''), 5000);
-        await checkAccess(userId, novel, parseInt(chapterId, 10));
+        await checkAccess(userId, manga, chapter);
       } else {
-        throw new Error(result.error || 'Failed to unlock chapters.');
+        throw new Error(result.error || 'Failed to unlock chapter.');
       }
     } catch (error) {
       console.error('Error processing unlock:', error);
-      setError(`Failed to unlock chapters: ${error.message}`);
+      setError(`Failed to unlock chapter: ${error.message}`);
       setTimeout(() => setError(null), 5000);
     }
   };
@@ -757,68 +735,69 @@ const ChapterScreen = () => {
     if (hasReadChapter) {
       return;
     }
-    setReadingMode('paid');
     await updateTokenBalance();
   };
 
   useEffect(() => {
-    if (!novelId || !chapterId) {
-      setError('Invalid novel or chapter ID. Please enter values below.');
+    if (!mangaId || !chapterId) {
+      setError('Invalid manga or chapter ID. Please enter values below.');
       setUseInput(true);
       setLoading(false);
       return;
     }
 
     const initialize = async () => {
-      const chapterNum = parseInt(chapterId, 10);
-      // Non-connected users: Allow up to 2 free chapters (indices 0 and 1)
-      if (!isWalletConnected && chapterNum >= 2) {
+      const chapterNum = parseInt(chapter?.chapter_number, 10);
+      if (!isWalletConnected && chapterNum > 2) {
         setError('Connect your wallet to read Chapter 3 and beyond.');
         setLoading(false);
         return;
       }
 
-      // Fetch prices and novel; fetch balances only if wallet is connected
       await Promise.all([
         fetchPrices(),
         isWalletConnected ? fetchUserBalances() : Promise.resolve(),
-        fetchNovel(novelId, chapterId),
+        fetchManga(mangaId, chapterId),
       ]);
     };
     initialize();
-  }, [novelId, chapterId, fetchNovel, fetchUserBalances, fetchPrices, isWalletConnected]);
+  }, [mangaId, chapterId, fetchManga, fetchUserBalances, fetchPrices, isWalletConnected]);
 
   useEffect(() => {
-    if (novel && chapterId) {
-      checkAccess(userId, novel, parseInt(chapterId, 10));
+    if (manga && chapter) {
+      checkAccess(userId, manga, chapter);
       if (isWalletConnected) {
         checkHasReadChapter();
       }
     }
-  }, [novel, userId, chapterId, checkAccess, checkHasReadChapter, isWalletConnected]);
+  }, [manga, chapter, userId, checkAccess, checkHasReadChapter, isWalletConnected]);
 
   useEffect(() => {
-    if (!loading && novel && !isLocked && readingMode === 'paid' && isWalletConnected) {
+    if (!loading && manga && !isLocked && isPremium && isWalletConnected) {
       updateTokenBalance();
     }
-  }, [loading, novel, isLocked, readingMode, updateTokenBalance, isWalletConnected]);
+  }, [loading, manga, isLocked, isPremium, updateTokenBalance, isWalletConnected]);
 
   const handleManualFetch = () => {
-    if (!inputNovelId || !inputChapterId) {
-      setError('Please enter both Novel ID and Chapter ID.');
+    if (!inputMangaId || !inputChapterId) {
+      setError('Please enter both Manga ID and Chapter ID.');
       return;
     }
     setLoading(true);
     setError(null);
     setUseInput(false);
-    fetchNovel(inputNovelId, inputChapterId);
+    fetchManga(inputMangaId, inputChapterId);
   };
 
-  const renderParagraph = useCallback(
+  const renderPage = useCallback(
     ({ item }) => (
-      <Animated.Text entering={FadeIn} style={styles.paragraph}>
-        {item}
-      </Animated.Text>
+      <Animated.View entering={FadeIn} style={styles.pageContainer}>
+        <Image
+          source={{ uri: item.image_url }}
+          style={styles.pageImage}
+          resizeMode="contain"
+        />
+      </Animated.View>
     ),
     []
   );
@@ -826,32 +805,31 @@ const ChapterScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E67E22" />
+        <ActivityIndicator size="large" color="#F36316" />
         <Text style={styles.loadingText}>Loading Chapter...</Text>
       </SafeAreaView>
     );
   }
 
-  if (useInput || (error && (!isWalletConnected && parseInt(chapterId, 10) < 2))) {
+  if (useInput || (error && (!isWalletConnected && chapter?.chapter_number <= 2))) {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Animated.View entering={SlideInDown} exiting={SlideOutDown}>
           <Text style={styles.errorTitle}>{error || 'Missing Parameters'}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Novel ID (UUID)"
+            placeholder="Manga ID (UUID)"
             placeholderTextColor="#888"
-            value={inputNovelId}
-            onChangeText={setInputNovelId}
-            accessibilityLabel="Novel ID input"
+            value={inputMangaId}
+            onChangeText={setInputMangaId}
+            accessibilityLabel="Manga ID input"
           />
           <TextInput
             style={styles.input}
-            placeholder="Chapter ID (e.g., 1)"
+            placeholder="Chapter ID (UUID)"
             placeholderTextColor="#888"
             value={inputChapterId}
             onChangeText={setInputChapterId}
-            keyboardType="numeric"
             accessibilityLabel="Chapter ID input"
           />
           <TouchableOpacity style={styles.actionButton} onPress={handleManualFetch}>
@@ -866,7 +844,7 @@ const ChapterScreen = () => {
     );
   }
 
-  if (!novel || !novel.chaptercontents?.[chapterId]) {
+  if (!manga || !chapter || pages.length === 0) {
     return (
       <SafeAreaView style={styles.errorContainer}>
         <Animated.View entering={SlideInDown} exiting={SlideOutDown}>
@@ -889,25 +867,22 @@ const ChapterScreen = () => {
     );
   }
 
-  const chapterTitle = novel.chaptertitles?.[chapterId] || `Chapter ${chapterId}`;
-  const chapterContent = novel.chaptercontents[chapterId];
-  const paragraphs = chapterContent
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => line.trim());
-  const chapterKeys = Object.keys(novel.chaptercontents || {});
-  const currentIndex = chapterKeys.indexOf(chapterId);
-  const prevChapter = currentIndex > 0 ? chapterKeys[currentIndex - 1] : null;
-  const nextChapter = currentIndex < chapterKeys.length - 1 ? chapterKeys[currentIndex + 1] : null;
-  const releaseDateMessage = advanceInfo?.is_advance && advanceInfo?.free_release_date
-    ? `Locked until ${new Date(advanceInfo.free_release_date).toLocaleString()}`
-    : 'This chapter is locked.';
-  const threeChaptersSol = solPrice ? (3 / solPrice).toFixed(4) : 'N/A';
-  const fullChaptersSol = solPrice ? (15 / solPrice).toFixed(4) : 'N/A';
-  const threeChaptersUsdc = (3 / usdcPrice).toFixed(2);
-  const fullChaptersUsdc = (15 / usdcPrice).toFixed(2);
-  const threeChaptersSmp = smpPrice ? (3 / smpPrice).toFixed(2) : 'N/A';
-  const fullChaptersSmp = smpPrice ? (15 / smpPrice).toFixed(2) : 'N/A';
+  const chapterTitle = chapter.title || `Chapter ${chapter.chapter_number}`;
+  const chapterNum = parseInt(chapter.chapter_number, 10);
+
+  const { data: chaptersData } = supabase
+    .from('manga_chapters')
+    .select('id, chapter_number')
+    .eq('manga_id', mangaId)
+    .order('chapter_number', { ascending: true });
+  const chapterList = chaptersData || [];
+  const currentIndex = chapterList.findIndex((ch) => ch.id === chapterId);
+  const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1]?.id : null;
+  const nextChapter = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1]?.id : null;
+
+  const singleChapterSol = solPrice ? (2.5 / solPrice).toFixed(4) : 'N/A';
+  const singleChapterUsdc = (2.5 / usdcPrice).toFixed(2);
+  const singleChapterSmp = smpPrice ? (2.5 / smpPrice).toFixed(2) : 'N/A';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -915,19 +890,19 @@ const ChapterScreen = () => {
       {isWalletConnected && (
         <Animated.View entering={FadeIn} style={styles.balanceContainer}>
           <View style={styles.balanceItem}>
-            <Icon name="wallet" size={16} color="#E67E22" style={styles.balanceIcon} />
+            <Icon name="wallet" size={16} color="#F36316" style={styles.balanceIcon} />
             <Text style={styles.balanceText}>
               SMP: {smpBalance !== null ? smpBalance.toLocaleString() : 'Loading...'}
             </Text>
           </View>
           <View style={styles.balanceItem}>
-            <Icon name="star" size={16} color="#E67E22" style={styles.balanceIcon} />
+            <Icon name="star" size={16} color="#F36316" style={styles.balanceIcon} />
             <Text style={styles.balanceText}>
               Points: {weeklyPoints !== null ? weeklyPoints.toLocaleString() : 'Loading...'}
             </Text>
           </View>
           <View style={styles.balanceItem}>
-            <Icon name="gem" size={16} color="#E67E22" style={styles.balanceIcon} />
+            <Icon name="gem" size={16} color="#F36316" style={styles.balanceIcon} />
             <Text style={styles.balanceText}>
               Amethyst: {amethystBalance.toFixed(2)}
             </Text>
@@ -944,7 +919,7 @@ const ChapterScreen = () => {
         </Text>
         <TouchableOpacity
           style={styles.headerButton}
-          onPress={() => navigation.navigate('Novel', { novelId })}
+          onPress={() => navigation.navigate('Manga', { mangaId })}
         >
           <Icon name="book" size={20} color="#ffffff" />
         </TouchableOpacity>
@@ -965,7 +940,7 @@ const ChapterScreen = () => {
           <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
           <Text style={styles.lockedSubMessage}>
-            Please connect your wallet to unlock Chapter {parseInt(chapterId, 10) + 1} and beyond.
+            Please connect your wallet to unlock Chapter {chapterNum} and beyond.
           </Text>
           <TouchableOpacity
             style={styles.actionButton}
@@ -978,37 +953,31 @@ const ChapterScreen = () => {
       ) : isLocked && isWalletConnected ? (
         <Animated.View entering={FadeIn} style={styles.lockedContainer}>
           <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
-          <Text style={styles.lockedMessage}>{releaseDateMessage}</Text>
-          <Text style={styles.lockedSubMessage}>Unlock with a Subscription</Text>
+          <Text style={styles.lockedMessage}>This chapter is locked.</Text>
+          <Text style={styles.lockedSubMessage}>Unlock with a Payment</Text>
           <View style={styles.paymentGrid}>
             {[
-              { type: '3CHAPTERS', currency: 'SOL', price: threeChaptersSol, usd: 3 },
-              { type: 'FULL', currency: 'SOL', price: fullChaptersSol, usd: 15 },
-              { type: '3CHAPTERS', currency: 'USDC', price: threeChaptersUsdc, usd: 3 },
-              { type: 'FULL', currency: 'USDC', price: fullChaptersUsdc, usd: 15 },
-              { type: '3CHAPTERS', currency: 'SMP', price: threeChaptersSmp, usd: 3 },
-              { type: 'FULL', currency: 'SMP', price: fullChaptersSmp, usd: 15 },
-            ].map(({ type, currency, price, usd }, index) => (
+              { currency: 'SOL', price: singleChapterSol, usd: 2.5 },
+              { currency: 'USDC', price: singleChapterUsdc, usd: 2.5 },
+              { currency: 'SMP', price: singleChapterSmp, usd: 2.5 },
+            ].map(({ currency, price, usd }, index) => (
               <TouchableOpacity
-                key={`${type}-${currency}`}
+                key={currency}
                 style={[
                   styles.paymentButton,
-                  type === 'FULL' ? styles.fullChaptersButton : styles.threeChaptersButton,
-                  (type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && !price)
-                    ? styles.disabledButton
-                    : null,
+                  (currency !== 'USDC' && !price) ? styles.disabledButton : null,
                 ]}
-                onPress={() => initiatePayment(type, currency)}
-                disabled={(type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && !price)}
+                onPress={() => initiatePayment(currency)}
+                disabled={currency !== 'USDC' && !price}
               >
                 <Icon
-                  name={type === 'FULL' ? 'crown' : 'rocket'}
+                  name="rocket"
                   size={20}
                   color="#ffffff"
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.paymentButtonText}>
-                  {type === 'FULL' ? 'All Chapters' : '3 Chapters'} ({currency})
+                  Unlock Chapter ({currency})
                 </Text>
                 <Text style={styles.paymentPrice}>
                   ${usd} / {price} {currency}
@@ -1019,13 +988,13 @@ const ChapterScreen = () => {
         </Animated.View>
       ) : (
         <FlatList
-          data={paragraphs}
-          renderItem={renderParagraph}
-          keyExtractor={(item, index) => `para-${index}`}
+          data={pages}
+          renderItem={renderPage}
+          keyExtractor={(item) => `page-${item.page_number}`}
           style={styles.contentContainer}
           ListHeaderComponent={
             <>
-              {isWalletConnected && (
+              {isWalletConnected && isPremium && (
                 <Animated.View entering={FadeIn} style={styles.readingOptions}>
                   <TouchableOpacity
                     style={[styles.smpButton, hasReadChapter ? styles.disabledButton : null]}
@@ -1038,7 +1007,7 @@ const ChapterScreen = () => {
                     </Text>
                   </TouchableOpacity>
                   <Text style={styles.readingModeText}>
-                    {readingMode === 'free' ? 'Reading for Free (No Points)' : 'Reading with SMP (Points Earned)'}
+                    {isPremium ? 'Reading with SMP (Points Earned)' : 'Reading for Free (No Points)'}
                   </Text>
                 </Animated.View>
               )}
@@ -1051,7 +1020,7 @@ const ChapterScreen = () => {
                   {prevChapter ? (
                     <TouchableOpacity
                       style={styles.navButton}
-                      onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
+                      onPress={() => navigation.navigate('MangaChapter', { mangaId, chapterId: prevChapter })}
                     >
                       <Icon name="chevron-left" size={16} color="#ffffff" style={styles.buttonIcon} />
                       <Text style={styles.navButtonText}>Previous</Text>
@@ -1061,15 +1030,15 @@ const ChapterScreen = () => {
                   )}
                   <TouchableOpacity
                     style={styles.navButton}
-                    onPress={() => navigation.navigate('Novel', { novelId })}
+                    onPress={() => navigation.navigate('Manga', { mangaId })}
                   >
                     <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
-                    <Text style={styles.navButtonText}>Back to Novel</Text>
+                    <Text style={styles.navButtonText}>Back to Manga</Text>
                   </TouchableOpacity>
                   {nextChapter ? (
                     <TouchableOpacity
                       style={styles.navButton}
-                      onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
+                      onPress={() => navigation.navigate('MangaChapter', { mangaId, chapterId: nextChapter })}
                     >
                       <Text style={styles.navButtonText}>Next</Text>
                       <Icon name="chevron-right" size={16} color="#ffffff" style={styles.buttonIcon} />
@@ -1079,12 +1048,17 @@ const ChapterScreen = () => {
                   )}
                 </View>
               </View>
-              <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10) + 1} />
+              <MangaCommentSection
+                mangaId={mangaId}
+                chapterId={chapterId}
+                isWalletConnected={isWalletConnected}
+                activePublicKey={activePublicKey}
+              />
             </Animated.View>
           }
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={5}
+          initialNumToRender={5}
+          maxToRenderPerBatch={5}
+          windowSize={3}
         />
       )}
 
@@ -1104,14 +1078,14 @@ const ChapterScreen = () => {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Confirm Transaction</Text>
             <Text style={styles.modalSubtitle}>
-              Unlock {transactionDetails?.subscriptionType === '3CHAPTERS' ? '3 chapters' : 'all chapters'} for:
+              Unlock Chapter {chapterNum} for:
             </Text>
             <View style={styles.transactionDetails}>
               <Text style={styles.detailText}>
                 Amount: {transactionDetails?.displayAmount} {transactionDetails?.currency}
               </Text>
               <Text style={styles.detailText}>
-                USD Value: ${transactionDetails?.subscriptionType === '3CHAPTERS' ? '3' : '15'}
+                USD Value: $2.5
               </Text>
               <Text style={styles.detailText}>
                 Wallet: {activeWalletAddress?.slice(0, 6)}...{activeWalletAddress?.slice(-4)}
@@ -1197,4 +1171,4 @@ const ChapterScreen = () => {
   );
 };
 
-export default ChapterScreen;
+export default MangaChapterScreen;

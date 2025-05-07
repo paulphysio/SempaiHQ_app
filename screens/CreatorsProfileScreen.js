@@ -8,14 +8,14 @@ import {
   Linking,
   ActivityIndicator,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Modal from 'react-native-modal';
-import Icon from 'react-native-vector-icons/FontAwesome5';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Changed to MaterialCommunityIcons
 import { supabase } from '../services/supabaseClient';
 import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
-
-console.log('Supabase import:', supabase); // Debug import
+import { styles } from '../styles/CreatorsProfileStyles';
 
 const { width } = Dimensions.get('window');
 
@@ -36,17 +36,16 @@ const CreatorsProfileScreen = () => {
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [showCreatorChoice, setShowCreatorChoice] = useState(false);
+  const editButtonScale = new Animated.Value(1);
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
 
-  // Normalize website URL
   const normalizeWebsiteUrl = (url) => {
     if (!url) return null;
     if (/^https?:\/\//i.test(url)) return url;
     return `https://${url}`;
   };
 
-  // Determine dashboard button props
   const getDashboardButtonProps = () => {
     if (isSuperuser || (isWriter && isArtist)) {
       return { text: 'Creator Dashboard', action: () => setShowCreatorChoice(true) };
@@ -56,6 +55,20 @@ const CreatorsProfileScreen = () => {
       return { text: 'Artist Dashboard', action: () => handleNavigation('MangaDashboard') };
     }
     return { text: 'Creator Dashboard', action: () => handleNavigation('Apply') };
+  };
+
+  const handleEditButtonPressIn = () => {
+    Animated.spring(editButtonScale, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleEditButtonPressOut = () => {
+    Animated.spring(editButtonScale, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
   };
 
   const handleNavigation = (screen, params) => {
@@ -75,8 +88,8 @@ const CreatorsProfileScreen = () => {
   }, [embeddedWallet]);
 
   useEffect(() => {
-    console.log('Route params:', route.params); // Debug log
-    console.log('EmbeddedWallet:', embeddedWallet); // Debug log
+    console.log('Route params:', route.params);
+    console.log('EmbeddedWallet:', embeddedWallet);
 
     const fetchProfileDetails = async () => {
       if (!id) {
@@ -123,6 +136,7 @@ const CreatorsProfileScreen = () => {
 
         if (profileError && profileError.code !== 'PGRST116') console.error('Profile fetch error:', profileError);
 
+        console.log('Fetching novels for user ID:', user.id); // Debug log
         const { data: novelsData, error: novelsError } = await supabase
           .from('novels')
           .select('id, title, image, summary')
@@ -130,8 +144,7 @@ const CreatorsProfileScreen = () => {
 
         if (novelsError) throw new Error(`Novels fetch error: ${novelsError.message}`);
 
-        console.log('Fetched novels:', novelsData); // Debug log for novels
-
+        console.log('Fetched novels:', novelsData);
         setCreatorData({ ...user, ...profile });
         setNovels(novelsData || []);
       } catch (err) {
@@ -147,72 +160,60 @@ const CreatorsProfileScreen = () => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1A1A2E' }}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#F36316" />
       </View>
     );
   }
 
   const dashboardButton = getDashboardButtonProps();
+  const buttonColor = userRole === 'artist' ? '#9333EA' : userRole === 'both' || userRole === 'superuser' ? '#FFD700' : '#F36316';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#1A1A2E' }}>
+    <View style={[styles.container, userRole === 'artist' && styles.containerArtist, (userRole === 'both' || userRole === 'superuser') && styles.containerBoth]}>
       {/* Navbar */}
-      <View style={{ padding: 16, backgroundColor: '#1A1A2E', borderBottomWidth: 1, borderBottomColor: '#444' }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <View style={[styles.navbar, userRole === 'artist' && styles.navbarArtist, (userRole === 'both' || userRole === 'superuser') && styles.navbarBoth]}>
+        <View style={styles.navContainer}>
           <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center' }}
+            style={styles.logoLink}
             onPress={() => handleNavigation('Home')}
             accessibilityLabel="Sempai HQ Home"
           >
-            <Image
-              source={{ uri: 'https://via.placeholder.com/40' }}
-              style={{ width: 40, height: 40, borderRadius: 20 }}
-            />
-            <Text style={{ fontSize: 18, color: '#F36316', fontWeight: 'bold', marginLeft: 8 }}>
+            <Image source={{ uri: 'https://via.placeholder.com/40' }} style={styles.logo} />
+            <Text style={[styles.logoText, userRole === 'artist' && styles.logoTextArtist, (userRole === 'both' || userRole === 'superuser') && styles.logoTextBoth]}>
               Sempai HQ
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={{ padding: 8 }}
+            style={styles.menuToggle}
             onPress={toggleMenu}
             accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
           >
-            <Icon name={menuOpen ? 'times' : 'bars'} size={24} color="#F36316" />
+            <Icon
+              name={menuOpen ? 'close' : 'menu'}
+              size={24}
+              style={[styles.menuToggleIcon, userRole === 'artist' && styles.menuToggleIconArtist, (userRole === 'both' || userRole === 'superuser') && styles.menuToggleIconBoth]}
+            />
           </TouchableOpacity>
         </View>
         {menuOpen && (
-          <View style={{ backgroundColor: '#2a2a2a', borderRadius: 8, padding: 12, marginTop: 8 }}>
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}
-              onPress={() => handleNavigation('Home')}
-              accessibilityLabel="Home"
-            >
+          <View style={[styles.navMenu, userRole === 'artist' && styles.navMenuArtist, (userRole === 'both' || userRole === 'superuser') && styles.navMenuBoth]}>
+            <TouchableOpacity style={styles.navLink} onPress={() => handleNavigation('Home')} accessibilityLabel="Home">
               <Icon name="home" size={20} color="#fff" />
-              <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                Home
-              </Text>
+              <Text style={styles.navText}>Home</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}
-              onPress={() => handleNavigation('Swap')}
-              accessibilityLabel="Swap"
-            >
-              <Icon name="exchange-alt" size={20} color="#fff" />
-              <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                Swap
-              </Text>
+            <TouchableOpacity style={styles.navLink} onPress={() => handleNavigation('Swap')} accessibilityLabel="Swap">
+              <Icon name="swap-horizontal" size={20} color="#fff" />
+              <Text style={styles.navText}>Swap</Text>
             </TouchableOpacity>
             {isOwnProfile && (
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8 }}
+                style={styles.navLink}
                 onPress={() => handleNavigation('EditProfile')}
                 accessibilityLabel="Edit Profile"
               >
-                <Icon name="edit" size={20} color="#fff" />
-                <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                  Edit Profile
-                </Text>
+                <Icon name="pencil" size={20} color="#fff" />
+                <Text style={styles.navText}>Edit Profile</Text>
               </TouchableOpacity>
             )}
             <ConnectButton />
@@ -221,181 +222,133 @@ const CreatorsProfileScreen = () => {
       </View>
 
       {/* Main Content */}
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <View style={{ padding: 16, backgroundColor: '#F36316', borderRadius: 8, marginBottom: 16 }}>
-          <Text style={{ fontSize: 24, color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
+      <ScrollView contentContainerStyle={styles.main}>
+        <View style={[styles.header, userRole === 'artist' && styles.headerArtist, (userRole === 'both' || userRole === 'superuser') && styles.headerBoth]}>
+          <Text style={styles.title}>
             <Icon name="rocket" size={24} color="#fff" /> Creator’s Nexus
           </Text>
         </View>
 
         {error ? (
-          <View style={{ alignItems: 'center', padding: 16, backgroundColor: 'rgba(255, 69, 69, 0.1)', borderRadius: 8 }}>
-            <Text style={{ fontSize: 18, color: '#FF4545', textAlign: 'center', marginBottom: 16 }}>
-              {error}
-            </Text>
+          <View style={styles.errorContainer}>
+            <Text style={styles.error}>{error}</Text>
             <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F36316', padding: 12, borderRadius: 8 }}
+              style={styles.novelButton}
               onPress={() => handleNavigation('Home')}
               accessibilityLabel="Go to Home"
             >
               <Icon name="home" size={16} color="#fff" />
-              <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                Go to Home
-              </Text>
+              <Text style={styles.novelButtonText}>Go to Home</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
             {/* Profile Card */}
-            <View style={{ backgroundColor: '#2a2a2a', borderRadius: 8, padding: 16, marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View style={[styles.profileCard, userRole === 'artist' && styles.profileCardArtist, (userRole === 'both' || userRole === 'superuser') && styles.profileCardBoth]}>
+              <View style={styles.profileHeader}>
                 <Image
                   source={{ uri: creatorData?.image || 'https://via.placeholder.com/80' }}
-                  style={{ width: 80, height: 80, borderRadius: 40, marginRight: 12 }}
+                  style={styles.profileIcon}
                 />
-                <Text style={{ fontSize: 20, color: '#fff', fontWeight: 'bold' }}>
+                <Text style={styles.sectionTitle}>
                   {creatorData?.name || creatorData?.wallet_address?.slice(0, 8) || 'Unknown'}
                 </Text>
               </View>
-              <Text style={{ fontSize: 16, color: '#fff', opacity: 0.8, marginBottom: 12 }}>
-                {creatorData?.bio || 'No bio provided.'}
-              </Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 12 }}>
+              <Text style={styles.bio}>{creatorData?.bio || 'No bio provided.'}</Text>
+              <View style={styles.socials}>
                 {creatorData?.twitter && (
                   <TouchableOpacity
                     onPress={() => Linking.openURL(`https://x.com/${creatorData.twitter}`)}
-                    style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
+                    style={styles.socialLink}
                     accessibilityLabel={`X: ${creatorData.twitter}`}
                   >
-                    <Icon name="x" size={20} color="#1DA1F2" />
-                    <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8 }}>
-                      @{creatorData.twitter}
-                    </Text>
+                    <Icon name="twitter" size={20} color="#1DA1F2" />
+                    <Text style={styles.socialText}>@{creatorData.twitter}</Text>
                   </TouchableOpacity>
                 )}
                 {creatorData?.discord && (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+                  <View style={styles.socialLink}>
                     <Icon name="discord" size={20} color="#5865F2" />
-                    <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8 }}>
-                      {creatorData.discord}
-                    </Text>
+                    <Text style={styles.socialText}>{creatorData.discord}</Text>
                   </View>
                 )}
                 {creatorData?.website && (
                   <TouchableOpacity
                     onPress={() => Linking.openURL(normalizeWebsiteUrl(creatorData.website))}
-                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                    style={styles.socialLink}
                     accessibilityLabel="Website"
                   >
-                    <Icon name="globe" size={20} color="#F36316" />
-                    <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8 }}>
-                      Website
-                    </Text>
+                    <Icon name="web" size={20} color={buttonColor} />
+                    <Text style={styles.socialText}>Website</Text>
                   </TouchableOpacity>
                 )}
               </View>
-              <Text style={{ fontSize: 16, color: '#fff', opacity: 0.7 }}>
+              <Text style={styles.walletInfo}>
                 <Icon name="wallet" size={16} color="#fff" /> {creatorData?.wallet_address?.slice(0, 8) || 'N/A'}...
               </Text>
             </View>
 
             {/* Novels Section */}
-            <View style={{ marginBottom: 16 }}>
-              <Text style={{ fontSize: 20, color: '#fff', fontWeight: 'bold', marginBottom: 8 }}>
-                <Icon name="book" size={20} color="#F36316" /> Creations
+            <View style={styles.novelsSection}>
+              <Text style={styles.sectionTitle}>
+                <Icon name="book" size={20} color={buttonColor} /> Creations
               </Text>
               {novels.length > 0 ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                <View style={styles.novelGrid}>
                   {novels.map((novel) => {
-                    console.log('Novel ID:', novel.id); // Debug log
+                    console.log('Novel ID:', novel.id);
                     return (
-                      <View
-                        key={novel.id}
-                        style={{
-                          width: width < 360 ? '100%' : (width - 48) / 2,
-                          backgroundColor: '#2a2a2a',
-                          borderRadius: 8,
-                          padding: 12,
-                          marginBottom: 16,
-                        }}
-                      >
+                      <View key={novel.id} style={styles.novelCard}>
                         <Image
                           source={{ uri: novel.image || 'https://via.placeholder.com/80x120' }}
-                          style={{ width: '100%', height: 120, borderRadius: 8, marginBottom: 8 }}
+                          style={styles.novelImage}
                         />
-                        <Text style={{ fontSize: 18, color: '#fff', fontWeight: 'bold', marginBottom: 4 }}>
-                          {novel.title || 'Untitled'}
-                        </Text>
-                        <Text style={{ fontSize: 14, color: '#fff', opacity: 0.7, marginBottom: 8 }}>
+                        <Text style={styles.novelTitle}>{novel.title || 'Untitled'}</Text>
+                        <Text style={styles.novelSummary}>
                           {(novel.summary || 'No summary available.').slice(0, 100)}...
                         </Text>
                         <TouchableOpacity
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            backgroundColor: '#F36316',
-                            padding: 10,
-                            borderRadius: 8,
-                          }}
-                          onPress={() => handleNavigation('Novel', { id: novel.id })} // Changed novelId to id
+                          style={[styles.novelButton, { backgroundColor: buttonColor }]}
+                          onPress={() => handleNavigation('Novel', { id: novel.id })}
                           accessibilityLabel={`Read more about ${novel.title || 'this novel'}`}
                         >
                           <Icon name="book" size={16} color="#fff" />
-                          <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                            Read More
-                          </Text>
+                          <Text style={styles.novelButtonText}>Read More</Text>
                         </TouchableOpacity>
                       </View>
                     );
                   })}
                 </View>
               ) : (
-                <Text style={{ fontSize: 16, color: '#fff', opacity: 0.7, textAlign: 'center' }}>
-                  No creations yet.
-                </Text>
+                <Text style={styles.placeholder}>No creations yet.</Text>
               )}
             </View>
 
             {/* Profile Actions */}
             {isOwnProfile && (
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={styles.profileActions}>
+                <Animated.View style={{ flex: 1, transform: [{ scale: editButtonScale }] }}>
+                  <TouchableOpacity
+                    style={[styles.navButton, { backgroundColor: buttonColor, marginRight: 8 }]}
+                    onPress={() => handleNavigation('EditProfile')}
+                    onPressIn={handleEditButtonPressIn}
+                    onPressOut={handleEditButtonPressOut}
+                    accessibilityLabel="Edit Profile"
+                  >
+                    <Image
+                      source={{ uri: creatorData?.image || 'https://via.placeholder.com/40' }}
+                      style={styles.editProfileIcon}
+                    />
+                    <Text style={styles.navButtonText}>Edit Profile</Text>
+                  </TouchableOpacity>
+                </Animated.View>
                 <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#F36316',
-                    padding: 12,
-                    borderRadius: 8,
-                    marginRight: 8,
-                  }}
-                  onPress={() => handleNavigation('EditProfile')}
-                  accessibilityLabel="Edit Profile"
-                >
-                  <Image
-                    source={{ uri: creatorData?.image || 'https://via.placeholder.com/40' }}
-                    style={{ width: 40, height: 40, borderRadius: 20 }}
-                  />
-                  <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                    Edit Profile
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    backgroundColor: '#F36316',
-                    padding: 12,
-                    borderRadius: 8,
-                  }}
+                  style={[styles.navButton, { backgroundColor: buttonColor }]}
                   onPress={dashboardButton.action}
                   accessibilityLabel={dashboardButton.text}
                 >
                   <Icon name="rocket" size={16} color="#fff" />
-                  <Text style={{ fontSize: 16, color: '#fff', marginLeft: 8, fontWeight: '600' }}>
-                    {dashboardButton.text}
-                  </Text>
+                  <Text style={styles.navButtonText}>{dashboardButton.text}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -407,42 +360,36 @@ const CreatorsProfileScreen = () => {
       <Modal
         isVisible={showCreatorChoice}
         onBackdropPress={() => setShowCreatorChoice(false)}
-        style={{ justifyContent: 'center', margin: 0 }}
+        style={styles.modal}
       >
-        <View style={{ backgroundColor: '#2a2a2a', borderRadius: 8, padding: 16, marginHorizontal: 20 }}>
+        <View style={[styles.creatorChoicePopup, userRole === 'artist' && styles.creatorChoicePopupArtist, (userRole === 'both' || userRole === 'superuser') && styles.creatorChoicePopupBoth]}>
           <TouchableOpacity
-            style={{ position: 'absolute', top: 8, right: 8 }}
+            style={styles.closePopupButton}
             onPress={() => setShowCreatorChoice(false)}
             accessibilityLabel="Close dashboard choice"
           >
-            <Icon name="times" size={20} color="#fff" />
+            <Icon name="close" size={20} color="#fff" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, color: '#fff', fontWeight: 'bold', textAlign: 'center', marginBottom: 12 }}>
-            Choose Your Dashboard
-          </Text>
-          <Text style={{ fontSize: 16, color: '#fff', opacity: 0.8, textAlign: 'center', marginBottom: 16 }}>
+          <Text style={styles.popupTitle}>Choose Your Dashboard</Text>
+          <Text style={styles.popupMessage}>
             You have multiple creator roles. Which dashboard would you like to access?
           </Text>
           <View style={{ marginBottom: 8 }}>
             <TouchableOpacity
-              style={{ backgroundColor: '#F36316', padding: 12, borderRadius: 8, alignItems: 'center' }}
+              style={[styles.choiceButton, { backgroundColor: buttonColor }]}
               onPress={() => handleCreatorChoice('NovelDashboard')}
               accessibilityLabel="Novel Creators Dashboard"
             >
-              <Text style={{ fontSize: 16, color: '#fff', fontWeight: '600' }}>
-                Novel Creators Dashboard
-              </Text>
+              <Text style={styles.choiceButtonText}>Novel Creators Dashboard</Text>
             </TouchableOpacity>
           </View>
           <View>
             <TouchableOpacity
-              style={{ backgroundColor: '#F36316', padding: 12, borderRadius: 8, alignItems: 'center' }}
+              style={[styles.choiceButton, { backgroundColor: buttonColor }]}
               onPress={() => handleCreatorChoice('MangaDashboard')}
               accessibilityLabel="Manga Creators Dashboard"
             >
-              <Text style={{ fontSize: 16, color: '#fff', fontWeight: '600' }}>
-                Manga Creators Dashboard
-              </Text>
+              <Text style={styles.choiceButtonText}>Manga Creators Dashboard</Text>
             </TouchableOpacity>
           </View>
         </View>

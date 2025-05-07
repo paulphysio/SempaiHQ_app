@@ -24,7 +24,7 @@ const { width, height } = Dimensions.get('window');
 
 const Home = () => {
   const navigation = useNavigation();
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
 
   // State for UI and data
   const [menuOpen, setMenuOpen] = useState(false);
@@ -37,9 +37,8 @@ const Home = () => {
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [publicKey, setPublicKey] = useState(null);
-  const [userId, setUserId] = useState(null); // User ID for profile navigation
+  const [userId, setUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [isWriter, setIsWriter] = useState(false);
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
@@ -139,21 +138,45 @@ const Home = () => {
   useEffect(() => {
     const syncWallet = async () => {
       try {
-        if (wallet?.publicKey) {
+        if (wallet?.publicKey && isWalletConnected) {
           console.log('Wallet publicKey:', wallet.publicKey);
           setPublicKey(wallet.publicKey);
-          setIsWalletConnected(true);
           await AsyncStorage.setItem('walletAddress', wallet.publicKey);
 
-          // Fetch user ID and roles
           const { data: user, error: userError } = await supabase
             .from('users')
             .select('id, isWriter, isArtist, isSuperuser')
             .eq('wallet_address', wallet.publicKey)
             .single();
 
-          if (userError) throw new Error(`User fetch error: ${userError.message}`);
-          if (user && isMounted.current) {
+          if (userError) {
+            if (userError.code === 'PGRST116') {
+              console.log('No user found, creating new user...');
+              const newReferralCode = `${wallet.publicKey.slice(0, 4)}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+              const { data: newUser, error: insertError } = await supabase
+                .from('users')
+                .insert({
+                  name: 'DefaultUser',
+                  wallet_address: wallet.publicKey,
+                  isWriter: false,
+                  isArtist: false,
+                  isSuperuser: false,
+                  referral_code: newReferralCode,
+                  has_updated_profile: false,
+                })
+                .select('id, isWriter, isArtist, isSuperuser')
+                .single();
+
+              if (insertError) throw new Error(`Failed to create user: ${insertError.message}`);
+              console.log('New user created:', newUser);
+              setUserId(newUser.id);
+              setIsWriter(newUser.isWriter || false);
+              setIsArtist(newUser.isArtist || false);
+              setIsSuperuser(newUser.isSuperuser || false);
+            } else {
+              throw new Error(`User fetch error: ${userError.message}`);
+            }
+          } else if (user && isMounted.current) {
             console.log('User fetched:', { id: user.id, isWriter: user.isWriter, isArtist: user.isArtist });
             setUserId(user.id);
             setIsWriter(user.isWriter || false);
@@ -165,17 +188,22 @@ const Home = () => {
           if (key && isMounted.current) {
             console.log('AsyncStorage walletAddress:', key);
             setPublicKey(key);
-            setIsWalletConnected(true);
 
-            // Fetch user ID and roles
             const { data: user, error: userError } = await supabase
               .from('users')
               .select('id, isWriter, isArtist, isSuperuser')
               .eq('wallet_address', key)
               .single();
 
-            if (userError) throw new Error(`User fetch error: ${userError.message}`);
-            if (user && isMounted.current) {
+            if (userError) {
+              if (userError.code === 'PGRST116') {
+                console.log('No user found for wallet, skipping...');
+                setPublicKey(null);
+                setUserId(null);
+              } else {
+                throw new Error(`User fetch error: ${userError.message}`);
+              }
+            } else if (user && isMounted.current) {
               console.log('User fetched:', { id: user.id, isWriter: user.isWriter, isArtist: user.isArtist });
               setUserId(user.id);
               setIsWriter(user.isWriter || false);
@@ -183,7 +211,6 @@ const Home = () => {
               setIsSuperuser(user.isSuperuser || false);
             }
           } else {
-            setIsWalletConnected(false);
             setPublicKey(null);
             setUserId(null);
             setIsWriter(false);
@@ -197,15 +224,17 @@ const Home = () => {
       }
     };
     syncWallet();
-  }, [wallet]);
+  }, [wallet, isWalletConnected]);
 
   // Fetch announcements
   useEffect(() => {
     const fetchAnnouncements = async () => {
-      if (!publicKey) return;
+      if (!publicKey || !userId) {
+        console.log('No userId or publicKey, skipping announcements fetch');
+        return;
+      }
       try {
         let novelIds = [];
-        let userId = null;
         let isWriter = false;
         let isArtist = false;
 
@@ -217,7 +246,6 @@ const Home = () => {
 
         if (userError) throw new Error(`User fetch error: ${userError.message}`);
         if (user) {
-          userId = user.id;
           isWriter = user.isWriter;
           isArtist = user.isArtist;
 
@@ -298,25 +326,20 @@ const Home = () => {
       }
     };
     fetchAnnouncements();
-  }, [publicKey]);
+  }, [publicKey, userId]);
 
   // Fetch notifications
   useEffect(() => {
     const fetchNotifications = async () => {
-      if (!publicKey) return;
+      if (!publicKey || !userId) {
+        console.log('No userId or publicKey, skipping notifications fetch');
+        return;
+      }
       try {
-        const { data: user, error: userError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('wallet_address', publicKey)
-          .single();
-
-        if (userError) throw new Error(`User fetch error: ${userError.message}`);
-
         const { data: notificationsData, error: notificationsError } = await supabase
           .from('notifications')
           .select('id, novel_id, message, novel_title, is_read, created_at')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
         if (notificationsError) throw new Error(`Notifications fetch error: ${notificationsError.message}`);
@@ -333,11 +356,11 @@ const Home = () => {
       }
     };
     fetchNotifications();
-  }, [publicKey]);
+  }, [publicKey, userId]);
 
   // Fetch novels
   useEffect(() => {
-    const fetchNovels = async () => {
+    const fetchNovel = async () => {
       setLoading(true);
       try {
         const { data: novelsData, error } = await supabase
@@ -403,7 +426,7 @@ const Home = () => {
         }
       }
     };
-    fetchNovels();
+    fetchNovel();
   }, []);
 
   // Fetch manga
@@ -413,11 +436,16 @@ const Home = () => {
       try {
         const { data: mangaData, error } = await supabase
           .from('manga')
-          .select('id, title, cover_image, summary, user_id, status, tags')
+          .select('id, title, cover_image, summary, user_id, status, tags, viewers_count')
           .in('status', ['ongoing', 'completed'])
           .limit(5);
 
         if (error) throw new Error(`Manga fetch error: ${error.message}`);
+        if (!mangaData || mangaData.length === 0) {
+          console.log('No manga data found');
+          setManga([]);
+          return;
+        }
 
         const userIds = mangaData.map(manga => manga.user_id).filter(id => id);
         const { data: usersData, error: usersError } = await supabase
@@ -439,7 +467,8 @@ const Home = () => {
         if (interactionsError) throw new Error(`Interactions fetch error: ${interactionsError.message}`);
 
         const viewerCounts = interactionsData.reduce((acc, interaction) => {
-          acc[interaction.manga_id] = (acc[interaction.manga_id] || 0) + 1;
+          if (!acc[interaction.manga_id]) acc[interaction.manga_id] = new Set();
+          acc[interaction.manga_id].add(interaction.user_id);
           return acc;
         }, {});
 
@@ -459,11 +488,12 @@ const Home = () => {
         const enrichedManga = mangaData.map(manga => {
           const ratings = ratingsMap[manga.id] || [];
           const averageRating = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
+          const uniqueViewers = viewerCounts[manga.id] ? viewerCounts[manga.id].size : 0;
           return {
             ...manga,
             image: manga.cover_image,
             writer: usersMap[manga.user_id] || { name: 'Unknown', isArtist: false },
-            viewers: viewerCounts[manga.id] || 0,
+            viewers: manga.viewers_count || uniqueViewers || 0,
             averageRating: averageRating.toFixed(1),
             isAdult: manga.tags && manga.tags.includes('Adult(18+)'),
           };
@@ -471,6 +501,12 @@ const Home = () => {
 
         if (isMounted.current) {
           setManga(enrichedManga);
+          console.log('Enriched Manga:', enrichedManga.map(m => ({
+            title: m.title,
+            writerName: m.writer.name,
+            isArtist: m.writer.isArtist,
+            user_id: m.user_id,
+          })));
         }
       } catch (err) {
         console.error('fetchManga error:', err.message);
@@ -544,18 +580,10 @@ const Home = () => {
   // Mark notifications as read
   const markNotificationsRead = async () => {
     try {
-      const { data: user, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('wallet_address', publicKey)
-        .single();
-
-      if (userError) throw userError;
-
       const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .in('id', notifications.filter(n => !n.is_read).map(n => n.id));
 
       if (error) throw error;
@@ -575,15 +603,16 @@ const Home = () => {
     navigation.navigate(path, params);
   };
 
-  // Profile navigation with wallet check
+  // Profile/Edit Profile navigation with wallet check
   const handleProfileNavigation = () => {
     if (!isWalletConnected || !userId) {
-      Alert.alert('Wallet Required', 'Please connect your wallet to view your profile.', [
+      Alert.alert('Wallet Required', 'Please connect your wallet to view or edit your profile.', [
         { text: 'OK', onPress: () => {} },
       ]);
       return;
     }
-    handleNavigation('CreatorsProfile', { id: userId });
+    const hasRole = isWriter || isArtist || isSuperuser;
+    handleNavigation(hasRole ? 'CreatorsProfile' : 'EditProfile', { id: userId });
   };
 
   // Dashboard navigation
@@ -629,9 +658,9 @@ const Home = () => {
   const renderCarouselItem = ({ item, type }) => {
     console.log(`Rendering ${type}:`, {
       title: item.title,
-      writerName: item.writer.name,
-      isArtist: item.writer.isArtist,
-      isWriter: item.writer.isWriter,
+      writerName: item.writer?.name || 'Unknown',
+      isArtist: item.writer?.isArtist || false,
+      isWriter: item.writer?.isWriter || false,
       userId: item.user_id,
     });
     return (
@@ -647,11 +676,26 @@ const Home = () => {
             style={styles.contentImage}
             defaultSource={{ uri: 'https://via.placeholder.com/260x200' }}
           />
+          <View style={styles.contentOverlay}>
+            <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={styles.contentSummary} numberOfLines={2}>
+              {item.summary || 'No summary available.'}
+            </Text>
+            {item.isAdult && <Text style={styles.adultWarning}>Adult(18+)</Text>}
+            <View style={styles.contentStats}>
+              <Text style={styles.viewers}>
+                <FontAwesome5 name="eye" size={14} color="#fff" /> {item.viewers}
+              </Text>
+              <Text style={styles.rating}>
+                <FontAwesome5 name="star" size={14} color="#ffd700" /> {item.averageRating}
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
-        {item.writer[type === 'novel' ? 'isWriter' : 'isArtist'] && (
+        {(type === 'novel' ? item.writer?.isWriter : item.writer?.isArtist) && item.writer?.name !== 'Unknown' && (
           <TouchableOpacity
             style={styles.writerName}
-            onPress={() => navigation.navigate('CreatorsProfile', { id: item.user_id })}
+            onPress={() => item.user_id && navigation.navigate('CreatorsProfile', { id: item.user_id })}
             accessible={true}
             accessibilityLabel={`View profile of ${item.writer.name}`}
             accessibilityHint={`Navigate to ${type === 'novel' ? 'writer' : 'artist'} profile`}
@@ -660,21 +704,6 @@ const Home = () => {
             <Text style={styles.writerNameText}>{item.writer.name}</Text>
           </TouchableOpacity>
         )}
-        <View style={styles.contentOverlay}>
-          <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
-          <Text style={styles.contentSummary} numberOfLines={2}>
-            {item.summary || 'No summary available.'}
-          </Text>
-          {item.isAdult && <Text style={styles.adultWarning}>Adult(18+)</Text>}
-          <View style={styles.contentStats}>
-            <Text style={styles.viewers}>
-              <FontAwesome5 name="eye" size={14} color="#fff" /> {item.viewers}
-            </Text>
-            <Text style={styles.rating}>
-              <FontAwesome5 name="star" size={14} color="#ffd700" /> {item.averageRating}
-            </Text>
-          </View>
-        </View>
       </View>
     );
   };
@@ -986,7 +1015,12 @@ const Home = () => {
             { path: 'Home', icon: 'home', label: 'Home' },
             { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
             { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
-            { path: 'CreatorsProfile', icon: 'user', label: 'Profile', onPress: handleProfileNavigation },
+            {
+              path: isWriter || isArtist || isSuperuser ? 'CreatorsProfile' : 'EditProfile',
+              icon: 'user',
+              label: isWriter || isArtist || isSuperuser ? 'Profile' : 'Edit Profile',
+              onPress: handleProfileNavigation,
+            },
             { path: 'Chat', icon: 'comments', label: 'Chat' },
             { path: 'KaitoAdventure', icon: 'gamepad', label: 'Kaito’s Adventure' },
             { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },

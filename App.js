@@ -3,13 +3,17 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import {
+  Platform
+} from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { EmbeddedWalletProvider } from './components/ConnectButton';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './services/supabaseClient';
 import HomeScreen from './screens/HomeScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NovelDetailScreen from './screens/NovelDetailScreen';
@@ -29,6 +33,7 @@ import NovelDashboardScreen from './screens/NovelDashboardScreen';
 import MangaDashboardScreen from './screens/MangaDashboardScreen';
 import MangaPageScreen from './screens/MangaPageScreen';
 import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
+import MangaChapterScreen from './screens/MangaChapterScreen ';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -47,11 +52,19 @@ export const useSystemUi = () => useContext(SystemUiContext);
 
 const App = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
-  const navigationRef = useNavigationContainerRef(); // Use navigation ref for programmatic navigation
+  const navigationRef = useNavigationContainerRef();
   const notificationListener = useRef();
   const responseListener = useRef();
+  const [walletAddress, setWalletAddress] = useState(null);
 
-  // Request notification permissions and set up listeners
+  useEffect(() => {
+    const loadWalletAddress = async () => {
+      const key = await AsyncStorage.getItem('walletAddress');
+      if (key) setWalletAddress(key);
+    };
+    loadWalletAddress();
+  }, []);
+
   useEffect(() => {
     const requestPermissions = async () => {
       try {
@@ -87,21 +100,74 @@ const App = () => {
 
     requestPermissions();
 
-    // Handle foreground notifications
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+    notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
       console.log('Notification received:', notification);
     });
 
-    // Handle notification interactions (e.g., tapping)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       console.log('Notification response:', response);
-      const { novelId, mangaId, type } = response.notification.request.content.data || {};
-      if (novelId && (type === 'new_novel' || type === 'new_chapter' || type === 'announcement')) {
-        navigationRef.current?.navigate('Novel', { novelId });
-      } else if (mangaId && (type === 'new_manga' || type === 'new_chapter' || type === 'announcement')) {
-        navigationRef.current?.navigate('Manga', { mangaId });
+      const { novelId, mangaId, type, chat_id, recipient_wallet_address } = response.notification.request.content.data || {};
+      if (novelId && ['new_novel', 'new_chapter', 'announcement'].includes(type)) {
+        navigationRef.current?.navigate('Novel', { id: novelId });
+      } else if (mangaId && ['new_manga', 'new_chapter', 'announcement'].includes(type)) {
+        navigationRef.current?.navigate('Manga', { id: mangaId });
+      } else if (['private_message', 'group_reply'].includes(type) && chat_id) {
+        const chatId = type === 'private_message' ? recipient_wallet_address : 'group';
+        navigationRef.current?.navigate('Chapter', { chatId, messageId: chat_id });
       }
     });
+
+    if (walletAddress) {
+      const subscription = supabase
+        .channel('notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `recipient_wallet_address=eq.${walletAddress}`,
+          },
+          async (payload) => {
+            const { message, type, chat_id, novel_id, novel_title, sender_wallet_address } = payload.new;
+            let title = '';
+            let body = message;
+            let data = { type };
+
+            if (type === 'private_message') {
+              title = 'New Private Message';
+              data.chat_id = chat_id;
+              data.recipient_wallet_address = walletAddress;
+            } else if (type === 'group_reply') {
+              title = 'Group Chat Reply';
+              data.chat_id = chat_id;
+            } else if (type === 'new_novel') {
+              title = 'New Novel Published';
+              data.novelId = novel_id;
+            } else if (type === 'new_chapter') {
+              title = `New Chapter for ${novel_title || 'Novel'}`;
+              data.novelId = novel_id;
+            } else if (type === 'announcement') {
+              title = 'Novel Announcement';
+              data.novelId = novel_id;
+            }
+
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title,
+                body,
+                data,
+              },
+              trigger: null,
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(subscription);
+      };
+    }
 
     return () => {
       if (notificationListener.current) {
@@ -111,9 +177,8 @@ const App = () => {
         Notifications.removeNotificationSubscription(responseListener.current);
       }
     };
-  }, [navigationRef]);
+  }, [navigationRef, walletAddress]);
 
-  // Handle Android navigation bar visibility
   useEffect(() => {
     if (Platform.OS === 'android') {
       const updateNavigationBar = async () => {
@@ -128,7 +193,6 @@ const App = () => {
     }
   }, [isSystemUiVisible]);
 
-  // Initialize and cleanup Android navigation bar
   useEffect(() => {
     if (Platform.OS === 'android') {
       const initializeNavigationBar = async () => {
@@ -140,10 +204,8 @@ const App = () => {
         }
       };
       initializeNavigationBar();
-    }
 
-    return () => {
-      if (Platform.OS === 'android') {
+      return () => {
         const cleanupNavigationBar = async () => {
           try {
             await NavigationBar.setVisibilityAsync('visible');
@@ -153,8 +215,8 @@ const App = () => {
           }
         };
         cleanupNavigationBar();
-      }
-    };
+      };
+    }
   }, []);
 
   return (
@@ -162,10 +224,7 @@ const App = () => {
       <EmbeddedWalletProvider>
         <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
           <NavigationContainer ref={navigationRef}>
-            <Stack.Navigator
-              initialRouteName="Home"
-              screenOptions={{ headerShown: false }}
-            >
+            <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
               <Stack.Screen name="Home" component={HomeScreen} />
               <Stack.Screen name="EditProfile" component={EditProfileScreen} />
               <Stack.Screen name="Novel" component={NovelDetailScreen} />
@@ -180,6 +239,7 @@ const App = () => {
               <Stack.Screen name="WalletImport" component={WalletImportScreen} />
               <Stack.Screen name="Apply" component={ApplyScreen} />
               <Stack.Screen name="Chapter" component={ChapterScreen} />
+              <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
               <Stack.Screen name="NovelSummary" component={NovelSummaryScreen} />
               <Stack.Screen name="NovelDashboard" component={NovelDashboardScreen} />
               <Stack.Screen name="MangaDashboard" component={MangaDashboardScreen} />

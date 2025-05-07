@@ -70,6 +70,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [isWalletConnected, setIsWalletConnected] = useState(false);
   const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
   // Restore wallet state on mount
@@ -82,14 +83,14 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
         if (publicKey) {
           setWallet({ publicKey });
+          setIsWalletConnected(true);
           console.log('Restored wallet from secureStoreWrapper:', publicKey);
-        }
 
-        // Ensure AsyncStorage is in sync
-        if (publicKey && !walletAddress) {
-          await AsyncStorage.setItem('walletAddress', publicKey);
-          await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
-          console.log('Synced walletAddress to AsyncStorage and secureStoreWrapper:', publicKey);
+          if (!walletAddress) {
+            await AsyncStorage.setItem('walletAddress', publicKey);
+            await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
+            console.log('Synced walletAddress to AsyncStorage and secureStoreWrapper:', publicKey);
+          }
         }
       } catch (err) {
         console.error('Error restoring wallet:', err.message);
@@ -107,19 +108,17 @@ export const EmbeddedWalletProvider = ({ children }) => {
       setIsLoading(true);
       const keypair = solanaWeb3.Keypair.generate();
       const publicKey = keypair.publicKey.toString();
-      const secretKey = keypair.secretKey; // Uint8Array
+      const secretKey = keypair.secretKey;
       const secretKeyBase58 = bs58.encode(secretKey);
 
-      // Store secret key with password
       const storageKey = `wallet-secret-${publicKey}-${password}`;
       await secureStoreWrapper.setItemAsync(storageKey, secretKeyBase58);
-
-      // Store public key and wallet address for persistence
       await secureStoreWrapper.setItemAsync('walletPublicKey', publicKey);
       await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
       await AsyncStorage.setItem('walletAddress', publicKey);
 
       setWallet({ publicKey });
+      setIsWalletConnected(true);
       return { publicKey, privateKey: secretKeyBase58 };
     } catch (err) {
       setError('Failed to create wallet: ' + err.message);
@@ -133,27 +132,22 @@ export const EmbeddedWalletProvider = ({ children }) => {
     try {
       setIsLoading(true);
 
-      // Validate input
       if (!privateKeyInput || typeof privateKeyInput !== 'string') {
         throw new Error('Private key is required and must be a string');
       }
 
-      // Clean the input
       const cleanedInput = privateKeyInput.trim().replace(/^0x/i, '');
-
       let privateKeyBytes;
 
-      // Try parsing as JSON array (e.g., [123, 45, ...])
       try {
         const parsed = JSON.parse(cleanedInput);
         if (Array.isArray(parsed) && parsed.length === 64 && parsed.every(n => typeof n === 'number' && n >= 0 && n <= 255)) {
           privateKeyBytes = Buffer.from(parsed);
         }
       } catch {
-        // Not a JSON array, proceed to other formats
+        // Not a JSON array
       }
 
-      // Try base58
       if (!privateKeyBytes) {
         try {
           privateKeyBytes = bs58.decode(cleanedInput);
@@ -161,7 +155,6 @@ export const EmbeddedWalletProvider = ({ children }) => {
             throw new Error(`Invalid base58 private key size: expected 64 bytes, got ${privateKeyBytes.length} bytes`);
           }
         } catch {
-          // Not base58, try hex
           if (!/^[0-9a-fA-F]+$/i.test(cleanedInput)) {
             throw new Error('Private key must be a valid hex string, base58 string, or JSON array of 64 bytes');
           }
@@ -172,21 +165,18 @@ export const EmbeddedWalletProvider = ({ children }) => {
         }
       }
 
-      // Create keypair
       const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
       const publicKey = keypair.publicKey.toString();
       const secretKeyBase58 = bs58.encode(privateKeyBytes);
 
-      // Store secret key with password
       const storageKey = `wallet-secret-${publicKey}-${password}`;
       await secureStoreWrapper.setItemAsync(storageKey, secretKeyBase58);
-
-      // Store public key and wallet address for persistence
       await secureStoreWrapper.setItemAsync('walletPublicKey', publicKey);
       await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
       await AsyncStorage.setItem('walletAddress', publicKey);
 
       setWallet({ publicKey });
+      setIsWalletConnected(true);
       return { publicKey, privateKey: secretKeyBase58 };
     } catch (err) {
       setError('Failed to import wallet: ' + err.message);
@@ -198,15 +188,13 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
   const disconnectWallet = async () => {
     try {
-      // Clear all wallet-related storage keys from secureStoreWrapper
       await secureStoreWrapper.deleteItemAsync('walletPublicKey');
       await secureStoreWrapper.deleteItemAsync('walletAddress');
-      await secureStoreWrapper.deleteItemAsync('embeddedWallet'); // Clean up legacy key
-      // Clear walletAddress from AsyncStorage (used by Home.js)
+      await secureStoreWrapper.deleteItemAsync('embeddedWallet');
       await AsyncStorage.removeItem('walletAddress');
       setWallet(null);
+      setIsWalletConnected(false);
       setError(null);
-      setIsLoading(false);
       console.log('Wallet disconnected, all storage cleared');
     } catch (err) {
       console.error('Disconnect wallet error:', err);
@@ -228,7 +216,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       if (secretKeyBytes.length !== 64) {
         throw new Error('Invalid secret key format');
       }
-      return secretKeyBytes; // Return Uint8Array for Keypair
+      return secretKeyBytes;
     } catch (err) {
       throw new Error('Failed to decode secret key: ' + err.message);
     }
@@ -252,7 +240,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     <EmbeddedWalletContext.Provider
       value={{
         wallet,
-        isWalletConnected: !!wallet?.publicKey,
+        isWalletConnected,
         createEmbeddedWallet,
         importEmbeddedWallet,
         disconnectWallet,
@@ -287,28 +275,39 @@ const ConnectButton = () => {
     }
 
     try {
-      console.log('Wallet connected:', walletAddress);
-      // Store walletAddress in AsyncStorage for Home.js
-      await AsyncStorage.setItem('walletAddress', walletAddress);
-      // Also store in secureStoreWrapper for consistency
-      await secureStoreWrapper.setItemAsync('walletAddress', walletAddress);
+      console.log('Attempting to create or fetch user for wallet:', walletAddress);
 
+      // Check for existing user
       const { data: existingUser, error: fetchError } = await supabase
         .from('users')
         .select('id, referral_code, has_updated_profile')
         .eq('wallet_address', walletAddress)
         .single();
 
+      if (existingUser) {
+        console.log('User already exists:', existingUser);
+        setUserCreated(true);
+        if (!existingUser.has_updated_profile) {
+          setShowReferralPrompt(true);
+        }
+        // Sync storage
+        await AsyncStorage.setItem('walletAddress', walletAddress);
+        await secureStoreWrapper.setItemAsync('walletAddress', walletAddress);
+        return;
+      }
+
       if (fetchError && fetchError.code !== 'PGRST116') {
         throw new Error(`Failed to check user: ${fetchError.message}`);
       }
 
-      let userId = existingUser?.id;
+      // Create new user
+      console.log('No user found, creating new user...');
+      let userId;
       const url = new URL(Platform.OS === 'web' ? window.location.href : 'http://localhost');
       const referralCodeFromUrl = url.searchParams.get('ref');
       let referredBy = null;
 
-      if (referralCodeFromUrl && !existingUser) {
+      if (referralCodeFromUrl) {
         const { data: referrer, error: referrerError } = await supabase
           .from('users')
           .select('wallet_address')
@@ -321,51 +320,79 @@ const ConnectButton = () => {
         }
       }
 
-      if (!existingUser) {
-        const newReferralCode = `${walletAddress.slice(0, 4)}${Math.random()
-          .toString(36)
-          .slice(2, 6)
-          .toUpperCase()}`;
-        const { data: newUser, error: insertError } = await supabase
-          .from('users')
-          .insert({
-            name: "Testing",
-            wallet_address: walletAddress,
-            isWriter: false,
-            isSuperuser: false,
-            referral_code: newReferralCode,
-            referred_by: referredBy,
-            has_updated_profile: false,
-          })
-          .select('id, referral_code')
-          .single();
+      const newReferralCode = `${walletAddress.slice(0, 4)}${Math.random()
+        .toString(36)
+        .slice(2, 6)
+        .toUpperCase()}`;
+      const userData = {
+        name: 'Testing',
+        wallet_address: walletAddress,
+        isWriter: false,
+        isSuperuser: false,
+        referral_code: newReferralCode,
+        referred_by: referredBy,
+        has_updated_profile: false,
+      };
+      console.log('Attempting to create user with data:', userData);
 
-        if (insertError) {
-          throw new Error(`Failed to create user: ${insertError.message}`);
+      const { data: newUser, error: insertError } = await supabase
+        .from('users')
+        .insert(userData)
+        .select('id, referral_code')
+        .single();
+
+      if (insertError) {
+        if (insertError.code === '23505') {
+          console.error('Duplicate key error. User data attempted:', userData);
+          console.log('Fetching existing user due to race condition...');
+          const { data: retryUser, error: retryError } = await supabase
+            .from('users')
+            .select('id, referral_code, has_updated_profile')
+            .eq('wallet_address', walletAddress)
+            .single();
+          if (retryUser) {
+            console.log('Existing user found after duplicate key error:', retryUser);
+            setUserCreated(true);
+            if (!retryUser.has_updated_profile) {
+              setShowReferralPrompt(true);
+            }
+            // Sync storage
+            await AsyncStorage.setItem('walletAddress', walletAddress);
+            await secureStoreWrapper.setItemAsync('walletAddress', walletAddress);
+            return;
+          }
+          throw new Error(`Failed to fetch user after duplicate key error: ${retryError?.message || 'Unknown error'}`);
         }
-
-        userId = newUser.id;
-        console.log('New user created successfully:', newUser);
-        setUserCreated(true);
-
-        const { error: balanceError } = await supabase
-          .from('wallet_balances')
-          .insert({
-            user_id: userId,
-            wallet_address: walletAddress,
-            chain: 'SOL',
-            currency: 'SMP',
-            decimals: 6,
-            amount: 50000,
-          });
-
-        if (balanceError) {
-          throw new Error(`Failed to create wallet balance: ${balanceError.message}`);
-        }
-        Alert.alert('Success', '50,000 SMP credited to your wallet!');
+        throw new Error(`Failed to create user: ${insertError.message}`);
       }
 
-      if (referralCodeFromUrl && !existingUser?.has_updated_profile) {
+      userId = newUser.id;
+      console.log('New user created successfully:', newUser);
+      setUserCreated(true);
+
+      // Create wallet balance
+      const { error: balanceError } = await supabase
+        .from('wallet_balances')
+        .insert({
+          user_id: userId,
+          wallet_address: walletAddress,
+          chain: 'SOL',
+          currency: 'SMP',
+          decimals: 6,
+          amount: 50000,
+        });
+
+      if (balanceError) {
+        throw new Error(`Failed to create wallet balance: ${balanceError.message}`);
+      }
+      Alert.alert('Success', '50,000 SMP credited to your wallet!');
+
+      // Sync storage
+      await AsyncStorage.setItem('walletAddress', walletAddress);
+      await secureStoreWrapper.setItemAsync('walletAddress', walletAddress);
+
+      // Show referral prompt if referred
+      if (referralCodeFromUrl) {
         setShowReferralPrompt(true);
       }
     } catch (err) {
@@ -386,7 +413,7 @@ const ConnectButton = () => {
     const result = await createEmbeddedWallet(password);
     if (result) {
       await createUserAndBalance(result.publicKey);
-      setPrivateKey(result.privateKey); // Show base58 private key
+      setPrivateKey(result.privateKey);
       setShowCreateForm(false);
       setPassword('');
       setConfirmPassword('');
@@ -396,7 +423,6 @@ const ConnectButton = () => {
   };
 
   const handleImportWallet = async () => {
-    console.log('Private key input:', privateKeyInput); // Debug input
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Passwords do not match!');
       return;
