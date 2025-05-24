@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,13 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
+  StyleSheet,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
-import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from '@solana/web3.js';
+import { Connection, PublicKey, Transaction, SystemProgram, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createTransferInstruction, getOrCreateAssociatedTokenAccount, getAccount, getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -26,19 +28,29 @@ import bs58 from 'bs58';
 import CommentSection from '../components/Comments/CommentSection';
 
 const connection = new Connection(RPC_URL, 'confirmed');
+const MIN_ATA_SOL = 0.00203928; // Minimum SOL for rent-exempt ATA
+const SMP_READ_COST = 1000; // Cost in SMP tokens to read a chapter
 const MAX_PASSWORD_ATTEMPTS = 3;
 const PASSWORD_ERROR_TIMEOUT = 5000;
+const MIN_REWARD_WALLET_SOL = 0.05; // Minimum SOL required in reward wallet for gas fees
+const MIN_USER_SOL = 0; // User doesn't need SOL as merchant pays gas
 
 const ChapterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { novelId, chapterId } = route.params || {};
-  const { wallet, secretKey, signAndSendTransaction } = useContext(EmbeddedWalletContext);
+  const { 
+    wallet, 
+    signAndSendTransaction,
+    isWalletConnected: contextWalletConnected 
+  } = useContext(EmbeddedWalletContext);
 
+  // State
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [warningMessage, setWarningMessage] = useState('');
   const [inputNovelId, setInputNovelId] = useState('');
   const [inputChapterId, setInputChapterId] = useState('');
   const [useInput, setUseInput] = useState(false);
@@ -47,871 +59,1001 @@ const ChapterScreen = () => {
   const [advanceInfo, setAdvanceInfo] = useState(null);
   const [canUnlockNextThree, setCanUnlockNextThree] = useState(false);
   const [readingMode, setReadingMode] = useState('free');
-  const [smpBalance, setSmpBalance] = useState(null);
-  const [weeklyPoints, setWeeklyPoints] = useState(null);
+  const [smpBalance, setSmpBalance] = useState(0);
+  const [weeklyPoints, setWeeklyPoints] = useState(0);
+  const [amethystBalance, setAmethystBalance] = useState(0);
   const [showTransactionPopup, setShowTransactionPopup] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [solPrice, setSolPrice] = useState(100);
-  const [smpPrice, setSmpPrice] = useState(null);
+  const [smpPrice, setSmpPrice] = useState(0.01);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState(null);
-  const [passwordCallback, setPasswordCallback] = useState(null);
   const [passwordAttempts, setPasswordAttempts] = useState(0);
+  const [currentPasswordCallback, setCurrentPasswordCallback] = useState(null);
   const [hasReadChapter, setHasReadChapter] = useState(false);
-  const [amethystBalance, setAmethystBalance] = useState(0);
   const usdcPrice = 1;
+  const [visibleParagraphs, setVisibleParagraphs] = useState([]);
+  const ITEMS_PER_PAGE = 20;
+  const [isAdvanceChapter, setIsAdvanceChapter] = useState(false);
+  const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = useMemo(() => {
     try {
-      if (!wallet?.publicKey) return null;
-      let publicKeyStr = wallet.publicKey;
-      if (typeof publicKeyStr === 'string') {
-        return new PublicKey(publicKeyStr);
-      } else if (publicKeyStr instanceof Uint8Array || Array.isArray(publicKeyStr)) {
-        return new PublicKey(bs58.encode(Buffer.from(publicKeyStr)));
-      } else if (publicKeyStr instanceof PublicKey) {
-        return publicKeyStr;
-      }
-      throw new Error('Invalid wallet.publicKey format');
+      return wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
     } catch (err) {
-      console.error('[activePublicKey] Error creating activePublicKey:', err);
-      setError('Invalid wallet public key format.');
+      console.error('[activePublicKey] Error:', err);
+      setError('Invalid wallet public key.');
       return null;
     }
   }, [wallet?.publicKey]);
 
   const activeWalletAddress = activePublicKey?.toString();
 
-  const retrieveSecretKey = async (password) => {
-    try {
-      if (!activeWalletAddress) throw new Error('No wallet address available');
-      const key = `wallet-secret-${activeWalletAddress}-${password}`;
-      console.log('[retrieveSecretKey] Retrieving secret key:', { key });
-      const secretKeyBase58 = await SecureStore.getItemAsync(key);
-      if (!secretKeyBase58) {
-        throw new Error('Invalid password or secret key not found.');
-      }
-      const secretKey = bs58.decode(secretKeyBase58);
-      if (secretKey.length !== 64) {
-        throw new Error('Invalid secret key format.');
-      }
-      console.log('[retrieveSecretKey] Secret key retrieved successfully');
-      return secretKey;
-    } catch (err) {
-      console.error('[retrieveSecretKey] Error retrieving secret key:', err);
-      throw err;
-    }
-  };
-
+  // Fetch SMP balance
   const fetchSmpBalanceOnChain = useCallback(async (retryCount = 3, retryDelay = 1000) => {
-    if (!activeWalletAddress || !activePublicKey) {
-      console.log('[fetchSmpBalanceOnChain] No wallet address or public key available, returning 0 SMP balance');
-      setSmpBalance(0);
-      return 0;
-    }
+    if (!activeWalletAddress || !activePublicKey) return 0;
+    
     for (let attempt = 1; attempt <= retryCount; attempt++) {
       try {
-        const ataAddress = getAssociatedTokenAddressSync(new PublicKey(SMP_MINT_ADDRESS), activePublicKey);
-        console.log(`[fetchSmpBalanceOnChain] Attempt ${attempt} - Fetching SMP balance for ATA:`, ataAddress.toString());
-        const ataInfo = await connection.getAccountInfo(ataAddress, 'confirmed');
+        const ataAddress = getAssociatedTokenAddressSync(
+          new PublicKey(SMP_MINT_ADDRESS),
+          activePublicKey
+        );
+        console.log("Fetching SMP balance for ATA:", ataAddress.toString());
+        
+        const ataInfo = await connection.getAccountInfo(ataAddress);
         if (!ataInfo) {
-          console.log(`[fetchSmpBalanceOnChain] Attempt ${attempt} - No ATA found for SMP, returning 0 balance`);
+          console.log("No ATA found for SMP, returning 0 balance");
           setSmpBalance(0);
           return 0;
         }
+
+        // Use unpackAccount to properly parse token account data
         const ata = unpackAccount(ataAddress, ataInfo);
         const balance = Number(ata.amount) / 10 ** SMP_DECIMALS;
-        console.log(`[fetchSmpBalanceOnChain] Attempt ${attempt} - On-chain SMP balance (human-readable):`, balance);
-        setSmpBalance(balance);
+        console.log("On-chain SMP balance:", balance);
+        setSmpBalance(balance); // Update the state with the fetched balance
         return balance;
+
       } catch (error) {
-        console.error(`[fetchSmpBalanceOnChain] Attempt ${attempt} - Error fetching SMP balance:`, error.message);
+        console.error(`Attempt ${attempt} - Error fetching on-chain SMP balance:`, error);
         if (attempt === retryCount) {
-          console.warn('[fetchSmpBalanceOnChain] Max retries reached for SMP balance fetch');
-          setError('Failed to fetch SMP balance. Please check your network and try again.');
+          setError("Unable to fetch SMP balance.");
+          setSmpBalance(0); // Set balance to 0 on error
           setTimeout(() => setError(null), 5000);
-          setSmpBalance(0);
           return 0;
         }
-        if (error.message.includes('429') || error.message.includes('403')) {
-          console.warn(`[fetchSmpBalanceOnChain] Rate limit or access error on attempt ${attempt}, aborting retries`);
-          setError('Network restrictions detected. Please try again later.');
-          setTimeout(() => setError(null), 5000);
-          setSmpBalance(0);
-          return 0;
-        }
-        await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
+        await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
       }
     }
+    return 0;
   }, [activeWalletAddress, activePublicKey]);
 
+  // Fetch Amethyst balance
   const fetchAmethystBalance = useCallback(async () => {
-    if (!activeWalletAddress) {
-      console.log('[fetchAmethystBalance] No wallet address available, setting Amethyst balance to 0');
-      setAmethystBalance(0);
-      return;
-    }
+    if (!activeWalletAddress) return 0;
     try {
-      const mintAddress = new PublicKey(AMETHYST_MINT_ADDRESS);
-      let balance = 0;
-      const ataAddress = getAssociatedTokenAddressSync(mintAddress, new PublicKey(activeWalletAddress));
-      console.log('[fetchAmethystBalance] Fetching Amethyst balance for ATA:', ataAddress.toString());
+      const ataAddress = getAssociatedTokenAddressSync(new PublicKey(AMETHYST_MINT_ADDRESS), new PublicKey(activeWalletAddress));
       const ataInfo = await connection.getAccountInfo(ataAddress, 'confirmed');
-      if (ataInfo) {
-        const ata = unpackAccount(ataAddress, ataInfo);
-        balance = Number(ata.amount) / 10 ** AMETHYST_DECIMALS;
-        console.log(`[fetchAmethystBalance] Amethyst balance (human-readable): ${balance}`);
-      } else {
-        console.log('[fetchAmethystBalance] No ATA found for Amethyst, setting balance to 0');
-      }
+      const balance = ataInfo ? Number(ataInfo.data.readBigUint64LE(64)) / 10 ** AMETHYST_DECIMALS : 0;
       setAmethystBalance(balance);
+      return balance;
     } catch (error) {
-      console.error('[fetchAmethystBalance] Error fetching Amethyst balance:', error.message);
-      setError('Failed to fetch Amethyst balance. Please try again.');
+      console.error('[fetchAmethystBalance] Error:', error);
+      setError('Failed to fetch Amethyst balance.');
       setTimeout(() => setError(null), 5000);
-      setAmethystBalance(0);
+      return 0;
     }
   }, [activeWalletAddress]);
 
-  const fetchPrices = useCallback(async (retryCount = 5, retryDelay = 2000) => {
-    const cacheKey = 'priceCache';
-    const cacheExpiry = 5 * 60 * 1000; // 5 minutes
+  // Fetch prices
+  const fetchPrices = useCallback(async () => {
     try {
-      // Check cache
+      const cacheKey = 'priceCache';
+      const cacheExpiry = 5 * 60 * 1000; // 5 minutes
+      
+      // Check cache first
       const cachedData = await SecureStore.getItemAsync(cacheKey);
       if (cachedData) {
         const { timestamp, solPrice, smpPrice } = JSON.parse(cachedData);
         if (Date.now() - timestamp < cacheExpiry) {
-          console.log('[fetchPrices] Using cached prices:', { solPrice, smpPrice });
           setSolPrice(solPrice || 100);
-          setSmpPrice(smpPrice || null);
+          setSmpPrice(smpPrice || 0.01);
           return;
         }
       }
-      for (let attempt = 1; attempt <= retryCount; attempt++) {
+
+      // Fetch SMP-SOL price from Meteora with retries
+      let smpSolPrice = 0.0001; // Default SMP-SOL price
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          console.log(`[fetchPrices] Attempt ${attempt} - Fetching prices from CoinGecko`);
-          const [solResponse, smpResponse] = await Promise.all([
-            fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd', {
-              headers: { 'Accept': 'application/json' },
-            }),
-            fetch('https://api.coingecko.com/api/v3/simple/price?ids=smp-token-id&vs_currencies=usd', {
-              headers: { 'Accept': 'application/json' },
-            }),
-          ]);
-          if (solResponse.status === 429 || smpResponse.status === 429) {
-            throw new Error(`Rate limit exceeded (429)`);
+          const response = await fetch('https://dlmm-api.meteora.ag/pair/6uTXoUh8yVkgSWwPayqcvFTeWyj38KgxQ7ErUfcCmKVv', {
+            headers: { 'Accept': 'application/json' },
+            timeout: 5000,
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.current_price) {
+              smpSolPrice = data.current_price;
+              console.log('[fetchPrices] SMP-SOL price from Meteora:', smpSolPrice);
+              break;
+            }
           }
-          if (!solResponse.ok || !smpResponse.ok) {
-            throw new Error(`HTTP error: SOL ${solResponse.status}, SMP ${smpResponse.status}`);
-          }
-          const [solData, smpData] = await Promise.all([solResponse.json(), smpResponse.json()]);
-          const newSolPrice = solData.solana?.usd || 100;
-          const newSmpPrice = smpData['smp-token-id']?.usd || null;
-          console.log(`[fetchPrices] Attempt ${attempt} - Fetched prices:`, { solPrice: newSolPrice, smpPrice: newSmpPrice });
-          setSolPrice(newSolPrice);
-          setSmpPrice(newSmpPrice);
-          // Cache prices
-          await SecureStore.setItemAsync(cacheKey, JSON.stringify({
-            timestamp: Date.now(),
-            solPrice: newSolPrice,
-            smpPrice: newSmpPrice,
-          }));
-          console.log('[fetchPrices] Prices cached successfully');
-          return;
+          console.warn(`[fetchPrices] Meteora API attempt ${attempt + 1} failed:`, response.status);
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
         } catch (error) {
-          console.error(`[fetchPrices] Attempt ${attempt} - Error fetching prices:`, error.message);
-          if (attempt === retryCount) {
-            console.warn('[fetchPrices] Max retries reached for price fetch');
-            setError('Failed to fetch price data. Using default values.');
-            setSolPrice(100);
-            setSmpPrice(null);
-            setTimeout(() => setError(null), 5000);
-            return;
-          }
-          if (error.message.includes('429')) {
-            console.warn(`[fetchPrices] Rate limit error on attempt ${attempt}, increasing delay`);
-            await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt * 2));
-          } else {
-            await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
-          }
+          console.warn(`[fetchPrices] Meteora API attempt ${attempt + 1} error:`, error.message);
+          if (attempt === 2) console.warn('[fetchPrices] Using default SMP-SOL price.');
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
         }
       }
+
+      // Fetch SOL-USDC price from Meteora
+      let solPrice = 100; // Default SOL price
+      try {
+        const response = await fetch('https://dlmm-api.meteora.ag/pair/6uTXoUh8yVkgSWwPayqcvFTeWyj38KgxQ7ErUfcCmKVv', {
+          headers: { 'Accept': 'application/json' },
+          timeout: 5000,
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.current_price) {
+            solPrice = data.current_price;
+            console.log('[fetchPrices] SOL-USDC price:', solPrice);
+          }
+        }
+      } catch (error) {
+        console.warn('[fetchPrices] Failed to fetch SOL price:', error.message);
+      }
+
+      // Calculate SMP price in USD
+      const smpPrice = smpSolPrice * solPrice;
+      console.log('[fetchPrices] Calculated SMP-USD price:', smpPrice);
+
+      setSolPrice(solPrice);
+      setSmpPrice(smpPrice || 0.01);
+
+      // Update cache
+      await SecureStore.setItemAsync(cacheKey, JSON.stringify({
+        timestamp: Date.now(),
+        solPrice,
+        smpPrice,
+      }));
     } catch (error) {
-      console.error('[fetchPrices] Critical error in fetchPrices:', error.message);
-      setError('Failed to fetch prices. Using default values.');
+      console.error('[fetchPrices] Error:', error);
       setSolPrice(100);
-      setSmpPrice(null);
-      setTimeout(() => setError(null), 5000);
+      setSmpPrice(0.01);
     }
   }, []);
 
-  const fetchUserBalances = useCallback(async () => {
-    if (!activeWalletAddress) {
-      console.log('[fetchUserBalances] No wallet address, skipping user balances fetch');
-      return;
-    }
+  // Fetch user data
+  const fetchUserData = useCallback(async () => {
+    if (!activeWalletAddress) return;
     try {
-      console.log('[fetchUserBalances] Fetching user data from Supabase');
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('id, weekly_points')
         .eq('wallet_address', activeWalletAddress)
         .single();
-      if (userError) throw new Error(`Failed to fetch user data: ${userError.message}`);
+      if (userError) throw new Error(userError.message);
+      
       setUserId(userData.id);
       setWeeklyPoints(userData.weekly_points || 0);
-      console.log('[fetchUserBalances] User data fetched:', { userId: userData.id, weeklyPoints: userData.weekly_points });
-      const smpBalanceOnChain = await fetchSmpBalanceOnChain();
-      setSmpBalance(smpBalanceOnChain || 0);
-      await fetchAmethystBalance();
+
+      // Fetch on-chain balance
+      await fetchSmpBalanceOnChain();
+      
     } catch (error) {
-      console.error('[fetchUserBalances] Error fetching user balances:', error.message);
-      setError('Unable to load wallet balances. Please try again.');
+      console.error('[fetchUserData] Error:', error);
+      setError('Failed to load user data.');
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, fetchSmpBalanceOnChain, fetchAmethystBalance]);
+  }, [activeWalletAddress, fetchSmpBalanceOnChain]);
 
+  // Fetch novel
   const fetchNovel = useCallback(async (id, chapter) => {
     try {
-      console.log(`[fetchNovel] Fetching novel: ID=${id}, Chapter=${chapter}`);
       const { data, error } = await supabase
         .from('novels')
         .select('id, title, chaptertitles, chaptercontents, advance_chapters, user_id')
         .eq('id', id)
         .single();
-      if (error) throw new Error(`Failed to fetch novel: ${error.message}`);
-      if (!data) throw new Error('Novel not found');
-      if (!data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
+      if (error) throw new Error(error.message);
+      if (!data || !data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
       setNovel(data);
-      setAdvanceInfo(
-        data.advance_chapters?.find((c) => c.index === parseInt(chapter)) || {
-          is_advance: false,
-          free_release_date: null,
-        }
-      );
-      console.log('[fetchNovel] Novel fetched successfully:', { id: data.id, title: data.title });
+      setAdvanceInfo(data.advance_chapters?.find((c) => c.index === parseInt(chapter)) || {
+        is_advance: false,
+        free_release_date: null,
+      });
     } catch (error) {
-      console.error('[fetchNovel] Error fetching novel:', error.message);
-      setError(`Unable to load chapter: ${error.message}`);
+      console.error('[fetchNovel] Error:', error);
+      setError('Unable to load chapter.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const checkHasReadChapter = useCallback(async () => {
-    if (!activeWalletAddress || !novel || !chapterId) return;
+  // Check if chapter was read
+  const checkHasReadChapter = useCallback(async (targetChapterId) => {
+    if (!activeWalletAddress || !novel || !targetChapterId) return false;
     try {
-      const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${chapterId}`
+      const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${targetChapterId}`
         .replace(/[^a-zA-Z0-9]/g, '')
         .substring(0, 255);
-      console.log('[checkHasReadChapter] Checking read status:', { eventDetails });
-      const { data: existingEvents, error } = await supabase
+      const { data, error } = await supabase
         .from('wallet_events')
         .select('id')
         .eq('event_details', eventDetails)
         .eq('wallet_address', activeWalletAddress)
         .limit(1);
-      if (error) throw new Error(`Error checking read status: ${error.message}`);
-      setHasReadChapter(existingEvents?.length > 0);
-      console.log('[checkHasReadChapter] Read status:', existingEvents?.length > 0 ? 'Chapter read' : 'Chapter not read');
+      if (error) throw new Error(error.message);
+      const hasRead = data?.length > 0;
+      if (targetChapterId === chapterId) setHasReadChapter(hasRead);
+      return hasRead;
     } catch (error) {
-      console.error('[checkHasReadChapter] Error checking read status:', error.message);
+      console.error('[checkHasReadChapter] Error:', error);
       setError('Failed to verify read status.');
       setTimeout(() => setError(null), 5000);
+      return false;
     }
   }, [activeWalletAddress, novel, chapterId]);
 
-  const checkAccess = useCallback(async (userId, novelData, chapterNum) => {
-    if (!novelData || chapterNum === undefined) {
-      console.log('[checkAccess] Invalid novel data or chapter number, skipping access check');
-      return;
-    }
+  // Check chapter access
+  const checkAccess = useCallback(async (walletAddress, novelData, chapterNum) => {
+    if (!novelData || chapterNum === undefined) return;
     try {
       const advanceInfo = novelData.advance_chapters?.find((c) => c.index === chapterNum) || {
         is_advance: false,
         free_release_date: null,
       };
-      console.log('[checkAccess] Checking access:', { chapterNum, isAdvance: advanceInfo.is_advance });
-      if (!isWalletConnected) {
-        if (chapterNum <= 1) {
-          setIsLocked(false);
-          setCanUnlockNextThree(false);
-          console.log('[checkAccess] No wallet connected, chapter <= 1, unlocked');
-        } else {
-          setIsLocked(true);
-          setCanUnlockNextThree(false);
-          console.log('[checkAccess] No wallet connected, chapter > 1, locked');
-        }
-        return;
+
+      setIsAdvanceChapter(advanceInfo.is_advance);
+      setIsUnlockedViaSubscription(false); // Reset subscription status
+
+      // Check if chapter is already paid for with SMP
+      const { data: payment, error: paymentError } = await supabase
+        .from('chapter_payments')
+        .select('id')
+        .eq('wallet_address', walletAddress)
+        .eq('novel_id', novelData.id)
+        .eq('chapter_number', chapterNum)
+        .single();
+
+      if (paymentError && paymentError.code !== 'PGRST116') {
+        throw paymentError;
       }
-      if (
-        !advanceInfo.is_advance ||
-        (advanceInfo.free_release_date && new Date(advanceInfo.free_release_date) <= new Date())
-      ) {
+
+      // If paid with SMP, unlock regardless of chapter type
+      if (payment) {
         setIsLocked(false);
         setCanUnlockNextThree(true);
-        console.log('[checkAccess] Chapter is free or release date passed, unlocked');
         return;
       }
-      if (userId) {
-        console.log('[checkAccess] Checking unlock status for user:', userId);
+
+      // For advance chapters, check subscription status
+      if (advanceInfo.is_advance) {
         const { data: unlock, error: unlockError } = await supabase
           .from('unlocked_story_chapters')
           .select('chapter_unlocked_till, expires_at')
-          .eq('user_id', userId)
+          .eq('wallet_address', walletAddress)
           .eq('story_id', novelData.id)
           .single();
-        if (unlockError && unlockError.code !== 'PGRST116') throw new Error(`Unlock check failed: ${unlockError.message}`);
+
+        if (unlockError && unlockError.code !== 'PGRST116') {
+          throw unlockError;
+        }
+
         if (unlock && (!unlock.expires_at || new Date(unlock.expires_at) > new Date())) {
           const totalChapters = Object.keys(novelData.chaptercontents || {}).length;
-          if (unlock.chapter_unlocked_till === -1 || (unlock.chapter_unlocked_till >= chapterNum && chapterNum < totalChapters)) {
+          if (unlock.chapter_unlocked_till === -1 || (unlock.chapter_unlocked_till >= chapterNum && chapterNum <= totalChapters)) {
             setIsLocked(false);
             setCanUnlockNextThree(true);
-            console.log('[checkAccess] Chapter unlocked via subscription:', { till: unlock.chapter_unlocked_till });
+            setIsUnlockedViaSubscription(true); // Mark as unlocked via subscription
             return;
           }
         }
+
+        // Advance chapter that's not unlocked
+        setIsLocked(true);
+        setCanUnlockNextThree(true);
+      } else {
+        // Regular chapter - requires SMP payment
+        setIsLocked(true); // Lock until paid
+        setCanUnlockNextThree(true);
       }
-      setIsLocked(true);
-      setCanUnlockNextThree(true);
-      console.log('[checkAccess] Chapter locked, subscription required');
     } catch (error) {
-      console.error('[checkAccess] Error checking access:', error.message);
-      setError('Failed to verify chapter access. Please try again.');
-      setIsLocked(true);
+      console.error('[checkAccess] Error:', error);
+      setError('Failed to verify chapter access.');
       setTimeout(() => setError(null), 5000);
     }
-  }, [isWalletConnected]);
-
-  const requestPassword = useCallback((callback) => {
-    setPassword('');
-    setPasswordError(null);
-    setPasswordAttempts(0);
-    setPasswordCallback(() => callback);
-    setShowPasswordModal(true);
-    console.log('[requestPassword] Requesting password for transaction');
   }, []);
 
-  const handlePasswordSubmit = useCallback(() => {
-    if (!password) {
-      setPasswordError('Please enter your password.');
-      console.log('[handlePasswordSubmit] Password input empty');
-      return;
-    }
+  // Function to check if content should be shown
+  const shouldShowContent = useCallback(() => {
+    if (!isWalletConnected) return false;
+    if (isUnlockedViaSubscription) return true; // Show if unlocked via subscription
+    return !isLocked; // Otherwise, show only if paid with SMP
+  }, [isWalletConnected, isUnlockedViaSubscription, isLocked]);
+
+  // Password Modal Component
+  const PasswordModal = ({ visible, onClose, onSubmit, error, isProcessing }) => {
+    const [inputPassword, setInputPassword] = useState('');
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+      if (visible) {
+        setInputPassword('');
+        // Focus input with slight delay to ensure modal is fully visible
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+    }, [visible]);
+
+    const handleSubmit = () => {
+      if (!inputPassword.trim() || isProcessing) return;
+      onSubmit(inputPassword);
+    };
+
+    if (!visible) return null;
+
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={onClose}
+      >
+        <TouchableWithoutFeedback onPress={onClose}>
+          <View style={styles.passwordModalOverlay}>
+            <TouchableWithoutFeedback onPress={e => e.stopPropagation()}>
+              <Animated.View
+                entering={SlideInDown.springify().damping(15)}
+                exiting={SlideOutDown.springify().damping(15)}
+                style={styles.passwordModalContent}
+              >
+                <View style={styles.passwordModalHeader}>
+                  <Text style={styles.passwordModalTitle}>Enter Password</Text>
+                  <TouchableOpacity
+                    style={styles.passwordModalCloseButton}
+                    onPress={onClose}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Icon name="times" size={20} color="#ffffff" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[
+                  styles.passwordInputContainer,
+                  error ? styles.inputError : null,
+                  inputPassword ? styles.inputActive : null
+                ]}>
+                  <Icon name="lock" size={20} color="#E67E22" style={styles.passwordIcon} />
+                  <TextInput
+                    ref={inputRef}
+                    style={styles.passwordInput}
+                    placeholder="Enter your password"
+                    placeholderTextColor="#666"
+                    secureTextEntry
+                    value={inputPassword}
+                    onChangeText={setInputPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isProcessing}
+                    onSubmitEditing={handleSubmit}
+                    returnKeyType="done"
+                  />
+                </View>
+
+                {error && (
+                  <View style={styles.passwordErrorContainer}>
+                    <Icon name="exclamation-circle" size={16} color="#FF5252" style={styles.errorIcon} />
+                    <Text style={styles.passwordErrorText}>{error}</Text>
+                  </View>
+                )}
+
+                <View style={styles.passwordModalButtonRow}>
+                  <TouchableOpacity
+                    style={styles.passwordModalCancelButton}
+                    onPress={onClose}
+                    disabled={isProcessing}
+                  >
+                    <Text style={styles.modalButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.passwordModalConfirmButton,
+                      (!inputPassword.trim() || isProcessing) && styles.disabledButton
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={!inputPassword.trim() || isProcessing}
+                  >
+                    {isProcessing ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.modalButtonText}>Confirm</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+    );
+  };
+
+  // Password Modal State and Handlers
+  const [passwordModal, setPasswordModal] = useState(null);
+
+  const handlePasswordSubmit = async (password) => {
+    if (!password || isProcessing) return;
+
     if (passwordAttempts >= MAX_PASSWORD_ATTEMPTS) {
       setPasswordError('Maximum password attempts reached. Please try again later.');
-      console.log('[handlePasswordSubmit] Max password attempts reached');
       setTimeout(() => {
         setShowPasswordModal(false);
-        setPassword('');
         setPasswordAttempts(0);
-        setPasswordCallback(null);
+        setCurrentPasswordCallback(null);
       }, PASSWORD_ERROR_TIMEOUT);
       return;
     }
-    passwordCallback?.(password);
-  }, [password, passwordCallback, passwordAttempts]);
 
-  const confirmTransactionWithRetry = async (signature, blockhash, lastValidBlockHeight, retries = 3, delay = 1000) => {
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`[confirmTransactionWithRetry] Attempt ${attempt} - Confirming transaction:`, signature);
-        await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
-        console.log('[confirmTransactionWithRetry] Transaction confirmed:', signature);
-        return;
-      } catch (err) {
-        console.error(`[confirmTransactionWithRetry] Attempt ${attempt} - Transaction confirmation failed:`, err.message);
-        if (attempt === retries) {
-          throw new Error('Failed to confirm transaction after retries. Please check your network or try again later.');
-        }
-        await new Promise((resolve) => setTimeout(resolve, delay * attempt));
+    setIsProcessing(true);
+    try {
+      await currentPasswordCallback?.(password);
+      // Success - close modal and reset state
+      setShowPasswordModal(false);
+      setPasswordError(null);
+      setPasswordAttempts(0);
+      setCurrentPasswordCallback(null);
+    } catch (err) {
+      console.error('[handlePasswordSubmit] Error:', err);
+      setPasswordAttempts(prev => prev + 1);
+      
+      const errorMessage = err.message.includes('Invalid password') ? 
+        'Incorrect password. Please try again.' : 
+        'Error processing request. Please try again.';
+      
+      setPasswordError(errorMessage);
+
+      if (passwordAttempts + 1 >= MAX_PASSWORD_ATTEMPTS) {
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordAttempts(0);
+          setCurrentPasswordCallback(null);
+        }, PASSWORD_ERROR_TIMEOUT);
       }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const updateTokenBalance = useCallback(async () => {
-    if (!activeWalletAddress || !novel || !chapterId || readingMode !== 'paid') {
-      console.log('[updateTokenBalance] Skipping token balance update:', { activeWalletAddress, novel, chapterId, readingMode });
-      return;
+  const requestPassword = useCallback((callback) => {
+    setPasswordError(null);
+    setPasswordAttempts(0);
+    setCurrentPasswordCallback(() => callback);
+    setShowPasswordModal(true);
+  }, []);
+
+  // Process chapter payment
+  const processChapterPayment = useCallback(async (targetChapterId) => {
+    if (!activeWalletAddress || !novel || !targetChapterId || !activePublicKey) {
+      setError('Please ensure your wallet is connected and try again.');
+      return false;
     }
+
+    setError(null);
+    setSuccessMessage('');
+    setWarningMessage('');
+
     try {
-      if (!activePublicKey) throw new Error('No valid public key available.');
-      if (!TARGET_WALLET) throw new Error('TARGET_WALLET is not defined.');
-      let targetPublicKey;
-      try {
-        targetPublicKey = new PublicKey(TARGET_WALLET);
-      } catch (err) {
-        throw new Error(`Invalid TARGET_WALLET: ${err.message}`);
+      // Check if already paid
+      const isPaid = await checkChapterPayment(parseInt(targetChapterId, 10));
+      if (isPaid) {
+        console.log('[processChapterPayment] Chapter already paid for');
+        return true;
       }
-      new PublicKey(SMP_MINT_ADDRESS);
-      console.log('[updateTokenBalance] Fetching user data for balance update');
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, weekly_points')
-        .eq('wallet_address', activeWalletAddress)
-        .single();
-      if (userError || !userData) throw new Error(`User not found: ${userError?.message || 'No user data'}`);
-      const user = userData;
-      const chapterNum = parseInt(chapterId, 10);
-      const advanceInfo = novel.advance_chapters?.find((c) => c.index === chapterNum) || {
-        is_advance: false,
-        free_release_date: null,
-      };
-      let hasValidAccess =
-        !advanceInfo.is_advance ||
-        (advanceInfo.free_release_date && new Date(advanceInfo.free_release_date) <= new Date());
-      if (advanceInfo.is_advance && !hasValidAccess) {
-        console.log('[updateTokenBalance] Checking unlock status for advance chapter');
-        const { data: unlock, error: unlockError } = await supabase
-          .from('unlocked_story_chapters')
-          .select('chapter_unlocked_till, expires_at')
-          .eq('user_id', user.id)
-          .eq('story_id', novelId)
-          .single();
-        if (unlockError && unlockError.code !== 'PGRST116') throw new Error(`Unlock check failed: ${unlockError.message}`);
-        hasValidAccess =
-          unlock &&
-          (!unlock.expires_at || new Date(unlock.expires_at) > new Date()) &&
-          (unlock.chapter_unlocked_till === -1 || unlock.chapter_unlocked_till >= chapterNum);
-        if (!hasValidAccess) {
-          console.log('[updateTokenBalance] No valid access, skipping balance update');
-          return;
-        }
+
+      if (!TARGET_WALLET) {
+        throw new Error('Configuration error: Missing reward wallet address');
       }
-      console.log('[updateTokenBalance] Creating or fetching source ATA');
-      const sourceATA = await getOrCreateAssociatedTokenAccount(
-        connection,
-        activePublicKey,
-        new PublicKey(SMP_MINT_ADDRESS),
-        activePublicKey
-      );
-      const smpBalanceOnChain = Number((await getAccount(connection, sourceATA.address)).amount) / 10 ** SMP_DECIMALS;
-      console.log('[updateTokenBalance] On-chain SMP balance (human-readable):', smpBalanceOnChain);
-      if (smpBalanceOnChain < 1000) {
-        throw new Error(`Insufficient SMP balance on-chain: ${smpBalanceOnChain.toLocaleString()} SMP`);
+
+      const targetPublicKey = new PublicKey(TARGET_WALLET);
+      console.log(`[processChapterPayment] Checking balances...`);
+
+      // Check all balances in parallel for efficiency
+      const [merchantSolBalance, userSolBalance, smpBalance] = await Promise.all([
+        connection.getBalance(targetPublicKey),
+        connection.getBalance(activePublicKey),
+        fetchSmpBalanceOnChain()
+      ]);
+
+      console.log(`[processChapterPayment] Balances:`, {
+        merchantSol: merchantSolBalance / LAMPORTS_PER_SOL,
+        userSol: userSolBalance / LAMPORTS_PER_SOL,
+        userSMP: smpBalance
+      });
+
+      // Verify merchant has enough SOL for gas
+      if (merchantSolBalance < MIN_REWARD_WALLET_SOL * LAMPORTS_PER_SOL) {
+        throw new Error(
+          `The service is temporarily unavailable. Please contact support. (Insufficient merchant balance)`
+        );
       }
-      console.log('[updateTokenBalance] Fetching novel owner data');
-      const { data: novelOwnerData, error: novelOwnerError } = await supabase
-        .from('novels')
-        .select('user_id')
-        .eq('id', novel.id)
-        .single();
-      if (novelOwnerError || !novelOwnerData) throw new Error(`Novel owner not found: ${novelOwnerError?.message || 'No owner data'}`);
-      const novelOwnerId = novelOwnerData.user_id;
-      console.log('[updateTokenBalance] Fetching novel owner balance');
-      const { data: novelOwner, error: novelOwnerBalanceError } = await supabase
-        .from('users')
-        .select('id, wallet_address, balance')
-        .eq('id', novelOwnerId)
-        .single();
-      if (novelOwnerBalanceError || !novelOwner) throw new Error(`Novel owner balance not found: ${novelOwnerBalanceError?.message || 'No owner balance'}`);
-      const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${chapterId}`
-        .replace(/[^a-zA-Z0-9]/g, '')
-        .substring(0, 255);
-      console.log('[updateTokenBalance] Checking existing wallet events:', { eventDetails });
-      const { data: existingEvents, error: eventError } = await supabase
-        .from('wallet_events')
-        .select('id')
-        .eq('event_details', eventDetails)
-        .eq('wallet_address', activeWalletAddress)
-        .limit(1);
-      if (eventError) throw new Error(`Error checking wallet events: ${eventError.message}`);
-      if (existingEvents?.length > 0) {
-        setHasReadChapter(true);
-        console.log('[updateTokenBalance] Chapter already read, skipping transaction');
-        return;
+
+      // Verify user has enough SOL for potential ATA creation
+      if (userSolBalance < MIN_ATA_SOL * LAMPORTS_PER_SOL) {
+        throw new Error(
+          `You need at least ${MIN_ATA_SOL} SOL in your wallet for token account creation.`
+        );
       }
-      console.log('[updateTokenBalance] Preparing transaction');
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      const destATA = await getOrCreateAssociatedTokenAccount(
-        connection,
-        activePublicKey,
-        new PublicKey(SMP_MINT_ADDRESS),
-        targetPublicKey
-      );
-      const transaction = new Transaction({
-        recentBlockhash: blockhash,
-        feePayer: activePublicKey,
-      }).add(
-        createTransferInstruction(
-          sourceATA.address,
-          destATA.address,
-          activePublicKey,
-          1000 * 10 ** SMP_DECIMALS,
-          []
+
+      // Verify user has enough SMP
+      if (smpBalance < SMP_READ_COST) {
+        throw new Error(
+          `Insufficient SMP tokens for reading.\n\n` +
+          `Required: ${SMP_READ_COST} SMP\n` +
+          `Current: ${smpBalance} SMP\n\n` +
+          `To get SMP tokens:\n` +
+          `1. Visit the SMP token page\n` +
+          `2. Use USDC (${(userSolBalance / LAMPORTS_PER_SOL).toFixed(4)} available) or SOL (${(userSolBalance / LAMPORTS_PER_SOL).toFixed(4)} available) to purchase SMP\n` +
+          `3. Return here to unlock the chapter`
+        );
+      }
+
+      // Create ATAs if they don't exist
+      console.log('[processChapterPayment] Creating/getting ATAs...');
+      const [sourceATA, destATA] = await Promise.all([
+        getOrCreateAssociatedTokenAccount(
+          connection,
+          targetPublicKey, // Reward wallet pays gas
+          new PublicKey(SMP_MINT_ADDRESS),
+          activePublicKey
+        ),
+        getOrCreateAssociatedTokenAccount(
+          connection,
+          targetPublicKey, // Reward wallet pays gas
+          new PublicKey(SMP_MINT_ADDRESS),
+          targetPublicKey
         )
+      ]);
+
+      console.log('[processChapterPayment] ATAs created/found:', {
+        sourceATA: sourceATA.address.toString(),
+        destATA: destATA.address.toString()
+      });
+
+      // Verify source ATA has enough balance one final time before transaction
+      const sourceATAInfo = await getAccount(connection, sourceATA.address);
+      const sourceATABalance = Number(sourceATAInfo.amount) / 10 ** SMP_DECIMALS;
+      
+      if (sourceATABalance < SMP_READ_COST) {
+        throw new Error(
+          `Insufficient SMP tokens in your wallet. ` +
+          `Required: ${SMP_READ_COST} SMP, Current: ${sourceATABalance} SMP`
+        );
+      }
+
+      // Create and send transaction
+      console.log('[processChapterPayment] Getting latest blockhash...');
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      
+      // Calculate the exact amount in token units
+      const transferAmount = BigInt(SMP_READ_COST * (10 ** SMP_DECIMALS)); // Use SMP_DECIMALS constant
+      console.log('[processChapterPayment] Transfer amount (in token units):', transferAmount.toString());
+      console.log('[processChapterPayment] Transfer amount (in SMP):', SMP_READ_COST);
+
+      // Create transfer instruction with explicit checks
+      console.log('[processChapterPayment] Creating transfer instruction...');
+      console.log('[processChapterPayment] Instruction parameters:', {
+        sourceATA: sourceATA.address.toString(),
+        destATA: destATA.address.toString(),
+        authority: activePublicKey.toString(),
+        amount: transferAmount.toString(),
+        smpAmount: SMP_READ_COST
+      });
+
+      const transferInstruction = createTransferInstruction(
+        sourceATA.address,
+        destATA.address,
+        activePublicKey,
+        transferAmount
       );
+
+      // Create transaction
+      console.log('[processChapterPayment] Creating transaction...');
+      const transaction = new Transaction();
+      transaction.add(transferInstruction);
+      
+      // Set transaction properties
+      console.log('[processChapterPayment] Setting transaction properties...');
+      transaction.feePayer = activePublicKey;
+      transaction.recentBlockhash = blockhash;
+
+      console.log('[processChapterPayment] Transaction created:', {
+        feePayer: transaction.feePayer.toString(),
+        recentBlockhash: transaction.recentBlockhash,
+        instructions: transaction.instructions.length
+      });
+
+      // Get user to sign transaction
       let signature;
-      if (secretKey) {
-        // Passwordless transaction
-        console.log('[updateTokenBalance] Initiating passwordless transaction');
-        signature = await signAndSendTransaction(transaction);
-      } else {
-        // Fallback to password prompt
-        console.log('[updateTokenBalance] No in-memory secret key, prompting for password');
-        await new Promise((resolve, reject) => {
+      try {
+        signature = await new Promise((resolve, reject) => {
           requestPassword(async (pwd) => {
             try {
-              signature = await signAndSendTransaction(transaction, pwd);
-              resolve();
+              console.log('[processChapterPayment] Requesting transaction signature...');
+              const sig = await signAndSendTransaction(transaction, pwd);
+              if (!sig) {
+                throw new Error('Failed to get transaction signature');
+              }
+              console.log('[processChapterPayment] Transaction signed:', sig);
+              resolve(sig);
             } catch (err) {
+              console.error('[processChapterPayment] Transaction signing error:', err);
+              setPasswordAttempts(prev => prev + 1);
               reject(err);
             }
           });
         });
-      }
-      console.log('[updateTokenBalance] Confirming transaction:', signature);
-      await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-      const newSmpBalance = smpBalance - 1000;
-      let readerReward = 100;
-      const authorReward = 500;
-      const numericBalance = Number(amethystBalance) || 0;
-      if (numericBalance >= 5000000) readerReward = 250;
-      else if (numericBalance >= 1000000) readerReward = 200;
-      else if (numericBalance >= 500000) readerReward = 170;
-      else if (numericBalance >= 250000) readerReward = 150;
-      else if (numericBalance >= 100000) readerReward = 120;
-      const newReaderBalance = (user.weekly_points || 0) + readerReward;
-      const newAuthorBalance = novelOwner.balance + authorReward;
-      console.log('[updateTokenBalance] Updating user balances and wallet events');
-      await Promise.all([
-        supabase
-          .from('users')
-          .update({ weekly_points: newReaderBalance })
-          .eq('id', user.id),
-        novelOwner.id !== user.id &&
-          supabase
-            .from('users')
-            .update({ balance: newAuthorBalance })
-            .eq('id', novelOwner.id),
-        supabase.from('wallet_balances').upsert([
-          {
-            user_id: novelOwner.id,
-            chain: 'SOL',
-            currency: 'SMP',
-            amount: newAuthorBalance,
-            decimals: 0,
-            wallet_address: novelOwner.wallet_address,
-          },
-        ]),
-        supabase.from('wallet_events').insert([
-          {
-            destination_user_id: user.id,
-            event_type: 'deposit',
-            event_details: eventDetails,
-            source_chain: 'SOL',
-            source_currency: 'Token',
-            amount_change: readerReward,
-            wallet_address: activeWalletAddress,
-            source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-            destination_chain: 'SOL',
-          },
-          {
-            destination_user_id: novelOwner.id,
-            event_type: 'deposit',
-            event_details: eventDetails,
-            source_chain: 'SOL',
-            source_currency: 'SMP',
-            amount_change: authorReward,
-            wallet_address: novelOwner.wallet_address,
-            source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-            destination_chain: 'SOL',
-          },
-          {
-            destination_user_id: user.id,
-            event_type: 'withdrawal',
-            event_details: eventDetails,
-            source_chain: 'SOL',
-            source_currency: 'SMP',
-            amount_change: -1000,
-            wallet_address: activeWalletAddress,
-            source_user_id: user.id,
-            destination_chain: 'SOL',
-          },
-        ]),
-      ]);
-      setSuccessMessage(`Payment successful! 1,000 SMP sent. You earned ${readerReward} points.`);
-      setSmpBalance(newSmpBalance);
-      setWeeklyPoints(newReaderBalance);
-      setHasReadChapter(true);
-      console.log('[updateTokenBalance] Transaction completed:', { newSmpBalance, newReaderBalance, readerReward });
-      setTimeout(() => setSuccessMessage(''), 5000);
-    } catch (error) {
-      console.error('[updateTokenBalance] Error in updateTokenBalance:', error.message);
-      setError(
-        error.message.includes('Insufficient SMP balance')
-          ? 'Not enough SMP tokens to read this chapter.'
-          : `Payment failed: ${error.message}`
-      );
-      setTimeout(() => setError(null), 5000);
-    }
-  }, [activeWalletAddress, novel, chapterId, readingMode, novelId, activePublicKey, smpBalance, amethystBalance, secretKey, requestPassword, signAndSendTransaction]);
 
-  const initiatePayment = async (subscriptionType, currency) => {
-    if (!activeWalletAddress || !activePublicKey) {
-      setError('Please connect your wallet to proceed.');
-      console.log('[initiatePayment] No wallet connected, cannot initiate payment');
-      return;
-    }
-    try {
-      console.log('[initiatePayment] Initiating payment:', { subscriptionType, currency });
-      await fetchPrices();
-      const usdAmount = subscriptionType === '3CHAPTERS' ? 3 : 15;
-      let amount, decimals, mint, displayAmount;
-      if (currency === 'SOL') {
-        if (!solPrice) throw new Error('SOL price not available');
-        amount = Math.round((usdAmount / solPrice) * 1_000_000_000);
-        decimals = 9;
-        displayAmount = (amount / 1_000_000_000).toFixed(4);
-      } else {
-        const price = currency === 'USDC' ? usdcPrice : smpPrice;
-        if (!price) throw new Error(`${currency} price not available`);
-        mint = currency === 'USDC' ? USDC_MINT_ADDRESS : SMP_MINT_ADDRESS;
-        decimals = currency === 'USDC' ? 6 : SMP_DECIMALS;
-        amount = Math.round((usdAmount / price) * 10 ** decimals);
-        displayAmount = (amount / 10 ** decimals).toFixed(2);
+        if (!signature) {
+          throw new Error('Transaction signing failed - no signature returned');
+        }
+
+        // Wait for transaction confirmation with retries
+        console.log('[processChapterPayment] Confirming transaction...');
+        let tx = null;
+        for (let i = 0; i < 5; i++) { // Increased retries to 5
+          try {
+            tx = await connection.getTransaction(signature, {
+              commitment: 'confirmed',
+              maxSupportedTransactionVersion: 0
+            });
+            if (tx?.meta && !tx.meta.err) {
+              console.log('[processChapterPayment] Transaction confirmed:', {
+                signature,
+                slot: tx.slot,
+                blockTime: tx.blockTime
+              });
+              break;
+            }
+            console.log(`[processChapterPayment] Attempt ${i + 1}: Transaction pending, retrying...`);
+            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1))); // Exponential backoff
+          } catch (err) {
+            console.warn(`[processChapterPayment] Attempt ${i + 1} error:`, err);
+            if (i === 4) throw new Error('Transaction confirmation failed after retries');
+            await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+          }
+        }
+
+        if (!tx?.meta) {
+          throw new Error('Transaction not found after retries');
+        }
+
+        if (tx.meta.err) {
+          throw new Error(`Transaction failed on chain: ${tx.meta.err}`);
+        }
+
+        // Verify the token transfer by checking post balances
+        const postTokenBalances = tx.meta.postTokenBalances || [];
+        const preTokenBalances = tx.meta.preTokenBalances || [];
+        
+        console.log('[processChapterPayment] Detailed token balances:', {
+          pre: preTokenBalances.map(b => ({
+            accountIndex: b.accountIndex,
+            mint: b.mint,
+            owner: b.owner,
+            amount: b.uiTokenAmount
+          })),
+          post: postTokenBalances.map(b => ({
+            accountIndex: b.accountIndex,
+            mint: b.mint,
+            owner: b.owner,
+            amount: b.uiTokenAmount
+          }))
+        });
+
+        // Find the user's token balance changes
+        const userPreBalance = preTokenBalances.find(b => 
+          b.owner === activeWalletAddress && 
+          b.mint === SMP_MINT_ADDRESS
+        );
+        const userPostBalance = postTokenBalances.find(b => 
+          b.owner === activeWalletAddress && 
+          b.mint === SMP_MINT_ADDRESS
+        );
+
+        console.log('[processChapterPayment] User balance check:', {
+          activeWalletAddress,
+          SMP_MINT_ADDRESS,
+          preBalance: userPreBalance?.uiTokenAmount,
+          postBalance: userPostBalance?.uiTokenAmount
+        });
+
+        // If we can't find the balances by owner, try by account index
+        if (!userPreBalance || !userPostBalance) {
+          console.log('[processChapterPayment] Trying to find balances by account index...');
+          // Get all token accounts involved in the transaction
+          const accounts = tx.transaction.message.accountKeys;
+          console.log('[processChapterPayment] Transaction accounts:', accounts.map(a => a.toString()));
+          
+          // Find the index of the source ATA
+          const sourceATAIndex = accounts.findIndex(a => a.toString() === sourceATA.address.toString());
+          console.log('[processChapterPayment] Source ATA index:', sourceATAIndex);
+          
+          if (sourceATAIndex !== -1) {
+            const sourcePreBalance = preTokenBalances.find(b => b.accountIndex === sourceATAIndex);
+            const sourcePostBalance = postTokenBalances.find(b => b.accountIndex === sourceATAIndex);
+            
+            if (sourcePreBalance && sourcePostBalance) {
+              console.log('[processChapterPayment] Found balances by account index:', {
+                pre: sourcePreBalance.uiTokenAmount,
+                post: sourcePostBalance.uiTokenAmount
+              });
+
+              const balanceChange = Number(sourcePreBalance.uiTokenAmount.uiAmount) - Number(sourcePostBalance.uiTokenAmount.uiAmount);
+              console.log('[processChapterPayment] Balance change:', balanceChange);
+
+              // Verify the amount with tolerance
+              const tolerance = 0.001;
+              if (Math.abs(balanceChange - SMP_READ_COST) <= tolerance) {
+                // Record payment in database
+                const { error: paymentError } = await supabase
+                  .from('chapter_payments')
+                  .insert({
+                    wallet_address: activeWalletAddress,
+                    novel_id: novelId,
+                    chapter_number: parseInt(targetChapterId, 10),
+                    amount: SMP_READ_COST
+                  });
+
+                if (paymentError) {
+                  console.error('[processChapterPayment] Database error:', paymentError);
+                  throw paymentError;
+                }
+
+                console.log('[processChapterPayment] Payment recorded in database');
+                setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent for Chapter ${parseInt(targetChapterId, 10) + 1}.`);
+                setSmpBalance(prev => prev - SMP_READ_COST);
+                
+                // Update UI state to show chapter content
+                setIsLocked(false);
+                setCanUnlockNextThree(true);
+                
+                // Reset any error states
+                setError(null);
+                setWarningMessage(null);
+                
+                console.log('[processChapterPayment] Chapter unlocked, updating UI state');
+                setTimeout(() => setSuccessMessage(''), 5000);
+                return true;
+              }
+            }
+          }
+        }
+
+        // If we get here, we couldn't validate the transfer
+        console.error('[processChapterPayment] Token balance validation failed:', {
+          sourceATA: sourceATA.address.toString(),
+          destATA: destATA.address.toString(),
+          activeWalletAddress,
+          SMP_MINT_ADDRESS,
+          accounts: tx.transaction.message.accountKeys.map(a => a.toString())
+        });
+        throw new Error('Token transfer validation failed: Could not verify balance changes');
+
+      } catch (error) {
+        console.error('[processChapterPayment] Error:', error);
+        const errorMessage = error.message.includes('Invalid password') ? 'Incorrect password. Please try again.' :
+                           error.message.includes('Insufficient') ? error.message :
+                           error.message.includes('service is temporarily unavailable') ? error.message :
+                           'Transaction failed. Please try again later.';
+        
+        setError(errorMessage);
+        
+        if (error.message.includes('Insufficient SMP tokens')) {
+          setWarningMessage('Need SMP tokens to continue reading');
+          setTimeout(() => {
+            navigation.navigate('TokenSwap', {
+              returnScreen: 'Chapter',
+              returnParams: { novelId, chapterId }
+            });
+          }, 2000);
+        }
+        
+        setTimeout(() => {
+          setError(null);
+          setWarningMessage(null);
+        }, 5000);
+        return false;
       }
-      setTransactionDetails({ subscriptionType, currency, amount, displayAmount, decimals, mint });
-      setShowTransactionPopup(true);
-      console.log('[initiatePayment] Transaction details set:', { subscriptionType, currency, amount, displayAmount });
     } catch (error) {
-      console.error('[initiatePayment] Error initiating payment:', error.message);
-      setError(`Failed to initiate payment: ${error.message}`);
-      setTimeout(() => setError(null), 5000);
+      console.error('[processChapterPayment] Error:', error);
+      const errorMessage = error.message.includes('Invalid password') ? 'Incorrect password. Please try again.' :
+                          error.message.includes('Insufficient') ? error.message :
+                          error.message.includes('service is temporarily unavailable') ? error.message :
+                          'Transaction failed. Please try again later.';
+      
+      setError(errorMessage);
+      
+      if (error.message.includes('Insufficient SMP tokens')) {
+        setWarningMessage('Need SMP tokens to continue reading');
+        setTimeout(() => {
+          navigation.navigate('TokenSwap', {
+            returnScreen: 'Chapter',
+            returnParams: { novelId, chapterId }
+          });
+        }, 2000);
+      }
+      
+      setTimeout(() => {
+        setError(null);
+        setWarningMessage(null);
+      }, 5000);
+      return false;
+    }
+  }, [activeWalletAddress, novel, novelId, activePublicKey, checkChapterPayment, requestPassword, signAndSendTransaction]);
+
+  // Handle next chapter navigation
+  const handleNextChapter = async (nextChapterId) => {
+    if (!nextChapterId) return;
+    
+    const paymentSuccess = await processChapterPayment(nextChapterId);
+    if (paymentSuccess) {
+      navigation.navigate('Chapter', { novelId, chapterId: nextChapterId });
     }
   };
 
-  const confirmPayment = async () => {
-    if (!transactionDetails) {
-      console.log('[confirmPayment] No transaction details, aborting payment confirmation');
-      return;
-    }
-    const { subscriptionType, currency, amount, decimals, mint } = transactionDetails;
-    try {
-      let targetPublicKey;
-      try {
-        targetPublicKey = new PublicKey(TARGET_WALLET);
-      } catch (err) {
-        throw new Error(`Invalid TARGET_WALLET: ${err.message}`);
-      }
-      console.log('[confirmPayment] Confirming payment:', { subscriptionType, currency, amount });
-      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      let signature;
-      const balance = await connection.getBalance(activePublicKey);
-      const minBalanceRequired = currency === 'SOL' ? amount + 5000 : 5000;
-      if (balance < minBalanceRequired) {
-        throw new Error(`Insufficient SOL balance: ${(balance / 1_000_000_000).toFixed(4)} SOL`);
-      }
-      if (currency === 'SOL') {
-        const transaction = new Transaction({
-          recentBlockhash: blockhash,
-          feePayer: activePublicKey,
-        }).add(
-          SystemProgram.transfer({
-            fromPubkey: activePublicKey,
-            toPubkey: targetPublicKey,
-            lamports: amount,
-          })
-        );
-        if (secretKey) {
-          console.log('[confirmPayment] Using passwordless transaction for SOL payment');
-          signature = await signAndSendTransaction(transaction);
-        } else {
-          console.log('[confirmPayment] Prompting for password for SOL payment');
-          await new Promise((resolve, reject) => {
-            requestPassword(async (pwd) => {
-              try {
-                signature = await signAndSendTransaction(transaction, pwd);
-                resolve();
-              } catch (err) {
-                reject(err);
-              }
-            });
-          });
-        }
-        console.log('[confirmPayment] Confirming SOL transaction:', signature);
-        await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-        await processUnlock(subscriptionType, signature, amount / 1_000_000_000, currency);
-      } else {
-        console.log('[confirmPayment] Creating or fetching source ATA for token payment');
-        const sourceATA = await getOrCreateAssociatedTokenAccount(
-          connection,
-          activePublicKey,
-          new PublicKey(mint),
-          activePublicKey
-        );
-        const destATA = await getOrCreateAssociatedTokenAccount(
-          connection,
-          activePublicKey,
-          new PublicKey(mint),
-          targetPublicKey
-        );
-        const transaction = new Transaction({
-          recentBlockhash: blockhash,
-          feePayer: activePublicKey,
-        }).add(createTransferInstruction(sourceATA.address, destATA.address, activePublicKey, amount));
-        if (secretKey) {
-          console.log('[confirmPayment] Using passwordless transaction for token payment');
-          signature = await signAndSendTransaction(transaction);
-        } else {
-          console.log('[confirmPayment] Prompting for password for token payment');
-          await new Promise((resolve, reject) => {
-            requestPassword(async (pwd) => {
-              try {
-                signature = await signAndSendTransaction(transaction, pwd);
-                resolve();
-              } catch (err) {
-                reject(err);
-              }
-            });
-          });
-        }
-        console.log('[confirmPayment] Confirming token transaction:', signature);
-        await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-        await processUnlock(subscriptionType, signature, amount / 10 ** decimals, currency);
-      }
-    } catch (error) {
-      console.error('[confirmPayment] Error confirming payment:', error.message);
-      setError(`Payment failed: ${error.message}`);
-      setTimeout(() => setError(null), 5000);
-    } finally {
-      setShowTransactionPopup(false);
-      setTransactionDetails(null);
-      setShowPasswordModal(false);
-      setPassword('');
-      setPasswordError(null);
-      setPasswordAttempts(0);
-      setPasswordCallback(null);
-      console.log('[confirmPayment] Payment process completed, resetting transaction state');
-    }
-  };
-
-  const processUnlock = async (subscriptionType, signature, amount, currency) => {
-    try {
-      console.log('[processUnlock] Processing unlock:', { subscriptionType, signature, amount, currency });
-      const response = await fetch('https://sempaihq.xyz/api/unlock-chapter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          story_id: novelId,
-          subscription_type: subscriptionType,
-          signature,
-          userPublicKey: activeWalletAddress,
-          current_chapter: parseInt(chapterId, 10),
-          amount,
-          currency,
-          solPrice,
-          smpPrice,
-        }),
+  // Check payment on component mount
+  useEffect(() => {
+    if (chapterId && userId) {
+      checkChapterPayment(parseInt(chapterId, 10)).then(isPaid => {
+        setIsLocked(!isPaid);
       });
-      const result = await response.json();
-      if (response.ok) {
-        setIsLocked(false);
-        setSuccessMessage(
-          subscriptionType === 'FULL' ? 'All chapters unlocked!' : `Up to Chapter ${result.chapter_unlocked_till + 1} unlocked.`
-        );
-        console.log('[processUnlock] Unlock successful:', result);
-        setTimeout(() => setSuccessMessage(''), 5000);
-        await checkAccess(userId, novel, parseInt(chapterId, 10));
-      } else {
-        throw new Error(result.error || 'Failed to unlock chapters.');
-      }
-    } catch (error) {
-      console.error('[processUnlock] Error processing unlock:', error.message);
-      setError(`Failed to unlock chapters: ${error.message}`);
-      setTimeout(() => setError(null), 5000);
     }
-  };
+  }, [chapterId, userId, checkChapterPayment]);
 
-  const handleReadWithSMP = async () => {
-    if (!isWalletConnected) {
-      setError('Please connect your wallet to read with SMP.');
-      console.log('[handleReadWithSMP] No wallet connected, cannot read with SMP');
-      return;
-    }
-    if (!activePublicKey) {
-      setError('Invalid wallet configuration.');
-      console.log('[handleReadWithSMP] Invalid wallet configuration');
-      return;
-    }
-    if (hasReadChapter) {
-      console.log('[handleReadWithSMP] Chapter already read, skipping SMP payment');
-      return;
-    }
-    setReadingMode('paid');
-    console.log('[handleReadWithSMP] Initiating SMP payment for reading');
-    await updateTokenBalance();
-  };
-
+  // Initialize
   useEffect(() => {
     if (!novelId || !chapterId) {
-      setError('Invalid novel or chapter ID. Please enter values below.');
+      setError('Invalid novel or chapter ID.');
       setUseInput(true);
       setLoading(false);
-      console.log('[useEffect] Missing novelId or chapterId, prompting for input');
       return;
     }
     const initialize = async () => {
       const chapterNum = parseInt(chapterId, 10);
-      if (!isWalletConnected && chapterNum >= 2) {
-        setError('Connect your wallet to read Chapter 3 and beyond.');
+      if (!isWalletConnected && chapterNum > 0) {
+        setError('Connect your wallet to read Chapter 2 and beyond.');
         setLoading(false);
-        console.log('[useEffect] No wallet connected for chapter >= 2, prompting wallet connection');
         return;
       }
-      console.log('[useEffect] Initializing chapter screen');
       await Promise.all([
         fetchPrices(),
-        isWalletConnected ? fetchUserBalances() : Promise.resolve(),
+        isWalletConnected ? fetchUserData() : Promise.resolve(),
         fetchNovel(novelId, chapterId),
       ]);
     };
     initialize();
-  }, [novelId, chapterId, fetchNovel, fetchUserBalances, fetchPrices, isWalletConnected]);
+  }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected]);
 
+  // Check access and read status
   useEffect(() => {
-    if (novel && chapterId) {
-      console.log('[useEffect] Checking access and read status');
-      checkAccess(userId, novel, parseInt(chapterId, 10));
-      if (isWalletConnected) {
-        checkHasReadChapter();
-      }
+    if (novel && chapterId && isWalletConnected) {
+      checkAccess(activeWalletAddress, novel, parseInt(chapterId, 10));
+      checkHasReadChapter(chapterId);
     }
-  }, [novel, userId, chapterId, checkAccess, checkHasReadChapter, isWalletConnected]);
+  }, [novel, activeWalletAddress, chapterId, checkAccess, checkHasReadChapter, isWalletConnected]);
 
+  // Auto-process SMP payment
   useEffect(() => {
     if (!loading && novel && !isLocked && readingMode === 'paid' && isWalletConnected) {
-      console.log('[useEffect] Chapter unlocked and in paid mode, updating token balance');
-      updateTokenBalance();
+      processChapterPayment(chapterId);
     }
-  }, [loading, novel, isLocked, readingMode, updateTokenBalance, isWalletConnected]);
+  }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected]);
 
+  // Manual fetch
   const handleManualFetch = () => {
     if (!inputNovelId || !inputChapterId) {
       setError('Please enter both Novel ID and Chapter ID.');
-      console.log('[handleManualFetch] Missing input for manual fetch');
       return;
     }
     setLoading(true);
     setError(null);
     setUseInput(false);
-    console.log('[handleManualFetch] Manually fetching novel:', { inputNovelId, inputChapterId });
     fetchNovel(inputNovelId, inputChapterId);
   };
 
-  const renderParagraph = useCallback(
-    ({ item }) => (
-      <Animated.Text entering={FadeIn} style={styles.paragraph}>
-        {item}
-      </Animated.Text>
-    ),
-    []
-  );
+  // Update the loadMoreParagraphs function
+  const loadMoreParagraphs = useCallback(() => {
+    if (!paragraphs || !Array.isArray(paragraphs)) return;
+    
+    const nextBatch = paragraphs.slice(
+      visibleParagraphs.length,
+      visibleParagraphs.length + ITEMS_PER_PAGE
+    );
+    if (nextBatch.length > 0) {
+      setVisibleParagraphs(prev => [...prev, ...nextBatch]);
+    }
+  }, [paragraphs, visibleParagraphs.length]);
 
+  // Update the useEffect for paragraphs initialization
+  useEffect(() => {
+    if (paragraphs && Array.isArray(paragraphs) && paragraphs.length > 0) {
+      setVisibleParagraphs(paragraphs.slice(0, ITEMS_PER_PAGE));
+    } else {
+      setVisibleParagraphs([]);
+    }
+  }, [paragraphs]);
+
+  // Update the content parsing logic
+  const chapterContent = novel?.chaptercontents?.[chapterId] || '';
+  const paragraphs = useMemo(() => {
+    if (!chapterContent) return [];
+    return chapterContent
+      .split('\n')
+      .filter(line => line.trim() !== '')
+      .map(line => line.trim());
+  }, [chapterContent]);
+
+  // Render paragraph
+  const renderParagraph = useCallback(({ item, index }) => {
+    const AnimatedText = Animated.createAnimatedComponent(Text);
+    return (
+      <AnimatedText
+        entering={FadeIn.delay(50 * (index % ITEMS_PER_PAGE))}
+        style={styles.paragraph}
+      >
+        {item}
+      </AnimatedText>
+    );
+  }, []);
+
+  // Add an effect to periodically update the balance
+  useEffect(() => {
+    if (!isWalletConnected) return;
+
+    // Initial fetch
+    fetchSmpBalanceOnChain();
+
+    // Set up periodic balance updates
+    const intervalId = setInterval(() => {
+      fetchSmpBalanceOnChain();
+    }, 30000); // Update every 30 seconds
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
+  }, [isWalletConnected, fetchSmpBalanceOnChain]);
+
+  // Check if user has paid for the chapter
+  const checkChapterPayment = useCallback(async (chapterNum) => {
+    if (!activeWalletAddress || !novelId) return false;
+    try {
+      const { data, error } = await supabase
+        .from('chapter_payments')
+        .select('id')
+        .eq('wallet_address', activeWalletAddress)
+        .eq('novel_id', novelId)
+        .eq('chapter_number', chapterNum)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('[checkChapterPayment] Error:', error);
+        return false;
+      }
+
+      return !!data;
+    } catch (err) {
+      console.error('[checkChapterPayment] Error:', err);
+      return false;
+    }
+  }, [activeWalletAddress, novelId]);
+
+  // UI
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -965,7 +1107,6 @@ const ChapterScreen = () => {
             onPress={() => {
               setUseInput(true);
               setError('Enter new values to try again.');
-              console.log('[render] Chapter not found, prompting for new input');
             }}
           >
             <Text style={styles.actionButtonText}>Try Another Chapter</Text>
@@ -980,11 +1121,6 @@ const ChapterScreen = () => {
   }
 
   const chapterTitle = novel.chaptertitles?.[chapterId] || `Chapter ${chapterId}`;
-  const chapterContent = novel.chaptercontents[chapterId];
-  const paragraphs = chapterContent
-    .split('\n')
-    .filter((line) => line.trim() !== '')
-    .map((line) => line.trim());
   const chapterKeys = Object.keys(novel.chaptercontents || {});
   const currentIndex = chapterKeys.indexOf(chapterId);
   const prevChapter = currentIndex > 0 ? chapterKeys[currentIndex - 1] : null;
@@ -1006,21 +1142,15 @@ const ChapterScreen = () => {
         <Animated.View entering={FadeIn} style={styles.balanceContainer}>
           <View style={styles.balanceItem}>
             <Icon name="wallet" size={16} color="#E67E22" style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>
-              SMP: {smpBalance !== null ? smpBalance.toLocaleString() : 'Loading...'}
-            </Text>
+            <Text style={styles.balanceText}>SMP: {smpBalance.toLocaleString()}</Text>
           </View>
           <View style={styles.balanceItem}>
             <Icon name="star" size={16} color="#E67E22" style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>
-              Points: {weeklyPoints !== null ? weeklyPoints.toLocaleString() : 'Loading...'}
-            </Text>
+            <Text style={styles.balanceText}>Points: {weeklyPoints.toLocaleString()}</Text>
           </View>
           <View style={styles.balanceItem}>
             <Icon name="gem" size={16} color="#E67E22" style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>
-              Amethyst: {amethystBalance.toFixed(2)}
-            </Text>
+            <Text style={styles.balanceText}>Amethyst: {amethystBalance.toFixed(2)}</Text>
           </View>
         </Animated.View>
       )}
@@ -1028,9 +1158,7 @@ const ChapterScreen = () => {
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
           <Icon name="home" size={20} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {chapterTitle}
-        </Text>
+        <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => navigation.navigate('Novel', { novelId })}
@@ -1038,21 +1166,24 @@ const ChapterScreen = () => {
           <Icon name="book" size={20} color="#ffffff" />
         </TouchableOpacity>
       </View>
-      {(successMessage || (error && isWalletConnected)) && (
+      {(successMessage || (error && isWalletConnected) || warningMessage) && (
         <Animated.View
           entering={SlideInDown}
           exiting={SlideOutDown}
-          style={[styles.messageContainer, error ? styles.errorMessage : styles.successMessage]}
+          style={[
+            styles.messageContainer,
+            error ? styles.errorMessage : warningMessage ? styles.warningMessage : styles.successMessage,
+          ]}
         >
-          <Text style={styles.messageText}>{successMessage || error}</Text>
+          <Text style={styles.messageText}>{successMessage || error || warningMessage}</Text>
         </Animated.View>
       )}
-      {isLocked && !isWalletConnected ? (
+      {!isWalletConnected ? (
         <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
+          <Icon name="wallet" size={48} color="#E67E22" style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
           <Text style={styles.lockedSubMessage}>
-            Please connect your wallet to unlock Chapter {parseInt(chapterId, 10) + 1} and beyond.
+            Please connect your wallet to read chapters.
           </Text>
           <TouchableOpacity
             style={styles.actionButton}
@@ -1062,7 +1193,7 @@ const ChapterScreen = () => {
             <Text style={styles.actionButtonText}>Connect Wallet</Text>
           </TouchableOpacity>
         </Animated.View>
-      ) : isLocked && isWalletConnected ? (
+      ) : isLocked && isAdvanceChapter ? (
         <Animated.View entering={FadeIn} style={styles.lockedContainer}>
           <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>{releaseDateMessage}</Text>
@@ -1075,18 +1206,18 @@ const ChapterScreen = () => {
               { type: 'FULL', currency: 'USDC', price: fullChaptersUsdc, usd: 15 },
               { type: '3CHAPTERS', currency: 'SMP', price: threeChaptersSmp, usd: 3 },
               { type: 'FULL', currency: 'SMP', price: fullChaptersSmp, usd: 15 },
-            ].map(({ type, currency, price, usd }, index) => (
+            ].map(({ type, currency, price, usd }) => (
               <TouchableOpacity
                 key={`${type}-${currency}`}
                 style={[
                   styles.paymentButton,
                   type === 'FULL' ? styles.fullChaptersButton : styles.threeChaptersButton,
-                  (type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && !price)
+                  (type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && price === 'N/A')
                     ? styles.disabledButton
                     : null,
                 ]}
-                onPress={() => initiatePayment(type, currency)}
-                disabled={(type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && !price)}
+                onPress={() => processChapterPayment(chapterId)}
+                disabled={(type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && price === 'N/A')}
               >
                 <Icon
                   name={type === 'FULL' ? 'crown' : 'rocket'}
@@ -1104,34 +1235,55 @@ const ChapterScreen = () => {
             ))}
           </View>
         </Animated.View>
+      ) : !shouldShowContent() ? (
+        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
+          <Icon name="gem" size={48} color="#E67E22" style={styles.lockIcon} />
+          <Text style={styles.lockedMessage}>Read this Chapter</Text>
+          <View style={styles.actionButtonsContainer}>
+            <TouchableOpacity
+              style={styles.smpButton}
+              onPress={() => processChapterPayment(chapterId)}
+            >
+              <Icon name="gem" size={16} color="#ffffff" style={styles.buttonIcon} />
+              <Text style={styles.smpButtonText}>
+                Read with {SMP_READ_COST.toLocaleString()} SMP (Earn Points)
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.getSmpButton}
+              onPress={() => navigation.navigate('TokenSwap', {
+                returnScreen: 'Chapter',
+                returnParams: { novelId, chapterId }
+              })}
+            >
+              <Icon name="shopping-cart" size={16} color="#ffffff" style={styles.buttonIcon} />
+              <Text style={styles.getSmpButtonText}>Get SMP Tokens</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
       ) : (
         <FlatList
-          data={paragraphs}
+          data={visibleParagraphs}
           renderItem={renderParagraph}
           keyExtractor={(item, index) => `para-${index}`}
           style={styles.contentContainer}
+          onEndReached={loadMoreParagraphs}
+          onEndReachedThreshold={0.5}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={true}
+          initialNumToRender={10}
+          windowSize={5}
           ListHeaderComponent={
-            <>
-              {isWalletConnected && (
-                <Animated.View entering={FadeIn} style={styles.readingOptions}>
-                  <TouchableOpacity
-                    style={[styles.smpButton, hasReadChapter ? styles.disabledButton : null]}
-                    onPress={handleReadWithSMP}
-                    disabled={hasReadChapter}
-                  >
-                    <Icon name="gem" size={16} color="#ffffff" style={styles.buttonIcon} />
-                    <Text style={styles.smpButtonText}>
-                      {hasReadChapter ? "You've earned points from this page" : 'Read with 1,000 SMP (Earn Points)'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={styles.readingModeText}>
-                    {readingMode === 'free' ? 'Reading for Free (No Points)' : 'Reading with SMP (Points Earned)'}
-                  </Text>
-                </Animated.View>
-              )}
-            </>
+            hasReadChapter ? (
+              <Animated.View entering={FadeIn} style={styles.readingOptions}>
+                <Text style={styles.readingModeText}>
+                  You've earned points from this chapter
+                </Text>
+              </Animated.View>
+            ) : null
           }
-           ListFooterComponent={
+          ListFooterComponent={
             <Animated.View entering={FadeIn}>
               <View style={styles.navigation}>
                 <View style={styles.navRow}>
@@ -1153,25 +1305,20 @@ const ChapterScreen = () => {
                     <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
                     <Text style={styles.navButtonText}>Back to Novel</Text>
                   </TouchableOpacity>
-                  {nextChapter ? (
+                  {nextChapter && (
                     <TouchableOpacity
                       style={styles.navButton}
-                      onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
+                      onPress={() => handleNextChapter(nextChapter)}
                     >
                       <Text style={styles.navButtonText}>Next</Text>
                       <Icon name="chevron-right" size={16} color="#ffffff" style={styles.buttonIcon} />
                     </TouchableOpacity>
-                  ) : (
-                    <View style={styles.navPlaceholder} />
                   )}
                 </View>
               </View>
               <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10) + 1} />
             </Animated.View>
           }
-          initialNumToRender={10}
-          maxToRenderPerBatch={10}
-          windowSize={5}
         />
       )}
       <Modal
@@ -1207,7 +1354,13 @@ const ChapterScreen = () => {
               </Text>
             </View>
             <View style={styles.modalButtonRow}>
-              <TouchableOpacity style={styles.modalConfirmButton} onPress={confirmPayment}>
+              <TouchableOpacity 
+                style={styles.modalConfirmButton} 
+                onPress={() => {
+                  setShowTransactionPopup(false);
+                  processChapterPayment(chapterId);
+                }}
+              >
                 <Text style={styles.modalButtonText}>Confirm Payment</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1217,68 +1370,21 @@ const ChapterScreen = () => {
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalNote}>You may be prompted for your wallet password if not previously authorized.</Text>
+            <Text style={styles.modalNote}>You will be prompted for your wallet password.</Text>
           </Animated.View>
         </View>
       </Modal>
-      <Modal
+      <PasswordModal
         visible={showPasswordModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View style={styles.passwordModalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoidingView}
-          >
-            <Animated.View entering={SlideInDown} exiting={SlideOutDown} style={styles.passwordModalContent}>
-              <Text style={styles.passwordModalTitle}>Enter Wallet Password</Text>
-              <TextInput
-                style={[styles.passwordInput, passwordError ? styles.inputError : null]}
-                placeholder="Password"
-                placeholderTextColor="#888"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  setPasswordError(null);
-                }}
-                secureTextEntry
-                autoFocus
-                accessibilityLabel="Wallet password input"
-              />
-              {passwordError && (
-                <Text style={styles.passwordErrorText}>
-                  {passwordError}
-                  {passwordAttempts >= MAX_PASSWORD_ATTEMPTS ? '' : ` (${MAX_PASSWORD_ATTEMPTS - passwordAttempts} attempts left)`}
-                </Text>
-              )}
-              <View style={styles.passwordModalButtonRow}>
-                <TouchableOpacity
-                  style={styles.passwordModalConfirmButton}
-                  onPress={handlePasswordSubmit}
-                  disabled={passwordAttempts >= MAX_PASSWORD_ATTEMPTS}
-                >
-                  <Text style={styles.passwordModalButtonText}>Confirm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.passwordModalCancelButton}
-                  onPress={() => {
-                    setShowPasswordModal(false);
-                    setPassword('');
-                    setPasswordError(null);
-                    setPasswordAttempts(0);
-                    setPasswordCallback(null);
-                    console.log('Password modal cancelled');
-                  }}
-                >
-                  <Text style={styles.passwordModalButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+        onClose={() => {
+          setShowPasswordModal(false);
+          setPasswordError(null);
+          setCurrentPasswordCallback(null);
+        }}
+        onSubmit={handlePasswordSubmit}
+        error={passwordError}
+        isProcessing={isProcessing}
+      />
     </SafeAreaView>
   );
 };
