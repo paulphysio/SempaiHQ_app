@@ -152,9 +152,9 @@ export const GoogleAuthProvider = ({ children }) => {
           redirectTo: 'sempai-hq://auth/callback',
           skipBrowserRedirect: true,
           queryParams: {
-            prompt: 'select_account',
-            access_type: 'offline'
-          }
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         }
       });
 

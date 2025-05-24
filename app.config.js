@@ -24,7 +24,7 @@ export default ({ config }) => ({
         ITSAppUsesNonExemptEncryption: false,
         CFBundleURLTypes: [
           {
-            CFBundleURLSchemes: ['sempai-hq']
+            CFBundleURLSchemes: ['sempai-hq', 'com.turningpointKS.sempaihq']
           }
         ]
       },
@@ -51,6 +51,11 @@ export default ({ config }) => ({
             {
               scheme: "sempai-hq",
               host: "*",
+            },
+            {
+              scheme: "https",
+              host: "*.supabase.co",
+              pathPrefix: "/auth/v1/callback"
             }
           ],
           category: ["BROWSABLE", "DEFAULT"]
