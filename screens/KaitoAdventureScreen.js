@@ -22,7 +22,8 @@ import { debounce } from 'lodash';
 import _ from 'lodash';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
-import ConnectButton from '../components/ConnectButton';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { styles } from '../styles/KaitoStyles';
 
 // ---- Constants Section ----
@@ -245,6 +246,7 @@ const KaitoAdventureScreen = () => {
   const [gatherBuff, setGatherBuff] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
+  const { session } = useGoogleAuth();
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
 
@@ -695,7 +697,7 @@ const KaitoAdventureScreen = () => {
         return item && item.owned && item.quantity > 0;
       });
       if (!hasEnough) {
-        setGameMessage("You don’t have enough of the required ingredients!");
+        setGameMessage("You don't have enough of the required ingredients!");
         return;
       }
 
@@ -750,7 +752,7 @@ const KaitoAdventureScreen = () => {
               expires: Date.now() + recipe.effect.duration,
             });
             setGameMessage(
-              `You crafted ${recipe.name}! It’s in your inventory and boosts gathering for ${
+              `You crafted ${recipe.name}! It's in your inventory and boosts gathering for ${
                 recipe.effect.duration / 60000
               } minutes!`
             );
@@ -803,12 +805,12 @@ const KaitoAdventureScreen = () => {
     (potionName) => {
       const potion = player.inventory.find((item) => item.name === potionName);
       if (!potion || potion.quantity === 0) {
-        setGameMessage("You don’t have this potion!");
+        setGameMessage("You don't have this potion!");
         return;
       }
       const recipe = player.recipes.find((r) => r.name === potionName && r.type === "gather");
       if (!recipe) {
-        setGameMessage("This isn’t a gathering potion!");
+        setGameMessage("This isn't a gathering potion!");
         return;
       }
       setPlayer((prev) => ({
@@ -834,7 +836,7 @@ const KaitoAdventureScreen = () => {
   // ---- Combat ----
   const startCombat = useCallback(() => {
     if (player.health <= 0) {
-      setGameMessage("You’re at 0 health! Craft a healing potion in combat to survive.");
+      setGameMessage("You're at 0 health! Craft a healing potion in combat to survive.");
     }
     const enemy = enemies[Math.floor(Math.random() * enemies.length)];
     const levelScaleHealth = 1 + (player.level - 1) * 0.15;
@@ -850,7 +852,7 @@ const KaitoAdventureScreen = () => {
       },
       enemyHealth: Math.round(enemy.health * levelScaleHealth * weatherMod),
       isAttacking: false,
-      log: player.health <= 0 ? ["You’re at 0 health! Craft a potion quickly!"] : [],
+      log: player.health <= 0 ? ["You're at 0 health! Craft a potion quickly!"] : [],
     });
     setCombatResult(null);
     setModals((prev) => ({ ...prev, combat: true }));
@@ -1077,7 +1079,7 @@ const KaitoAdventureScreen = () => {
       if (error) throw error;
       setLeaderboardData(data || []);
       if (data && data.length > 0 && data[0].wallet_address === player.wallet_address) {
-        setGameMessage("You’re #1 on the leaderboard! Claim 100 gold next login!");
+        setGameMessage("You're #1 on the leaderboard! Claim 100 gold next login!");
       }
     } catch (error) {
       console.error("Leaderboard fetch error:", error);
@@ -1155,7 +1157,7 @@ const KaitoAdventureScreen = () => {
       const itemInInventory = player.inventory.find((item) => item.name === itemName);
 
       if (!itemInInventory || itemInInventory.quantity === 0) {
-        setGameMessage("You don’t have any of this item to sell!");
+        setGameMessage("You don't have any of this item to sell!");
         return;
       }
       if (!recipe || (!recipe.sellValue && !recipe.baseGold)) {
@@ -1231,7 +1233,7 @@ const KaitoAdventureScreen = () => {
   const joinGuild = useCallback((guildName) => {
     setPlayer((prev) => {
       if (prev.guild) {
-        setGameMessage("You’re already in a guild!");
+        setGameMessage("You're already in a guild!");
         return prev;
       }
       return { ...prev, guild: { name: guildName, progress: 0, target: 100 } };
@@ -1624,7 +1626,7 @@ const KaitoAdventureScreen = () => {
       case 'connectButton':
         return (
           <View style={styles.connectButtonContainer}>
-            <ConnectButton />
+            <GoogleSignInButton />
           </View>
         );
       case 'leaderboardButton':
@@ -2771,6 +2773,17 @@ const KaitoAdventureScreen = () => {
       {renderEventsModal()}
       {renderGuildModal()}
       {renderGuideModal()}
+      {!session ? (
+        <View style={styles.connectContainer}>
+          <Text style={styles.connectText}>Sign in to play Kaito's Adventure</Text>
+          <GoogleSignInButton />
+        </View>
+      ) : (
+        <View style={styles.gameContainer}>
+          {/* Your existing game content */}
+          {renderGameContent()}
+        </View>
+      )}
     </SafeAreaView>
   );
 };

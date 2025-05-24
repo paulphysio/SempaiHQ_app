@@ -5,8 +5,8 @@
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web"
   },
   "dependencies": {
@@ -26,6 +26,7 @@
     "dompurify": "^3.2.5",
     "dotenv": "^16.5.0",
     "expo": "~52.0.46",
+    "expo-auth-session": "^6.1.5",
     "expo-clipboard": "~7.0.1",
     "expo-constants": "~17.0.8",
     "expo-crypto": "~14.0.2",
@@ -39,12 +40,14 @@
     "expo-navigation-bar": "~4.0.9",
     "expo-network": "~7.0.5",
     "expo-notifications": "~0.29.14",
+    "expo-random": "^14.0.1",
     "expo-router": "^4.0.20",
     "expo-secure-store": "~14.0.1",
     "expo-speech": "~13.0.1",
     "expo-splash-screen": "~0.29.24",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
+    "expo-web-browser": "^14.1.6",
     "lodash": "^4.17.21",
     "metro": "^0.81.0",
     "metro-config": "^0.81.0",

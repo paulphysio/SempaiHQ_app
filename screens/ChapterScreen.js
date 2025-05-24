@@ -683,29 +683,29 @@ const ChapterScreen = () => {
       let signature;
       try {
         signature = await new Promise((resolve, reject) => {
-          requestPassword(async (pwd) => {
-            try {
-              console.log('[processChapterPayment] Requesting transaction signature...');
+        requestPassword(async (pwd) => {
+          try {
+            console.log('[processChapterPayment] Requesting transaction signature...');
               const sig = await signAndSendTransaction(transaction, pwd);
               if (!sig) {
                 throw new Error('Failed to get transaction signature');
               }
               console.log('[processChapterPayment] Transaction signed:', sig);
               resolve(sig);
-            } catch (err) {
-              console.error('[processChapterPayment] Transaction signing error:', err);
-              setPasswordAttempts(prev => prev + 1);
-              reject(err);
-            }
-          });
+          } catch (err) {
+            console.error('[processChapterPayment] Transaction signing error:', err);
+            setPasswordAttempts(prev => prev + 1);
+            reject(err);
+          }
         });
+      });
 
         if (!signature) {
           throw new Error('Transaction signing failed - no signature returned');
         }
 
         // Wait for transaction confirmation with retries
-        console.log('[processChapterPayment] Confirming transaction...');
+      console.log('[processChapterPayment] Confirming transaction...');
         let tx = null;
         for (let i = 0; i < 5; i++) { // Increased retries to 5
           try {
@@ -715,7 +715,7 @@ const ChapterScreen = () => {
             });
             if (tx?.meta && !tx.meta.err) {
               console.log('[processChapterPayment] Transaction confirmed:', {
-                signature,
+        signature,
                 slot: tx.slot,
                 blockTime: tx.blockTime
               });
@@ -801,15 +801,15 @@ const ChapterScreen = () => {
               // Verify the amount with tolerance
               const tolerance = 0.001;
               if (Math.abs(balanceChange - SMP_READ_COST) <= tolerance) {
-                // Record payment in database
-                const { error: paymentError } = await supabase
-                  .from('chapter_payments')
-                  .insert({
-                    wallet_address: activeWalletAddress,
-                    novel_id: novelId,
-                    chapter_number: parseInt(targetChapterId, 10),
-                    amount: SMP_READ_COST
-                  });
+      // Record payment in database
+      const { error: paymentError } = await supabase
+        .from('chapter_payments')
+        .insert({
+          wallet_address: activeWalletAddress,
+          novel_id: novelId,
+          chapter_number: parseInt(targetChapterId, 10),
+          amount: SMP_READ_COST
+        });
 
                 if (paymentError) {
                   console.error('[processChapterPayment] Database error:', paymentError);
@@ -817,8 +817,8 @@ const ChapterScreen = () => {
                 }
 
                 console.log('[processChapterPayment] Payment recorded in database');
-                setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent for Chapter ${parseInt(targetChapterId, 10) + 1}.`);
-                setSmpBalance(prev => prev - SMP_READ_COST);
+      setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent for Chapter ${parseInt(targetChapterId, 10) + 1}.`);
+      setSmpBalance(prev => prev - SMP_READ_COST);
                 
                 // Update UI state to show chapter content
                 setIsLocked(false);
@@ -829,8 +829,8 @@ const ChapterScreen = () => {
                 setWarningMessage(null);
                 
                 console.log('[processChapterPayment] Chapter unlocked, updating UI state');
-                setTimeout(() => setSuccessMessage(''), 5000);
-                return true;
+      setTimeout(() => setSuccessMessage(''), 5000);
+      return true;
               }
             }
           }
@@ -846,17 +846,17 @@ const ChapterScreen = () => {
         });
         throw new Error('Token transfer validation failed: Could not verify balance changes');
 
-      } catch (error) {
-        console.error('[processChapterPayment] Error:', error);
-        const errorMessage = error.message.includes('Invalid password') ? 'Incorrect password. Please try again.' :
-                           error.message.includes('Insufficient') ? error.message :
-                           error.message.includes('service is temporarily unavailable') ? error.message :
-                           'Transaction failed. Please try again later.';
-        
-        setError(errorMessage);
-        
-        if (error.message.includes('Insufficient SMP tokens')) {
-          setWarningMessage('Need SMP tokens to continue reading');
+    } catch (error) {
+      console.error('[processChapterPayment] Error:', error);
+      const errorMessage = error.message.includes('Invalid password') ? 'Incorrect password. Please try again.' :
+                          error.message.includes('Insufficient') ? error.message :
+                          error.message.includes('service is temporarily unavailable') ? error.message :
+                          'Transaction failed. Please try again later.';
+      
+      setError(errorMessage);
+      
+      if (error.message.includes('Insufficient SMP tokens')) {
+        setWarningMessage('Need SMP tokens to continue reading');
           setTimeout(() => {
             navigation.navigate('TokenSwap', {
               returnScreen: 'Chapter',

@@ -11,10 +11,12 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
-import ConnectButton, { EmbeddedWalletContext } from '../../components/ConnectButton';
+import GoogleSignInButton from '../../components/GoogleSignInButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from '../../styles/CommentSectionStyles';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../../constants';
+import { EmbeddedWalletContext } from '../../components/ConnectButton';
+import { useGoogleAuth } from '../../components/GoogleAuthProvider';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -189,6 +191,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const COMMENT_COOLDOWN = 60 * 1000;
   const DAILY_REWARD_LIMIT = 10;
   const MIN_COMMENT_LENGTH = 2;
+  const { session } = useGoogleAuth();
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
@@ -518,12 +521,10 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
             </TouchableOpacity>
           </View>
         )}
-        {!isWalletConnected && (
-          <View style={styles.connectPrompt}>
-            <Text style={styles.connectPromptText}>
-              Connect your wallet to join the conversation.
-            </Text>
-            <ConnectButton style={styles.connectButton} />
+        {!session && (
+          <View style={styles.connectContainer}>
+            <Text style={styles.connectText}>Sign in to leave a comment</Text>
+            <GoogleSignInButton style={styles.connectButton} />
           </View>
         )}
         <View style={styles.inputContainer}>

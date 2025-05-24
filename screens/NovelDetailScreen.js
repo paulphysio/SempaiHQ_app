@@ -13,10 +13,12 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
-import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import { EmbeddedWalletContext } from '../components/ConnectButton';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from '../styles/NovelPageStyles';
+import { useGoogleAuth } from '../components/GoogleAuthProvider';
 
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 
@@ -35,6 +37,7 @@ const NovelDetailScreen = () => {
   const menuAnim = useRef(new Animated.Value(280)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const contentFade = useRef(new Animated.Value(0)).current;
+  const { session } = useGoogleAuth();
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey || null;
@@ -319,7 +322,7 @@ const NovelDetailScreen = () => {
             <Text style={styles.popupMessage}>
               Connect your wallet to access this chapter.
             </Text>
-            <ConnectButton style={styles.connectWalletButton} />
+            <GoogleSignInButton style={styles.connectWalletButton} />
             <TouchableOpacity
               style={styles.backHomeLink}
               onPress={() => navigation.navigate('Home')}
@@ -396,7 +399,12 @@ const NovelDetailScreen = () => {
               <FontAwesome5 name="book-open" size={16} color="#fff" />
               <Text style={styles.navItemText}>Summary</Text>
             </TouchableOpacity>
-            <ConnectButton style={styles.connectBtn} />
+            {!session && (
+              <View style={styles.connectContainer}>
+                <Text style={styles.connectText}>Sign in to read this novel</Text>
+                <GoogleSignInButton style={styles.connectWalletButton} />
+              </View>
+            )}
           </Animated.View>
         </>
       )}
@@ -414,6 +422,13 @@ const NovelDetailScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       />
+
+      {!session && (
+        <View style={styles.bottomConnectContainer}>
+          <Text style={styles.connectPrompt}>Sign in to continue reading</Text>
+          <GoogleSignInButton style={styles.connectBtn} />
+        </View>
+      )}
     </SafeAreaView>
   );
 };

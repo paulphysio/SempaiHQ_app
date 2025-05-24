@@ -35,6 +35,7 @@ import MangaPageScreen from './screens/MangaPageScreen';
 import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
 import MangaChapterScreen from './screens/MangaChapterScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
+import { GoogleAuthProvider } from './components/GoogleAuthProvider';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -408,6 +409,7 @@ const App = () => {
   return (
     <SafeAreaProvider>
       <EmbeddedWalletProvider>
+        <GoogleAuthProvider>
         <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
           <NavigationContainer ref={navigationRef}>
             <Stack.Navigator
@@ -444,6 +446,7 @@ const App = () => {
             translucent={!isSystemUiVisible}
           />
         </SystemUiContext.Provider>
+        </GoogleAuthProvider>
       </EmbeddedWalletProvider>
     </SafeAreaProvider>
   );

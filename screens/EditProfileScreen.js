@@ -16,11 +16,12 @@ import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { supabase } from '../services/supabaseClient';
-import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import { AMETHYST_MINT_ADDRESS, SMP_DECIMALS, RPC_URL } from '../constants';
 import styles from '../styles/EditProfileStyles';
+import { useGoogleAuth } from '../components/GoogleAuthProvider';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,6 +30,7 @@ const connection = new Connection(RPC_URL, 'confirmed');
 const EditProfileScreen = () => {
   const navigation = useNavigation();
   const { wallet: embeddedWallet } = useContext(EmbeddedWalletContext);
+  const { session } = useGoogleAuth();
   const [userId, setUserId] = useState(null);
   const [isCreator, setIsCreator] = useState(false);
   const [userRole, setUserRole] = useState('default');
@@ -278,7 +280,7 @@ const EditProfileScreen = () => {
         timeout: 5000,
       });
 
-      const isValid = response.status === 200 && !response.data.includes("Sorry, that page doesn’t exist!");
+      const isValid = response.status === 200 && !response.data.includes("Sorry, that page doesn't exist!");
       if (isValid) {
         setTwitterVerified(true);
         setXAccount(username);
@@ -552,7 +554,7 @@ const EditProfileScreen = () => {
                 <Icon name="exchange-alt" size={20} color="#fff" />
                 <Text style={styles.navLinkText}>View Profile</Text>
               </TouchableOpacity>
-              <ConnectButton />
+              <GoogleSignInButton />
             </View>
           )}
         </View>
@@ -576,10 +578,10 @@ const EditProfileScreen = () => {
             </View>
           </View>
 
-          {!embeddedWallet ? (
+          {!session ? (
             <View style={styles.connectWrapper}>
-              <Text style={styles.connectText}>Connect your wallet to edit your profile</Text>
-              <ConnectButton />
+              <Text style={styles.connectText}>Sign in to edit your profile</Text>
+              <GoogleSignInButton />
             </View>
           ) : (
             <Text style={styles.walletText}>

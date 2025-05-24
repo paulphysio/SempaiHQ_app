@@ -14,6 +14,7 @@ export default ({ config }) => ({
       resizeMode: 'contain',
       backgroundColor: '#ffffff',
     },
+    scheme: 'sempai-hq',
     assetBundlePatterns: ['assets/**/*'], // Includes assets/fonts/animeace.ttf
     ios: {
       supportsTablet: true,
@@ -21,7 +22,18 @@ export default ({ config }) => ({
       buildNumber: '1',
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        CFBundleURLTypes: [
+          {
+            CFBundleURLSchemes: ['sempai-hq']
+          }
+        ]
       },
+      config: {
+        usesNonExemptEncryption: false
+      },
+      associatedDomains: [
+        'applinks:xqeimsncmnqsiowftdmz.supabase.co'
+      ]
     },
     android: {
       package: 'com.turningpointKS.sempaihq',
@@ -31,6 +43,19 @@ export default ({ config }) => ({
         backgroundColor: '#ffffff',
       },
       permissions: ['NOTIFICATIONS', 'POST_NOTIFICATIONS'],
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: "sempai-hq",
+              host: "*",
+            }
+          ],
+          category: ["BROWSABLE", "DEFAULT"]
+        }
+      ],
     },
     web: {
       favicon: './assets/favicon.png',
@@ -55,5 +80,6 @@ export default ({ config }) => ({
         projectId: '492f97d1-81c1-4cb2-808f-6cd3f321f1d6',
       },
     },
+    newArchEnabled: true,
   },
 });

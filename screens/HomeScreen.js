@@ -18,7 +18,9 @@ import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
-import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButton';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
 import { styles } from '../styles/HomeStyles';
 
@@ -27,6 +29,7 @@ const { width, height } = Dimensions.get('window');
 const Home = () => {
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
+  const { session } = useGoogleAuth();
 
   // State for UI and data
   const [menuOpen, setMenuOpen] = useState(false);
@@ -538,22 +541,12 @@ const Home = () => {
   // Toggle sidebar
   const toggleMenu = () => {
     const toValue = menuOpen ? 280 : 0;
-    const rotateToValue = menuOpen ? 0 : 1;
-    Animated.parallel([
-      Animated.timing(slideAnim, {
-        toValue,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(rotateAnim, {
-        toValue: rotateToValue,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    if (isMounted.current) {
-      setMenuOpen(!menuOpen);
-    }
+    Animated.timing(slideAnim, {
+      toValue,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+    setMenuOpen(!menuOpen);
   };
 
   // Toggle announcements dropdown
@@ -822,7 +815,16 @@ const Home = () => {
   };
 
   return (
-    <View style={styles.page}>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+          <FontAwesome5 name="bars" size={24} color="#fff" />
+        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <GoogleSignInButton />
+        </View>
+      </View>
+
       {/* Background animations */}
       <View style={styles.backgroundAnimation}>
         <LinearGradient
@@ -1014,7 +1016,14 @@ const Home = () => {
       </ScrollView>
 
       {/* Sidebar */}
-      <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
+      <Animated.View 
+        style={[
+          styles.sidebar,
+          {
+            transform: [{ translateX: slideAnim }],
+          },
+        ]}
+      >
         <View style={styles.sidebarContent}>
           {[
             { path: 'Home', icon: 'home', label: 'Home' },
@@ -1027,12 +1036,12 @@ const Home = () => {
               onPress: handleProfileNavigation,
             },
             { path: 'Chat', icon: 'comments', label: 'Chat' },
-            { path: 'KaitoAdventure', icon: 'gamepad', label: 'Kaito’s Adventure' },
+            { path: 'KaitoAdventure', icon: 'gamepad', label: "Kaito's Adventure" },
             { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
             {
               path: isWriter && !isArtist ? 'NovelDashboard' : isArtist && !isWriter ? 'MangaDashboard' : '',
               icon: 'bullhorn',
-              label: isWriter && !isArtist ? 'Writer’s Dashboard' : isArtist && !isWriter ? 'Artist’s Dashboard' : 'Creator Dashboard',
+              label: isWriter && !isArtist ? "Writer's Dashboard" : isArtist && !isWriter ? "Artist's Dashboard" : 'Creator Dashboard',
               onPress: handleDashboardNavigation,
             },
           ].map((item, index) => (
@@ -1047,13 +1056,17 @@ const Home = () => {
               <Text style={styles.navLinkText}>{item.label}</Text>
             </TouchableOpacity>
           ))}
-          <ConnectButton />
+          <GoogleSignInButton />
         </View>
       </Animated.View>
 
       {/* Sidebar overlay */}
       {menuOpen && (
-        <TouchableOpacity style={styles.overlay} onPress={toggleMenu} activeOpacity={1} />
+        <TouchableOpacity 
+          style={styles.overlay} 
+          onPress={toggleMenu} 
+          activeOpacity={1} 
+        />
       )}
 
       {/* Notifications dropdown */}
@@ -1153,7 +1166,7 @@ const Home = () => {
               handleNavigation('NovelDashboard');
             }}
           >
-            <Text style={styles.popupButtonText}>Writer’s Dashboard</Text>
+            <Text style={styles.popupButtonText}>Writer's Dashboard</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.popupButton}
@@ -1162,7 +1175,7 @@ const Home = () => {
               handleNavigation('MangaDashboard');
             }}
           >
-            <Text style={styles.popupButtonText}>Artist’s Dashboard</Text>
+            <Text style={styles.popupButtonText}>Artist's Dashboard</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.popupCancelButton}

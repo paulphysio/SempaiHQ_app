@@ -259,12 +259,12 @@ export const EmbeddedWalletProvider = ({ children }) => {
       throw new Error('Password required to sign transaction');
     }
     try {
-      console.log('[signAndSendTransaction] Retrieving secret key with password');
-      const secretKeyBytes = await getSecretKey(password);
+    console.log('[signAndSendTransaction] Retrieving secret key with password');
+    const secretKeyBytes = await getSecretKey(password);
       if (!secretKeyBytes || secretKeyBytes.length !== 64) {
         throw new Error('Invalid secret key format');
       }
-      const keypair = solanaWeb3.Keypair.fromSecretKey(secretKeyBytes);
+    const keypair = solanaWeb3.Keypair.fromSecretKey(secretKeyBytes);
       if (!keypair || !keypair.publicKey) {
         throw new Error('Failed to create keypair from secret key');
       }
@@ -275,14 +275,14 @@ export const EmbeddedWalletProvider = ({ children }) => {
       transaction.sign(keypair);
       const rawTransaction = transaction.serialize();
       const signature = await connection.sendRawTransaction(rawTransaction, {
-        skipPreflight: false,
-        maxRetries: 2,
-      });
+      skipPreflight: false,
+      maxRetries: 2,
+    });
       if (!signature) {
         throw new Error('Failed to get transaction signature');
       }
-      console.log('[signAndSendTransaction] Transaction signed and sent:', { signature });
-      return signature;
+    console.log('[signAndSendTransaction] Transaction signed and sent:', { signature });
+    return signature;
     } catch (err) {
       console.error('[signAndSendTransaction] Error:', err);
       throw err;

@@ -1,22 +1,40 @@
 // screens/WalletImportScreen.js
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import GoogleSignInButton from '../components/GoogleSignInButton';
+import { useGoogleAuth } from '../components/GoogleAuthProvider';
+import Icon from 'react-native-vector-icons/FontAwesome5';
 
 const WalletImportScreen = () => {
   const navigation = useNavigation();
+  const { session } = useGoogleAuth();
+
+  useEffect(() => {
+    if (session) {
+      // If user is authenticated with Google, they should already have a wallet
+      // created by the GoogleAuthProvider
+      navigation.replace('Home');
+    }
+  }, [session, navigation]);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Import Wallet</Text>
-      <Text style={styles.message}>Wallet import functionality coming soon.</Text>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.navigate('Home')}
-      >
-        <Text style={styles.backButtonText}>Back to Home</Text>
-      </TouchableOpacity>
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <Icon name="wallet" size={48} color="#E67E22" style={styles.icon} />
+        <Text style={styles.title}>Connect to Sempai HQ</Text>
+        <Text style={styles.subtitle}>Sign in with Google to create or access your wallet</Text>
+        
+        <GoogleSignInButton />
+        
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Text style={styles.backButtonText}>Back to Home</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 };
 
@@ -28,24 +46,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    maxWidth: 400,
+    width: '100%',
+  },
+  icon: {
+    marginBottom: 20,
+  },
   title: {
     color: '#fff',
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  message: {
+  subtitle: {
     color: '#ccc',
     fontSize: 16,
-    marginBottom: 20,
+    marginBottom: 30,
+    textAlign: 'center',
+    lineHeight: 24,
   },
   backButton: {
-    backgroundColor: '#FF5733',
+    marginTop: 20,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#E67E22',
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 8,
+    width: '100%',
+    alignItems: 'center',
   },
   backButtonText: {
-    color: '#fff',
+    color: '#E67E22',
     fontSize: 16,
     fontWeight: 'bold',
   },

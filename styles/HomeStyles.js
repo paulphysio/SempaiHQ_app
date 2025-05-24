@@ -3,9 +3,28 @@ import { StyleSheet, Dimensions } from 'react-native';
 const { width, height } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
-  page: {
+  container: {
     flex: 1,
     backgroundColor: '#121212',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#1a1a1a',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FF5733',
+    zIndex: 1000,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuButton: {
+    padding: 8,
   },
   backgroundAnimation: {
     position: 'absolute',
@@ -113,7 +132,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'AnimeAce', // Already has AnimeAce, kept for clarity
   },
   scrollContainer: {
-    flexGrow: 1,
+    flex: 1,
   },
   contentContainer: {
     paddingBottom: 100,
@@ -172,7 +191,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 20,
-    zIndex: 10000,
+    zIndex: 1000,
     elevation: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
@@ -180,6 +199,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 8,
     borderTopWidth: 1,
     borderTopColor: '#FF5733',
+    height: 80,
   },
   bottomNavButton: {
     width: width < 480 ? 50 : 60,
@@ -386,17 +406,20 @@ export const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: '#1a1a1a',
     zIndex: 1000,
-    paddingTop: 60,
+    paddingTop: 80,
     paddingHorizontal: 16,
+    paddingBottom: 80,
     borderLeftWidth: 2,
     borderLeftColor: '#FF5733',
     shadowColor: '#000',
     shadowOffset: { width: -4, height: 0 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
+    elevation: 8,
   },
   sidebarContent: {
     flex: 1,
+    paddingTop: 20,
   },
   overlay: {
     position: 'absolute',
