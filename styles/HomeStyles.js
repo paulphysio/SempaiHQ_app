@@ -692,4 +692,11 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'AnimeAce', // Added
   },
+  googleSignInImage: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

@@ -1,25 +1,17 @@
-const { getDefaultConfig } = require('@expo/metro-config');
+const { getDefaultConfig } = require('expo/metro-config');
 
-const defaultConfig = getDefaultConfig(__dirname);
+const config = getDefaultConfig(__dirname);
 
-module.exports = {
-  ...defaultConfig,
-  resolver: {
-    ...defaultConfig.resolver,
-    extraNodeModules: {
-      ...defaultConfig.resolver.extraNodeModules,
-      crypto: require.resolve('react-native-get-random-values'),
-    },
-    sourceExts: [...defaultConfig.resolver.sourceExts, 'cjs', 'web.js'],
-    assetExts: [...defaultConfig.resolver.assetExts, 'png', 'jpg', 'jpeg', 'gif', 'svg'],
-  },
-  transformer: {
-    ...defaultConfig.transformer,
-    getTransformOptions: async () => ({
-      transform: {
-        experimentalImportSupport: false,
-        inlineRequires: true,
-      },
-    }),
-  },
+// Add any additional node_modules folders
+config.resolver.nodeModulesPaths = [
+  'node_modules',
+  '../node_modules',
+];
+
+// Ensure proper module resolution
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  'abort-controller': require.resolve('abort-controller'),
 };
+
+module.exports = config;

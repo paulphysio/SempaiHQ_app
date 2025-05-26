@@ -19,59 +19,66 @@ export const EmbeddedWalletContext = createContext();
 const secureStoreWrapper = {
   setItemAsync: async (key, value) => {
     if (Platform.OS === 'web') {
-      try {
-        localStorage.setItem(key, value);
-        console.log(`[secureStoreWrapper] Set ${key} in localStorage`);
-        return;
-      } catch (err) {
-        throw new Error(`Failed to set item in localStorage: ${err.message}`);
-      }
+      localStorage.setItem(key, value);
+      console.log(`[secureStoreWrapper] Stored ${key} in localStorage`);
     } else {
-      try {
-        await SecureStore.setItemAsync(key, value);
-        console.log(`[secureStoreWrapper] Set ${key} in SecureStore`);
-      } catch (err) {
-        throw new Error(`Failed to set item in SecureStore: ${err.message}`);
-      }
+      await SecureStore.setItemAsync(key, value);
+      console.log(`[secureStoreWrapper] Stored ${key} in SecureStore`);
     }
   },
   getItemAsync: async (key) => {
     if (Platform.OS === 'web') {
-      try {
-        const value = localStorage.getItem(key);
-        console.log(`[secureStoreWrapper] Got ${key} from localStorage: ${value ? 'found' : 'null'}`);
-        return value;
-      } catch (err) {
-        throw new Error(`Failed to get item from localStorage: ${err.message}`);
-      }
+      const value = localStorage.getItem(key);
+      console.log(`[secureStoreWrapper] Retrieved ${key} from localStorage`);
+      return value;
     } else {
-      try {
-        const value = await SecureStore.getItemAsync(key);
-        console.log(`[secureStoreWrapper] Got ${key} from SecureStore: ${value ? 'found' : 'null'}`);
-        return value;
-      } catch (err) {
-        throw new Error(`Failed to get item from SecureStore: ${err.message}`);
-      }
+      const value = await SecureStore.getItemAsync(key);
+      console.log(`[secureStoreWrapper] Retrieved ${key} from SecureStore`);
+      return value;
     }
   },
   deleteItemAsync: async (key) => {
     if (Platform.OS === 'web') {
-      try {
-        localStorage.removeItem(key);
-        console.log(`[secureStoreWrapper] Deleted ${key} from localStorage`);
-        return;
-      } catch (err) {
-        throw new Error(`Failed to delete item from localStorage: ${err.message}`);
-      }
+      localStorage.removeItem(key);
+      console.log(`[secureStoreWrapper] Deleted ${key} from localStorage`);
     } else {
-      try {
-        await SecureStore.deleteItemAsync(key);
-        console.log(`[secureStoreWrapper] Deleted ${key} from SecureStore`);
-      } catch (err) {
-        throw new Error(`Failed to delete item in SecureStore: ${err.message}`);
-      }
+      await SecureStore.deleteItemAsync(key);
+      console.log(`[secureStoreWrapper] Deleted ${key} from SecureStore`);
     }
   },
+  getAllKeys: async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const keys = Object.keys(localStorage);
+        console.log(`[secureStoreWrapper] Got all keys from localStorage: ${keys.join(', ')}`);
+        return keys;
+      } else {
+        // For non-web platforms, we'll get all wallet-related keys
+        const walletKeys = ['walletPublicKey', 'walletAddress'];
+        const keys = [];
+        
+        // Check each potential wallet key
+        for (const key of walletKeys) {
+          const value = await SecureStore.getItemAsync(key);
+          if (value !== null) {
+            keys.push(key);
+          }
+        }
+        
+        // Also check for any wallet-secret keys
+        const publicKey = await SecureStore.getItemAsync('walletPublicKey');
+        if (publicKey) {
+          keys.push(`wallet-secret-${publicKey}`);
+        }
+        
+        console.log(`[secureStoreWrapper] Got wallet keys from SecureStore: ${keys.join(', ')}`);
+        return keys;
+      }
+    } catch (error) {
+      console.error('[secureStoreWrapper] Error getting keys:', error);
+      return [];
+    }
+  }
 };
 
 export const EmbeddedWalletProvider = ({ children }) => {
@@ -212,17 +219,28 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
   const disconnectWallet = async () => {
     try {
-      console.log('[disconnectWallet] Disconnecting wallet');
-      await secureStoreWrapper.deleteItemAsync('walletPublicKey');
-      await secureStoreWrapper.deleteItemAsync('walletAddress');
-      await secureStoreWrapper.deleteItemAsync('embeddedWallet');
+      console.log('[disconnectWallet] Starting wallet disconnection');
+      
+      // Clear all wallet-related data from secure storage
+      const keys = await secureStoreWrapper.getAllKeys?.() || [];
+      for (const key of keys) {
+        if (key.startsWith('wallet-') || key === 'walletPublicKey' || key === 'walletAddress') {
+          await secureStoreWrapper.deleteItemAsync(key);
+          console.log(`[disconnectWallet] Deleted ${key} from secure storage`);
+        }
+      }
+
+      // Clear from AsyncStorage
       await AsyncStorage.removeItem('walletAddress');
+      
+      // Reset wallet state
       setWallet(null);
       setIsWalletConnected(false);
       setError(null);
+      
       console.log('[disconnectWallet] Wallet disconnected successfully');
     } catch (err) {
-      console.error('[disconnectWallet] Error disconnecting wallet:', err.message);
+      console.error('[disconnectWallet] Error disconnecting wallet:', err);
       setError('Failed to disconnect wallet: ' + err.message);
     }
   };

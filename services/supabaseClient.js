@@ -1,5 +1,7 @@
 import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import 'react-native-url-polyfill';
 
 const extras =
   // EAS builds & bare–managed workflow
@@ -18,5 +20,12 @@ if (!supabaseUrl || !supabaseKey) {
   );
 }
 
-// now safe to create your client
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// Create client with enhanced configuration
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false,
+  },
+});

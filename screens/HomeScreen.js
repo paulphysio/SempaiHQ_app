@@ -66,6 +66,12 @@ const Home = () => {
   // Feature cards
   const features = [
     {
+      title: "Google Sign-In",
+      image: { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEkUlEQVR4nO2Zf2hVZRjHv+fHvefes7l5N6dOmomWWmkUlpkFUWBFEKXOamlJIkGBhRWUVH9kf0gUFUhkQf4TEf2jv1KKDEK0H2qIhBpRKUUqrUzn3Nx2z7n3nNPzvu+5Z7t3Z3vP2b0jfOAL973nPe/zfp/n+zzP+7xKpZFGGv9jKACqABQDyPwvk88FsADAKwBaALwKYDKA3HQRzwLwIIBmAF8A6ADQCuBpAJUAcq5l8vkA6gC8DuBzAEcBHAKwA8BGAPcBKACgX23iGQDKATwM4CUAL30vl2ULgE8BHBH5XwHYC2ArgA0AqgEUXQ3yqpxhBYDHALwNYDeALwEcBnAcwHEAPwD4XiR0GsA5AN0AzgA4AeAQgD0A3gKwDsD9AEqvFPl0AKUAFgF4EsA2AB8B+BbALwDOAugE8CeAPgADAC4CGAQQABAEEAIQBmADcAAYAK4A6JYxfpIx35cxXwJQJ2OPm3wOgGIANQDWA3gXwD4AxwCcAtABoAfARQCXAIQAWAAsABEAUQBxADEABgBd/o8DiMm9qNwbknH6ZNw/AHwjc1kn8ysdCXkVQBGAeQAel+1xUMh0iF0YlRWLCuGokI8JcUtWW5eVjwJwA3ABMAGYQt4EYADQhHwYgE/k9QrxPgC/AfgUwCYAD8iq5owlfwaAMgDLALwG4BMAv8qqXpAJBQEMi4QiQl6XSRsioSkSsEXGhpDXJXhNSKsy6ZBsHV3I+0XePgC/A/gMwGYAD8k8kpLPEr+9BMB6AO8D+F5Mwi8T9YsEhgFEhYwmq6yLhGxZZZsQtwBYsqUMSUhTJGCIBHSRkS6kNSEelDl4ZU6/AvgAwBMAFkoSjEo+Q1a7AsB6kc1PAM7LSnlFAkOyukNiHrqQsWRCpkjBFPKGEI8JaUMIx4SwJqtsy8rbstp+mVu3zPUwgJ0A1gKYMxb5XADzATwL4CMZIC4T9sjEfEI6IKsbFjKakNEljzAhbghxS0hbIh9TSJtC2hDyhqy8fVVe6ZU59wH4BcB2AA+MRX4ugKcA7JEBwjJBr0woKCsfFhKakDCEgCnELSFrC1lTyOoi0biQNoS0IaQNIW1LzgkJeY/M/RyAbQDuG4v8AgBbxVrD4qEhIR4U0mEhYQgBU0gYQsAS0paQtYSsKWR1IWwIYUMIG0LaFNKmyMiQXBQS8ufFHO8ei/wqALvFQqNCIiwS0IWEKSRMIWEJWVNImULWFLKGEDWFqClETSFqSXQyJT8ZQj4qxC8D2AlgxVjkVwPYL4NHhUhYJGAICVOImELEEjKWkLKElCWkTCFlCClDSBlCypQIZQppU0hbksDCAL4DsGws8msBfC0DRUSP9hUkbAkZS8hYQsoSUpaQMoWUIaR0IaULKV1IGULKEFKmkLYAfANg6Vjk1wE4IANFRQIRIWBJtLGEjCVkLCFlCSlTSBlCShcyhpAxhIwhZEwhYwL4GsDiscg/B+A7GcQS/7aEgCUELCFgCgFTCJhCwBQCphAwxVctAF8BqBmLfBpppJFGGhOO/wA36kJcbZkxjgAAAABJRU5ErkJggg==' },
+      path: 'GoogleSignIn',
+      requiresWallet: false,
+    },
+    {
       title: "Kaito's Adventure",
       image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/background.jpg' },
       path: 'KaitoAdventure',
@@ -793,12 +799,13 @@ const Home = () => {
             }
           }}
         >
-          <Image
-            source={item.image}
-            style={styles.featureImage}
-            defaultSource={{ uri: 'https://via.placeholder.com/300x150' }}
-            onError={(e) => console.error(`Image error for ${item.title}:`, e.nativeEvent.error)}
-          />
+          <View style={[styles.featureImage, item.title === "Google Sign-In" && styles.googleSignInImage]}>
+            <Image
+              source={item.image}
+              style={styles.featureImage}
+              defaultSource={require('../assets/default-feature.png')}
+            />
+          </View>
           <View style={styles.featureOverlay}>
             <Text style={styles.featureTitle} numberOfLines={1}>
               {item.title}

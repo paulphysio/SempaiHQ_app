@@ -6,7 +6,7 @@ import { EmbeddedWalletContext } from './ConnectButton';
 import { useContext } from 'react';
 
 const GoogleSignInButton = () => {
-  const { signInWithGoogle, signOut, session, loading } = useGoogleAuth();
+  const { signInWithGoogle, signOut, forceSignOut, session, loading } = useGoogleAuth();
   const { wallet } = useContext(EmbeddedWalletContext);
 
   const handlePress = async () => {
@@ -31,6 +31,7 @@ const GoogleSignInButton = () => {
 
   if (session && wallet) {
     return (
+      <View>
       <TouchableOpacity style={styles.connectedButton} onPress={handlePress}>
         <View style={styles.walletInfo}>
           <Icon name="google" size={20} color="#ffffff" style={styles.icon} />
@@ -40,6 +41,10 @@ const GoogleSignInButton = () => {
         </View>
         <Icon name="sign-out-alt" size={20} color="#ffffff" style={styles.signOutIcon} />
       </TouchableOpacity>
+        <TouchableOpacity style={styles.forceSignOutButton} onPress={forceSignOut}>
+          <Text style={styles.forceSignOutText}>Force Sign Out</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
@@ -55,61 +60,53 @@ const styles = StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#4285F4',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    padding: 12,
     borderRadius: 8,
+    justifyContent: 'center',
     marginVertical: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    minWidth: 250,
   },
   connectedButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#1a73e8',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: '#34A853',
+    padding: 12,
     borderRadius: 8,
-    marginVertical: 10,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
+    justifyContent: 'space-between',
+    marginVertical: 5,
+  },
+  forceSignOutButton: {
+    backgroundColor: '#DC3545',
+    padding: 8,
+    borderRadius: 8,
+    marginTop: 5,
+    alignItems: 'center',
+  },
+  forceSignOutText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  text: {
+    color: '#ffffff',
+    marginLeft: 10,
+    fontSize: 16,
+    fontWeight: 'bold',
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    minWidth: 250,
+  icon: {
+    marginRight: 8,
+  },
+  signOutIcon: {
+    marginLeft: 8,
   },
   walletInfo: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  icon: {
-    marginRight: 10,
-  },
-  signOutIcon: {
-    marginLeft: 10,
-  },
-  text: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   walletText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'monospace',
+    fontWeight: 'bold',
   },
 });
 
