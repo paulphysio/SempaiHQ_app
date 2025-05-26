@@ -20,6 +20,8 @@ export default ({ config }) => {
         ...extraConfig,
         googleClientId: process.env.GOOGLE_WEB_CLIENT_ID,
         googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
+        supabaseUrl: process.env.SUPABASE_URL,
+        supabaseKey: process.env.SUPABASE_KEY,
         eas: {
           projectId: "492f97d1-81c1-4cb2-808f-6cd3f321f1d6"
         }

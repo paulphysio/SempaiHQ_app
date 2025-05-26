@@ -45,11 +45,16 @@ if (!googleClientId || !googleAndroidClientId) {
   });
 }
 
-// For Android-only development in Expo Go, we still need the redirect URI
-// but for production Android builds, we won't use this
-const redirectUri = __DEV__
-  ? 'https://auth.expo.io/@mbappe350/sempai-hq'
-  : null; // No redirect needed for native Android production builds
+// Configure the redirect URI based on environment
+// For development in Expo Go, we need to handle the specific redirect URI
+// that Google is expecting, which appears to be http://localhost:8081
+const redirectUri = __DEV__ 
+  ? 'http://localhost:8081'
+  : makeRedirectUri({
+      scheme: Constants.expoConfig?.scheme || 'sempaihq'
+    });
+
+console.log('Configured redirect URI:', redirectUri);
 
 // Log configuration
 console.log('Android Auth Configuration:', {
@@ -73,19 +78,20 @@ export const GoogleAuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const { createEmbeddedWallet, disconnectWallet } = useContext(EmbeddedWalletContext);
 
-  // Android-optimized auth request configuration
+  // Optimized auth request configuration for all environments
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: finalGoogleAndroidClientId,
-    // webClientId still needed for Expo Go development
     webClientId: finalGoogleClientId,
+    expoClientId: finalGoogleClientId, // Add this for Expo Go
     responseType: "id_token",
     scopes: ['openid', 'profile', 'email'],
     extraParams: {
       access_type: 'offline',
       prompt: 'consent',
     },
-    // Only use redirectUri and proxy in development with Expo Go
-    ...(__DEV__ ? { redirectUri, useProxy: true } : {})
+    redirectUri: redirectUri,
+    // Only use proxy if not using localhost directly
+    useProxy: __DEV__ && redirectUri !== 'http://localhost:8081'
   });
 
   // Add debug logging for configuration
