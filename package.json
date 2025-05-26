@@ -18,7 +18,7 @@
     "@react-navigation/native": "^7.0.14",
     "@react-navigation/stack": "7.1.0",
     "@solana/spl-token": "^0.4.13",
-    "@solana/web3.js": "^1.98.0",
+    "@solana/web3.js": "^1.98.2",
     "@supabase/supabase-js": "^2.49.4",
     "axios": "^1.8.4",
     "bs58": "^6.0.0",
