@@ -23,7 +23,7 @@ export default ({ config }) => {
         supabaseUrl: process.env.SUPABASE_URL,
         supabaseKey: process.env.SUPABASE_KEY,
         eas: {
-          projectId: "492f97d1-81c1-4cb2-808f-6cd3f321f1d6"
+          projectId: "f617e5a0-2bd4-4d93-8b00-49a589518469"
         }
       },
       name: 'Sempai HQ',
@@ -31,11 +31,13 @@ export default ({ config }) => {
       version: '1.0.0',
       orientation: 'portrait',
       icon: './assets/icon.png',
-      userInterfaceStyle: 'light',
+      primaryColor: '#FF6B00', // Orange accent color
+      userInterfaceStyle: 'dark',
+      backgroundColor: '#000000',
       splash: {
         image: './assets/splash-icon.png',
         resizeMode: 'contain',
-        backgroundColor: '#ffffff',
+        backgroundColor: '#000000',
       },
       scheme: 'sempaihq',
       assetBundlePatterns: ['assets/**/*'],
@@ -44,7 +46,7 @@ export default ({ config }) => {
         versionCode: 1,
         adaptiveIcon: {
           foregroundImage: './assets/adaptive-icon.png',
-          backgroundColor: '#ffffff',
+          backgroundColor: '#000000',
         },
         permissions: ['NOTIFICATIONS', 'POST_NOTIFICATIONS'],
         intentFilters: [
@@ -73,21 +75,30 @@ export default ({ config }) => {
       },
       web: {
         favicon: './assets/favicon.png',
+        bundler: 'metro'
       },
-      owner: 'mbappe350',
+      owner: 'draray',
       plugins: [
-        'expo-router',
         [
-          'expo-notifications',
+          "expo-build-properties",
           {
-            icon: './assets/notification-icon.png',
-            color: '#ffffff',
-          },
+            "android": {
+              "usesCleartextTraffic": true
+            }
+          }
         ],
-        'expo-font',
+        "expo-router",
+        [
+          "expo-notifications",
+          {
+            "icon": "./assets/notification-icon.png",
+            "color": "#FF6B00"
+          }
+        ],
+        "expo-font"
       ],
       updates: {
-        url: 'https://u.expo.dev/492f97d1-81c1-4cb2-808f-6cd3f321f1d6'
+        url: 'https://u.expo.dev/f617e5a0-2bd4-4d93-8b00-49a589518469'
       },
       runtimeVersion: {
         policy: 'sdkVersion'

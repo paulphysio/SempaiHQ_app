@@ -5,23 +5,23 @@
   },
   "build": {
     "development": {
+      "developmentClient": false,
       "distribution": "internal",
-      "android": {
-        "buildType": "apk"
+      "channel": "development",
+      "env": {
+        "EXPO_AUTH_POPUP_BEHAVIOR": "popup"
       }
     },
     "preview": {
+      "extends": "development",
       "distribution": "internal",
-      "android": {
-        "buildType": "apk"
-      }
+      "channel": "preview"
     },
     "production": {
+      "extends": "development",
       "distribution": "store",
       "autoIncrement": true,
-      "android": {
-        "buildType": "app-bundle"
-      }
+      "channel": "production"
     }
   },
   "submit": {

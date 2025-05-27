@@ -149,80 +149,134 @@ const Home = () => {
   useEffect(() => {
     const syncWallet = async () => {
       try {
+        // First check if we have a session from Google Auth
+        if (session?.user?.id) {
+          console.log('Using authenticated session for user:', session.user.id);
+          
+          // Get user data from database using the session ID
+          const { data: authUser, error: authUserError } = await supabase
+            .from('users')
+            .select('id, wallet_address, isWriter, isArtist, isSuperuser')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (authUserError) {
+            console.error('Error fetching authenticated user:', authUserError.message);
+          } else if (authUser?.wallet_address) {
+            // User exists and has a wallet address from Google Auth
+            console.log('Found user from Google Auth with wallet:', authUser.wallet_address);
+            setPublicKey(authUser.wallet_address);
+            setUserId(authUser.id);
+            setIsWriter(authUser.isWriter || false);
+            setIsArtist(authUser.isArtist || false);
+            setIsSuperuser(authUser.isSuperuser || false);
+            await AsyncStorage.setItem('walletAddress', authUser.wallet_address);
+            return; // Exit early since we've found and set the user
+          }
+        }
+          
+        // If no session or user not found, try using the connected wallet
         if (wallet?.publicKey && isWalletConnected) {
-          console.log('Wallet publicKey:', wallet.publicKey);
+          console.log('Using connected wallet publicKey:', wallet.publicKey);
           setPublicKey(wallet.publicKey);
           await AsyncStorage.setItem('walletAddress', wallet.publicKey);
 
+          // Check if a user exists with this wallet address
           const { data: user, error: userError } = await supabase
             .from('users')
             .select('id, isWriter, isArtist, isSuperuser')
             .eq('wallet_address', wallet.publicKey)
-            .single();
+            .maybeSingle();
 
-          if (userError) {
-            if (userError.code === 'PGRST116') {
-              console.log('No user found, creating new user...');
-              const newReferralCode = `${wallet.publicKey.slice(0, 4)}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-              const userData = {
-                name: 'DefaultUser',
-                wallet_address: wallet.publicKey,
-                isWriter: false,
-                isArtist: false,
-                isSuperuser: false,
-                referral_code: newReferralCode,
-                has_updated_profile: false,
-              };
-              const { data: newUser, error: upsertError } = await supabase
-                .from('users')
-                .upsert(userData, { onConflict: 'wallet_address' })
-                .select('id, isWriter, isArtist, isSuperuser')
-                .single();
+          if (userError && userError.code !== 'PGRST116') {
+            throw new Error(`User fetch error: ${userError.message}`);
+          }
 
-              if (upsertError) throw new Error(`Failed to create or update user: ${upsertError.message}`);
-              console.log('New user created or updated:', newUser);
-              setUserId(newUser.id);
-              setIsWriter(newUser.isWriter || false);
-              setIsArtist(newUser.isArtist || false);
-              setIsSuperuser(newUser.isSuperuser || false);
-            } else {
-              throw new Error(`User fetch error: ${userError.message}`);
-            }
-          } else if (user && isMounted.current) {
-            console.log('User fetched:', { id: user.id, isWriter: user.isWriter, isArtist: user.isArtist });
+          // If user found, use their data
+          if (user && isMounted.current) {
+            console.log('Found user with connected wallet:', user.id);
             setUserId(user.id);
             setIsWriter(user.isWriter || false);
             setIsArtist(user.isArtist || false);
             setIsSuperuser(user.isSuperuser || false);
+          } else if (session?.user?.id) {
+            // If we have a session ID but no matching wallet, update the user's wallet address
+            console.log('Updating existing user with new wallet address');
+            const { data: updatedUser, error: updateError } = await supabase
+              .from('users')
+              .update({ wallet_address: wallet.publicKey })
+              .eq('id', session.user.id)
+              .select('id, isWriter, isArtist, isSuperuser')
+              .single();
+              
+            if (updateError) {
+              console.error('Error updating user wallet:', updateError.message);
+            } else {
+              console.log('User wallet updated:', updatedUser);
+              setUserId(updatedUser.id);
+              setIsWriter(updatedUser.isWriter || false);
+              setIsArtist(updatedUser.isArtist || false);
+              setIsSuperuser(updatedUser.isSuperuser || false);
+            }
+          } else {
+            // No user found and no session, create a new user
+            console.log('No user found, creating new user with wallet address');
+            const newReferralCode = `${wallet.publicKey.slice(0, 4)}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+            const userData = {
+              name: 'DefaultUser',
+              wallet_address: wallet.publicKey,
+              isWriter: false,
+              isArtist: false,
+              isSuperuser: false,
+              referral_code: newReferralCode,
+              has_updated_profile: false,
+            };
+            
+            const { data: newUser, error: createError } = await supabase
+              .from('users')
+              .insert(userData)
+              .select('id, isWriter, isArtist, isSuperuser')
+              .single();
+
+            if (createError) throw new Error(`Failed to create user: ${createError.message}`);
+            console.log('New user created:', newUser);
+            setUserId(newUser.id);
+            setIsWriter(newUser.isWriter || false);
+            setIsArtist(newUser.isArtist || false);
+            setIsSuperuser(newUser.isSuperuser || false);
           }
         } else {
+          // No connected wallet, try to get from AsyncStorage
           const key = await AsyncStorage.getItem('walletAddress');
           if (key && isMounted.current) {
-            console.log('AsyncStorage walletAddress:', key);
+            console.log('Using wallet from AsyncStorage:', key);
             setPublicKey(key);
 
             const { data: user, error: userError } = await supabase
               .from('users')
               .select('id, isWriter, isArtist, isSuperuser')
               .eq('wallet_address', key)
-              .single();
+              .maybeSingle();
 
-            if (userError) {
-              if (userError.code === 'PGRST116') {
-                console.log('No user found for wallet, skipping...');
-                setPublicKey(null);
-                setUserId(null);
-              } else {
-                throw new Error(`User fetch error: ${userError.message}`);
-              }
-            } else if (user && isMounted.current) {
-              console.log('User fetched:', { id: user.id, isWriter: user.isWriter, isArtist: user.isArtist });
+            if (userError && userError.code !== 'PGRST116') {
+              throw new Error(`User fetch error: ${userError.message}`);
+            }
+
+            if (user && isMounted.current) {
+              console.log('Found user with stored wallet:', user.id);
               setUserId(user.id);
               setIsWriter(user.isWriter || false);
               setIsArtist(user.isArtist || false);
               setIsSuperuser(user.isSuperuser || false);
+            } else {
+              // No user found for this wallet address
+              console.log('No user found for stored wallet address');
+              setPublicKey(null);
+              setUserId(null);
             }
           } else {
+            // No wallet address available at all
+            console.log('No wallet address available');
             setPublicKey(null);
             setUserId(null);
             setIsWriter(false);
@@ -231,7 +285,7 @@ const Home = () => {
           }
         }
       } catch (err) {
-        console.error('Error syncing wallet:', err.message);
+        console.error('Error syncing wallet:', err);
         setError('Failed to sync wallet');
       }
     };
@@ -248,27 +302,56 @@ const Home = () => {
     const fetchAnnouncements = async () => {
       try {
         let novelIds = [];
-        let isWriter = false;
-        let isArtist = false;
+        let userIsWriter = false;
+        let userIsArtist = false;
+        
+        // Use the existing state variables instead of creating new ones
+        // userId and publicKey are already available as state
+        console.log('Fetching announcements with userId:', userId, 'and publicKey:', publicKey);
 
-        const { data: user, error: userError } = await supabase
-          .from('users')
-          .select('id, isWriter, isArtist')
-          .eq('wallet_address', publicKey)
-          .single();
-
-        if (userError) throw new Error(`User fetch error: ${userError.message}`);
-        if (user) {
-          isWriter = user.isWriter;
-          isArtist = user.isArtist;
-
+        // If we already have user state from syncWallet, use that
+        if (userId) {
+          userIsWriter = isWriter;
+          userIsArtist = isArtist;
+          
+          // Fetch user's interactions with novels
           const { data: interactions, error: interactionsError } = await supabase
             .from('novel_interactions')
             .select('novel_id')
-            .eq('user_id', user.id);
+            .eq('user_id', userId);
 
-          if (interactionsError) throw new Error(`Interactions fetch error: ${interactionsError.message}`);
-          novelIds = interactions.map(i => i.novel_id);
+          if (interactionsError) {
+            console.error(`Interactions fetch error: ${interactionsError.message}`);
+          } else {
+            novelIds = interactions ? interactions.map(i => i.novel_id) : [];
+          }
+        } 
+        // If we don't have userId but have publicKey, fetch user data
+        else if (publicKey) {
+          const { data: user, error: userError } = await supabase
+            .from('users')
+            .select('id, isWriter, isArtist')
+            .eq('wallet_address', publicKey)
+            .maybeSingle();
+
+          if (userError) {
+            console.warn(`User fetch warning: ${userError.message}`);
+          } else if (user) {
+            userIsWriter = user.isWriter;
+            userIsArtist = user.isArtist;
+            
+            // Fetch user interactions
+            const { data: interactions, error: interactionsError } = await supabase
+              .from('novel_interactions')
+              .select('novel_id')
+              .eq('user_id', user.id);
+
+            if (interactionsError) {
+              console.error(`Interactions fetch error: ${interactionsError.message}`);
+            } else {
+              novelIds = interactions ? interactions.map(i => i.novel_id) : [];
+            }
+          }
         }
 
         let writerQuery = supabase
@@ -299,7 +382,7 @@ const Home = () => {
 
         const filteredGeneralAnnouncements = generalAnnouncements.filter(ann => {
           if (ann.audience === 'creators') {
-            return isWriter || isArtist;
+            return userIsWriter || userIsArtist;
           }
           return true;
         });

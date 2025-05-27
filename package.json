@@ -3,10 +3,12 @@
   "license": "0BSD",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start --dev-client",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "prebuild": "npx expo-doctor",
+    "clean": "npx rimraf .expo node_modules && npm install"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
@@ -26,10 +28,12 @@
     "dompurify": "^3.2.5",
     "dotenv": "^16.5.0",
     "expo": "~52.0.46",
-    "expo-auth-session": "^6.1.5",
+    "expo-auth-session": "~6.0.3",
+    "expo-build-properties": "~0.13.3",
     "expo-clipboard": "~7.0.1",
     "expo-constants": "~17.0.8",
     "expo-crypto": "~14.0.2",
+    "expo-dev-client": "~5.0.20",
     "expo-document-picker": "~13.0.3",
     "expo-font": "~13.0.4",
     "expo-image-manipulator": "~13.0.6",
@@ -47,7 +51,8 @@
     "expo-splash-screen": "~0.29.24",
     "expo-status-bar": "~2.0.1",
     "expo-system-ui": "~4.0.9",
-    "expo-web-browser": "^14.1.6",
+    "expo-updates": "~0.27.4",
+    "expo-web-browser": "~14.0.2",
     "lodash": "^4.17.21",
     "metro": "^0.81.0",
     "metro-config": "^0.81.0",
@@ -74,10 +79,12 @@
     "react-native-system-navigation-bar": "^2.6.4",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-web": "~0.19.13"
+    "react-native-web": "~0.19.13",
+    "text-encoding": "^0.7.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "babel-plugin-module-resolver": "^5.0.2",
     "babel-preset-expo": "~12.0.11"
   },
   "expo": {

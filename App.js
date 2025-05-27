@@ -58,7 +58,7 @@ export const useSystemUi = () => useContext(SystemUiContext);
 
 // AppContent component uses the Auth context
 const AppContent = () => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, skipSignIn } = useAuth();
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true); // Always show welcome screen initially
   const [walletAddress, setWalletAddress] = useState(null);
@@ -140,13 +140,15 @@ const AppContent = () => {
     return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
   }
   
-  // After welcome screen, always show sign-in screen if not authenticated
+  // After welcome screen, show sign-in screen only if not authenticated
   if (!user) {
     return (
       <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
         <SignIn onSkip={() => {
-          // Just go to the main app if user skips
-          // No need to save state since we'll show these screens again next time
+          // When user skips, update the auth context to bypass sign-in
+          skipSignIn();
+          // Force a re-render to take the user to the main app
+          console.log('User skipped sign-in, proceeding to main app');
         }} />
       </SystemUiContext.Provider>
     );
