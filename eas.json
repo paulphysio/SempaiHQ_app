@@ -9,7 +9,11 @@
       "distribution": "internal",
       "channel": "development",
       "env": {
-        "EXPO_AUTH_POPUP_BEHAVIOR": "popup"
+        "EXPO_AUTH_POPUP_BEHAVIOR": "popup",
+        "SUPABASE_URL": "$SUPABASE_URL",
+        "SUPABASE_KEY": "$SUPABASE_KEY",
+        "GOOGLE_WEB_CLIENT_ID": "$GOOGLE_WEB_CLIENT_ID",
+        "GOOGLE_ANDROID_CLIENT_ID": "$GOOGLE_ANDROID_CLIENT_ID"
       }
     },
     "preview": {

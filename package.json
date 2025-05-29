@@ -4,13 +4,14 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "prebuild": "npx expo-doctor",
     "clean": "npx rimraf .expo node_modules && npm install"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.0",
     "@expo/vector-icons": "^14.1.0",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@react-native-community/datetimepicker": "8.2.0",
@@ -21,7 +22,8 @@
     "@react-navigation/stack": "7.1.0",
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.2",
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/auth-helpers-react": "^0.5.0",
+    "@supabase/supabase-js": "^2.49.8",
     "axios": "^1.8.4",
     "bs58": "^6.0.0",
     "buffer": "^6.0.3",
@@ -67,7 +69,7 @@
     "react-native-draggable-flatlist": "^4.0.2",
     "react-native-emoji-selector": "^0.2.0",
     "react-native-gesture-handler": "~2.20.2",
-    "react-native-get-random-values": "~1.11.0",
+    "react-native-get-random-values": "^1.11.0",
     "react-native-haptic-feedback": "^2.3.3",
     "react-native-linear-gradient": "^2.8.3",
     "react-native-modal": "^13.0.1",
@@ -80,7 +82,8 @@
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.19.13",
-    "text-encoding": "^0.7.0"
+    "text-encoding": "^0.7.0",
+    "expo-application": "~6.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",

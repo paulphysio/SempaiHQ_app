@@ -2435,28 +2435,21 @@ const KaitoAdventureScreen = () => {
     </Modal>
   );
   const renderCommunityModal = () => {
-    const communityEvent = mockCommunityEvent();
     return (
       <Modal
         isVisible={modals.community}
-        onBackdropPress={() => toggleModal('community')}
+        onBackdropPress={() => setModals({ ...modals, community: false })}
         style={styles.modal}
       >
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Community Event</Text>
-          <Text style={styles.modalSubtitle}>{communityEvent.description}</Text>
+          <Text style={styles.modalTitle}>Community</Text>
           <TouchableOpacity
-            style={styles.modalButton}
-            onPress={communityEvent.action}
+            style={styles.button}
+            onPress={() => navigation.navigate('EditProfile')}
           >
-            <Text style={styles.modalButtonText}>Contribute 50 Gold</Text>
+            <Text style={styles.buttonText}>View Profile</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => toggleModal('community')}
-          >
-            <Text style={styles.modalButtonText}>Close</Text>
-          </TouchableOpacity>
+          {/* ... rest of the modal content ... */}
         </View>
       </Modal>
     );

@@ -9,10 +9,8 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
-  Text
+  Text,
 } from 'react-native';
-// import { Text } from '../components/Text';
-// import { Text } from '../App'; // Adjust path
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -20,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import ConnectButton from '../components/ConnectButton';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
 import { styles } from '../styles/HomeStyles';
@@ -51,7 +50,6 @@ const Home = () => {
 
   // Animation refs
   const slideAnim = useRef(new Animated.Value(280)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
   const announcementAnim = useRef(new Animated.Value(0)).current;
   const notificationAnim = useRef(new Animated.Value(0)).current;
   const heroTextAnim = useRef(new Animated.Value(0)).current;
@@ -66,8 +64,10 @@ const Home = () => {
   // Feature cards
   const features = [
     {
-      title: "Google Sign-In",
-      image: { uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEkUlEQVR4nO2Zf2hVZRjHv+fHvefes7l5N6dOmomWWmkUlpkFUWBFEKXOamlJIkGBhRWUVH9kf0gUFUhkQf4TEf2jv1KKDEK0H2qIhBpRKUUqrUzn3Nx2z7n3nNPzvu+5Z7t3Z3vP2b0jfOAL973nPe/zfp/n+zzP+7xKpZFGGv9jKACqABQDyPwvk88FsADAKwBaALwKYDKA3HQRzwLwIIBmAF8A6ADQCuBpAJUAcq5l8vkA6gC8DuBzAEcBHAKwA8BGAPcBKACgX23iGQDKATwM4CUAL30vl2ULgE8BHBH5XwHYC2ArgA0AqgEUXQ3yqpxhBYDHALwNYDeALwEcBnAcwHEAPwD4XiR0GsA5AN0AzgA4AeAQgD0A3gKwDsD9AEqvFPl0AKUAFgF4EsA2AB8B+BbALwDOAugE8CeAPgADAC4CGAQQABAEEAIQBmADcAAYAK4A6JYxfpIx35cxXwJQJ2OPm3wOgGIANQDWA3gXwD4AxwCcAtABoAfARQCXAIQAWAAsABEAUQBxADEABgBd/o8DiMm9qNwbknH6ZNw/AHwjc1kn8ysdCXkVQBGAeQAel+1xUMh0iF0YlRWLCuGokI8JcUtWW5eVjwJwA3ABMAGYQt4EYADQhHwYgE/k9QrxPgC/AfgUwCYAD8iq5owlfwaAMgDLALwG4BMAv8qqXpAJBQEMi4QiQl6XSRsioSkSsEXGhpDXJXhNSKsy6ZBsHV3I+0XePgC/A/gMwGYAD8k8kpLPEr+9BMB6AO8D+F5Mwi8T9YsEhgFEhYwmq6yLhGxZZZsQtwBYsqUMSUhTJGCIBHSRkS6kNSEelDl4ZU6/AvgAwBMAFkoSjEo+Q1a7AsB6kc1PAM7LSnlFAkOyukNiHrqQsWRCpkjBFPKGEI8JaUMIx4SwJqtsy8rbstp+mVu3zPUwgJ0A1gKYMxb5XADzATwL4CMZIC4T9sjEfEI6IKsbFjKakNEljzAhbghxS0hbIh9TSJtC2hDyhqy8fVVe6ZU59wH4BcB2AA+MRX4ugKcA7JEBwjJBr0woKCsfFhKakDCEgCnELSFrC1lTyOoi0biQNoS0IaQNIW1LzgkJeY/M/RyAbQDuG4v8AgBbxVrD4qEhIR4U0mEhYQgBU0gYQsAS0paQtYSsKWR1IWwIYUMIG0LaFNKmyMiQXBQS8ufFHO8ei/wqALvFQqNCIiwS0IWEKSRMIWEJWVNImULWFLKGEDWFqClETSFqSXQyJT8ZQj4qxC8D2AlgxVjkVwPYL4NHhUhYJGAICVOImELEEjKWkLKElCWkTCFlCClDSBlCypQIZQppU0hbksDCAL4DsGws8msBfC0DRUSP9hUkbAkZS8hYQsoSUpaQMoWUIaR0IaULKV1IGULKEFKmkLYAfANg6Vjk1wE4IANFRQIRIWBJtLGEjCVkLCFlCSlTSBlCShcyhpAxhIwhZEwhYwL4GsDiscg/B+A7GcQS/7aEgCUELCFgCgFTCJhCwBQCphAwxVctAF8BqBmLfBpppJFGGhOO/wA36kJcbZkxjgAAAABJRU5ErkJggg==' },
+      title: 'Google Sign-In',
+      image: {
+        uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEkUlEQVR4nO2Zf2hVZRjHv+fHvefes7l5N6dOmomWWmkUlpkFUWBFEKXOamlJIkGBhRWUVH9kf0gUFUhkQf4TEf2jv1KKDEK0H2qIhBpRKUUqrUzn3Nx2z7n3nNPzvu+5Z7t3Z3vP2b0jfOAL973nPe/zfp/n+zzP+7xKpZFGGv9jKACqABQDyPwvk88FsADAKwBaALwKYDKA3HQRzwLwIIBmAF8A6ADQCuBpAJUAcq5l8vkA6gC8DuBzAEcBHAKwA8BGAPcBKACgX23iGQDKATwM4CUAL30vl2ULgE8BHBH5XwHYC2ArgA0AqgEUXQ3yqpxhBYDHALwNYDeALwEcBnAcwHEAPwD4XiR0GsA5AN0AzgA4AeAQgD0A3gKwDsD9AEqvFPl0AKUAFgF4EsA2AB8B+BbALwDOAugE8CeAPgADAC4CGAQQABAEEAIQBmADcAAYAK4A6JYxfpIx35cxXwJQJ2OPm3wOgGIANQDWA3gXwD4AxwCcAtABoAfARQCXAIQAWAAsABEAUQBxADEABgBd/o8DiMm9qNwbknH6ZNw/AHwjc1kn8ysdCXkVQBGAeQAel+1xUMh0iF0YlRWLCuGokI8JcUtWW5eVjwJwA3ABMAGYQt4EYADQhHwYgE/k9QrxPgC/AfgUwCYAD8iq5owlfwaAMgDLALwG4BMAv8qqXpAJBQEMi4QiQl6XSRsioSkSsEXGhpDXJXhNSKsy6ZBsHV3I+0XePgC/A/gAwBMAFkoSjAo+Q1a7AsB6kc1PAM7LSnlFAkOyukNiHrqQsWRCpkjBFPKGEI8JaUMIx4SwJqtsy8rbstp+mVu3zPUwgJ0A1gKYMxb5XADzATwL4CMZIC4T9sjEfEI6IKsbFjKakDCEgCnELSFrC1lTyOoi0biQNoS0IaQNIW1LzgkJeY/M/RyAbQDuG4v8AgBbxVrD4qEhIR4U0mEhYQgBU0gYQsAS0paQtYSsKWR1IWwIYUMIG0LaFNKmyMiQXBQS8ufFHO8ei/wqALvFQqNCIiwS0IWEKSRMIWEJWVNImULWFLKGEDWFqClETSFqSXQyJT8ZQj4qxC8D2AlgxVjkVwPYL4NHhUhYJGAICVOImELEEjKWkLKElCWkTCFlCClDSBlCypQIZQppU0hbksDCAL4DsGwsocracy8msBfC0DRUSP9hUkbAkZS8hYQsoSUpaQMoWUIaR0IaULKV1IGULKEFKmkLYAfANg6Vjk1wE4IANFRQIRIWBJtLGEjCVkLCFlCSlTSBlCShcyhpAxhIwhZEwhYwL4GsDiscg/B+A7GcQS/7aEgCUELCFgCgFTCJhCwBQCphAwxVctAF8BqBmLfBpppJFGGhOO/wA36kJcbZkxjgAAAABJRU5ErkJggg==',
+      },
       path: 'GoogleSignIn',
       requiresWallet: false,
     },
@@ -86,7 +86,7 @@ const Home = () => {
     {
       title: 'Hoard',
       image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/novel-3.jpg' },
-      path: 'Novels',
+      path: 'NovelList', // Updated from 'Novels'
       requiresWallet: false,
     },
     {
@@ -124,7 +124,11 @@ const Home = () => {
         }),
       ])
     ).start();
-  }, [waveAnim, pulseAnim]);
+
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Hero and feature animations
   useEffect(() => {
@@ -134,8 +138,8 @@ const Home = () => {
         duration: 800,
         useNativeDriver: true,
       }),
-      ...features.map((_, index) =>
-        Animated.timing(fadeAnims[index], {
+      ...fadeAnims.map((anim, index) =>
+        Animated.timing(anim, {
           toValue: 1,
           duration: 500,
           delay: index * 150,
@@ -143,45 +147,40 @@ const Home = () => {
         })
       ),
     ]).start();
-  }, [heroTextAnim, fadeAnims]);
+  }, []);
 
   // Sync wallet and fetch user ID/roles
   useEffect(() => {
     const syncWallet = async () => {
       try {
-        // First check if we have a session from Google Auth
         if (session?.user?.id) {
-          console.log('Using authenticated session for user:', session.user.id);
-          
-          // Get user data from database using the session ID
           const { data: authUser, error: authUserError } = await supabase
             .from('users')
             .select('id, wallet_address, isWriter, isArtist, isSuperuser')
             .eq('id', session.user.id)
             .single();
-          
-          if (authUserError) {
-            console.error('Error fetching authenticated user:', authUserError.message);
-          } else if (authUser?.wallet_address) {
-            // User exists and has a wallet address from Google Auth
-            console.log('Found user from Google Auth with wallet:', authUser.wallet_address);
-            setPublicKey(authUser.wallet_address);
+
+          if (authUserError && authUserError.code !== 'PGRST116') {
+            throw new Error(`Failed to fetch auth user: ${authUserError.message}`);
+          }
+
+          if (authUser && isMounted.current) {
+            setPublicKey(authUser.wallet_address || null);
             setUserId(authUser.id);
             setIsWriter(authUser.isWriter || false);
             setIsArtist(authUser.isArtist || false);
             setIsSuperuser(authUser.isSuperuser || false);
-            await AsyncStorage.setItem('walletAddress', authUser.wallet_address);
-            return; // Exit early since we've found and set the user
+            if (authUser.wallet_address) {
+              await AsyncStorage.setItem('walletAddress', authUser.wallet_address);
+            }
+            return;
           }
         }
-          
-        // If no session or user not found, try using the connected wallet
+
         if (wallet?.publicKey && isWalletConnected) {
-          console.log('Using connected wallet publicKey:', wallet.publicKey);
           setPublicKey(wallet.publicKey);
           await AsyncStorage.setItem('walletAddress', wallet.publicKey);
 
-          // Check if a user exists with this wallet address
           const { data: user, error: userError } = await supabase
             .from('users')
             .select('id, isWriter, isArtist, isSuperuser')
@@ -189,67 +188,36 @@ const Home = () => {
             .maybeSingle();
 
           if (userError && userError.code !== 'PGRST116') {
-            throw new Error(`User fetch error: ${userError.message}`);
+            throw new Error(`Failed to fetch user: ${userError.message}`);
           }
 
-          // If user found, use their data
           if (user && isMounted.current) {
-            console.log('Found user with connected wallet:', user.id);
             setUserId(user.id);
             setIsWriter(user.isWriter || false);
             setIsArtist(user.isArtist || false);
             setIsSuperuser(user.isSuperuser || false);
           } else if (session?.user?.id) {
-            // If we have a session ID but no matching wallet, update the user's wallet address
-            console.log('Updating existing user with new wallet address');
             const { data: updatedUser, error: updateError } = await supabase
               .from('users')
               .update({ wallet_address: wallet.publicKey })
               .eq('id', session.user.id)
               .select('id, isWriter, isArtist, isSuperuser')
               .single();
-              
+
             if (updateError) {
-              console.error('Error updating user wallet:', updateError.message);
-            } else {
-              console.log('User wallet updated:', updatedUser);
+              throw new Error(`Failed to update user wallet: ${updateError.message}`);
+            }
+
+            if (updatedUser && isMounted.current) {
               setUserId(updatedUser.id);
               setIsWriter(updatedUser.isWriter || false);
               setIsArtist(updatedUser.isArtist || false);
               setIsSuperuser(updatedUser.isSuperuser || false);
             }
-          } else {
-            // No user found and no session, create a new user
-            console.log('No user found, creating new user with wallet address');
-            const newReferralCode = `${wallet.publicKey.slice(0, 4)}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-            const userData = {
-              name: 'DefaultUser',
-              wallet_address: wallet.publicKey,
-              isWriter: false,
-              isArtist: false,
-              isSuperuser: false,
-              referral_code: newReferralCode,
-              has_updated_profile: false,
-            };
-            
-            const { data: newUser, error: createError } = await supabase
-              .from('users')
-              .insert(userData)
-              .select('id, isWriter, isArtist, isSuperuser')
-              .single();
-
-            if (createError) throw new Error(`Failed to create user: ${createError.message}`);
-            console.log('New user created:', newUser);
-            setUserId(newUser.id);
-            setIsWriter(newUser.isWriter || false);
-            setIsArtist(newUser.isArtist || false);
-            setIsSuperuser(newUser.isSuperuser || false);
           }
         } else {
-          // No connected wallet, try to get from AsyncStorage
           const key = await AsyncStorage.getItem('walletAddress');
           if (key && isMounted.current) {
-            console.log('Using wallet from AsyncStorage:', key);
             setPublicKey(key);
 
             const { data: user, error: userError } = await supabase
@@ -259,24 +227,19 @@ const Home = () => {
               .maybeSingle();
 
             if (userError && userError.code !== 'PGRST116') {
-              throw new Error(`User fetch error: ${userError.message}`);
+              throw new Error(`Failed to fetch user: ${userError.message}`);
             }
 
             if (user && isMounted.current) {
-              console.log('Found user with stored wallet:', user.id);
               setUserId(user.id);
               setIsWriter(user.isWriter || false);
               setIsArtist(user.isArtist || false);
               setIsSuperuser(user.isSuperuser || false);
             } else {
-              // No user found for this wallet address
-              console.log('No user found for stored wallet address');
               setPublicKey(null);
               setUserId(null);
             }
           } else {
-            // No wallet address available at all
-            console.log('No wallet address available');
             setPublicKey(null);
             setUserId(null);
             setIsWriter(false);
@@ -285,81 +248,38 @@ const Home = () => {
           }
         }
       } catch (err) {
-        console.error('Error syncing wallet:', err);
-        setError('Failed to sync wallet');
+        console.error('Error syncing wallet:', err.message);
+        if (isMounted.current) {
+          setError('Failed to sync wallet');
+        }
       }
     };
     syncWallet();
-  }, [wallet, isWalletConnected]);
+  }, [wallet?.publicKey, isWalletConnected, session?.user?.id]);
 
   // Fetch announcements
   useEffect(() => {
-    if (!publicKey || !userId) {
-      console.log('No userId or publicKey, skipping announcements fetch');
-      return;
-    }
+    if (!userId) return;
 
     const fetchAnnouncements = async () => {
       try {
-        let novelIds = [];
-        let userIsWriter = false;
-        let userIsArtist = false;
-        
-        // Use the existing state variables instead of creating new ones
-        // userId and publicKey are already available as state
-        console.log('Fetching announcements with userId:', userId, 'and publicKey:', publicKey);
+        const { data: interactions, error: interactionsError } = await supabase
+          .from('novel_interactions')
+          .select('novel_id')
+          .eq('user_id', userId);
 
-        // If we already have user state from syncWallet, use that
-        if (userId) {
-          userIsWriter = isWriter;
-          userIsArtist = isArtist;
-          
-          // Fetch user's interactions with novels
-          const { data: interactions, error: interactionsError } = await supabase
-            .from('novel_interactions')
-            .select('novel_id')
-            .eq('user_id', userId);
-
-          if (interactionsError) {
-            console.error(`Interactions fetch error: ${interactionsError.message}`);
-          } else {
-            novelIds = interactions ? interactions.map(i => i.novel_id) : [];
-          }
-        } 
-        // If we don't have userId but have publicKey, fetch user data
-        else if (publicKey) {
-          const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('id, isWriter, isArtist')
-            .eq('wallet_address', publicKey)
-            .maybeSingle();
-
-          if (userError) {
-            console.warn(`User fetch warning: ${userError.message}`);
-          } else if (user) {
-            userIsWriter = user.isWriter;
-            userIsArtist = user.isArtist;
-            
-            // Fetch user interactions
-            const { data: interactions, error: interactionsError } = await supabase
-              .from('novel_interactions')
-              .select('novel_id')
-              .eq('user_id', user.id);
-
-            if (interactionsError) {
-              console.error(`Interactions fetch error: ${interactionsError.message}`);
-            } else {
-              novelIds = interactions ? interactions.map(i => i.novel_id) : [];
-            }
-          }
+        if (interactionsError) {
+          throw new Error(`Failed to fetch interactions: ${interactionsError.message}`);
         }
+
+        const novelIds = interactions?.map(i => i.novel_id) || [];
 
         let writerQuery = supabase
           .from('writer_announcements')
           .select(`
             id, title, message, created_at, release_date,
-            novels (id, title),
-            users!writer_id (id, wallet_address)
+            novels(id, title),
+            users!writer_id(id, wallet_address)
           `)
           .order('created_at', { ascending: false });
 
@@ -367,25 +287,30 @@ const Home = () => {
           writerQuery = writerQuery.in('novel_id', novelIds);
         }
 
-        const { data: writerAnnouncements, error: writerError } = await writerQuery;
-        if (writerError) throw new Error(`Writer announcements fetch error: ${writerError.message}`);
+        const [
+          { data: writerAnnouncements, error: writerError },
+          { data: generalAnnouncements, error: announcementsError },
+        ] = await Promise.all([
+          writerQuery,
+          supabase
+            .from('announcements')
+            .select(`
+              id, title, message, created_at, release_date, audience,
+              users!user_id(id, wallet_address)
+            `)
+            .order('created_at', { ascending: false }),
+        ]);
 
-        const { data: generalAnnouncements, error: announcementsError } = await supabase
-          .from('announcements')
-          .select(`
-            id, title, message, created_at, release_date, audience,
-            users!user_id (id, wallet_address)
-          `)
-          .order('created_at', { ascending: false });
+        if (writerError) {
+          throw new Error(`Failed to fetch writer announcements: ${writerError.message}`);
+        }
+        if (announcementsError) {
+          throw new Error(`Failed to fetch general announcements: ${announcementsError.message}`);
+        }
 
-        if (announcementsError) throw new Error(`General announcements fetch error: ${announcementsError.message}`);
-
-        const filteredGeneralAnnouncements = generalAnnouncements.filter(ann => {
-          if (ann.audience === 'creators') {
-            return userIsWriter || userIsArtist;
-          }
-          return true;
-        });
+        const filteredGeneralAnnouncements = generalAnnouncements.filter(ann =>
+          ann.audience === 'creators' ? isWriter || isArtist : true
+        );
 
         const normalizedWriterAnnouncements = writerAnnouncements.map(ann => ({
           id: ann.id,
@@ -422,14 +347,11 @@ const Home = () => {
       }
     };
     fetchAnnouncements();
-  }, [publicKey, userId]);
+  }, [userId, isWriter, isArtist]);
 
   // Fetch notifications
   useEffect(() => {
-    if (!publicKey || !userId) {
-      console.log('No userId or publicKey, skipping notifications fetch');
-      return;
-    }
+    if (!userId) return;
 
     const fetchNotifications = async () => {
       try {
@@ -439,21 +361,23 @@ const Home = () => {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (notificationsError) throw new Error(`Notifications fetch error: ${notificationsError.message}`);
+        if (notificationsError) {
+          throw new Error(`Failed to fetch notifications: ${notificationsError.message}`);
+        }
 
         if (isMounted.current) {
           setNotifications(notificationsData || []);
-          setUnreadCount(notificationsData ? notificationsData.filter(n => !n.is_read).length : 0);
+          setUnreadCount(notificationsData?.filter(n => !n.is_read).length || 0);
         }
       } catch (err) {
         console.error('fetchNotifications error:', err.message);
         if (isMounted.current) {
-          setError(err.message);
+          setError(`Failed to fetch notifications: ${err.message}`);
         }
       }
     };
     fetchNotifications();
-  }, [publicKey, userId]);
+  }, [userId]);
 
   // Fetch novels
   useEffect(() => {
@@ -464,15 +388,23 @@ const Home = () => {
           .from('novels')
           .select('id, title, image, summary, user_id, tags, viewers_count');
 
-        if (error) throw new Error(`Novels fetch error: ${error.message}`);
+        if (error) {
+          throw new Error(`Failed to fetch novels: ${error.message}`);
+        }
+        if (!novelsData?.length) {
+          setNovels([]);
+          return;
+        }
 
-        const userIds = novelsData.map(novel => novel.user_id).filter(id => id);
+        const userIds = [...new Set(novelsData.map(novel => novel.user_id).filter(id => id))];
         const { data: usersData, error: usersError } = await supabase
           .from('users')
           .select('id, name, isWriter')
           .in('id', userIds);
 
-        if (usersError) throw new Error(`Users fetch error: ${usersError.message}`);
+        if (usersError) {
+          throw new Error(`Failed to fetch users: ${usersError.message}`);
+        }
 
         const usersMap = usersData.reduce((acc, user) => {
           acc[user.id] = { name: user.name || 'Unknown', isWriter: user.isWriter || false };
@@ -484,37 +416,35 @@ const Home = () => {
           .select('content_id, rating')
           .eq('content_type', 'novel');
 
-        if (ratingsError) throw new Error(`Ratings fetch error: ${ratingsError.message}`);
+        if (ratingsError) {
+          throw new Error(`Failed to fetch novel ratings: ${ratingsError.message}`);
+        }
 
         const ratingsMap = ratingsData.reduce((acc, rating) => {
-          if (!acc[rating.content_id]) acc[rating.content_id] = [];
-          acc[rating.content_id].push(rating.rating);
+          acc[rating.content_id] = (acc[rating.content_id] || []).concat(rating.rating);
           return acc;
         }, {});
 
         const enrichedNovels = novelsData.map(novel => {
           const ratings = ratingsMap[novel.id] || [];
-          const averageRating = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
+          const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
           return {
             ...novel,
+            id: novel.id || `temp-${Math.random()}`,
             writer: usersMap[novel.user_id] || { name: 'Unknown', isWriter: false },
             viewers: novel.viewers_count || 0,
             averageRating: averageRating.toFixed(2),
-            isAdult: novel.tags && novel.tags.includes('Adult(18+)'),
+            isAdult: novel.tags?.includes('Adult(18+)') || false,
           };
         });
 
-        const sortedNovels = enrichedNovels
-          .sort((a, b) => b.viewers - a.viewers)
-          .slice(0, 6);
-
         if (isMounted.current) {
-          setNovels(sortedNovels);
+          setNovels(enrichedNovels.sort((a, b) => b.viewers - a.viewers).slice(0, 6));
         }
       } catch (err) {
         console.error('fetchNovels error:', err.message);
         if (isMounted.current) {
-          setError(err.message);
+          setError(`Failed to fetch novels: ${err.message}`);
           setNovels([]);
         }
       } finally {
@@ -537,20 +467,23 @@ const Home = () => {
           .in('status', ['ongoing', 'completed'])
           .limit(5);
 
-        if (error) throw new Error(`Manga fetch error: ${error.message}`);
-        if (!mangaData || mangaData.length === 0) {
-          console.log('No manga data found');
+        if (error) {
+          throw new Error(`Failed to fetch manga: ${error.message}`);
+        }
+        if (!mangaData?.length) {
           setManga([]);
           return;
         }
 
-        const userIds = mangaData.map(manga => manga.user_id).filter(id => id);
+        const userIds = [...new Set(mangaData.map(manga => manga.user_id).filter(id => id))];
         const { data: usersData, error: usersError } = await supabase
           .from('users')
           .select('id, name, isArtist')
           .in('id', userIds);
 
-        if (usersError) throw new Error(`Users fetch error: ${usersError.message}`);
+        if (usersError) {
+          throw new Error(`Failed to fetch users: ${usersError.message}`);
+        }
 
         const usersMap = usersData.reduce((acc, user) => {
           acc[user.id] = { name: user.name || 'Unknown', isArtist: user.isArtist || false };
@@ -561,11 +494,12 @@ const Home = () => {
           .from('manga_interactions')
           .select('manga_id, user_id');
 
-        if (interactionsError) throw new Error(`Interactions fetch error: ${interactionsError.message}`);
+        if (interactionsError) {
+          throw new Error(`Failed to fetch interactions: ${interactionsError.message}`);
+        }
 
         const viewerCounts = interactionsData.reduce((acc, interaction) => {
-          if (!acc[interaction.manga_id]) acc[interaction.manga_id] = new Set();
-          acc[interaction.manga_id].add(interaction.user_id);
+          acc[interaction.manga_id] = (acc[interaction.manga_id] || new Set()).add(interaction.user_id);
           return acc;
         }, {});
 
@@ -574,41 +508,37 @@ const Home = () => {
           .select('content_id, rating')
           .eq('content_type', 'manga');
 
-        if (ratingsError) throw new Error(`Ratings fetch error: ${ratingsError.message}`);
+        if (ratingsError) {
+          throw new Error(`Failed to fetch manga ratings: ${ratingsError.message}`);
+        }
 
         const ratingsMap = ratingsData.reduce((acc, rating) => {
-          if (!acc[rating.content_id]) acc[rating.content_id] = [];
-          acc[rating.content_id].push(rating.rating);
+          acc[rating.content_id] = (acc[rating.content_id] || []).concat(rating.rating);
           return acc;
         }, {});
 
         const enrichedManga = mangaData.map(manga => {
           const ratings = ratingsMap[manga.id] || [];
-          const averageRating = ratings.length > 0 ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
-          const uniqueViewers = viewerCounts[manga.id] ? viewerCounts[manga.id].size : 0;
+          const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
+          const uniqueViewers = viewerCounts[manga.id]?.size || 0;
           return {
             ...manga,
+            id: manga.id || `temp-${Math.random()}`,
             image: manga.cover_image,
             writer: usersMap[manga.user_id] || { name: 'Unknown', isArtist: false },
             viewers: manga.viewers_count || uniqueViewers || 0,
             averageRating: averageRating.toFixed(1),
-            isAdult: manga.tags && manga.tags.includes('Adult(18+)'),
+            isAdult: manga.tags?.includes('Adult(18+)') || false,
           };
         });
 
         if (isMounted.current) {
           setManga(enrichedManga);
-          console.log('Enriched Manga:', enrichedManga.map(m => ({
-            title: m.title,
-            writerName: m.writer.name,
-            isArtist: m.writer.isArtist,
-            user_id: m.user_id,
-          })));
         }
       } catch (err) {
-        console.error('fetchManga error:', err.message);
+        console.error('Error fetching manga:', err.message);
         if (isMounted.current) {
-          setError(err.message);
+          setError(`Failed to fetch manga: ${err.message}`);
           setManga([]);
         }
       } finally {
@@ -620,18 +550,10 @@ const Home = () => {
     fetchManga();
   }, []);
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      isMounted.current = false;
-    };
-  }, []);
-
   // Toggle sidebar
   const toggleMenu = () => {
-    const toValue = menuOpen ? 280 : 0;
     Animated.timing(slideAnim, {
-      toValue,
+      toValue: menuOpen ? 280 : 0,
       duration: 300,
       useNativeDriver: true,
     }).start();
@@ -640,28 +562,22 @@ const Home = () => {
 
   // Toggle announcements dropdown
   const toggleAnnouncements = () => {
-    const toValue = showAnnouncements ? 0 : 1;
     Animated.timing(announcementAnim, {
-      toValue,
+      toValue: showAnnouncements ? 0 : 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
-    if (isMounted.current) {
-      setShowAnnouncements(!showAnnouncements);
-    }
+    setShowAnnouncements(!showAnnouncements);
   };
 
   // Toggle notifications dropdown
   const toggleNotifications = () => {
-    const toValue = showNotifications ? 0 : 1;
     Animated.timing(notificationAnim, {
-      toValue,
+      toValue: showNotifications ? 0 : 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
-    if (isMounted.current) {
-      setShowNotifications(!showNotifications);
-    }
+    setShowNotifications(!showNotifications);
   };
 
   // Mark notifications as read
@@ -673,28 +589,36 @@ const Home = () => {
         .eq('user_id', userId)
         .in('id', notifications.filter(n => !n.is_read).map(n => n.id));
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       if (isMounted.current) {
         setNotifications(notifications.map(n => ({ ...n, is_read: true })));
         setUnreadCount(0);
       }
     } catch (err) {
-      console.error('markNotificationsRead error:', err.message);
-      setError(err.message);
+      console.error('Error marking notifications as read:', err.message);
+      setError(`Failed to mark notifications as read: ${err.message}`);
     }
   };
 
-  // Navigation handler
+  // Navigation handler with error handling
   const handleNavigation = (path, params = {}) => {
-    toggleMenu();
-    navigation.navigate(path, params);
+    try {
+      toggleMenu();
+      navigation.navigate(path, params);
+    } catch (error) {
+      console.error(`Navigation error to ${path}:`, error.message);
+      Alert.alert('Navigation Error', 'Unable to navigate to this section. Please try again later.');
+    }
   };
 
-  // Profile/Edit Profile navigation with wallet check
+  // Profile navigation with wallet check
   const handleProfileNavigation = () => {
     if (!isWalletConnected || !userId) {
       Alert.alert('Wallet Required', 'Please connect your wallet to view or edit your profile.', [
-        { text: 'OK', onPress: () => {} },
+        { text: 'OK' },
       ]);
       return;
     }
@@ -719,13 +643,11 @@ const Home = () => {
     const interval = setInterval(() => {
       let nextIndex = novelIndexRef.current + 1;
       if (nextIndex >= novels.length) nextIndex = 0;
-      if (novelFlatListRef.current) {
-        novelFlatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
-      }
+      novelFlatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
       novelIndexRef.current = nextIndex;
     }, 2500);
     return () => clearInterval(interval);
-  }, [novels]);
+  }, [novels.length]);
 
   // Auto-scroll manga
   useEffect(() => {
@@ -733,29 +655,34 @@ const Home = () => {
     const interval = setInterval(() => {
       let nextIndex = mangaIndexRef.current + 1;
       if (nextIndex >= manga.length) nextIndex = 0;
-      if (mangaFlatListRef.current) {
-        mangaFlatListRef.current.scrollToIndex({ index: nextIndex, animated: true });
-      }
+      mangaFlatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
       mangaIndexRef.current = nextIndex;
     }, 2500);
     return () => clearInterval(interval);
-  }, [manga]);
+  }, [manga.length]);
 
   // Render novel/manga carousel item
   const renderCarouselItem = ({ item, type }) => {
-    console.log(`Rendering ${type}:`, {
-      title: item.title,
-      writerName: item.writer?.name || 'Unknown',
-      isArtist: item.writer?.isArtist || false,
-      isWriter: item.writer?.isWriter || false,
-      userId: item.user_id,
-    });
+    console.log(`Rendering ${type}:`, { id: item.id, title: item.title });
+    if (!item.id) {
+      console.warn(`Missing ID for ${type}: ${item.title}`);
+      return null;
+    }
     return (
       <View style={styles.contentCard}>
         <TouchableOpacity
-          onPress={() => navigation.navigate(type === 'novel' ? 'Novel' : 'MangaDetail', { id: item.id })}
-          accessibilityLabel={`View ${item.title}`}
+          activeOpacity={0.7}
+          onPress={() => {
+            console.log(`Navigating to ${type} with ID: ${item.id}`);
+            try {
+              navigation.navigate(type === 'novel' ? 'NovelDetail' : 'MangaDetail', { id: item.id });
+            } catch (error) {
+              console.error(`Failed to navigate to ${type} ID ${item.id}: ${error.message}`);
+              Alert.alert('Navigation Error', 'Unable to view this item. Please try again.');
+            }
+          }}
           accessible={true}
+          accessibilityLabel={`View ${item.title}`}
           accessibilityHint={`Navigate to ${type} details`}
         >
           <Image
@@ -765,9 +692,7 @@ const Home = () => {
           />
           <View style={styles.contentOverlay}>
             <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.contentSummary} numberOfLines={2}>
-              {item.summary || 'No summary available.'}
-            </Text>
+            <Text style={styles.contentSummary} numberOfLines={2}>{item.summary || 'No summary available.'}</Text>
             {item.isAdult && <Text style={styles.adultWarning}>Adult(18+)</Text>}
             <View style={styles.contentStats}>
               <Text style={styles.viewers}>
@@ -781,8 +706,16 @@ const Home = () => {
         </TouchableOpacity>
         {(type === 'novel' ? item.writer?.isWriter : item.writer?.isArtist) && item.writer?.name !== 'Unknown' && (
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.writerName}
-            onPress={() => item.user_id && navigation.navigate('CreatorsProfile', { id: item.user_id })}
+            onPress={() => {
+              if (item.user_id) {
+                console.log(`Navigating to CreatorsProfile with ID: ${item.user_id}`);
+                navigation.navigate('CreatorsProfile', { id: item.user_id });
+              } else {
+                console.warn(`Missing user_id for ${type}: ${item.title}`);
+              }
+            }}
             accessible={true}
             accessibilityLabel={`View profile of ${item.writer.name}`}
             accessibilityHint={`Navigate to ${type === 'novel' ? 'writer' : 'artist'} profile`}
@@ -802,18 +735,20 @@ const Home = () => {
       <Text style={styles.announcementMessage} numberOfLines={3}>{item.message}</Text>
       <View style={styles.announcementDetails}>
         {item.novels && (
-          <TouchableOpacity onPress={() => navigation.navigate('Novel', { id: item.novels.id })}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              console.log(`Navigating to Novel with ID: ${item.novels.id}`);
+              navigation.navigate('NovelDetail', { id: item.novels.id });
+            }}
+          >
             <Text style={styles.announcementLink}>{item.novels.title}</Text>
           </TouchableOpacity>
         )}
-        {item.users && (
-          <Text style={styles.announcementAuthor}>
-            By {item.users.wallet_address.slice(0, 6)}...
-          </Text>
+        {item.users?.wallet_address && (
+          <Text style={styles.announcementAuthor}>By: {item.users.wallet_address.slice(0, 6)}...</Text>
         )}
-        <Text style={styles.announcementDate}>
-          {new Date(item.created_at).toLocaleDateString()}
-        </Text>
+        <Text style={styles.announcementDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
       </View>
     </View>
   );
@@ -821,8 +756,14 @@ const Home = () => {
   // Render notification item
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
+      activeOpacity={0.7}
       style={styles.notificationItem}
-      onPress={() => item.novel_id && navigation.navigate('Novel', { id: item.novel_id })}
+      onPress={() => {
+        if (item.novel_id) {
+          console.log(`Navigating to Novel with ID: ${item.novel_id}`);
+          navigation.navigate('NovelDetail', { id: item.novel_id });
+        }
+      }}
       accessible={true}
       accessibilityLabel={item.message}
       accessibilityHint="View notification details"
@@ -868,6 +809,7 @@ const Home = () => {
         ]}
       >
         <TouchableOpacity
+          activeOpacity={0.7}
           accessible={true}
           accessibilityLabel={`Explore ${item.title}`}
           accessibilityHint={item.requiresWallet ? 'Requires wallet connection' : 'Navigate to feature'}
@@ -875,6 +817,7 @@ const Home = () => {
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           onPress={() => {
+            console.log(`Navigating to ${item.path}`);
             if (item.requiresWallet && !isWalletConnected) {
               Alert.alert('Wallet Required', 'Please connect your wallet.');
             } else {
@@ -882,20 +825,16 @@ const Home = () => {
             }
           }}
         >
-          <View style={[styles.featureImage, item.title === "Google Sign-In" && styles.googleSignInImage]}>
-            <Image
-              source={item.image}
-              style={styles.featureImage}
-              defaultSource={require('../assets/default-feature.png')}
-            />
-          </View>
+          <Image
+            source={item.image}
+            style={[styles.featureImage, item.title === 'Google Sign-In' && styles.googleSignInImage]}
+            defaultSource={require('../assets/default-feature.png')}
+          />
           <View style={styles.featureOverlay}>
-            <Text style={styles.featureTitle} numberOfLines={1}>
-              {item.title}
-            </Text>
+            <Text style={styles.featureTitle} numberOfLines={1}>{item.title}</Text>
             {item.requiresWallet && (
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}></Text>
+                <Text style={styles.premiumBadgeText}>Premium</Text>
               </View>
             )}
           </View>
@@ -906,17 +845,19 @@ const Home = () => {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton} accessible={true} accessibilityLabel="Open menu">
           <FontAwesome5 name="bars" size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerRight}>
           <GoogleSignInButton />
+          {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />}
         </View>
       </View>
 
       {/* Background animations */}
-      <View style={styles.backgroundAnimation}>
+      <View style={[styles.backgroundAnimation, { zIndex: -1, pointerEvents: 'none' }]}>
         <LinearGradient
           colors={['rgba(0, 0, 0, 0.8)', 'rgba(243, 99, 22, 0.3)']}
           style={styles.gradientLayer}
@@ -930,12 +871,7 @@ const Home = () => {
               transform: [
                 { translateX: -width / 2 },
                 { translateY: -height / 2 },
-                {
-                  rotate: waveAnim.interpolate({
-                    inputRange: [0, 360],
-                    outputRange: ['0deg', '360deg'],
-                  }),
-                },
+                { rotate: waveAnim.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) },
               ],
             },
           ]}
@@ -951,28 +887,18 @@ const Home = () => {
           style={[
             styles.pulseLayer,
             {
-              opacity: pulseAnim.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0.3, 0.6, 0.3],
-              }),
-              transform: [
-                {
-                  scale: pulseAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [1, 1.1, 1],
-                  }),
-                },
-              ],
+              opacity: pulseAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.3, 0.6, 0.3] }),
+              transform: [{ scale: pulseAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.1, 1] }) }],
             },
           ]}
-        >
-          <View style={styles.circle1} />
-          <View style={styles.circle2} />
-          <View style={styles.circle3} />
-        </Animated.View>
+        />
+        <View style={styles.circle1} />
+        <View style={styles.circle2} />
+        <View style={styles.circle3} />
       </View>
 
-      {/* Logo */}
+      {/* Logo Section */}
+
       <View style={styles.logoContainer}>
         <Image
           source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
@@ -987,6 +913,7 @@ const Home = () => {
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
         <View style={styles.heroSection}>
           <Animated.Text
@@ -994,14 +921,7 @@ const Home = () => {
               styles.heroTitle,
               {
                 opacity: heroTextAnim,
-                transform: [
-                  {
-                    translateY: heroTextAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [50, 0],
-                    }),
-                  },
-                ],
+                transform: [{ translateY: heroTextAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) }],
               },
             ]}
           >
@@ -1009,16 +929,18 @@ const Home = () => {
           </Animated.Text>
           <View style={styles.heroButtons}>
             <TouchableOpacity
+              activeOpacity={0.7}
               style={styles.heroButton}
-              onPress={() => handleNavigation('Novels')}
+              onPress={() => handleNavigation('NovelList', {})}
               accessible={true}
               accessibilityLabel="Explore novels"
             >
               <Text style={styles.heroButtonText}>Novels</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              activeOpacity={0.7}
               style={styles.heroButton}
-              onPress={() => handleNavigation('Manga')}
+              onPress={() => handleNavigation('MangaList', {})}
               accessible={true}
               accessibilityLabel="Explore manga"
             >
@@ -1054,7 +976,8 @@ const Home = () => {
                   snapToInterval={276}
                   decelerationRate="fast"
                   contentContainerStyle={styles.carouselContainer}
-                  onScrollToIndexFailed={() => {}}
+                  removeClippedSubviews={false}
+                  onScrollToIndexFailed={info => console.warn('Novel scroll failed:', info)}
                 />
               )}
             </View>
@@ -1075,7 +998,8 @@ const Home = () => {
                   snapToInterval={276}
                   decelerationRate="fast"
                   contentContainerStyle={styles.carouselContainer}
-                  onScrollToIndexFailed={() => {}}
+                  removeClippedSubviews={false}
+                  onScrollToIndexFailed={info => console.warn('Manga scroll failed:', info)}
                 />
               )}
             </View>
@@ -1106,21 +1030,14 @@ const Home = () => {
       </ScrollView>
 
       {/* Sidebar */}
-      <Animated.View 
-        style={[
-          styles.sidebar,
-          {
-            transform: [{ translateX: slideAnim }],
-          },
-        ]}
-      >
+      <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
         <View style={styles.sidebarContent}>
           {[
             { path: 'Home', icon: 'home', label: 'Home' },
             { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
             { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
             {
-              path: isWriter || isArtist || isSuperuser ? 'CreatorsProfile' : 'EditProfile',
+              path: '',
               icon: 'user',
               label: isWriter || isArtist || isSuperuser ? 'Profile' : 'Edit Profile',
               onPress: handleProfileNavigation,
@@ -1129,7 +1046,7 @@ const Home = () => {
             { path: 'KaitoAdventure', icon: 'gamepad', label: "Kaito's Adventure" },
             { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
             {
-              path: isWriter && !isArtist ? 'NovelDashboard' : isArtist && !isWriter ? 'MangaDashboard' : '',
+              path: '',
               icon: 'bullhorn',
               label: isWriter && !isArtist ? "Writer's Dashboard" : isArtist && !isWriter ? "Artist's Dashboard" : 'Creator Dashboard',
               onPress: handleDashboardNavigation,
@@ -1137,6 +1054,7 @@ const Home = () => {
           ].map((item, index) => (
             <TouchableOpacity
               key={index}
+              activeOpacity={0.7}
               style={styles.navLink}
               onPress={item.onPress || (() => handleNavigation(item.path))}
               accessible={true}
@@ -1147,15 +1065,18 @@ const Home = () => {
             </TouchableOpacity>
           ))}
           <GoogleSignInButton />
+          {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />}
         </View>
       </Animated.View>
 
       {/* Sidebar overlay */}
       {menuOpen && (
-        <TouchableOpacity 
-          style={styles.overlay} 
-          onPress={toggleMenu} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.overlay}
+          onPress={toggleMenu}
+          activeOpacity={0.7}
+          accessible={true}
+          accessibilityLabel="Close menu"
         />
       )}
 
@@ -1166,14 +1087,7 @@ const Home = () => {
             styles.notificationDropdown,
             {
               opacity: notificationAnim,
-              transform: [
-                {
-                  translateY: notificationAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
+              transform: [{ translateY: notificationAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
             },
           ]}
         >
@@ -1189,6 +1103,7 @@ const Home = () => {
               />
               {unreadCount > 0 && (
                 <TouchableOpacity
+                  activeOpacity={0.7}
                   style={styles.markReadButton}
                   onPress={markNotificationsRead}
                   accessible={true}
@@ -1209,18 +1124,12 @@ const Home = () => {
             styles.announcementDropdown,
             {
               opacity: announcementAnim,
-              transform: [
-                {
-                  translateY: announcementAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [20, 0],
-                  }),
-                },
-              ],
+              transform: [{ translateY: announcementAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
             },
           ]}
         >
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.closeAnnouncementButton}
             onPress={toggleAnnouncements}
             accessible={true}
@@ -1242,34 +1151,39 @@ const Home = () => {
       )}
 
       {/* Dashboard selection modal */}
-      <Modal
-        isVisible={showDashboardPopup}
-        onBackdropPress={() => setShowDashboardPopup(false)}
-        style={styles.popupModal}
-      >
+      <Modal isVisible={showDashboardPopup} onBackdropPress={() => setShowDashboardPopup(false)}>
         <View style={styles.popupContainer}>
           <Text style={styles.popupTitle}>Choose Your Dashboard</Text>
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.popupButton}
             onPress={() => {
               setShowDashboardPopup(false);
               handleNavigation('NovelDashboard');
             }}
+            accessible={true}
+            accessibilityLabel="Open Writer's Dashboard"
           >
             <Text style={styles.popupButtonText}>Writer's Dashboard</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.popupButton}
             onPress={() => {
               setShowDashboardPopup(false);
               handleNavigation('MangaDashboard');
             }}
+            accessible={true}
+            accessibilityLabel="Open Artist's Dashboard"
           >
             <Text style={styles.popupButtonText}>Artist's Dashboard</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.popupCancelButton}
             onPress={() => setShowDashboardPopup(false)}
+            accessible={true}
+            accessibilityLabel="Cancel dashboard selection"
           >
             <Text style={styles.popupCancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -1279,32 +1193,17 @@ const Home = () => {
       {/* Bottom navbar */}
       <View style={styles.bottomNavbar}>
         <TouchableOpacity
+          activeOpacity={0.7}
           style={styles.bottomNavButton}
           onPress={toggleMenu}
           accessible={true}
           accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
         >
-          <Animated.View
-            style={{
-              transform: [
-                {
-                  rotate: rotateAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '180deg'],
-                  }),
-                },
-              ],
-            }}
-          >
-            <FontAwesome5
-              name={menuOpen ? 'times' : 'bars'}
-              size={width < 480 ? 24 : 28}
-              color="#fff"
-            />
-          </Animated.View>
+          <FontAwesome5 name={menuOpen ? 'times' : 'bars'} size={width < 480 ? 24 : 28} color="#fff" />
         </TouchableOpacity>
         <View style={styles.notificationWrapper}>
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.bottomNavButton}
             onPress={toggleNotifications}
             accessible={true}
@@ -1320,6 +1219,7 @@ const Home = () => {
         </View>
         <View style={styles.announcementToggleWrapper}>
           <TouchableOpacity
+            activeOpacity={0.7}
             style={styles.bottomNavButton}
             onPress={toggleAnnouncements}
             accessible={true}

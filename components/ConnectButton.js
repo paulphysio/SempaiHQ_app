@@ -19,70 +19,64 @@ export const EmbeddedWalletContext = createContext();
 const secureStoreWrapper = {
   setItemAsync: async (key, value) => {
     if (Platform.OS === 'web') {
-      localStorage.setItem(key, value);
-      console.log(`[secureStoreWrapper] Stored ${key} in localStorage`);
+      try {
+        localStorage.setItem(key, value);
+        console.log(`[secureStoreWrapper] Set ${key} in localStorage`);
+        return;
+      } catch (err) {
+        throw new Error(`Failed to set item in localStorage: ${err.message}`);
+      }
     } else {
-      await SecureStore.setItemAsync(key, value);
-      console.log(`[secureStoreWrapper] Stored ${key} in SecureStore`);
+      try {
+        await SecureStore.setItemAsync(key, value);
+        console.log(`[secureStoreWrapper] Set ${key} in SecureStore`);
+      } catch (err) {
+        throw new Error(`Failed to set item in SecureStore: ${err.message}`);
+      }
     }
   },
   getItemAsync: async (key) => {
     if (Platform.OS === 'web') {
-      const value = localStorage.getItem(key);
-      console.log(`[secureStoreWrapper] Retrieved ${key} from localStorage`);
-      return value;
+      try {
+        const value = localStorage.getItem(key);
+        console.log(`[secureStoreWrapper] Got ${key} from localStorage: ${value ? 'found' : 'null'}`);
+        return value;
+      } catch (err) {
+        throw new Error(`Failed to get item from localStorage: ${err.message}`);
+      }
     } else {
-      const value = await SecureStore.getItemAsync(key);
-      console.log(`[secureStoreWrapper] Retrieved ${key} from SecureStore`);
-      return value;
+      try {
+        const value = await SecureStore.getItemAsync(key);
+        console.log(`[secureStoreWrapper] Got ${key} from SecureStore: ${value ? 'found' : 'null'}`);
+        return value;
+      } catch (err) {
+        throw new Error(`Failed to get item from SecureStore: ${err.message}`);
+      }
     }
   },
   deleteItemAsync: async (key) => {
     if (Platform.OS === 'web') {
-      localStorage.removeItem(key);
-      console.log(`[secureStoreWrapper] Deleted ${key} from localStorage`);
+      try {
+        localStorage.removeItem(key);
+        console.log(`[secureStoreWrapper] Deleted ${key} from localStorage`);
+        return;
+      } catch (err) {
+        throw new Error(`Failed to delete item from localStorage: ${err.message}`);
+      }
     } else {
-      await SecureStore.deleteItemAsync(key);
-      console.log(`[secureStoreWrapper] Deleted ${key} from SecureStore`);
+      try {
+        await SecureStore.deleteItemAsync(key);
+        console.log(`[secureStoreWrapper] Deleted ${key} from SecureStore`);
+      } catch (err) {
+        throw new Error(`Failed to delete item in SecureStore: ${err.message}`);
+      }
     }
   },
-  getAllKeys: async () => {
-    try {
-      if (Platform.OS === 'web') {
-        const keys = Object.keys(localStorage);
-        console.log(`[secureStoreWrapper] Got all keys from localStorage: ${keys.join(', ')}`);
-        return keys;
-      } else {
-        // For non-web platforms, we'll get all wallet-related keys
-        const walletKeys = ['walletPublicKey', 'walletAddress'];
-        const keys = [];
-        
-        // Check each potential wallet key
-        for (const key of walletKeys) {
-          const value = await SecureStore.getItemAsync(key);
-          if (value !== null) {
-            keys.push(key);
-          }
-        }
-        
-        // Also check for any wallet-secret keys
-        const publicKey = await SecureStore.getItemAsync('walletPublicKey');
-        if (publicKey) {
-          keys.push(`wallet-secret-${publicKey}`);
-        }
-        
-        console.log(`[secureStoreWrapper] Got wallet keys from SecureStore: ${keys.join(', ')}`);
-        return keys;
-      }
-    } catch (error) {
-      console.error('[secureStoreWrapper] Error getting keys:', error);
-      return [];
-    }
-  }
 };
 
 export const EmbeddedWalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
+  const [secretKey, setSecretKey] = useState(null); // Store secret key in memory
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
@@ -101,6 +95,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
           setWallet({ publicKey });
           setIsWalletConnected(true);
           console.log('[restoreWallet] Restored wallet:', { publicKey });
+          // Note: We don't restore secretKey here to ensure passwordless transactions require fresh login
           if (!walletAddress) {
             await AsyncStorage.setItem('walletAddress', publicKey);
             await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
@@ -138,6 +133,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       await AsyncStorage.setItem('walletAddress', publicKey);
 
       setWallet({ publicKey });
+      setSecretKey(secretKeyBytes); // Store secret key in memory
       setIsWalletConnected(true);
       console.log('[createEmbeddedWallet] Wallet created successfully:', { publicKey });
       return { publicKey, privateKey: secretKeyBase58 };
@@ -204,6 +200,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       await AsyncStorage.setItem('walletAddress', publicKey);
 
       setWallet({ publicKey });
+      setSecretKey(privateKeyBytes); // Store secret key in memory
       setIsWalletConnected(true);
       console.log('[importEmbeddedWallet] Wallet imported successfully:', { publicKey });
       return { publicKey, privateKey: secretKeyBase58 };
@@ -219,28 +216,18 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
   const disconnectWallet = async () => {
     try {
-      console.log('[disconnectWallet] Starting wallet disconnection');
-      
-      // Clear all wallet-related data from secure storage
-      const keys = await secureStoreWrapper.getAllKeys?.() || [];
-      for (const key of keys) {
-        if (key.startsWith('wallet-') || key === 'walletPublicKey' || key === 'walletAddress') {
-          await secureStoreWrapper.deleteItemAsync(key);
-          console.log(`[disconnectWallet] Deleted ${key} from secure storage`);
-        }
-      }
-
-      // Clear from AsyncStorage
+      console.log('[disconnectWallet] Disconnecting wallet');
+      await secureStoreWrapper.deleteItemAsync('walletPublicKey');
+      await secureStoreWrapper.deleteItemAsync('walletAddress');
+      await secureStoreWrapper.deleteItemAsync('embeddedWallet');
       await AsyncStorage.removeItem('walletAddress');
-      
-      // Reset wallet state
       setWallet(null);
+      setSecretKey(null); // Clear secret key from memory
       setIsWalletConnected(false);
       setError(null);
-      
       console.log('[disconnectWallet] Wallet disconnected successfully');
     } catch (err) {
-      console.error('[disconnectWallet] Error disconnecting wallet:', err);
+      console.error('[disconnectWallet] Error disconnecting wallet:', err.message);
       setError('Failed to disconnect wallet: ' + err.message);
     }
   };
@@ -273,44 +260,31 @@ export const EmbeddedWalletProvider = ({ children }) => {
       throw new Error('No wallet connected');
     }
     console.log('[signAndSendTransaction] Signing transaction');
-    if (!password) {
-      throw new Error('Password required to sign transaction');
+    let keypair;
+    if (secretKey) {
+      console.log('[signAndSendTransaction] Using in-memory secret key');
+      keypair = solanaWeb3.Keypair.fromSecretKey(secretKey);
+    } else if (password) {
+      console.log('[signAndSendTransaction] Retrieving secret key with password');
+      const secretKeyBytes = await getSecretKey(password);
+      keypair = solanaWeb3.Keypair.fromSecretKey(secretKeyBytes);
+    } else {
+      throw new Error('No secret key or password provided');
     }
-    try {
-    console.log('[signAndSendTransaction] Retrieving secret key with password');
-    const secretKeyBytes = await getSecretKey(password);
-      if (!secretKeyBytes || secretKeyBytes.length !== 64) {
-        throw new Error('Invalid secret key format');
-      }
-    const keypair = solanaWeb3.Keypair.fromSecretKey(secretKeyBytes);
-      if (!keypair || !keypair.publicKey) {
-        throw new Error('Failed to create keypair from secret key');
-      }
-      if (!transaction.recentBlockhash) {
-        const { blockhash } = await connection.getLatestBlockhash('confirmed');
-        transaction.recentBlockhash = blockhash;
-      }
-      transaction.sign(keypair);
-      const rawTransaction = transaction.serialize();
-      const signature = await connection.sendRawTransaction(rawTransaction, {
+    transaction.sign([keypair]);
+    const signature = await connection.sendRawTransaction(transaction.serialize(), {
       skipPreflight: false,
       maxRetries: 2,
     });
-      if (!signature) {
-        throw new Error('Failed to get transaction signature');
-      }
     console.log('[signAndSendTransaction] Transaction signed and sent:', { signature });
     return signature;
-    } catch (err) {
-      console.error('[signAndSendTransaction] Error:', err);
-      throw err;
-    }
   };
 
   return (
     <EmbeddedWalletContext.Provider
       value={{
         wallet,
+        secretKey, // Expose secretKey in context
         isWalletConnected,
         createEmbeddedWallet,
         importEmbeddedWallet,
@@ -327,7 +301,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
 };
 
 const ConnectButton = () => {
-  const { wallet, createEmbeddedWallet, importEmbeddedWallet, disconnectWallet, isLoading } = useContext(EmbeddedWalletContext);
+  const { wallet, createEmbeddedWallet, importEmbeddedWallet, disconnectWallet, isLoading, error } = useContext(EmbeddedWalletContext);
   const navigation = useNavigation();
   const [showModal, setShowModal] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -338,18 +312,7 @@ const ConnectButton = () => {
   const [privateKey, setPrivateKey] = useState(null);
   const [userCreated, setUserCreated] = useState(false);
   const [showReferralPrompt, setShowReferralPrompt] = useState(false);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [importLoading, setImportLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-
-  const clearError = () => {
-    setErrorMessage('');
-  };
-
-  const handleError = (message) => {
-    console.error('[Error]', message);
-    setErrorMessage(message);
-  };
+  const [isCreatingUser, setIsCreatingUser] = useState(false); // For debouncing
 
   const createUserAndBalance = useCallback(async (publicKey) => {
     if (!publicKey) {
@@ -374,41 +337,50 @@ const ConnectButton = () => {
         .eq('wallet_address', publicKey)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('[createUserAndBalance] Error checking user:', fetchError);
-        throw new Error(`Failed to check user: ${fetchError.message}`);
-      }
-
       if (existingUser) {
-        // Check for wallet balance separately
-        const { count: walletBalanceCount, error: countError } = await supabase
-          .from('wallet_balances')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', existingUser.id)
-          .eq('wallet_address', publicKey);
-
-        if (countError) {
-          console.error('[createUserAndBalance] Error checking wallet balance count:', countError);
-        }
-
         console.log('[createUserAndBalance] User already exists:', {
           id: existingUser.id,
           referral_code: existingUser.referral_code,
           has_updated_profile: existingUser.has_updated_profile,
-          has_wallet_balance: walletBalanceCount > 0
         });
-        
         setUserCreated(true);
         if (!existingUser.has_updated_profile) {
           console.log('[createUserAndBalance] User has not updated profile, showing referral prompt');
           setShowReferralPrompt(true);
         }
-
         // Sync storage
         console.log('[createUserAndBalance] Syncing walletAddress to storage');
         await AsyncStorage.setItem('walletAddress', publicKey);
         await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
         return;
+      }
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('[createUserAndBalance] Error checking user:', fetchError);
+        throw new Error(`Failed to check user: ${fetchError.message}`);
+      }
+
+      // Create new user with upsert
+      console.log('[createUserAndBalance] No user found, creating new user');
+      let userId;
+      const url = new URL(Platform.OS === 'web' ? window.location.href : 'http://localhost');
+      const referralCodeFromUrl = url.searchParams.get('ref');
+      console.log('[createUserAndBalance] Referral code from URL:', referralCodeFromUrl);
+      let referredBy = null;
+
+      if (referralCodeFromUrl) {
+        console.log('[createUserAndBalance] Looking up referral code:', referralCodeFromUrl);
+        const { data: referrer, error: referrerError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('referral_code', referralCodeFromUrl)
+          .single();
+        if (referrerError) {
+          console.warn('[createUserAndBalance] Error fetching referrer:', referrerError.message);
+        } else if (referrer) {
+          referredBy = referrer.id;
+          console.log('[createUserAndBalance] Found referrer:', referrer.id);
+        }
       }
 
       // Generate unique referral code
@@ -433,15 +405,19 @@ const ConnectButton = () => {
         }
       }
 
-      // Create new user with upsert
-      console.log('[createUserAndBalance] Creating new user with wallet_address:', publicKey);
+      // Upsert user
+      console.log('[createUserAndBalance] Upserting user with wallet_address:', publicKey);
       const { data: user, error: userError } = await supabase
         .from('users')
-        .upsert({
-          wallet_address: publicKey,
-          referral_code: referralCode,
-          has_updated_profile: false,
-        })
+        .upsert(
+          {
+            wallet_address: publicKey,
+            referral_code: referralCode,
+            referred_by: referredBy,
+            has_updated_profile: false,
+          },
+          { onConflict: 'wallet_address' }
+        )
         .select('id')
         .single();
 
@@ -450,57 +426,37 @@ const ConnectButton = () => {
         throw new Error(`Failed to create user: ${userError.message}`);
       }
 
-      console.log('[createUserAndBalance] User created successfully:', { userId: user.id, referral_code: referralCode });
+      userId = user.id;
+      console.log('[createUserAndBalance] User created successfully:', { userId, referral_code: referralCode });
 
-      // Check if wallet balance already exists
-      console.log('[createUserAndBalance] Checking for existing wallet balance');
-      const { data: existingBalance, error: balanceCheckError } = await supabase
-        .from('wallet_balances')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .eq('wallet_address', publicKey)
-        .single();
+      // Create initial wallet balance
+      console.log('[createUserAndBalance] Creating initial wallet balance');
+      const { error: balanceError } = await supabase.from('wallet_balances').insert([
+        {
+          user_id: userId,
+          chain: 'SOL',
+          currency: 'SMP',
+          amount: 0,
+          decimals: 0,
+          wallet_address: publicKey,
+        },
+      ]);
 
-      if (balanceCheckError && balanceCheckError.code !== 'PGRST116') {
-        console.error('[createUserAndBalance] Error checking wallet balance:', balanceCheckError);
-        throw new Error(`Failed to check wallet balance: ${balanceCheckError.message}`);
+      if (balanceError) {
+        console.error('[createUserAndBalance] Error creating wallet balance:', balanceError);
+        throw new Error(`Failed to create wallet balance: ${balanceError.message}`);
       }
 
-      if (!existingBalance) {
-        // Create initial wallet balance only if it doesn't exist
-        console.log('[createUserAndBalance] Creating initial wallet balance');
-        const { error: balanceError } = await supabase
-          .from('wallet_balances')
-          .insert([
-            {
-              user_id: user.id,
-              chain: 'SOL',
-              currency: 'SMP',
-              amount: 0,
-              decimals: 0,
-              wallet_address: publicKey,
-            },
-          ]);
-
-        if (balanceError) {
-          console.error('[createUserAndBalance] Error creating wallet balance:', balanceError);
-          throw new Error(`Failed to create wallet balance: ${balanceError.message}`);
-        }
-        console.log('[createUserAndBalance] Wallet balance created successfully');
-      } else {
-        console.log('[createUserAndBalance] Wallet balance already exists for user');
-      }
-
+      console.log('[createUserAndBalance] Wallet balance created successfully');
       setUserCreated(true);
-      setShowReferralPrompt(true);
-      
+      setShowReferralPrompt(true); // Prompt for profile update
       // Sync storage
       console.log('[createUserAndBalance] Syncing walletAddress to storage');
       await AsyncStorage.setItem('walletAddress', publicKey);
       await secureStoreWrapper.setItemAsync('walletAddress', publicKey);
     } catch (err) {
       console.error('[createUserAndBalance] Error in createUserAndBalance:', err.message);
-      handleError(`Failed to initialize user: ${err.message}`);
+      setError(`Failed to initialize user: ${err.message}`);
     } finally {
       setIsCreatingUser(false);
       console.log('[createUserAndBalance] User creation complete, isCreatingUser set to false');
@@ -508,14 +464,13 @@ const ConnectButton = () => {
   }, [isCreatingUser]);
 
   const handleCreateWallet = useCallback(async () => {
-    clearError();
     if (!password || !confirmPassword) {
-      handleError('Please fill in both password fields.');
+      setError('Please fill in both password fields.');
       console.log('[handleCreateWallet] Missing password or confirmPassword');
       return;
     }
     if (password !== confirmPassword) {
-      handleError('Passwords do not match.');
+      setError('Passwords do not match.');
       console.log('[handleCreateWallet] Passwords do not match');
       return;
     }
@@ -530,77 +485,38 @@ const ConnectButton = () => {
         setPassword('');
         setConfirmPassword('');
       } else {
-        handleError('Failed to create wallet. Please try again.');
+        setError('Failed to create wallet. Please try again.');
         console.log('[handleCreateWallet] Wallet creation failed');
       }
     } catch (err) {
       console.error('[handleCreateWallet] Error creating wallet:', err.message);
-      handleError(`Failed to create wallet: ${err.message}`);
+      setError(`Failed to create wallet: ${err.message}`);
     }
   }, [password, confirmPassword, createEmbeddedWallet, createUserAndBalance]);
 
   const handleImportWallet = useCallback(async () => {
+    if (!privateKeyInput || !password) {
+      setError('Please provide both private key and password.');
+      console.log('[handleImportWallet] Missing privateKeyInput or password');
+      return;
+    }
     try {
-      console.log('[handleImportWallet] Starting wallet import process');
-      clearError();
-      setImportLoading(true);
-
-      // Validate inputs
-      if (!privateKeyInput?.trim()) {
-        handleError('Please enter a private key');
-        console.log('[handleImportWallet] No private key provided');
-        return;
+      console.log('[handleImportWallet] Importing embedded wallet');
+      const result = await importEmbeddedWallet(privateKeyInput, password);
+      if (result) {
+        setPrivateKey(result.privateKey);
+        console.log('[handleImportWallet] Wallet imported, privateKey stored');
+        await createUserAndBalance(result.publicKey);
+        setShowImportForm(false);
+        setPrivateKeyInput('');
+        setPassword('');
+      } else {
+        setError('Failed to import wallet. Please check your private key and password.');
+        console.log('[handleImportWallet] Wallet import failed');
       }
-
-      if (!password?.trim()) {
-        handleError('Please enter a password');
-        console.log('[handleImportWallet] No password provided');
-        return;
-      }
-
-      if (password.length < 8) {
-        handleError('Password must be at least 8 characters long');
-        console.log('[handleImportWallet] Password too short');
-        return;
-      }
-
-      console.log('[handleImportWallet] Attempting to import wallet with provided private key');
-      const result = await importEmbeddedWallet(privateKeyInput.trim(), password.trim());
-      
-      if (!result) {
-        console.error('[handleImportWallet] Import failed - no result returned');
-        handleError('Failed to import wallet. Please check your private key format.');
-        return;
-      }
-
-      console.log('[handleImportWallet] Wallet imported successfully:', { 
-        publicKey: result.publicKey ? `${result.publicKey.slice(0, 6)}...${result.publicKey.slice(-4)}` : 'none'
-      });
-
-      setPrivateKey(result.privateKey);
-      
-      // Create user and balance
-      console.log('[handleImportWallet] Creating user and balance');
-      await createUserAndBalance(result.publicKey);
-      
-      // Clear form and close
-      console.log('[handleImportWallet] Clearing form and closing modal');
-      setShowImportForm(false);
-      setPrivateKeyInput('');
-      setPassword('');
-      
-      // Show success message
-      Alert.alert(
-        'Success',
-        'Wallet imported successfully!',
-        [{ text: 'OK' }]
-      );
-
     } catch (err) {
       console.error('[handleImportWallet] Error importing wallet:', err.message);
-      handleError(err.message || 'Failed to import wallet. Please try again.');
-    } finally {
-      setImportLoading(false);
+      setError(`Failed to import wallet: ${err.message}`);
     }
   }, [privateKeyInput, password, importEmbeddedWallet, createUserAndBalance]);
 
@@ -612,7 +528,7 @@ const ConnectButton = () => {
         Alert.alert('Success', 'Private key copied to clipboard. Store it securely.');
       } catch (err) {
         console.error('[handleCopyPrivateKey] Error copying private key:', err.message);
-        handleError('Failed to copy private key.');
+        setError('Failed to copy private key.');
       }
     }
   }, [privateKey]);
@@ -628,15 +544,36 @@ const ConnectButton = () => {
       Alert.alert('Success', 'Wallet disconnected.');
     } catch (err) {
       console.error('[handleDisconnect] Error disconnecting wallet:', err.message);
-      handleError('Failed to disconnect wallet.');
+      setError('Failed to disconnect wallet.');
     }
   }, [disconnectWallet]);
 
-  const handleReferralPrompt = useCallback(() => {
-    setShowReferralPrompt(false);
-    navigation.navigate('Profile'); // Adjust to your profile screen
-    console.log('[handleReferralPrompt] Navigating to profile for update');
-  }, [navigation]);
+  const handleReferralPrompt = async () => {
+    try {
+      const hasReferralCode = await AsyncStorage.getItem('hasReferralCode');
+      if (!hasReferralCode) {
+        Alert.alert(
+          'Referral Code',
+          'Would you like to add a referral code to earn rewards?',
+          [
+            {
+              text: 'Yes',
+              onPress: () => {
+                console.log('[handleReferralPrompt] Navigating to profile for update');
+                navigation.navigate('EditProfile');
+              },
+            },
+            {
+              text: 'No',
+              onPress: () => AsyncStorage.setItem('hasReferralCode', 'skipped'),
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error('[handleReferralPrompt] Error:', error);
+    }
+  };
 
   const handleCloseModal = useCallback(() => {
     setShowModal(false);
@@ -645,7 +582,7 @@ const ConnectButton = () => {
     setPassword('');
     setConfirmPassword('');
     setPrivateKeyInput('');
-    clearError();
+    setError(null);
     console.log('[handleCloseModal] Modal closed, state reset');
   }, []);
 
@@ -673,42 +610,28 @@ const ConnectButton = () => {
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Create New Wallet</Text>
           <TextInput
-            style={[styles.input, errorMessage ? styles.inputError : null]}
+            style={[styles.input, error ? styles.inputError : null]}
             placeholder="Password"
             placeholderTextColor="#888"
             secureTextEntry
             value={password}
-            onChangeText={(text) => {
-              clearError();
-              setPassword(text);
-            }}
+            onChangeText={setPassword}
             accessibilityLabel="Password input"
           />
           <TextInput
-            style={[styles.input, errorMessage ? styles.inputError : null]}
+            style={[styles.input, error ? styles.inputError : null]}
             placeholder="Confirm Password"
             placeholderTextColor="#888"
             secureTextEntry
             value={confirmPassword}
-            onChangeText={(text) => {
-              clearError();
-              setConfirmPassword(text);
-            }}
+            onChangeText={setConfirmPassword}
             accessibilityLabel="Confirm password input"
           />
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {error && <Text style={styles.errorText}>{error}</Text>}
           <TouchableOpacity style={styles.actionButton} onPress={handleCreateWallet} disabled={isLoading}>
             <Text style={styles.actionButtonText}>{isLoading ? 'Creating...' : 'Create Wallet'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.secondaryButton} 
-            onPress={() => {
-              setShowCreateForm(false);
-              clearError();
-              setPassword('');
-              setConfirmPassword('');
-            }}
-          >
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowCreateForm(false)}>
             <Text style={styles.secondaryButtonText}>Back</Text>
           </TouchableOpacity>
         </View>
@@ -720,48 +643,27 @@ const ConnectButton = () => {
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Import Wallet</Text>
           <TextInput
-            style={[styles.input, errorMessage ? styles.inputError : null]}
+            style={[styles.input, error ? styles.inputError : null]}
             placeholder="Private Key (Base58, Hex, or JSON)"
             placeholderTextColor="#888"
             value={privateKeyInput}
-            onChangeText={(text) => {
-              clearError();
-              setPrivateKeyInput(text);
-            }}
+            onChangeText={setPrivateKeyInput}
             accessibilityLabel="Private key input"
-            multiline
           />
           <TextInput
-            style={[styles.input, errorMessage ? styles.inputError : null]}
+            style={[styles.input, error ? styles.inputError : null]}
             placeholder="Password"
             placeholderTextColor="#888"
             secureTextEntry
             value={password}
-            onChangeText={(text) => {
-              clearError();
-              setPassword(text);
-            }}
+            onChangeText={setPassword}
             accessibilityLabel="Password input"
           />
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-          <TouchableOpacity 
-            style={[styles.actionButton, (importLoading || isLoading) && styles.disabledButton]} 
-            onPress={handleImportWallet}
-            disabled={importLoading || isLoading}
-          >
-            <Text style={styles.actionButtonText}>
-              {importLoading ? 'Importing...' : 'Import Wallet'}
-            </Text>
+          {error && <Text style={styles.errorText}>{error}</Text>}
+          <TouchableOpacity style={styles.actionButton} onPress={handleImportWallet} disabled={isLoading}>
+            <Text style={styles.actionButtonText}>{isLoading ? 'Importing...' : 'Import Wallet'}</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.secondaryButton} 
-            onPress={() => {
-              setShowImportForm(false);
-              clearError();
-              setPrivateKeyInput('');
-              setPassword('');
-            }}
-          >
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowImportForm(false)}>
             <Text style={styles.secondaryButtonText}>Back</Text>
           </TouchableOpacity>
         </View>

@@ -1,19 +1,19 @@
+// App.js
 import 'react-native-get-random-values';
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
-import { Platform, Alert, StyleSheet } from 'react-native';
+import { Platform, Alert, View, Text } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { EmbeddedWalletProvider } from './components/ConnectButton';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
-import * as Network from 'expo-network';
 import * as Font from 'expo-font';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './services/supabaseClient';
+import { NavigationProvider, useNavigationHandler } from './context/NavigationContext';
 import HomeScreen from './screens/HomeScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NovelDetailScreen from './screens/NovelDetailScreen';
@@ -35,10 +35,10 @@ import MangaPageScreen from './screens/MangaPageScreen';
 import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
 import MangaChapterScreen from './screens/MangaChapterScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
+import SignInScreen from './screens/SignInScreen';
 import { GoogleAuthProvider } from './components/GoogleAuthProvider';
-import GoogleSignInTest from './components/GoogleSignInTest';
-import SignIn from './components/SignIn';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { SystemUiContext } from './context/SystemUiContext';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -51,26 +51,69 @@ Notifications.setNotificationHandler({
 
 const Stack = createStackNavigator();
 
-// Create a context for system UI visibility
-const SystemUiContext = createContext();
+// Error Boundary Component
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
 
-export const useSystemUi = () => useContext(SystemUiContext);
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
 
-// AppContent component uses the Auth context
-const AppContent = () => {
-  const { user, isLoading, skipSignIn } = useAuth();
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A0A18' }}>
+          <Text style={{ color: '#FFFFFF', fontSize: 18 }}>
+            Something went wrong: {this.state.error?.message}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Main App component
+const MainApp = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(true); // Always show welcome screen initially
-  const [walletAddress, setWalletAddress] = useState(null);
+
+  return (
+    <SafeAreaProvider>
+      <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
+        <AuthProvider>
+          <GoogleAuthProvider>
+            <EmbeddedWalletProvider>
+              <NavigationProvider>
+                <ErrorBoundary>
+                  <AppContent />
+                </ErrorBoundary>
+              </NavigationProvider>
+            </EmbeddedWalletProvider>
+          </GoogleAuthProvider>
+        </AuthProvider>
+      </SystemUiContext.Provider>
+      <StatusBar style="light" />
+    </SafeAreaProvider>
+  );
+};
+
+// AppContent component
+const AppContent = () => {
+  const { user, isLoading } = useAuth();
+  const [showWelcome, setShowWelcome] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const navigationRef = useNavigationContainerRef();
-  const notificationListener = useRef();
-  const responseListener = useRef();
-  const subscriptionRef = useRef(null);
-  const retryCountRef = useRef(0);
 
-  // All the useEffects from the original App component
-  // Load AnimeAce font with improved error handling
+  // Register welcome completion handler
+  useNavigationHandler(() => {
+    setShowWelcome(false);
+  });
+
+  // Load AnimeAce font
   useEffect(() => {
     const loadFonts = async () => {
       try {
@@ -89,19 +132,13 @@ const AppContent = () => {
           'Failed to load AnimeAce font. Using system font as fallback.',
           [{ text: 'OK' }]
         );
-        setFontsLoaded(true); // Proceed with fallback
+        setFontsLoaded(true);
       }
     };
     loadFonts();
   }, []);
 
-  // Always set the welcome screen to show
-  useEffect(() => {
-    // Always show welcome screen initially
-    console.log('Welcome screen will be shown');
-  }, []);
-  
-  // Make sure navigation bar is hidden for Android
+  // Configure Android navigation bar
   useEffect(() => {
     if (Platform.OS === 'android') {
       const initializeNavigationBar = async () => {
@@ -128,86 +165,48 @@ const AppContent = () => {
     }
   }, []);
 
-  // Skip functionality is now handled directly in the component
-  
-  // Wait for fonts to load
-  if (!fontsLoaded) {
+  if (!fontsLoaded || isLoading) {
     return null;
   }
 
-  // Always show welcome screen first
-  if (showWelcome) {
-    return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
-  }
-  
-  // After welcome screen, show sign-in screen only if not authenticated
-  if (!user) {
-    return (
-      <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
-        <SignIn onSkip={() => {
-          // When user skips, update the auth context to bypass sign-in
-          skipSignIn();
-          // Force a re-render to take the user to the main app
-          console.log('User skipped sign-in, proceeding to main app');
-        }} />
-      </SystemUiContext.Provider>
-    );
-  }
-  
-  // If user is authenticated or has skipped, show the main app
   return (
-    <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
-      <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator
-          initialRouteName="Home"
-          screenOptions={{
-            headerShown: false,
-          }}
-        >
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="GoogleSignIn" component={GoogleSignInTest} />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-          <Stack.Screen name="Novel" component={NovelDetailScreen} />
-          <Stack.Screen name="Manga" component={MangaPageScreen} />
-          <Stack.Screen name="Novels" component={NovelsPageScreen} />
-          <Stack.Screen name="Swap" component={SwapScreen} />
-          <Stack.Screen name="StatPage" component={StatPageScreen} />
-          <Stack.Screen name="Chat" component={ChatScreen} />
-          <Stack.Screen name="KaitoAdventure" component={KaitoAdventureScreen} />
-          <Stack.Screen name="DAOGovernance" component={DAOGovernanceScreen} />
-          <Stack.Screen name="KeepItSimple" component={KeepItSimpleScreen} />
-          <Stack.Screen name="WalletImport" component={WalletImportScreen} />
-          <Stack.Screen name="Apply" component={ApplyScreen} />
-          <Stack.Screen name="Chapter" component={ChapterScreen} />
-          <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
-          <Stack.Screen name="NovelSummary" component={NovelSummaryScreen} />
-          <Stack.Screen name="NovelDashboard" component={NovelDashboardScreen} />
-          <Stack.Screen name="MangaDashboard" component={MangaDashboardScreen} />
-          <Stack.Screen name="MangaDetail" component={MangaDetailScreen} />
-          <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-      <StatusBar
-        hidden={!isSystemUiVisible}
-        backgroundColor={isSystemUiVisible ? '#000000' : 'transparent'}
-        translucent={!isSystemUiVisible}
-      />
-    </SystemUiContext.Provider>
-  );
-};
-
-// Main App component that provides all the contexts
-const MainApp = () => {
-  return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <EmbeddedWalletProvider>
-          <GoogleAuthProvider>
-            <AppContent />
-          </GoogleAuthProvider>
-        </EmbeddedWalletProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <NavigationContainer ref={navigationRef}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          cardStyle: { backgroundColor: '#0A0A18' },
+        }}
+      >
+        {showWelcome ? (
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+        ) : !user ? (
+          <Stack.Screen name="SignIn" component={SignInScreen} />
+        ) : (
+          <>
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+            <Stack.Screen name="NovelDetail" component={NovelDetailScreen} />
+            <Stack.Screen name="MangaDetail" component={MangaDetailScreen} />
+            <Stack.Screen name="NovelsPage" component={NovelsPageScreen} />
+            <Stack.Screen name="Swap" component={SwapScreen} />
+            <Stack.Screen name="Stats" component={StatPageScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="KaitoAdventure" component={KaitoAdventureScreen} />
+            <Stack.Screen name="DAOGovernance" component={DAOGovernanceScreen} />
+            <Stack.Screen name="KeepItSimple" component={KeepItSimpleScreen} />
+            <Stack.Screen name="WalletImport" component={WalletImportScreen} />
+            <Stack.Screen name="Apply" component={ApplyScreen} />
+            <Stack.Screen name="Chapter" component={ChapterScreen} />
+            <Stack.Screen name="NovelSummary" component={NovelSummaryScreen} />
+            <Stack.Screen name="NovelDashboard" component={NovelDashboardScreen} />
+            <Stack.Screen name="MangaDashboard" component={MangaDashboardScreen} />
+            <Stack.Screen name="MangaPage" component={MangaPageScreen} />
+            <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
+            <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
+          </>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 };
 

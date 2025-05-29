@@ -3,8 +3,10 @@ import { View, Text, Image, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles } from '../styles/WelcomeStyles';
+import { useNavigation } from '../context/NavigationContext';
 
-const WelcomeScreen = ({ onComplete }) => {
+const WelcomeScreen = () => {
+  const { handleWelcomeComplete } = useNavigation();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -34,15 +36,15 @@ const WelcomeScreen = ({ onComplete }) => {
     const timer = setTimeout(async () => {
       try {
         await AsyncStorage.setItem('hasSeenWelcome', 'true');
-        onComplete();
+        handleWelcomeComplete();
       } catch (error) {
         console.error('Error saving welcome state:', error);
-        onComplete();
+        handleWelcomeComplete();
       }
     }, 3000);
 
     return () => clearTimeout(timer);
-  }, [fadeAnim, scaleAnim, slideAnim, onComplete]);
+  }, [fadeAnim, scaleAnim, slideAnim, handleWelcomeComplete]);
 
   return (
     <LinearGradient

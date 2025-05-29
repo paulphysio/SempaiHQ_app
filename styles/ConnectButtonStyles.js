@@ -15,6 +15,35 @@ export const styles = StyleSheet.create({
     right: 20,
     zIndex: 100,
   },
+  // Connected state container
+  connectedContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A2E',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 126, 34, 0.5)',
+    overflow: 'hidden',
+    minWidth: 200,
+  },
+  connectedText: {
+    color: '#ffffff',
+    fontSize: 14,
+    padding: 12,
+    flex: 1,
+  },
+  disconnectButton: {
+    backgroundColor: 'rgba(230, 126, 34, 0.8)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disconnectButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   connectButton: {
     backgroundColor: '#1A1A2E',
     paddingVertical: 12,
