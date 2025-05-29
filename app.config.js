@@ -37,7 +37,7 @@ export default ({ config }) => {
         googleWebClientId,
         googleAndroidClientId,
         eas: {
-          projectId: "fdef0277-afe0-45ee-8751-e94be49c7934",
+          projectId: "b7defc9a-9108-4cbf-87c5-75d28db89a57",
         },
       },
       name: "Sempai HQ",
@@ -95,7 +95,7 @@ export default ({ config }) => {
         favicon: "./assets/favicon.png",
         bundler: "metro",
       },
-      owner: "nerdy35",
+      owner: "paulphysio350",
       plugins: [
         [
           "expo-build-properties",
@@ -116,7 +116,8 @@ export default ({ config }) => {
         "expo-font",
       ],
       updates: {
-        url: "https://u.expo.dev/fdef0277-afe0-45ee-8751-e94be49c7934",
+        enabled: true,
+        url: "https://u.expo.dev/b7defc9a-9108-4cbf-87c5-75d28db89a57",
       },
       runtimeVersion: {
         policy: "sdkVersion",
