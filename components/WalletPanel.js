@@ -14,6 +14,7 @@ import { styles } from '../styles/WalletPanelStyles';
 const WalletPanel = ({
   isWalletConnected,
   balance,
+  offChainBalance,
   weeklyPoints,
   pendingWithdrawal,
   withdrawAmount,
@@ -170,8 +171,13 @@ const WalletPanel = ({
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
                 <FontAwesome5 name="gem" size={16} color="#F36316" />
-                <Text style={styles.infoLabel}>Balance</Text>
+                <Text style={styles.infoLabel}>On-Chain Balance</Text>
                 <Text style={styles.infoValue}>{balance.toLocaleString()} SMP</Text>
+              </View>
+              <View style={styles.infoItem}>
+                <FontAwesome5 name="coins" size={16} color="#F36316" />
+                <Text style={styles.infoLabel}>Off-Chain Balance</Text>
+                <Text style={styles.infoValue}>{offChainBalance.toLocaleString()} SMP</Text>
               </View>
               <View style={styles.infoItem}>
                 <FontAwesome5 name="star" size={16} color="#F36316" />

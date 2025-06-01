@@ -1,3 +1,4 @@
+// screens/EditProfileScreen.js
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -22,6 +23,7 @@ import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token'
 import { AMETHYST_MINT_ADDRESS, SMP_DECIMALS, RPC_URL } from '../constants';
 import styles from '../styles/EditProfileStyles';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
+import { EmbeddedWalletContext } from '../components/ConnectButton'; // Import EmbeddedWalletContext
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,7 +55,7 @@ const EditProfileScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [buttonScale] = useState(new Animated.Value(1));
-  const [balance, setBalance] = useState(0); // Numeric balance for Amethyst
+  const [balance, setBalance] = useState(0);
   const [walletReady, setWalletReady] = useState(false);
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
@@ -80,14 +82,14 @@ const EditProfileScreen = () => {
     }
 
     try {
-      const mintAddress = AMETHYST_MINT_ADDRESS;
+      const mintAddress = new PublicKey(AMETHYST_MINT_ADDRESS);
       let balance = 0;
 
       const ataAddress = getAssociatedTokenAddressSync(mintAddress, new PublicKey(embeddedWallet.publicKey));
       const ataInfo = await connection.getAccountInfo(ataAddress);
       if (ataInfo) {
         const ata = unpackAccount(ataAddress, ataInfo);
-        balance = Number(ata.amount) / 10 ** SMP_DECIMALS; // 6 decimals for Amethyst
+        balance = Number(ata.amount) / 10 ** SMP_DECIMALS;
       }
       setBalance(balance);
       console.log(`Amethyst Balance: ${balance}`);
@@ -100,9 +102,11 @@ const EditProfileScreen = () => {
   }, [embeddedWallet]);
 
   useEffect(() => {
-    if (embeddedWallet) {
+    if (embeddedWallet?.publicKey) {
       setWalletReady(true);
       checkBalance();
+    } else {
+      setWalletReady(false);
     }
   }, [embeddedWallet, checkBalance]);
 
@@ -115,7 +119,7 @@ const EditProfileScreen = () => {
 
     const fetchUserData = async () => {
       const walletAddress = embeddedWallet?.publicKey;
-      if (!walletReady || !walletAddress) return;
+      if (!walletReady || !walletAddress || !session) return;
 
       try {
         const { data: user, error: userError } = await supabase
@@ -185,7 +189,7 @@ const EditProfileScreen = () => {
     };
 
     fetchUserData();
-  }, [walletReady, embeddedWallet, fadeAnim]);
+  }, [walletReady, embeddedWallet, session, fadeAnim]);
 
   const validateTwitterUsername = async () => {
     setTwitterError('');
@@ -208,13 +212,12 @@ const EditProfileScreen = () => {
     }
 
     try {
-      // Check username uniqueness
       const { data: existingUser, error: checkError } = await supabase
         .from('users')
         .select('id')
         .eq('x_account', username)
         .neq('id', userId || '')
-        .single();
+        .maybeSingle();
 
       if (existingUser) {
         setTwitterError('Username @' + username + ' is already taken. Please choose a different username.');
@@ -226,8 +229,7 @@ const EditProfileScreen = () => {
         throw new Error(`Error checking username uniqueness: ${checkError.message}`);
       }
 
-      // Rate limiting
-      const clientIp = 'mobile-device'; // Placeholder: Adjust based on your app's context
+      const clientIp = 'mobile-device';
       const rateLimitKey = `rate-limit:${clientIp}`;
       const rateLimitWindow = 15 * 60 * 1000;
       const maxRequests = 100;
@@ -239,7 +241,7 @@ const EditProfileScreen = () => {
         .from('rate_limits')
         .select('count, last_reset')
         .eq('ip', rateLimitKey)
-        .single();
+        .maybeSingle();
 
       if (!rateLimit) {
         await supabase
@@ -267,10 +269,8 @@ const EditProfileScreen = () => {
 
       await supabase
         .from('rate_limits')
-        .update({ count: count + 1 })
-        .eq('ip', rateLimitKey);
+        .upsert({ ip: rateLimitKey, count: count + 1 }, { onConflict: 'ip' });
 
-      // Verify username via Twitter/X
       const response = await axios.get(`https://x.com/${username}`, {
         headers: {
           'User-Agent':
@@ -359,8 +359,8 @@ const EditProfileScreen = () => {
     setSuccess('');
     setIsSaving(true);
 
-    if (!userId || !walletReady || !embeddedWallet) {
-      setError('Please connect your wallet to update your profile.');
+    if (!userId || !walletReady || !embeddedWallet || !session) {
+      setError('Please sign in and connect your wallet to update your profile.');
       setIsSaving(false);
       return;
     }
@@ -410,7 +410,7 @@ const EditProfileScreen = () => {
         const { data: inviterData, error: inviterError } = await supabase
           .from('users')
           .select('weekly_points')
-          .eq('wallet_address', currentUserData.referred_by)
+          .eq('id', currentUserData.referred_by)
           .single();
 
         if (inviterError) throw new Error('Error fetching inviter data: ' + inviterError.message);
@@ -418,7 +418,7 @@ const EditProfileScreen = () => {
         await supabase
           .from('users')
           .update({ weekly_points: (inviterData?.weekly_points || 0) + 100 })
-          .eq('wallet_address', currentUserData.referred_by);
+          .eq('id', currentUserData.referred_by);
 
         setIsNewUser(false);
         setReferralMessage('');
@@ -444,7 +444,6 @@ const EditProfileScreen = () => {
         if (profileError) throw new Error('Error updating writer profile: ' + profileError.message);
       }
 
-      // Refresh balance after profile update
       await checkBalance();
     } catch (err) {
       console.error('Submit error:', err);
@@ -501,17 +500,17 @@ const EditProfileScreen = () => {
 
   const theme = getThemeStyles();
 
-  if (!walletReady) {
+  if (!walletReady && !session) {
     return (
       <View style={[styles.container, theme.background, styles.center]}>
-        <ActivityIndicator size="large" color={theme.textColor} />
+        <Text style={[styles.connectText, { color: theme.textColor }]}>Please sign in and connect your wallet.</Text>
+        <GoogleSignInButton />
       </View>
     );
   }
 
   return (
     <Animated.View style={[styles.container, theme.background, { opacity: fadeAnim }]}>
-      {/* Navbar */}
       <View style={[styles.navbar, { borderBottomColor: theme.borderColor }]}>
         <View style={styles.navContainer}>
           <TouchableOpacity
@@ -560,7 +559,6 @@ const EditProfileScreen = () => {
         </View>
       </View>
 
-      {/* Main Content */}
       <ScrollView contentContainerStyle={styles.main}>
         <View style={[styles.profileSection, { borderColor: theme.borderColor, shadowColor: theme.shadowColor }]}>
           <Text style={[styles.title, { color: theme.textColor }]}>
@@ -585,7 +583,7 @@ const EditProfileScreen = () => {
             </View>
           ) : (
             <Text style={styles.walletText}>
-              <Icon name="user" size={16} color="#fff" /> {formatUsername(embeddedWallet.publicKey.toString())}
+              <Icon name="user" size={16} color="#fff" /> {formatUsername(embeddedWallet?.publicKey?.toString() || '')}
             </Text>
           )}
 
@@ -794,7 +792,6 @@ const EditProfileScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Error/Success Modal */}
       {(error || success) && (
         <Modal
           isVisible={!!(error || success)}

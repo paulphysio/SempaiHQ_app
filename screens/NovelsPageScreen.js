@@ -18,6 +18,8 @@ import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButto
 import WalletPanel from '../components/WalletPanel';
 import { styles } from '../styles/NovelsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
+import { PublicKey } from '@solana/web3.js';
+import { TREASURY_PUBLIC_KEY, SMP_MINT_ADDRESS } from '../constants';
 
 const API_BASE_URL = 'https://sempaihq.xyz';
 
@@ -53,6 +55,7 @@ const NovelsPageScreen = () => {
   const [publicKey, setPublicKey] = useState(null);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [offChainBalance, setOffChainBalance] = useState(0);
   const [weeklyPoints, setWeeklyPoints] = useState(0);
   const [pendingWithdrawal, setPendingWithdrawal] = useState(0);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -73,22 +76,31 @@ const NovelsPageScreen = () => {
     const syncWallet = async () => {
       try {
         if (wallet?.publicKey) {
-          console.log('Wallet from context:', wallet.publicKey);
-          setPublicKey(wallet.publicKey);
+          const walletAddress = wallet.publicKey.toString();
+          console.log('Syncing wallet from context:', walletAddress);
+          setPublicKey(walletAddress);
           setIsWalletConnected(true);
-          await AsyncStorage.setItem('walletAddress', wallet.publicKey);
+          await AsyncStorage.setItem('walletAddress', walletAddress);
+          console.log('Wallet address stored in AsyncStorage');
         } else {
-          const key = await AsyncStorage.getItem('walletAddress');
-          console.log('AsyncStorage walletAddress:', key);
-          if (key && isMounted.current) {
-            setPublicKey(key);
-            setIsWalletConnected(!!key);
+          const storedAddress = await AsyncStorage.getItem('walletAddress');
+          console.log('Retrieved wallet from AsyncStorage:', storedAddress);
+          if (storedAddress && isMounted.current) {
+            setPublicKey(storedAddress);
+            setIsWalletConnected(true);
+            console.log('Wallet restored from AsyncStorage');
+          } else {
+            setPublicKey(null);
+            setIsWalletConnected(false);
+            console.log('No wallet found in storage');
           }
-          console.log('isWalletConnected:', !!key || !!wallet?.publicKey, 'publicKey:', key || wallet?.publicKey);
         }
       } catch (err) {
         console.error('Error syncing wallet:', err.message);
-        setErrorMessage('Failed to load wallet.');
+        setErrorMessage('Failed to sync wallet: ' + err.message);
+        // Reset wallet state on error
+        setPublicKey(null);
+        setIsWalletConnected(false);
       }
     };
     syncWallet();
@@ -121,30 +133,63 @@ const NovelsPageScreen = () => {
       return;
     }
     try {
-      const { data: user, error } = await supabase
+      console.log('Checking balance for wallet:', publicKey);
+      
+      // Normalize the wallet address to ensure consistent format
+      const normalizedWalletAddress = publicKey.toString();
+      
+      // Get user data
+      const { data: user, error: userError } = await supabase
         .from('users')
         .select('id, weekly_points')
-        .eq('wallet_address', publicKey)
+        .eq('wallet_address', normalizedWalletAddress)
         .single();
 
-      if (error || !user) throw new Error('User not found');
+      if (userError) {
+        console.error('Error fetching user:', userError.message);
+        throw new Error(`User lookup failed: ${userError.message}`);
+      }
+      
+      if (!user) {
+        console.error('No user found for wallet address:', normalizedWalletAddress);
+        throw new Error('User not found. Please ensure your wallet is properly connected.');
+      }
+
+      console.log('Found user:', user);
       setWeeklyPoints(user.weekly_points || 0);
 
-      const { data: walletBalance } = await supabase
+      // Get both on-chain and off-chain balances
+      const { data: balances, error: balancesError } = await supabase
         .from('wallet_balances')
-        .select('amount')
-        .eq('user_id', user.id)
-        .eq('currency', 'SMP')
-        .eq('chain', 'SOL')
-        .single();
+        .select('amount, chain')
+        .eq('wallet_address', normalizedWalletAddress)
+        .eq('currency', 'SMP');
 
-      setBalance(walletBalance?.amount || 0);
+      if (balancesError) {
+        console.error('Error fetching balances:', balancesError.message);
+        throw new Error(`Balance lookup failed: ${balancesError.message}`);
+      }
 
-      const { data: pendingData } = await supabase
+      // Find on-chain (SOL) and off-chain balances
+      const onChainBalance = balances?.find(b => b.chain === 'SOL')?.amount || 0;
+      const offChainBalance = balances?.find(b => b.chain === 'OFF_CHAIN')?.amount || 0;
+
+      console.log('Balances found:', { onChain: onChainBalance, offChain: offChainBalance });
+      
+      setBalance(onChainBalance);
+      setOffChainBalance(offChainBalance);
+
+      // Get pending withdrawals
+      const { data: pendingData, error: pendingError } = await supabase
         .from('pending_withdrawals')
         .select('amount')
         .eq('user_id', user.id)
         .eq('status', 'pending');
+
+      if (pendingError) {
+        console.error('Error fetching pending withdrawals:', pendingError.message);
+        throw new Error(`Pending withdrawals lookup failed: ${pendingError.message}`);
+      }
 
       const totalPending = pendingData?.reduce((sum, w) => sum + w.amount, 0) || 0;
       setPendingWithdrawal(totalPending);
@@ -171,6 +216,7 @@ const NovelsPageScreen = () => {
       setIsWithdrawing(true);
       setErrorMessage('');
 
+      // Check user's off-chain balance first
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('id')
@@ -184,21 +230,24 @@ const NovelsPageScreen = () => {
         .select('amount')
         .eq('user_id', user.id)
         .eq('currency', 'SMP')
-        .eq('chain', 'SOL')
+        .eq('chain', 'OFF_CHAIN')  // Changed from 'SOL' to 'OFF_CHAIN'
         .single();
 
-      if (balanceError || !walletBalance) throw new Error('Wallet balance not found');
+      if (balanceError || !walletBalance) throw new Error('Off-chain balance not found');
       if (walletBalance.amount < amount) {
         throw new Error(
-          `Insufficient balance: ${walletBalance.amount.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP`
+          `Insufficient off-chain balance: ${walletBalance.amount.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP`
         );
       }
 
+      // Make the withdrawal request which will check Treasury's on-chain balance
       const apiUrl = `${API_BASE_URL}/api/withdraw-smp`;
       console.log('Making withdrawal request to:', apiUrl, {
         userId: user.id,
         walletAddress: publicKey,
         amount,
+        treasuryAddress: TREASURY_PUBLIC_KEY,
+        tokenMint: SMP_MINT_ADDRESS.toString()
       });
 
       const response = await fetch(apiUrl, {
@@ -210,33 +259,51 @@ const NovelsPageScreen = () => {
           userId: user.id,
           walletAddress: publicKey,
           amount,
+          treasuryAddress: TREASURY_PUBLIC_KEY,
+          tokenMint: SMP_MINT_ADDRESS.toString()
         }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`Withdrawal failed: ${errorText || `HTTP ${response.status}`}`);
+        let errorMessage;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error && errorJson.error.includes('Treasury has insufficient SMP')) {
+            errorMessage = 'Treasury has insufficient on-chain SMP balance. Please try again later or contact support.';
+          } else {
+            errorMessage = errorJson.error || `Withdrawal failed: HTTP ${response.status}`;
+          }
+        } catch (e) {
+          errorMessage = `Withdrawal failed: ${errorText || `HTTP ${response.status}`}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
       if (result.error) throw new Error(result.error);
 
+      // Update off-chain balance after successful on-chain transfer
       const { error: updateError } = await supabase
         .from('wallet_balances')
         .update({ amount: walletBalance.amount - amount })
         .eq('user_id', user.id)
         .eq('currency', 'SMP')
-        .eq('chain', 'SOL');
+        .eq('chain', 'OFF_CHAIN');  // Changed from 'SOL' to 'OFF_CHAIN'
 
-      if (updateError) throw new Error('Failed to update balance');
+      if (updateError) throw new Error('Failed to update off-chain balance');
 
       setBalance(walletBalance.amount - amount);
       setWithdrawAmount('');
-      setErrorMessage(`Successfully withdrew ${amount.toLocaleString()} SMP! Signature: ${result.signature}`);
-      setTimeout(() => setErrorMessage(''), 5000);
+      setErrorMessage(`Successfully withdrew ${amount.toLocaleString()} SMP to your wallet! Transaction signature: ${result.signature}`);
+      
+      // Refresh balances after withdrawal
+      await checkBalance();
+      
+      setTimeout(() => setErrorMessage(''), 10000);
     } catch (error) {
-      console.error('Withdrawal error:', error, error.message, error.stack);
-      setErrorMessage(`Withdrawal failed: ${error.message}`);
+      console.error('Withdrawal error:', error);
+      setErrorMessage(error.message);
     } finally {
       setIsWithdrawing(false);
     }
@@ -551,6 +618,7 @@ const NovelsPageScreen = () => {
       <WalletPanel
         isWalletConnected={isWalletConnected}
         balance={balance}
+        offChainBalance={offChainBalance}
         weeklyPoints={weeklyPoints}
         pendingWithdrawal={pendingWithdrawal}
         withdrawAmount={withdrawAmount}

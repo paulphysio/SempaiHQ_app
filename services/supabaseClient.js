@@ -1,36 +1,15 @@
-// services/supabaseClient.js
-import Constants from 'expo-constants';
 import { createClient } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import 'react-native-url-polyfill';
+import Constants from 'expo-constants';
 
-const extras =
-  Constants.expoConfig?.extra ??
-  Constants.manifest?.extra ??
-  {};
-
-const { supabaseUrl, supabaseKey } = extras;
-
-// Debug logging
-console.log('Supabase config:', {
-  supabaseUrl,
-  supabaseKey,
-  extras,
-});
-
-if (!supabaseUrl || !supabaseKey) {
-  console.error(
-    '[Config Error] supabaseUrl or supabaseKey is missing from app config.',
-    extras
-  );
-  throw new Error('Missing Supabase URL or Key');
-}
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 'https://xqeimsncmnqsiowftdmz.supabase.co';
+const supabaseKey =
+  Constants.expoConfig?.extra?.supabaseKey ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZWltc25jbW5xc2lvd2Z0ZG16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwNDExOTYsImV4cCI6MjA1MzYxNzE5Nn0.B8mZGxtUDp5jC-SwqBj1G5BjZE_A6RC-ZeJtmkq76iY';
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: false, // Prevent Supabase from handling redirects
   },
 });

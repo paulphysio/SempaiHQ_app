@@ -35,12 +35,11 @@ import MangaPageScreen from './screens/MangaPageScreen';
 import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
 import MangaChapterScreen from './screens/MangaChapterScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
-import SignInScreen from './screens/SignInScreen';
+import SignIn from './components/SignIn'; // Updated to match components directory
 import { GoogleAuthProvider } from './components/GoogleAuthProvider';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SystemUiContext } from './context/SystemUiContext';
 
-// Configure notification handler
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -51,7 +50,6 @@ Notifications.setNotificationHandler({
 
 const Stack = createStackNavigator();
 
-// Error Boundary Component
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
 
@@ -77,7 +75,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// Main App component
 const MainApp = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
 
@@ -101,19 +98,16 @@ const MainApp = () => {
   );
 };
 
-// AppContent component
 const AppContent = () => {
   const { user, isLoading } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const navigationRef = useNavigationContainerRef();
 
-  // Register welcome completion handler
   useNavigationHandler(() => {
     setShowWelcome(false);
   });
 
-  // Load AnimeAce font
   useEffect(() => {
     const loadFonts = async () => {
       try {
@@ -138,7 +132,6 @@ const AppContent = () => {
     loadFonts();
   }, []);
 
-  // Configure Android navigation bar
   useEffect(() => {
     if (Platform.OS === 'android') {
       const initializeNavigationBar = async () => {
@@ -180,7 +173,7 @@ const AppContent = () => {
         {showWelcome ? (
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
         ) : !user ? (
-          <Stack.Screen name="SignIn" component={SignInScreen} />
+          <Stack.Screen name="SignIn" component={SignIn} />
         ) : (
           <>
             <Stack.Screen name="Home" component={HomeScreen} />

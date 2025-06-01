@@ -1,37 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  StatusBar, 
-  Platform, 
-  TouchableOpacity, 
-  Text,
-  Image
-} from 'react-native';
+import { View, StyleSheet, StatusBar, Platform, TouchableOpacity, Text, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import GoogleSignInButton from './GoogleSignInButton';
 import * as NavigationBar from 'expo-navigation-bar';
-import Constants from 'expo-constants';
 
-// Wrapper component to ensure the welcome/sign-in screen appears every time the app is opened
 export const AuthWrapper = ({ children }) => {
   const [showAuth, setShowAuth] = useState(true);
-  const { signInWithGoogle, loading } = useGoogleAuth();
+  const { signIn, loading } = useGoogleAuth();
 
   useEffect(() => {
-    // Hide system navigation on Android for immersive experience
     if (Platform.OS === 'android') {
       NavigationBar.setVisibilityAsync('hidden');
       NavigationBar.setPositionAsync('absolute');
       NavigationBar.setBehaviorAsync('inset-swipe');
     }
-    
-    // Hide status bar
     StatusBar.setHidden(true);
-    
     return () => {
-      // Restore system navigation bars when component unmounts
       if (Platform.OS === 'android') {
         NavigationBar.setVisibilityAsync('visible');
         NavigationBar.setPositionAsync('relative');
@@ -40,55 +25,32 @@ export const AuthWrapper = ({ children }) => {
     };
   }, []);
 
-  // Handle skip authentication
   const handleSkip = () => {
     setShowAuth(false);
   };
 
-  // If authentication screen should be shown, render it
   if (showAuth) {
     return (
-      <LinearGradient
-        colors={['#000000', '#121212']}
-        style={styles.container}
-      >
+      <LinearGradient colors={['#000000', '#121212']} style={styles.container}>
         <StatusBar hidden />
-        
         <View style={styles.logoContainer}>
-          <Image 
-            source={require('../assets/logo.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>Sempai HQ</Text>
           <Text style={styles.subtitle}>Your digital manga & novel universe</Text>
         </View>
-        
         <View style={styles.buttonContainer}>
-          <GoogleSignInButton 
-            onPress={signInWithGoogle}
-            loading={loading}
-          />
-          
-          <TouchableOpacity 
-            style={styles.twitterButton}
-            disabled={true} // Placeholder for Twitter auth
-          >
+          <GoogleSignInButton />
+          <TouchableOpacity style={styles.twitterButton} disabled={true}>
             <Text style={styles.twitterButtonText}>Sign in with Twitter</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.skipButton} 
-            onPress={handleSkip}
-          >
+          <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
             <Text style={styles.skipButtonText}>Skip</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
     );
   }
-  
-  // If authentication is skipped or completed, render the app
+
   return children;
 };
 
@@ -130,7 +92,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     marginBottom: 12,
-    opacity: 0.6, // Dimmed as placeholder
+    opacity: 0.6,
   },
   twitterButtonText: {
     color: '#fff',
@@ -142,7 +104,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   skipButtonText: {
-    color: '#FF6B00', // Orange accent color
+    color: '#FF6B00',
     fontSize: 16,
     fontWeight: '600',
   },

@@ -1,80 +1,48 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
+import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
 import { supabase } from '../services/supabaseClient';
-import { makeRedirectUri } from 'expo-auth-session';
 import Constants from 'expo-constants';
-import * as Application from 'expo-application';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Add global error handler for debugging
+const isDev = process.env.NODE_ENV !== 'production';
+
 const logError = (error, context) => {
-  console.error(`[${context}] Error:`, error?.message || error);
-  console.error('Error details:', JSON.stringify(error, null, 2));
-  if (error?.stack) {
-    console.error('Stack trace:', error.stack);
+  if (isDev) {
+    console.error(`[${context}] Error:`, error?.message || error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
+    if (error?.stack) {
+      console.error('Stack trace:', error.stack);
+    }
   }
 };
 
-WebBrowser.maybeCompleteAuthSession();
-
 export const GoogleAuthContext = createContext();
 
-// Move client ID declarations outside try block
-const googleClientId = Constants.expoConfig?.extra?.googleClientId || process.env.GOOGLE_WEB_CLIENT_ID;
-const googleAndroidClientId = Constants.expoConfig?.extra?.googleAndroidClientId || process.env.GOOGLE_ANDROID_CLIENT_ID;
-const redirectUri = makeRedirectUri({
-  useProxy: true,
-  preferLocalhost: true
+const googleWebClientId = Constants.expoConfig?.extra?.googleWebClientId || '63667308763-6kecoi8ndtpqfd065noj278lhlb8j7qt.apps.googleusercontent.com';
+
+GoogleSignin.configure({
+  webClientId: googleWebClientId,
+  scopes: ['profile', 'email'],
+  offlineAccess: true,
 });
 
-// Log initialization info
-try {
-  console.log('=== Google Auth Provider Initialization ===');
-  console.log('App Package Name:', Application.applicationId);
-  console.log('Expo Constants available:', !!Constants.expoConfig);
-  console.log('Google Web Client ID configured:', !!googleClientId);
-  console.log('Google Android Client ID configured:', !!googleAndroidClientId);
-  console.log('Redirect URI:', redirectUri);
-} catch (error) {
-  logError(error, 'GoogleAuthProvider Initialization');
-}
+console.log('=== Google Auth Provider Initialization ===');
+console.log('Platform: Android');
+console.log('Web Client ID:', googleWebClientId);
 
 export const GoogleAuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    androidClientId: googleAndroidClientId,
-    webClientId: googleClientId,
-    expoClientId: googleClientId,
-    responseType: "id_token",
-    scopes: ['openid', 'profile', 'email'],
-    redirectUri,
-    useProxy: true
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      console.log('Google Auth Response Success');
-      const { id_token } = response.params;
-      handleSignIn(id_token);
-    } else if (response?.type === 'error') {
-      const errorMsg = response.error?.message || 'Unknown error';
-      console.error('Google Auth Response Error:', errorMsg);
-      logError(response.error, 'Google Auth Response');
-      setError('Google authentication failed: ' + errorMsg);
-    }
-  }, [response]);
+  const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
       try {
-        console.log('Checking Supabase session...');
+        setLoading(true);
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) throw sessionError;
-        
-        console.log('Session check result:', session ? 'Session found' : 'No session');
         setSession(session);
       } catch (err) {
         logError(err, 'Session Check');
@@ -86,79 +54,167 @@ export const GoogleAuthProvider = ({ children }) => {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state changed:', event);
-        setSession(session);
-      }
-    );
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
+      setSession(session);
+    });
 
     return () => subscription?.unsubscribe();
   }, []);
 
-  const handleSignIn = async (idToken) => {
+  const signIn = async () => {
     try {
-      setLoading(true);
       setError(null);
+      setModalVisible(true);
+    } catch (err) {
+      logError(err, 'Sign In Start');
+      setError('Failed to start sign in process');
+    }
+  };
 
+  const handleGoogleSignIn = async () => {
+    try {
+      console.log('Checking Google Play Services...');
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      console.log('Google Play Services available');
+
+      console.log('Initiating Google Sign-In...');
+      const userInfo = await GoogleSignin.signIn();
+      console.log('Google Sign-In Response:', JSON.stringify(userInfo, null, 2));
+
+      const idToken = userInfo.data?.idToken;
+      if (!idToken) {
+        throw new Error('No ID token returned from Google Sign-In');
+      }
+
+      console.log('ID Token acquired:', idToken.substring(0, 20) + '...');
+
+      setLoading(true);
       const { data, error: signInError } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
       });
 
       if (signInError) throw signInError;
-
+      console.log('Supabase Sign-In successful:', !!data.session);
       setSession(data.session);
-      return data.session;
+      await AsyncStorage.setItem('@user', JSON.stringify(userInfo.data));
     } catch (err) {
-      setError(err.message || 'Failed to sign in');
-      throw err;
+      logError(err, 'Google Sign In');
+      console.log('Google Sign-In Error Code:', err.code || 'undefined');
+      console.log('Google Sign-In Error Details:', JSON.stringify(err));
+      setError(`Google Sign-In failed: ${err.message}`);
     } finally {
+      setModalVisible(false);
       setLoading(false);
-    }
-  };
-
-  const signIn = async () => {
-    try {
-      await promptAsync();
-    } catch (err) {
-      setError('Failed to start sign in process');
-      throw err;
     }
   };
 
   const signOut = async () => {
     try {
       setLoading(true);
+      await GoogleSignin.signOut();
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      await AsyncStorage.removeItem('@user');
       setSession(null);
     } catch (err) {
-      setError('Failed to sign out');
-      throw err;
+      logError(err, 'Sign Out');
+      setError('Sign out failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const value = {
-    session,
-    loading,
-    error,
-    signIn,
-    signOut,
-  };
-
   return (
-    <GoogleAuthContext.Provider value={value}>
+    <GoogleAuthContext.Provider
+      value={{
+        session,
+        loading,
+        error,
+        signIn,
+        signOut,
+      }}
+    >
       {children}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalView}>
+            <Text style={styles.modalText}>Sign In with Google</Text>
+            <GoogleSigninButton
+              style={styles.googleButton}
+              size={GoogleSigninButton.Size.Wide}
+              color={GoogleSigninButton.Color.Light}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+            />
+            <Pressable
+              style={[styles.button, styles.cancelButton]}
+              onPress={() => setModalVisible(false)}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </GoogleAuthContext.Provider>
   );
 };
 
+const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalText: {
+    fontSize: 18,
+    marginBottom: 15,
+    fontWeight: 'bold',
+  },
+  googleButton: {
+    width: 250,
+    height: 48,
+    marginBottom: 10,
+  },
+  button: {
+    backgroundColor: '#4285F4',
+    padding: 10,
+    borderRadius: 5,
+    width: 250,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#ccc',
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+});
+
 export const useGoogleAuth = () => {
   const context = useContext(GoogleAuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useGoogleAuth must be used within a GoogleAuthProvider');
   }
   return context;

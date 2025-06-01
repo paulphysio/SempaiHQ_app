@@ -1,128 +1,93 @@
-// app.config.js
 import 'dotenv/config';
 
-// Log environment variables for debugging
-console.log('Environment check:', {
-  hasAndroidClientId: !!process.env.GOOGLE_ANDROID_CLIENT_ID,
-  hasWebClientId: !!process.env.GOOGLE_WEB_CLIENT_ID,
-  hasSupabaseUrl: !!process.env.SUPABASE_URL,
-  hasSupabaseKey: !!process.env.SUPABASE_KEY,
-});
-
 export default ({ config }) => {
-  // Use process.env with fallback to undefined
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_KEY;
-  const googleWebClientId = process.env.GOOGLE_WEB_CLIENT_ID;
-  const googleAndroidClientId = process.env.GOOGLE_ANDROID_CLIENT_ID;
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://xqeimsncmnqsiowftdmz.supabase.co';
+  const supabaseKey =
+    process.env.SUPABASE_KEY ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZWltc25jbW5xc2lvd2Z0ZG16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwNDExOTYsImV4cCI6MjA1MzYxNzE5Nn0.B8mZGxtUDp5jC-SwqBj1G5BjZE_A6RC-ZeJtmkq76iY';
+  const googleWebClientId = process.env.GOOGLE_WEB_CLIENT_ID || '63667308763-6kecoi8ndtpqfd065noj278lhlb8j7qt.apps.googleusercontent.com';
 
-  // Log for debugging
-  console.log('Config values:', {
-    supabaseUrl,
-    supabaseKey,
-    googleWebClientId,
-    googleAndroidClientId,
-  });
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('SUPABASE_URL');
+  if (!supabaseKey) missingVars.push('SUPABASE_KEY');
+  if (!googleWebClientId) missingVars.push('GOOGLE_WEB_CLIENT_ID');
 
-  if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing required environment variables: SUPABASE_URL and/or SUPABASE_KEY');
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required environment variables: ${missingVars.join(', ')}. Make sure these are set in your .env file or EAS secrets.`
+    );
   }
 
   return {
     ...config,
-    expo: {
-      extra: {
-        supabaseUrl,
-        supabaseKey,
-        googleWebClientId,
-        googleAndroidClientId,
-        eas: {
-          projectId: "b7defc9a-9108-4cbf-87c5-75d28db89a57",
+    name: 'Sempai HQ',
+    slug: 'sempai-hq',
+    version: '1.0.0',
+    orientation: 'portrait',
+    icon: './assets/icon.png',
+    userInterfaceStyle: 'dark',
+    splash: {
+      image: './assets/splash-icon.png',
+      resizeMode: 'contain',
+      backgroundColor: '#000000',
+    },
+    assetBundlePatterns: ['**/*'],
+    android: {
+      package: 'com.turningpointKS.sempaihq',
+      versionCode: 1,
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: '#000000',
+      },
+      permissions: [],
+      signingConfig: {
+        storeFile: './@david350__sempai-hq.jks',
+        storePassword: '3587d1d0fabafa06595914af806bc01c',
+        keyAlias: '41349a67d6d871c3e72ec878e54978cc',
+        keyPassword: '9d2f6ddaddede1730ccf1880f6a2c2fe'
+      }
+    },
+    scheme: 'com.turningpointks.sempaihq',
+    extra: {
+      supabaseUrl,
+      supabaseKey,
+      googleWebClientId,
+      eas: {
+        projectId: 'c91c4cae-0035-416c-88f2-37b7cbc06248',
+      },
+    },
+    owner: 'david350',
+    plugins: [
+      'expo-router',
+      [
+        'expo-build-properties',
+        {
+          android: {
+            usesCleartextTraffic: true,
+          },
         },
-      },
-      name: "Sempai HQ",
-      slug: "sempai-hq",
-      version: "1.0.0",
-      orientation: "portrait",
-      icon: "./assets/icon.png",
-      primaryColor: "#FF6B00",
-      userInterfaceStyle: "dark",
-      backgroundColor: "#000000",
-      splash: {
-        image: "./assets/splash-icon.png",
-        resizeMode: "contain",
-        backgroundColor: "#000000",
-      },
-      scheme: "sempaihq",
-      assetBundlePatterns: ["assets/**/*"],
-      android: {
-        package: "com.turningpointKS.sempaihq",
-        versionCode: 1,
-        adaptiveIcon: {
-          foregroundImage: "./assets/adaptive-icon.png",
-          backgroundColor: "#000000",
-        },
-        permissions: ["NOTIFICATIONS", "POST_NOTIFICATIONS"],
-        intentFilters: [
-          {
-            action: "VIEW",
-            autoVerify: true,
-            data: [
-              {
-                scheme: "https",
-                host: "www.sempaihq.xyz",
-                pathPrefix: "/auth/callback",
-              },
-              {
-                scheme: "https",
-                host: "xqeimsncmnqsiowftdmz.supabase.co",
-                pathPrefix: "/auth/v1/callback",
-              },
-              {
-                scheme: "sempaihq",
-                host: "*",
-              },
-            ],
-            category: ["BROWSABLE", "DEFAULT"],
-          },
-        ],
-      },
-      ios: {
-        bundleIdentifier: "com.turningpointKS.sempaihq",
-        supportsTablet: true,
-      },
-      web: {
-        favicon: "./assets/favicon.png",
-        bundler: "metro",
-      },
-      owner: "paulphysio350",
-      plugins: [
-        [
-          "expo-build-properties",
-          {
-            "android": {
-              "usesCleartextTraffic": true,
-            },
-          },
-        ],
-        "expo-router",
-        [
-          "expo-notifications",
-          {
-            "icon": "./assets/notification-icon.png",
-            "color": "#FF6B00",
-          },
-        ],
-        "expo-font",
       ],
-      updates: {
-        enabled: true,
-        url: "https://u.expo.dev/b7defc9a-9108-4cbf-87c5-75d28db89a57",
-      },
-      runtimeVersion: {
-        policy: "sdkVersion",
-      },
-      newArchEnabled: true,
+      [
+        'expo-notifications',
+        {
+          icon: './assets/notification-icon.png',
+          color: '#FF6B00',
+        },
+      ],
+      'expo-font',
+      [
+        '@react-native-google-signin/google-signin',
+        {
+          webClientId: googleWebClientId,
+        },
+      ],
+    ],
+    updates: {
+      enabled: true,
+      url: 'https://u.expo.dev/c91c4cae-0035-416c-88f2-37b7cbc06248',
+    },
+    runtimeVersion: {
+      policy: 'appVersion',
     },
   };
 };

@@ -1,31 +1,65 @@
 {
   "cli": {
-    "version": ">= 5.0.0",
+    "version": ">= 6.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
-      "developmentClient": false,
+      "developmentClient": true,
       "distribution": "internal",
-      "channel": "development",
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
+      },
+      "credentials": {
+        "android": {
+          "keystore": {
+            "keystorePath": "@david350__sempai-hq.jks",
+            "keystorePassword": "3587d1d0fabafa06595914af806bc01c",
+            "keyAlias": "41349a67d6d871c3e72ec878e54978cc",
+            "keyPassword": "9d2f6ddaddede1730ccf1880f6a2c2fe"
+          }
+        }
+      },
       "env": {
-        "EXPO_AUTH_POPUP_BEHAVIOR": "popup",
-        "SUPABASE_URL": "$SUPABASE_URL",
-        "SUPABASE_KEY": "$SUPABASE_KEY",
-        "GOOGLE_WEB_CLIENT_ID": "$GOOGLE_WEB_CLIENT_ID",
-        "GOOGLE_ANDROID_CLIENT_ID": "$GOOGLE_ANDROID_CLIENT_ID"
+        "EXPO_PUBLIC_API_URL": "https://api.example.com",
+        "SUPABASE_URL": "https://xqeimsncmnqsiowftdmz.supabase.co",
+        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZWltc25jbW5xc2lvd2Z0ZG16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwNDExOTYsImV4cCI6MjA1MzYxNzE5Nn0.B8mZGxtUDp5jC-SwqBj1G5BjZE_A6RC-ZeJtmkq76iY",
+        "GOOGLE_WEB_CLIENT_ID": "63667308763-6kecoi8ndtpqfd065noj278lhlb8j7qt.apps.googleusercontent.com"
       }
     },
     "preview": {
-      "extends": "development",
+      "android": {
+        "buildType": "apk"
+      },
+      "credentials": {
+        "android": {
+          "keystore": {
+            "keystorePath": "@david350__sempai-hq.jks",
+            "keystorePassword": "3587d1d0fabafa06595914af806bc01c",
+            "keyAlias": "41349a67d6d871c3e72ec878e54978cc",
+            "keyPassword": "9d2f6ddaddede1730ccf1880f6a2c2fe"
+          }
+        }
+      },
       "distribution": "internal",
-      "channel": "preview"
+      "extends": "development"
     },
     "production": {
-      "extends": "development",
-      "distribution": "store",
       "autoIncrement": true,
-      "channel": "production"
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "credentials": {
+        "android": {
+          "keystore": {
+            "keystorePath": "@david350__sempai-hq.jks",
+            "keystorePassword": "3587d1d0fabafa06595914af806bc01c",
+            "keyAlias": "41349a67d6d871c3e72ec878e54978cc",
+            "keyPassword": "9d2f6ddaddede1730ccf1880f6a2c2fe"
+          }
+        }
+      }
     }
   },
   "submit": {

@@ -86,7 +86,7 @@ const Home = () => {
     {
       title: 'Hoard',
       image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/novel-3.jpg' },
-      path: 'NovelList', // Updated from 'Novels'
+      path: 'NovelsPage', // Updated from 'Novels'
       requiresWallet: false,
     },
     {
@@ -171,20 +171,29 @@ const Home = () => {
             setIsArtist(authUser.isArtist || false);
             setIsSuperuser(authUser.isSuperuser || false);
             if (authUser.wallet_address) {
-              await AsyncStorage.setItem('walletAddress', authUser.wallet_address);
+              await AsyncStorage.setItem('walletAddress', authUser.wallet_address.toString());
             }
             return;
           }
         }
 
         if (wallet?.publicKey && isWalletConnected) {
-          setPublicKey(wallet.publicKey);
-          await AsyncStorage.setItem('walletAddress', wallet.publicKey);
+          const publicKeyStr = typeof wallet.publicKey === 'string' 
+            ? wallet.publicKey 
+            : wallet.publicKey?.toString();
+            
+          if (!publicKeyStr) {
+            console.log('No valid public key found');
+            return;
+          }
+          
+          setPublicKey(publicKeyStr);
+          await AsyncStorage.setItem('walletAddress', publicKeyStr);
 
           const { data: user, error: userError } = await supabase
             .from('users')
             .select('id, isWriter, isArtist, isSuperuser')
-            .eq('wallet_address', wallet.publicKey)
+            .eq('wallet_address', publicKeyStr)
             .maybeSingle();
 
           if (userError && userError.code !== 'PGRST116') {
@@ -199,7 +208,7 @@ const Home = () => {
           } else if (session?.user?.id) {
             const { data: updatedUser, error: updateError } = await supabase
               .from('users')
-              .update({ wallet_address: wallet.publicKey })
+              .update({ wallet_address: publicKeyStr })
               .eq('id', session.user.id)
               .select('id, isWriter, isArtist, isSuperuser')
               .single();
@@ -931,7 +940,7 @@ const Home = () => {
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.heroButton}
-              onPress={() => handleNavigation('NovelList', {})}
+              onPress={() => handleNavigation('NovelsPage', {})}
               accessible={true}
               accessibilityLabel="Explore novels"
             >
@@ -940,7 +949,7 @@ const Home = () => {
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.heroButton}
-              onPress={() => handleNavigation('MangaList', {})}
+              onPress={() => handleNavigation('MangaPage', {})}
               accessible={true}
               accessibilityLabel="Explore manga"
             >
