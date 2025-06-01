@@ -359,7 +359,7 @@ const MangaPageScreen = () => {
         <Animated.View entering={FadeIn} style={styles.rewardsBelt}>
           <View style={styles.beltContent}>
             <Text style={styles.rewardItem}>
-git gi              🎉 Weekly Reward: <Text style={styles.bold}>25,000,000 SMP Tokens</Text> every week based on points! 🌟
+                           🎉 Weekly Reward: <Text style={styles.bold}>25,000,000 SMP Tokens</Text> every week based on points! 🌟
             </Text>
             <Text style={styles.rewardItem}>
               👑 Top Reader: <Text style={styles.bold}>100 Pts Daily</Text> 🏆
