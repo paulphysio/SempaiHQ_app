@@ -67,7 +67,7 @@ const WelcomeScreen = () => {
         />
         <Text style={styles.title}>Welcome to Sempai HQ!</Text>
         <Text style={styles.subtitle}>
-          Your haven for anime, manga, and web novels.
+          Your haven for web novels, manga and anime fandom.
         </Text>
       </Animated.View>
     </LinearGradient>
