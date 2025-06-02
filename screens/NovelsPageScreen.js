@@ -216,7 +216,7 @@ const NovelsPageScreen = () => {
       setIsWithdrawing(true);
       setErrorMessage('');
 
-      // Check user's off-chain balance first
+      // First get the user's ID
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('id')
@@ -225,18 +225,26 @@ const NovelsPageScreen = () => {
 
       if (userError || !user) throw new Error('User not found');
 
-      const { data: walletBalance, error: balanceError } = await supabase
+      // Get both on-chain and off-chain balances
+      const { data: balances, error: balancesError } = await supabase
         .from('wallet_balances')
-        .select('amount')
+        .select('amount, chain')
         .eq('user_id', user.id)
         .eq('currency', 'SMP')
-        .eq('chain', 'OFF_CHAIN')  // Changed from 'SOL' to 'OFF_CHAIN'
-        .single();
+        .in('chain', ['SOL', 'OFF_CHAIN']);
 
-      if (balanceError || !walletBalance) throw new Error('Off-chain balance not found');
-      if (walletBalance.amount < amount) {
+      if (balancesError) {
+        console.error('Error fetching balances:', balancesError);
+        throw new Error('Failed to fetch balances');
+      }
+
+      // Find off-chain balance
+      const offChainBalance = balances?.find(b => b.chain === 'OFF_CHAIN')?.amount || 0;
+      console.log('User off-chain balance:', offChainBalance);
+
+      if (offChainBalance < amount) {
         throw new Error(
-          `Insufficient off-chain balance: ${walletBalance.amount.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP`
+          `Insufficient off-chain balance: ${offChainBalance.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP`
         );
       }
 
@@ -286,14 +294,19 @@ const NovelsPageScreen = () => {
       // Update off-chain balance after successful on-chain transfer
       const { error: updateError } = await supabase
         .from('wallet_balances')
-        .update({ amount: walletBalance.amount - amount })
+        .update({ 
+          amount: offChainBalance - amount 
+        })
         .eq('user_id', user.id)
         .eq('currency', 'SMP')
-        .eq('chain', 'OFF_CHAIN');  // Changed from 'SOL' to 'OFF_CHAIN'
+        .eq('chain', 'OFF_CHAIN');
 
-      if (updateError) throw new Error('Failed to update off-chain balance');
+      if (updateError) {
+        console.error('Error updating off-chain balance:', updateError);
+        throw new Error('Failed to update off-chain balance');
+      }
 
-      setBalance(walletBalance.amount - amount);
+      setOffChainBalance(offChainBalance - amount);
       setWithdrawAmount('');
       setErrorMessage(`Successfully withdrew ${amount.toLocaleString()} SMP to your wallet! Transaction signature: ${result.signature}`);
       
