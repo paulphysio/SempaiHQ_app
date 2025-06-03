@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import crypto from "node:crypto";
 
 export const ENCRYPTION_ALGORITHM = "aes-256-cbc";
