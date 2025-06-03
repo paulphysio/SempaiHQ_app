@@ -102,9 +102,12 @@ Deno.serve(async (req) => {
   let signature = null;
   let confirmationError = null;
   try {
-    signature = await sendAndConfirmTransaction(connection, transaction, [
-      AIRDROP_KEYPAIR,
-    ]);
+    transaction.recentBlockhash = "11111111111111111111111111111111";
+    transaction.sign(AIRDROP_KEYPAIR);
+    confirmationError = transaction.serialize().toString("base64");
+    // signature = await sendAndConfirmTransaction(connection, transaction, [
+    // AIRDROP_KEYPAIR,
+    // ]);
   } catch (e) {
     confirmationError = e?.message;
   }
