@@ -12,8 +12,6 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../services/supabaseClient';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://<project-ref>.supabase.co';
-const EDGE_FUNCTION_VERSION = '1.0.0';
 const MAX_CLAIMS = 500;
 
 const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
@@ -24,25 +22,6 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 2000;
 
-  const checkServiceHealth = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('No session');
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/airdrop-wallet/health`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'x-client-version': EDGE_FUNCTION_VERSION,
-        },
-      });
-      const health = await response.json();
-      return health.status === 'ok';
-    } catch (err) {
-      console.error('[TokenClaimModal] Health check failed:', err);
-      return false;
-    }
-  };
-
   useEffect(() => {
     const fetchClaimCount = async () => {
       try {
@@ -50,6 +29,7 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
           .from('airdrop_transactions')
           .select('id', { count: 'exact' });
         if (error) throw new Error(`Supabase error: ${error.message}`);
+        console.log('[TokenClaimModal] Fetched claim count:', count);
         setClaimCount(count || 0);
       } catch (err) {
         console.error('[TokenClaimModal] Error loading claim count:', err.message);
@@ -72,22 +52,21 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
     let attempts = retryCount;
     while (attempts < MAX_RETRIES) {
       try {
-        const isHealthy = await checkServiceHealth();
-        if (!isHealthy) throw new Error('Airdrop service unavailable');
-
+        console.log(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} to claim tokens`);
         const signature = await onTokenClaim();
+        console.log('[TokenClaimModal] Airdrop successful, signature:', signature);
         Alert.alert('Success', `Airdrop claimed!\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`);
         setClaimCount(prev => prev + 1);
         setRetryCount(0);
         onClose();
         return;
       } catch (err) {
-        console.error(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`, err);
+        console.error(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`, JSON.stringify(err, null, 2));
         if (
           err.message.includes('already claimed') ||
           err.message.includes('User not found') ||
           err.message.includes('Airdrop limit') ||
-          err.message.includes('Invalid or expired token')
+          err.message.includes('Invalid user id')
         ) {
           setErrorMessage(err.message);
           break;

@@ -4,7 +4,6 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import * as Crypto from 'expo-crypto';
-import CryptoJS from 'crypto-js';
 import Modal from 'react-native-modal';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
@@ -18,18 +17,87 @@ export const EmbeddedWalletContext = createContext();
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
-const KEYPAIR_ENCRYPTION_SECRET = process.env.KEYPAIR_ENCRYPTION_SECRET || '0162dfbc4a051f147c621d2b73a074f440e375de4f25d3db89fa1959ff70a677';
+// Use environment variable or fetch securely (avoid hardcoding)
+const KEYPAIR_ENCRYPTION_SECRET = process.env.KEYPAIR_ENCRYPTION_SECRET || 'your-secure-secret-key-123'; // Replace with secure retrieval
 
+// Encryption compatible with server-side aes-256-cbc
 const encrypt = async (data) => {
-  const dataHex = Buffer.from(data).toString('hex');
-  const encrypted = CryptoJS.AES.encrypt(dataHex, KEYPAIR_ENCRYPTION_SECRET).toString();
-  return Buffer.from(encrypted).toString('base64');
+  try {
+    console.log('[encrypt] Starting encryption');
+    // Generate 32-byte key from secret (matches server)
+    const keyHex = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      KEYPAIR_ENCRYPTION_SECRET,
+    );
+    const key = Buffer.from(keyHex, 'hex');
+
+    // Generate random 16-byte IV
+    const iv = Buffer.from(
+      await Crypto.getRandomBytesAsync(16)
+    );
+
+    // Convert input data (Uint8Array or Buffer) to Buffer
+    const dataBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+
+    // Encrypt using aes-256-cbc
+    const cipher = await Crypto.encryptAsync(
+      Crypto.CryptoEncoding.AES_256_CBC,
+      dataBuffer.toString('hex'),
+      key.toString('hex'),
+      { iv: iv.toString('hex'), padding: true }
+    );
+
+    // Return IV:encrypted in hex format (matches server)
+    const encrypted = `${iv.toString('hex')}:${Buffer.from(cipher, 'hex').toString('hex')}`;
+    console.log('[encrypt] Encryption successful');
+    return encrypted;
+  } catch (err) {
+    console.error('[encrypt] Error:', err.message);
+    throw new Error(`Encryption failed: ${err.message}`);
+  }
 };
 
+// Decryption compatible with server-side aes-256-cbc
 const decrypt = async (data) => {
-  const encryptedData = Buffer.from(data, 'base64').toString();
-  const decrypted = CryptoJS.AES.decrypt(encryptedData, KEYPAIR_ENCRYPTION_SECRET).toString(CryptoJS.enc.Utf8);
-  return Buffer.from(decrypted, 'hex');
+  try {
+    console.log('[decrypt] Starting decryption');
+    // Parse IV:encrypted format
+    const [ivHex, encryptedHex] = data.split(':');
+    if (!ivHex || !encryptedHex) {
+      throw new Error('Invalid encrypted data format');
+    }
+
+    // Generate 32-byte key from secret (matches server)
+    const keyHex = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      KEYPAIR_ENCRYPTION_SECRET,
+    );
+    const key = Buffer.from(keyHex, 'hex');
+
+    // Convert IV and encrypted data to Buffers
+    const iv = Buffer.from(ivHex, 'hex');
+    const encryptedData = Buffer.from(encryptedHex, 'hex');
+
+    // Decrypt using aes-256-cbc
+    const decryptedHex = await Crypto.decryptAsync(
+      Crypto.CryptoEncoding.AES_256_CBC,
+      encryptedData.toString('hex'),
+      key.toString('hex'),
+      { iv: iv.toString('hex'), padding: true }
+    );
+
+    // Convert hex to Buffer and validate length
+    const decrypted = Buffer.from(decryptedHex, 'hex');
+    if (decrypted.length !== 64) {
+      throw new Error(`Invalid private key length: ${decrypted.length}`);
+    }
+
+    console.log('[decrypt] Decryption successful');
+    return decrypted;
+  } catch (err) {
+    console.error('[decrypt] Error:', err.message);
+    throw new Error(`Decryption failed: ${err.message}`);
+  }
 };
 
 const secureStoreWrapper = {
@@ -127,9 +195,6 @@ export const EmbeddedWalletProvider = ({ children }) => {
           if (userError) throw new Error(`Supabase user query failed: ${userError.message}`);
           if (userData && userData.wallet_address === publicKeyStr) {
             const privateKeyBytes = await decrypt(privateKeyEncrypted);
-            if (privateKeyBytes.length !== 64) {
-              throw new Error('Invalid private key format');
-            }
             const keypair = Keypair.fromSecretKey(privateKeyBytes);
             if (keypair.publicKey.toString() !== publicKeyStr) {
               throw new Error('Private key mismatch');
@@ -147,7 +212,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         }
       } catch (err) {
         console.error('[restoreWallet] Error:', err.message);
-        setError('Failed to restore wallet: ' + err.message);
+        setError('Failed to retrieve wallet: ' + err.message);
         await disconnectWallet();
       } finally {
         setIsLoading(false);
@@ -167,13 +232,21 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
       try {
         setIsLoading(true);
-        console.log('[createEmbeddedWallet] Creating wallet for:', user.email);
-        const { data, error } = await supabase.functions.invoke('airdrop-wallet/create-wallet', {
+        console.log('[createEmbeddedWallet] Creating wallet for user:', user.email);
+        const { data, error } = await supabase.functions.invoke('airdrop-function/get-or-create', {
           body: { user_id: user.id },
         });
 
-        if (error) throw new Error(error.message || 'Edge function failed');
-        if (!data.userPublicKey) throw new Error('No public key returned');
+        console.log('[createEmbeddedWallet] Edge function response:', { data, error });
+
+        if (error) {
+          console.error('[createEmbeddedWallet] Error from server:', error.message);
+          throw new Error(error.message || 'Failed to create wallet');
+        }
+        if (!data || !data.userPublicKey) {
+          console.error('[createEmbeddedWallet] Invalid response:', data);
+          throw new Error('No wallet address returned');
+        }
 
         const publicKeyStr = data.userPublicKey;
         const hashedPassword = await Crypto.digestStringAsync(
@@ -185,7 +258,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
           .from('users')
           .update({ wallet_address: publicKeyStr })
           .eq('id', user.id);
-        if (userError) throw new Error(`Failed to update user: ${userError.message}`);
+        if (userError) {
+          console.error('[createEmbeddedWallet] Failed to update user:', userError.message);
+          throw new Error(`Failed to update user: ${userError.message}`);
+        }
 
         await secureStoreWrapper.setItemAsync('walletPublicKey', publicKeyStr);
         await secureStoreWrapper.setItemAsync('walletAddress', publicKeyStr);
@@ -200,7 +276,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       } catch (err) {
         console.error('[createEmbeddedWallet] Error:', err.message);
         setError('Failed to create wallet: ' + err.message);
-        return null;
+        throw err;
       } finally {
         setIsLoading(false);
       }
@@ -230,26 +306,23 @@ export const EmbeddedWalletProvider = ({ children }) => {
           throw new Error('User or wallet not found');
         }
 
-        const { data: walletData, error: walletError } = await supabase
-          .from('user_wallets')
-          .select('address, private_key')
-          .eq('user_id', user.id)
-          .eq('address', userData.wallet_address)
-          .single();
+        const { data: walletData, error: walletError } = await supabase.functions.invoke('airdrop-function/retrieve', {
+          body: { user_id: user.id },
+        });
         if (walletError || !walletData) {
-          throw new Error('Wallet not found');
+          throw new Error('Wallet retrieval failed: ' + (walletError?.message || 'No wallet data'));
         }
 
-        const privateKeyBytes = await decrypt(walletData.private_key);
-        if (privateKeyBytes.length !== 64) {
-          throw new Error('Invalid private key format');
-        }
+        const privateKeyBytes = new Uint8Array(walletData.privateKey);
         const keypair = Keypair.fromSecretKey(privateKeyBytes);
         const publicKeyStr = keypair.publicKey.toString();
 
-        if (publicKeyStr !== walletData.address) {
+        if (publicKeyStr !== walletData.userPublicKey) {
           throw new Error('Public key mismatch');
         }
+
+        // Re-encrypt private key for local storage
+        const privateKeyEncrypted = await encrypt(privateKeyBytes);
 
         const hashedPassword = await Crypto.digestStringAsync(
           Crypto.CryptoDigestAlgorithm.SHA256,
@@ -257,7 +330,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         );
 
         await secureStoreWrapper.setItemAsync('walletPublicKey', publicKeyStr);
-        await secureStoreWrapper.setItemAsync('walletPrivateKey', walletData.private_key);
+        await secureStoreWrapper.setItemAsync('walletPrivateKey', privateKeyEncrypted);
         await secureStoreWrapper.setItemAsync('walletAddress', publicKeyStr);
         await secureStoreWrapper.setItemAsync('transactionPassword', hashedPassword);
         await AsyncStorage.setItem('walletAddress', publicKeyStr);
@@ -267,7 +340,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         setTransactionPassword(hashedPassword);
         setIsWalletConnected(true);
         console.log('[retrieveEmbeddedWallet] Wallet retrieved:', publicKeyStr);
-        return { publicKey: publicKeyStr, privateKey: walletData.private_key };
+        return { publicKey: publicKeyStr, privateKey: privateKeyEncrypted };
       } catch (err) {
         console.error('[retrieveEmbeddedWallet] Error:', err.message);
         setError('Failed to retrieve wallet: ' + err.message);
@@ -336,7 +409,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
       try {
         console.log('[claimTokens] Invoking airdrop for user:', user.id);
-        const { data, error, status } = await supabase.functions.invoke('airdrop-wallet', {
+        const { data, error, status } = await supabase.functions.invoke('airdrop-function/airdrop', {
           body: { user_id: user.id },
         });
 
@@ -396,10 +469,6 @@ export const EmbeddedWalletProvider = ({ children }) => {
         }
 
         const privateKeyBytes = await decrypt(privateKeyEncrypted);
-        if (privateKeyBytes.length !== 64) {
-          throw new Error(`Invalid private key format: length ${privateKeyBytes.length}`);
-        }
-
         const keypair = Keypair.fromSecretKey(privateKeyBytes);
         if (walletPubKey.toString() !== keypair.publicKey.toString()) {
           throw new Error('Private key does not match wallet public key');
@@ -493,13 +562,13 @@ const ConnectButton = () => {
     try {
       const { data, error } = await supabase.from('user_activity').select('user_id').limit(1);
       if (error && error.code === '42P01') {
-        return false;
+        return null;
       }
       if (error) throw error;
       return true;
     } catch (err) {
       console.error('[checkUserActivityTable] Error:', err.message);
-      return false;
+      return null;
     }
   }, []);
 
@@ -529,7 +598,7 @@ const ConnectButton = () => {
             .insert({
               id: user.id,
               email: user.email,
-              name: userMetadata.full_name || user.email.split('@')[0],
+              name: userMetadata.name || user.email.split('@')[0],
               image: userMetadata.avatar_url || '',
               wallet_address: publicKey,
               has_updated_profile: false,
@@ -540,29 +609,6 @@ const ConnectButton = () => {
           userId = newUser.id;
         } else {
           userId = existingUser.id;
-        }
-
-        const { data: existingBalance, error: balanceCheckError } = await supabase
-          .from('wallet_balances')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('chain', 'SOL')
-          .eq('currency', 'SMP')
-          .single();
-        if (balanceCheckError && balanceCheckError.code !== 'PGRST116') {
-          throw balanceCheckError;
-        }
-
-        if (!existingBalance) {
-          const { error: balanceInsertError } = await supabase.from('wallet_balances').insert({
-            user_id: userId,
-            chain: 'SOL',
-            currency: 'SMP',
-            amount: 0,
-            decimals: 6,
-            wallet_address: publicKey,
-          });
-          if (balanceInsertError) throw balanceInsertError;
         }
 
         setUserCreated(true);
@@ -611,13 +657,13 @@ const ConnectButton = () => {
   }, [password, confirmPassword, createEmbeddedWallet, useBiometrics, createUserAndBalance, checkUserActivityTable]);
 
   const handleRetrieveWallet = useCallback(async () => {
-    if (password !== confirmPassword) {
+    if (password !== '') {
       setModalError('Passwords do not match');
-      return;
+      return null;
     }
     if (password.length < 8) {
       setModalError('Password must be at least 8 characters long');
-      return;
+      return false;
     }
     try {
       setIsCreatingWallet(true);
@@ -652,6 +698,7 @@ const ConnectButton = () => {
       setShowReferralPrompt(false);
       Alert.alert('Success', 'Wallet disconnected');
     } catch (err) {
+      console.error('[handleDisconnect] Failed to disconnect wallet:', err.message);
       setModalError('Failed to disconnect wallet: ' + err.message);
     }
   }, [disconnectWallet]);
@@ -660,7 +707,7 @@ const ConnectButton = () => {
     try {
       const hasReferralCode = await AsyncStorage.getItem('hasReferralCode');
       if (!hasReferralCode) {
-        Alert.alert('Referral Code', 'Add a referral code to earn rewards?', [
+        Alert.alert('Success', 'Add a referral code to earn rewards?', [
           {
             text: 'Yes',
             onPress: () => navigation.navigate('EditProfile'),
@@ -678,7 +725,7 @@ const ConnectButton = () => {
   }, [navigation]);
 
   const handleCloseModal = useCallback(() => {
-    setModalVisible(false);
+    setIsModalVisible(false);
     setShowCreateForm(false);
     setShowRetrieveForm(false);
     setShowPasswordSetup(false);
@@ -688,6 +735,7 @@ const ConnectButton = () => {
     setUseBiometrics(false);
     setIsCreating(false);
   }, []);
+  
 
   const renderModalContent = () => {
     if (!isAuthenticated) {
@@ -699,7 +747,7 @@ const ConnectButton = () => {
           <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('SignIn')}>
             <Text style={styles.actionButtonText}>Sign In</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => handleCloseModal()}>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleCloseModal}>
             <Text style={styles.secondaryButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -713,14 +761,14 @@ const ConnectButton = () => {
             {isCreating ? 'Create Wallet - Set Password' : 'Retrieve Wallet - Enter Password'}
           </Text>
           <Text style={styles.modalText}>
-            Set a password for transaction signing (minimum 8 characters).
+            {'Set a password for transaction signing (minimum 8 characters).'}
           </Text>
           <TextInput
             style={styles.input}
             placeholder="Enter Password"
             secureTextEntry
             value={password}
-            onChangeText={(text) => setPassword(text)}
+            onChangeText={(text) => setPasswordText(text)}
             placeholderTextColor="#888"
           />
           <TextInput
@@ -750,7 +798,7 @@ const ConnectButton = () => {
               {isCreatingWallet ? 'Processing...' : 'Confirm'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => handleCloseModal()}>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleCloseModal}>
             <Text style={styles.secondaryButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -818,7 +866,7 @@ const ConnectButton = () => {
         <TouchableOpacity style={styles.actionButton} onPress={() => setShowRetrieveForm(true)}>
           <Text style={styles.actionButtonText}>Retrieve Existing Wallet</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => handleCloseModal()}>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleCloseModal}>
           <Text style={styles.secondaryButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
@@ -836,7 +884,7 @@ const ConnectButton = () => {
           {isLoading
             ? 'Loading...'
             : wallet
-            ? `${wallet.publicKey.toString().slice(0, 6)}...${wallet.publicKey.toString().slice(-4)}`
+            ? `${wallet.publicKey?.toString()?.slice(0, 6)}...${wallet.publicKey?.toString()?.slice(-6)}`
             : isAuthenticated
             ? 'Connect Wallet'
             : 'Sign In'}
@@ -844,7 +892,7 @@ const ConnectButton = () => {
       </TouchableOpacity>
       <Modal
         isVisible={isModalVisible}
-        onBackdropPress={() => handleCloseModal()}
+        onBackdropPress={handleCloseModal}
         style={styles.modal}
         animationIn="slideInUp"
         animationOut="slideOutDown"
@@ -861,7 +909,7 @@ const ConnectButton = () => {
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Complete Your Profile</Text>
           <Text style={styles.modalText}>Update your profile to unlock referral rewards.</Text>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleReferralPrompt()}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleReferralPrompt}>
             <Text style={styles.actionButtonText}>Update Profile</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowReferralPrompt(false)}>
