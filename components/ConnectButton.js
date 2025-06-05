@@ -1,11 +1,9 @@
-// src/components/ConnectButton.js
 import React, { useState, useCallback, useEffect, useContext, createContext } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js';
 import * as Crypto from 'expo-crypto';
-import bs58 from 'bs58';
 import CryptoJS from 'crypto-js';
 import Modal from 'react-native-modal';
 import { useNavigation } from '@react-navigation/native';
@@ -20,17 +18,18 @@ export const EmbeddedWalletContext = createContext();
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
-const KEYPAIR_ENCRYPTION_SECRET = process.env.KEYPAIR_ENCRYPTION_SECRET || 'your-secure-secret';
+const KEYPAIR_ENCRYPTION_SECRET = process.env.KEYPAIR_ENCRYPTION_SECRET || '0162dfbc4a051f147c621d2b73a074f440e375de4f25d3db89fa1959ff70a677';
+
 const encrypt = async (data) => {
-  const dataStr = Buffer.from(data).toString('base64');
-  const encrypted = CryptoJS.AES.encrypt(dataStr, KEYPAIR_ENCRYPTION_SECRET).toString();
+  const dataHex = Buffer.from(data).toString('hex');
+  const encrypted = CryptoJS.AES.encrypt(dataHex, KEYPAIR_ENCRYPTION_SECRET).toString();
   return Buffer.from(encrypted).toString('base64');
 };
 
 const decrypt = async (data) => {
   const encryptedData = Buffer.from(data, 'base64').toString();
   const decrypted = CryptoJS.AES.decrypt(encryptedData, KEYPAIR_ENCRYPTION_SECRET).toString(CryptoJS.enc.Utf8);
-  return Buffer.from(decrypted, 'base64');
+  return Buffer.from(decrypted, 'hex');
 };
 
 const secureStoreWrapper = {
@@ -123,7 +122,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
           const { data: userData, error: userError } = await supabase
             .from('users')
             .select('wallet_address')
-            .eq('email', user.email)
+            .eq('id', user.id)
             .single();
           if (userError) throw new Error(`Supabase user query failed: ${userError.message}`);
           if (userData && userData.wallet_address === publicKeyStr) {
@@ -145,8 +144,6 @@ export const EmbeddedWalletProvider = ({ children }) => {
             console.log('[restoreWallet] Wallet mismatch, clearing');
             await disconnectWallet();
           }
-        } else {
-          console.log('[restoreWallet] No wallet in storage');
         }
       } catch (err) {
         console.error('[restoreWallet] Error:', err.message);
@@ -171,81 +168,35 @@ export const EmbeddedWalletProvider = ({ children }) => {
       try {
         setIsLoading(true);
         console.log('[createEmbeddedWallet] Creating wallet for:', user.email);
-        const keypair = Keypair.generate();
-        const publicKey = keypair.publicKey;
-        const secretKeyBytes = keypair.secretKey;
-        const encryptedPrivateKey = await encrypt(secretKeyBytes);
+        const { data, error } = await supabase.functions.invoke('airdrop-wallet/create-wallet', {
+          body: { user_id: user.id },
+        });
+
+        if (error) throw new Error(error.message || 'Edge function failed');
+        if (!data.userPublicKey) throw new Error('No public key returned');
+
+        const publicKeyStr = data.userPublicKey;
         const hashedPassword = await Crypto.digestStringAsync(
           Crypto.CryptoDigestAlgorithm.SHA256,
           password,
         );
 
-        let referralCode;
-        let isUnique = false;
-        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        while (!isUnique) {
-          referralCode = Array.from({ length: 8 }, () =>
-            characters.charAt(Math.floor(Math.random() * characters.length)),
-          ).join('');
-          const { data } = await supabase
-            .from('users')
-            .select('id')
-            .eq('referral_code', referralCode)
-            .maybeSingle();
-          isUnique = !data;
-        }
-
-        const { data: authUser, error: authError } = await supabase.auth.getUser();
-        if (authError) throw authError;
-        console.log('[createEmbeddedWallet] user.id:', user.id, 'auth.uid:', authUser.user.id);
-        if (user.id !== authUser.user.id) {
-          throw new Error('User ID mismatch');
-        }
-
-        const userMetadata = authUser.user.user_metadata || {};
-        const name = userMetadata.full_name || user.email.split('@')[0];
-        const email = user.email;
-        const image = userMetadata.avatar_url || '';
-
-        const { data: userData, error: userError } = await supabase
+        const { error: userError } = await supabase
           .from('users')
-          .upsert(
-            {
-              id: user.id,
-              email,
-              name,
-              image,
-              wallet_address: publicKey.toString(),
-              referral_code: referralCode,
-              has_updated_profile: false,
-            },
-            { onConflict: 'id' },
-          )
-          .select('id')
-          .single();
-        if (userError) throw userError;
+          .update({ wallet_address: publicKeyStr })
+          .eq('id', user.id);
+        if (userError) throw new Error(`Failed to update user: ${userError.message}`);
 
-        const { error: walletError } = await supabase.from('user_wallets').insert({
-          user_id: userData.id,
-          address: publicKey.toString(),
-          private_key: encryptedPrivateKey,
-        });
-        if (walletError) throw walletError;
-
-        const publicKeyStr = publicKey.toString();
-        console.log('[createEmbeddedWallet] Storing publicKey:', { publicKeyStr, type: typeof publicKeyStr });
         await secureStoreWrapper.setItemAsync('walletPublicKey', publicKeyStr);
-        await secureStoreWrapper.setItemAsync('walletPrivateKey', encryptedPrivateKey);
         await secureStoreWrapper.setItemAsync('walletAddress', publicKeyStr);
         await secureStoreWrapper.setItemAsync('transactionPassword', hashedPassword);
         await AsyncStorage.setItem('walletAddress', publicKeyStr);
 
-        setWallet({ publicKey });
-        setSecretKey(secretKeyBytes);
+        setWallet({ publicKey: new PublicKey(publicKeyStr) });
         setTransactionPassword(hashedPassword);
         setIsWalletConnected(true);
         console.log('[createEmbeddedWallet] Wallet created:', publicKeyStr);
-        return { publicKey: publicKeyStr, privateKey: encryptedPrivateKey };
+        return { publicKey: publicKeyStr };
       } catch (err) {
         console.error('[createEmbeddedWallet] Error:', err.message);
         setError('Failed to create wallet: ' + err.message);
@@ -260,7 +211,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const retrieveEmbeddedWallet = useCallback(
     async (password) => {
       if (!user || user.isGuest) {
-        throw new Error('Sign in with an account to retrieve a wallet');
+        throw new Error('Sign in required to retrieve a wallet');
       }
       if (!password || password.length < 8) {
         throw new Error('Password must be at least 8 characters long');
@@ -272,29 +223,21 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('id, wallet_address')
-          .eq('email', user.email)
+          .select('wallet_address')
+          .eq('id', user.id)
           .single();
         if (userError || !userData) {
           throw new Error('User or wallet not found');
-        }
-        if (typeof userData.wallet_address !== 'string') {
-          console.error('[retrieveEmbeddedWallet] Invalid wallet_address:', userData.wallet_address);
-          throw new Error('Invalid wallet_address format in users table');
         }
 
         const { data: walletData, error: walletError } = await supabase
           .from('user_wallets')
           .select('address, private_key')
-          .eq('user_id', userData.id)
+          .eq('user_id', user.id)
           .eq('address', userData.wallet_address)
           .single();
         if (walletError || !walletData) {
-          throw new Error('Wallet not found in user_wallets table');
-        }
-        if (typeof walletData.address !== 'string' || typeof walletData.private_key !== 'string') {
-          console.error('[retrieveEmbeddedWallet] Invalid wallet data:', walletData);
-          throw new Error('Invalid wallet data format from user_wallets table');
+          throw new Error('Wallet not found');
         }
 
         const privateKeyBytes = await decrypt(walletData.private_key);
@@ -302,11 +245,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
           throw new Error('Invalid private key format');
         }
         const keypair = Keypair.fromSecretKey(privateKeyBytes);
-        const publicKey = keypair.publicKey;
-        const publicKeyStr = publicKey.toString();
+        const publicKeyStr = keypair.publicKey.toString();
 
         if (publicKeyStr !== walletData.address) {
-          throw new Error('Public key mismatch between keypair and stored address');
+          throw new Error('Public key mismatch');
         }
 
         const hashedPassword = await Crypto.digestStringAsync(
@@ -314,14 +256,13 @@ export const EmbeddedWalletProvider = ({ children }) => {
           password,
         );
 
-        console.log('[retrieveEmbeddedWallet] Storing publicKey:', { publicKeyStr, type: typeof publicKeyStr });
         await secureStoreWrapper.setItemAsync('walletPublicKey', publicKeyStr);
         await secureStoreWrapper.setItemAsync('walletPrivateKey', walletData.private_key);
         await secureStoreWrapper.setItemAsync('walletAddress', publicKeyStr);
         await secureStoreWrapper.setItemAsync('transactionPassword', hashedPassword);
         await AsyncStorage.setItem('walletAddress', publicKeyStr);
 
-        setWallet({ publicKey });
+        setWallet({ publicKey: keypair.publicKey });
         setSecretKey(privateKeyBytes);
         setTransactionPassword(hashedPassword);
         setIsWalletConnected(true);
@@ -377,9 +318,8 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const getClaimCount = useCallback(async () => {
     try {
       const { count, error } = await supabase
-        .from('user_activity')
-        .select('user_id', { count: 'exact' })
-        .eq('has_claimed_airdrop', true);
+        .from('airdrop_transactions')
+        .select('id', { count: 'exact' });
       if (error) throw error;
       console.log('[getClaimCount] Claim count:', count);
       return count || 0;
@@ -391,65 +331,18 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
   const claimTokens = useCallback(
     async () => {
-      if (!user) {
+      if (!user || user.isGuest) {
         throw new Error('No user authenticated');
       }
       try {
-        console.log('[claimTokens] Checking airdrop eligibility for user:', user.id);
-
-        // Check if user has already claimed
-        const { data: activity, error: activityError } = await supabase
-          .from('user_activity')
-          .select('has_claimed_airdrop')
-          .eq('user_id', user.id)
-          .single();
-        if (activityError && activityError.code !== 'PGRST116') {
-          console.error('[claimTokens] Activity check error:', activityError);
-          throw activityError;
-        }
-        if (activity?.has_claimed_airdrop) {
-          throw new Error('Airdrop already claimed');
-        }
-
-        // Check claim count
-        const claimCount = await getClaimCount();
-        if (claimCount >= 500) {
-          throw new Error('Airdrop limit of 500 users reached');
-        }
-
-        // Get user wallet
-        const { data: walletData, error: walletError } = await supabase
-          .from('user_wallets')
-          .select('address')
-          .eq('user_id', user.id)
-          .single();
-        if (walletError || !walletData) {
-          console.error('[claimTokens] Wallet error:', walletError);
-          throw new Error('Wallet not found');
-        }
-
-        // Check if SMP ATA exists
-        const userPublicKey = new PublicKey(walletData.address);
-        const smpAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, userPublicKey);
-        const ataInfo = await connection.getAccountInfo(smpAta);
-        if (ataInfo) {
-          console.log('[claimTokens] SMP ATA exists for user:', user.id);
-          throw new Error('Airdrop already claimed (SMP ATA exists)');
-        }
-
-        // Invoke airdrop
-        console.log('[claimTokens] Invoking airdrop-wallet for user:', user.id);
-        const response = await supabase.functions.invoke('airdrop-wallet', {
+        console.log('[claimTokens] Invoking airdrop for user:', user.id);
+        const { data, error, status } = await supabase.functions.invoke('airdrop-wallet', {
           body: { user_id: user.id },
         });
-        const { data, error, status } = response;
+
         if (error || status !== 200) {
           console.error('[claimTokens] Edge function response:', { status, data, error });
-          throw new Error(
-            data?.error ||
-              error?.message ||
-              `Airdrop failed: Edge Function returned status ${status}`,
-          );
+          throw new Error(data?.error || error?.message || `Airdrop failed: Status ${status}`);
         }
         if (data.confirmationError) {
           console.error('[claimTokens] Transaction confirmation error:', data.confirmationError);
@@ -460,49 +353,13 @@ export const EmbeddedWalletProvider = ({ children }) => {
           throw new Error('Airdrop failed: No transaction signature returned');
         }
         console.log('[claimTokens] Airdrop successful:', data.signature);
-
-        // Update user_activity
-        const { error: activityUpdateError } = await supabase
-          .from('user_activity')
-          .upsert(
-            {
-              user_id: user.id,
-              has_claimed_airdrop: true,
-              last_claim_timestamp: new Date().toISOString(),
-            },
-            { onConflict: 'user_id' },
-          );
-        if (activityUpdateError) {
-          console.error('[claimTokens] Activity update error:', activityUpdateError);
-          throw new Error(`Failed to update user activity: ${activityUpdateError.message}`);
-        }
-
-        // Update wallet_balances
-        const { error: balanceError } = await supabase
-          .from('wallet_balances')
-          .upsert(
-            {
-              user_id: user.id,
-              chain: 'SOL',
-              currency: 'SMP',
-              amount: 1000000,
-              decimals: 6,
-              wallet_address: data.userPublicKey,
-            },
-            { onConflict: ['user_id', 'chain', 'currency'] },
-          );
-        if (balanceError) {
-          console.error('[claimTokens] Balance update error:', balanceError);
-          throw new Error(`Failed to update balance: ${balanceError.message}`);
-        }
-
         return data.signature;
       } catch (err) {
-        console.error('[claimTokens] Error claiming tokens:', err.message, err);
+        console.error('[claimTokens] Error claiming tokens:', err.message);
         throw err;
       }
     },
-    [user, getClaimCount],
+    [user],
   );
 
   const signAndSendTransaction = useCallback(
@@ -514,35 +371,13 @@ export const EmbeddedWalletProvider = ({ children }) => {
         if (!transaction) {
           throw new Error('No transaction provided');
         }
-        console.log('[signAndSendTransaction] Starting with wallet:', {
-          publicKey: wallet.publicKey.toString(),
-          type: typeof wallet.publicKey,
-        });
+        console.log('[signAndSendTransaction] Starting with wallet:', wallet.publicKey.toString());
 
-        let walletPubKey;
-        try {
-          walletPubKey = wallet.publicKey instanceof PublicKey ? wallet.publicKey : new PublicKey(wallet.publicKey);
-        } catch (err) {
-          console.error('[signAndSendTransaction] Invalid public key:', err);
-          throw new Error('Invalid wallet public key');
-        }
+        const walletPubKey = wallet.publicKey instanceof PublicKey ? wallet.publicKey : new PublicKey(wallet.publicKey);
 
         const isVersionedTransaction = transaction.version !== undefined;
-        if (!isVersionedTransaction) {
-          if (!transaction.instructions || !Array.isArray(transaction.instructions)) {
-            throw new Error('Invalid transaction: missing or invalid instructions');
-          }
-        }
-
-        let privateKeyEncrypted;
-        try {
-          privateKeyEncrypted = await secureStoreWrapper.getItemAsync('walletPrivateKey');
-          if (!privateKeyEncrypted) {
-            throw new Error('Private key unavailable');
-          }
-        } catch (err) {
-          console.error('[signAndSendTransaction] Error retrieving private key:', err);
-          throw err;
+        if (!isVersionedTransaction && (!transaction.instructions || !Array.isArray(transaction.instructions))) {
+          throw new Error('Invalid transaction: missing or invalid instructions');
         }
 
         if (!useBiometrics && !inputPassword) {
@@ -555,53 +390,40 @@ export const EmbeddedWalletProvider = ({ children }) => {
           }
         }
 
+        const privateKeyEncrypted = await secureStoreWrapper.getItemAsync('walletPrivateKey');
+        if (!privateKeyEncrypted) {
+          throw new Error('Private key unavailable');
+        }
+
         const privateKeyBytes = await decrypt(privateKeyEncrypted);
         if (privateKeyBytes.length !== 64) {
           throw new Error(`Invalid private key format: length ${privateKeyBytes.length}`);
         }
 
         const keypair = Keypair.fromSecretKey(privateKeyBytes);
-        const keypairPubKeyStr = keypair.publicKey.toString();
-        if (walletPubKey.toString() !== keypairPubKeyStr) {
-          console.error('[signAndSendTransaction] Public key mismatch:', {
-            wallet: walletPubKey.toString(),
-            keypair: keypairPubKeyStr,
-          });
+        if (walletPubKey.toString() !== keypair.publicKey.toString()) {
           throw new Error('Private key does not match wallet public key');
         }
 
         if (!isVersionedTransaction) {
           if (!transaction.recentBlockhash) {
-            console.log('[signAndSendTransaction] Getting recent blockhash...');
             const { blockhash } = await connection.getLatestBlockhash('confirmed');
             transaction.recentBlockhash = blockhash;
           }
           if (!transaction.feePayer) {
-            console.log('[signAndSendTransaction] Setting fee payer...');
             transaction.feePayer = walletPubKey;
           }
         }
 
         console.log('[signAndSendTransaction] Signing transaction...');
-        try {
-          if (isVersionedTransaction) {
-            transaction.sign([keypair]);
-          } else {
-            transaction.partialSign(keypair);
-          }
-        } catch (err) {
-          console.error('[signAndSendTransaction] Error signing transaction:', err);
-          throw new Error('Failed to sign transaction: ' + err.message);
+        if (isVersionedTransaction) {
+          transaction.sign([keypair]);
+        } else {
+          transaction.partialSign(keypair);
         }
 
         console.log('[signAndSendTransaction] Serializing transaction...');
-        let serializedTx;
-        try {
-          serializedTx = transaction.serialize();
-        } catch (err) {
-          console.error('[signAndSendTransaction] Error serializing transaction:', err);
-          throw new Error('Failed to serialize transaction: ' + err.message);
-        }
+        const serializedTx = transaction.serialize();
 
         console.log('[signAndSendTransaction] Sending transaction...');
         const signature = await connection.sendRawTransaction(serializedTx, {
@@ -611,7 +433,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         console.log('[signAndSendTransaction] Signature:', signature);
         return signature;
       } catch (err) {
-        console.error('[signAndSendTransaction] Error:', err);
+        console.error('[signAndSendTransaction] Error:', err.message);
         throw err;
       }
     },
@@ -688,13 +510,10 @@ const ConnectButton = () => {
         return;
       }
       try {
-        if (typeof publicKey !== 'string') {
-          throw new Error(`Invalid publicKey type: ${typeof publicKey}`);
-        }
         const { data: existingUser, error: userCheckError } = await supabase
           .from('users')
           .select('id')
-          .eq('email', user.email)
+          .eq('id', user.id)
           .single();
         if (userCheckError && userCheckError.code !== 'PGRST116') {
           throw userCheckError;
@@ -719,8 +538,23 @@ const ConnectButton = () => {
             .single();
           if (createError) throw createError;
           userId = newUser.id;
+        } else {
+          userId = existingUser.id;
+        }
 
-          const { error: balanceError } = await supabase.from('wallet_balances').insert({
+        const { data: existingBalance, error: balanceCheckError } = await supabase
+          .from('wallet_balances')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('chain', 'SOL')
+          .eq('currency', 'SMP')
+          .single();
+        if (balanceCheckError && balanceCheckError.code !== 'PGRST116') {
+          throw balanceCheckError;
+        }
+
+        if (!existingBalance) {
+          const { error: balanceInsertError } = await supabase.from('wallet_balances').insert({
             user_id: userId,
             chain: 'SOL',
             currency: 'SMP',
@@ -728,47 +562,7 @@ const ConnectButton = () => {
             decimals: 6,
             wallet_address: publicKey,
           });
-          if (balanceError) throw balanceError;
-        } else {
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ wallet_address: publicKey })
-            .eq('id', existingUser.id);
-          if (updateError) throw updateError;
-          userId = existingUser.id;
-
-          const { data: existingBalance, error: balanceCheckError } = await supabase
-            .from('wallet_balances')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('chain', 'SOL')
-            .eq('currency', 'SMP')
-            .single();
-          if (balanceCheckError && balanceCheckError.code !== 'PGRST116') {
-            throw balanceCheckError;
-          }
-
-          if (existingBalance) {
-            if (existingBalance.wallet_address !== publicKey) {
-              const { error: balanceUpdateError } = await supabase
-                .from('wallet_balances')
-                .update({ wallet_address: publicKey })
-                .eq('user_id', userId)
-                .eq('chain', 'SOL')
-                .eq('currency', 'SMP');
-              if (balanceUpdateError) throw balanceUpdateError;
-            }
-          } else {
-            const { error: balanceInsertError } = await supabase.from('wallet_balances').insert({
-              user_id: userId,
-              chain: 'SOL',
-              currency: 'SMP',
-              amount: 0,
-              decimals: 6,
-              wallet_address: publicKey,
-            });
-            if (balanceInsertError) throw balanceInsertError;
-          }
+          if (balanceInsertError) throw balanceInsertError;
         }
 
         setUserCreated(true);

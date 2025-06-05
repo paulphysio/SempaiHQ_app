@@ -12,23 +12,22 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../services/supabaseClient';
 
-// Supabase project URL
-const SUPABASE_URL = 'https://xqeimsncmnqsiowftdmz.supabase.co';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://<project-ref>.supabase.co';
 const EDGE_FUNCTION_VERSION = '1.0.0';
 const MAX_CLAIMS = 500;
 
-const TokenClaimModal = ({ visible, onClose, userId }) => {
+const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
   const [claimCount, setClaimCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [serviceStatus, setServiceStatus] = useState(null);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 2000;
 
-  // Check if the airdrop service is available
-  const checkServiceHealth = async (session) => {
+  const checkServiceHealth = async () => {
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No session');
       const response = await fetch(`${SUPABASE_URL}/functions/v1/airdrop-wallet/health`, {
         method: 'GET',
         headers: {
@@ -36,13 +35,8 @@ const TokenClaimModal = ({ visible, onClose, userId }) => {
           'x-client-version': EDGE_FUNCTION_VERSION,
         },
       });
-
-      if (response.ok) {
-        const health = await response.json();
-        console.log('[TokenClaimModal] Service health check:', health);
-        return health.status === 'ok';
-      }
-      return false;
+      const health = await response.json();
+      return health.status === 'ok';
     } catch (err) {
       console.error('[TokenClaimModal] Health check failed:', err);
       return false;
@@ -53,13 +47,9 @@ const TokenClaimModal = ({ visible, onClose, userId }) => {
     const fetchClaimCount = async () => {
       try {
         const { count, error } = await supabase
-          .from('user_activity')
-          .select('user_id', { count: 'exact' })
-          .eq('has_claimed_airdrop', true);
-        if (error) {
-          throw new Error(`Supabase error: ${error.message}`);
-        }
-        console.log('[TokenClaimModal] Claim count:', count);
+          .from('airdrop_transactions')
+          .select('id', { count: 'exact' });
+        if (error) throw new Error(`Supabase error: ${error.message}`);
         setClaimCount(count || 0);
       } catch (err) {
         console.error('[TokenClaimModal] Error loading claim count:', err.message);
@@ -71,225 +61,49 @@ const TokenClaimModal = ({ visible, onClose, userId }) => {
       fetchClaimCount();
       setErrorMessage(null);
       setRetryCount(0);
-      setServiceStatus(null);
     }
   }, [visible]);
 
-  const onTokenClaim = async () => {
-    try {
-      // Check authentication state
-      let { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      console.log('[TokenClaimModal] Initial session:', session, 'Session Error:', sessionError);
-      
-      if (sessionError || !session?.access_token) {
-        const { data: refreshedSession, error: refreshError } = await supabase.auth.refreshSession();
-        console.log('[TokenClaimModal] Refreshed session:', refreshedSession, 'Refresh Error:', refreshError);
-        if (refreshError || !refreshedSession?.session?.access_token) {
-          throw new Error('User not authenticated');
-        }
-        session = refreshedSession.session;
-      }
-
-      // Check service health before proceeding
-      const isHealthy = await checkServiceHealth(session);
-      if (!isHealthy) {
-        setServiceStatus('unavailable');
-        throw new Error('The airdrop service is currently unavailable. Please try again later.');
-      }
-      setServiceStatus('available');
-
-      // Verify userId matches authenticated user
-      const { data: user, error: userError } = await supabase.auth.getUser();
-      console.log('[TokenClaimModal] Authenticated user:', user, 'User Error:', userError);
-      
-      if (userError || !user?.user?.id) {
-        throw new Error('Failed to fetch authenticated user');
-      }
-      if (userId && userId !== user.user.id) {
-        throw new Error('Provided user ID does not match authenticated user');
-      }
-
-      // First check if user has already claimed
-      const { data: existingClaim, error: claimError } = await supabase
-        .from('user_activity')
-        .select('has_claimed_airdrop')
-        .eq('user_id', userId || user.user.id)
-        .single();
-        
-      if (claimError && claimError.code !== 'PGRST116') {
-        throw new Error('Failed to check claim status');
-      }
-      
-      if (existingClaim?.has_claimed_airdrop) {
-        throw new Error('You have already claimed the airdrop');
-      }
-
-      // Call the airdrop function
-      const requestBody = { 
-        user_id: userId || user.user.id,
-        encryption_version: 'aes-256-cbc',
-        client_version: EDGE_FUNCTION_VERSION
-      };
-      console.log('[TokenClaimModal] Request body:', requestBody);
-
-      let controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-
-      try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/airdrop-wallet`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            'x-client-info': 'TokenClaimModal/1.0',
-            'x-client-version': EDGE_FUNCTION_VERSION,
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        // Log response details for debugging
-        console.log('[TokenClaimModal] Response status:', response.status);
-        console.log('[TokenClaimModal] Response headers:', Object.fromEntries(response.headers.entries()));
-
-        let result;
-        const contentType = response.headers.get('content-type');
-        const responseText = await response.text();
-        console.log('[TokenClaimModal] Response text:', responseText);
-
-        try {
-          result = JSON.parse(responseText);
-        } catch (e) {
-          console.error('[TokenClaimModal] JSON parse error:', e);
-          
-          // Check for early drop or timeout
-          if (responseText.includes('EarlyDrop') || e.name === 'AbortError') {
-            throw new Error('The request took too long to process. This might mean high network latency or server load. Please try again.');
-          }
-          
-          if (response.status === 500) {
-            const serverVersion = response.headers.get('x-server-version');
-            if (serverVersion && serverVersion !== EDGE_FUNCTION_VERSION) {
-              throw new Error(`Version mismatch. Please refresh the page and try again. (Client: ${EDGE_FUNCTION_VERSION}, Server: ${serverVersion})`);
-            }
-            throw new Error('Server error: The airdrop service is temporarily unavailable. Please try again in a few minutes.');
-          } else {
-            throw new Error(`Invalid response from server: ${responseText}`);
-          }
-        }
-
-        if (!response.ok) {
-          if (response.status === 408 || response.status === 504) {
-            throw new Error('The request timed out. Please try again.');
-          }
-          throw new Error(result.error || `Server error: ${response.status}`);
-        }
-
-        if (result.confirmationError) {
-          throw new Error(`Transaction failed: ${result.confirmationError}`);
-        }
-
-        if (!result.signature) {
-          throw new Error('No transaction signature returned');
-        }
-
-        return result.signature;
-      } catch (err) {
-        if (err.name === 'AbortError') {
-          throw new Error('The request took too long to complete. Please try again.');
-        }
-        throw err;
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    } catch (err) {
-      console.error('[TokenClaimModal] Claim error:', err);
-      throw err;
-    }
-  };
-
   const handleClaim = async () => {
     if (isLoading || claimCount >= MAX_CLAIMS) return;
-
     setIsLoading(true);
     setErrorMessage(null);
 
     let attempts = retryCount;
-    const maxAttempts = MAX_RETRIES;
-    const baseDelay = RETRY_DELAY;
-
-    while (attempts < maxAttempts) {
+    while (attempts < MAX_RETRIES) {
       try {
+        const isHealthy = await checkServiceHealth();
+        if (!isHealthy) throw new Error('Airdrop service unavailable');
+
         const signature = await onTokenClaim();
-        
-        // Update user_activity to mark the claim
-        const { error: updateError } = await supabase
-          .from('user_activity')
-          .upsert(
-            { 
-              user_id: userId, 
-              has_claimed_airdrop: true,
-              last_claim_timestamp: new Date().toISOString()
-            }, 
-            { onConflict: 'user_id' }
-          );
-
-        if (updateError) {
-          console.warn('[TokenClaimModal] Failed to update claim status:', updateError.message);
-        }
-
-        Alert.alert(
-          'Success', 
-          `Airdrop claimed!\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`
-        );
-        
+        Alert.alert('Success', `Airdrop claimed!\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`);
         setClaimCount(prev => prev + 1);
         setRetryCount(0);
-        setServiceStatus(null);
         onClose();
         return;
       } catch (err) {
-        console.error(`[TokenClaimModal] Attempt ${attempts + 1}/${maxAttempts} failed:`, err);
-        
-        // Handle specific errors
+        console.error(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`, err);
         if (
           err.message.includes('already claimed') ||
           err.message.includes('User not found') ||
           err.message.includes('Airdrop limit') ||
-          err.message.includes('Invalid JWT') ||
-          err.message.includes('User not authenticated') ||
-          err.message.includes('Provided user ID') ||
-          err.message.includes('Failed to fetch authenticated user') ||
-          err.message.includes('Version mismatch')
+          err.message.includes('Invalid or expired token')
         ) {
           setErrorMessage(err.message);
-          break; // Don't retry these errors
+          break;
         }
 
-        // For server errors, use exponential backoff
         attempts++;
         setRetryCount(attempts);
-        
-        if (attempts < maxAttempts) {
-          const delay = baseDelay * Math.pow(2, attempts - 1); // Exponential backoff
-          setErrorMessage(`Server error (attempt ${attempts}/${maxAttempts}). Retrying in ${delay/1000} seconds...`);
+        if (attempts < MAX_RETRIES) {
+          const delay = RETRY_DELAY * Math.pow(2, attempts - 1);
+          setErrorMessage(`Server error (attempt ${attempts}/${MAX_RETRIES}). Retrying in ${delay/1000} seconds...`);
           await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
+        } else {
+          setErrorMessage('The airdrop service is currently unavailable. Please try again later.');
         }
-        
-        setErrorMessage(
-          err.message.includes('took too long') || err.message.includes('timed out')
-            ? 'The server is experiencing high load. Please try again in a few minutes.'
-            : err.message.includes('Server error')
-              ? err.message
-              : 'The airdrop service is currently unavailable. Please try again later.'
-        );
       }
     }
-
     setIsLoading(false);
   };
 
@@ -312,28 +126,19 @@ const TokenClaimModal = ({ visible, onClose, userId }) => {
               <Text style={styles.title}>Token Faucet</Text>
               <Text style={styles.message}>
                 {claimCount >= MAX_CLAIMS
-                  ? "Sorry, the faucet has been emptied out! Please fund your wallet and buy some SMP to read and participate in the read to earn economy!"
-                  : "Hi, please claim your 1 million Sempai Tokens"}
+                  ? "Sorry, the faucet has been emptied out!"
+                  : "Claim your 1 million Sempai Tokens"}
               </Text>
-              
               <View style={styles.counterContainer}>
                 <Text style={styles.counterText}>
                   Claims: {claimCount}/{MAX_CLAIMS}
                 </Text>
               </View>
-
               {errorMessage && (
                 <View style={styles.errorContainer}>
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 </View>
               )}
-
-              {serviceStatus === 'unavailable' && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>Service Status: Unavailable</Text>
-                </View>
-              )}
-
               <TouchableOpacity
                 style={[
                   styles.claimButton,
@@ -352,17 +157,13 @@ const TokenClaimModal = ({ visible, onClose, userId }) => {
                 ) : (
                   <Text style={[
                     styles.claimButtonText,
-                    (claimCount >= MAX_CLAIMS) && styles.claimButtonTextDisabled,
+                    claimCount >= MAX_CLAIMS && styles.claimButtonTextDisabled,
                   ]}>
                     Claim Tokens
                   </Text>
                 )}
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={onClose}
-              >
+              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
                 <Text style={styles.closeButtonText}>Close</Text>
               </TouchableOpacity>
             </View>

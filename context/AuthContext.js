@@ -1,27 +1,8 @@
-// src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
 
 const AuthContext = createContext();
-
-const secureStoreWrapper = {
-  deleteItemAsync: async (key) => {
-    try {
-      if (Platform.OS === 'web') {
-        localStorage.removeItem(key);
-      } else {
-        await SecureStore.deleteItemAsync(key);
-      }
-      console.log(`[secureStoreWrapper] Deleted ${key}`);
-    } catch (err) {
-      console.error(`[secureStoreWrapper] Error deleting ${key}:`, err.message);
-      throw err;
-    }
-  },
-};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -170,9 +151,12 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.removeItem('user');
       await AsyncStorage.removeItem('skippedSignIn');
       await AsyncStorage.removeItem('walletAddress');
+      await AsyncStorage.removeItem('hasReferralCode');
       await secureStoreWrapper.deleteItemAsync('walletPublicKey');
       await secureStoreWrapper.deleteItemAsync('walletPrivateKey');
       await secureStoreWrapper.deleteItemAsync('walletAddress');
+      await secureStoreWrapper.deleteItemAsync('transactionPassword');
+      await secureStoreWrapper.deleteItemAsync('useBiometrics');
       setUser(null);
       setSkippedSignIn(false);
       return true;
@@ -197,9 +181,12 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.setItem('user', JSON.stringify(guestUser));
       setUser(guestUser);
       await AsyncStorage.removeItem('walletAddress');
+      await AsyncStorage.removeItem('hasReferralCode');
       await secureStoreWrapper.deleteItemAsync('walletPublicKey');
       await secureStoreWrapper.deleteItemAsync('walletPrivateKey');
       await secureStoreWrapper.deleteItemAsync('walletAddress');
+      await secureStoreWrapper.deleteItemAsync('transactionPassword');
+      await secureStoreWrapper.deleteItemAsync('useBiometrics');
       return true;
     } catch (err) {
       console.error('[skipSignIn] Error:', err.message);

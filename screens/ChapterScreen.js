@@ -146,7 +146,7 @@ const ChapterScreen = () => {
   const fetchPrices = useCallback(async () => {
     try {
       const cacheKey = 'priceCache';
-      const cacheExpiry = 5 * 60 * 1000;
+      const cacheExpiry = 5 * 60 * 1000; // 5 minutes
 
       const cachedData = await SecureStore.getItemAsync(cacheKey);
       if (cachedData) {
@@ -158,54 +158,39 @@ const ChapterScreen = () => {
         }
       }
 
-      let smpSolPrice = 0.0001;
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const response = await fetch('https://dlmm-api.meteora.ag/pair/6uTXoUh8yVkgSWwPayqcvFTeWyj38KgxQ7ErUfcCmKVv', {
-            headers: { 'Accept': 'application/json' },
-            timeout: 5000,
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data?.current_price) {
-              smpSolPrice = data.current_price;
-              console.log('[fetchPrices] SMP-SOL price from Meteora:', smpSolPrice);
-              break;
-            }
-          }
-          console.warn(`[fetchPrices] Meteora API attempt ${attempt + 1} failed:`, response.status);
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-        } catch (error) {
-          console.warn(`[fetchPrices] Meteora API attempt ${attempt + 1} error:`, error.message);
-          if (attempt === 2) console.warn('[fetchPrices] Using default SMP-SOL price.');
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-        }
-      }
-
-      let solPrice = 100;
+      // Fetch SOL price from CoinGecko
+      let solPrice = 100; // Default value
       try {
-        const response = await fetch('https://dlmm-api.meteora.ag/pair/6uTXoUh8yVkgSWwPayqcvFTeWyj38KgxQ7ErUfcCmKVv', {
-          headers: { 'Accept': 'application/json' },
-          timeout: 5000,
-        });
-
+        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
         if (response.ok) {
           const data = await response.json();
-          if (data?.current_price) {
-            solPrice = data.current_price;
-            console.log('[fetchPrices] SOL-USDC price:', solPrice);
+          if (data?.solana?.usd) {
+            solPrice = data.solana.usd;
+            console.log('[fetchPrices] SOL-USD price from CoinGecko:', solPrice);
           }
         }
       } catch (error) {
         console.warn('[fetchPrices] Failed to fetch SOL price:', error.message);
       }
 
-      const smpPrice = smpSolPrice * solPrice;
-      console.log('[fetchPrices] Calculated SMP-USD price:', smpPrice);
+      // Fetch SMP price from Meteora
+      let smpPrice = 0.01; // Default value
+      try {
+        const response = await fetch('https://dlmm-api.meteora.ag/pair/6uTXoUh8yVkgSWwPayqcvFTeWyj38KgxQ7ErUfcCmKVv');
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.current_price) {
+            // Convert SMP-SOL price to SMP-USD
+            smpPrice = data.current_price * solPrice;
+            console.log('[fetchPrices] SMP-USD price calculated:', smpPrice);
+          }
+        }
+      } catch (error) {
+        console.warn('[fetchPrices] Failed to fetch SMP price:', error.message);
+      }
 
       setSolPrice(solPrice);
-      setSmpPrice(smpPrice || 0.01);
+      setSmpPrice(smpPrice);
 
       await SecureStore.setItemAsync(cacheKey, JSON.stringify({
         timestamp: Date.now(),
@@ -240,14 +225,25 @@ const ChapterScreen = () => {
   }, [activeWalletAddress, fetchSmpBalanceOnChain]);
 
   const fetchNovel = useCallback(async (id, chapter) => {
+    if (!id) {
+      console.error('[fetchNovel] Missing novel ID');
+      setError('Invalid novel ID.');
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('novels')
         .select('id, title, chaptertitles, chaptercontents, advance_chapters, user_id')
         .eq('id', id)
         .single();
+
       if (error) throw new Error(error.message);
-      if (!data || !data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
+      if (!data) throw new Error('Novel not found');
+      if (!data.id) throw new Error('Invalid novel data received');
+      if (!data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
+
+      console.log('[fetchNovel] Successfully fetched novel:', { id: data.id, chapter });
       setNovel(data);
       setAdvanceInfo(data.advance_chapters?.find((c) => c.index === parseInt(chapter)) || {
         is_advance: false,
@@ -255,7 +251,8 @@ const ChapterScreen = () => {
       });
     } catch (error) {
       console.error('[fetchNovel] Error:', error);
-      setError('Unable to load chapter.');
+      setError(error.message || 'Unable to load chapter.');
+      setNovel(null);
     } finally {
       setLoading(false);
     }
@@ -309,8 +306,18 @@ const ChapterScreen = () => {
   }, [activeWalletAddress, novelId]);
 
   const checkAccess = useCallback(async (walletAddress, novelData, chapterNum) => {
-    if (!novelData || chapterNum === undefined) return;
+    if (!walletAddress || !novelData || !novelData.id || chapterNum === undefined) {
+      console.log('[checkAccess] Invalid input:', { walletAddress, novelId: novelData?.id, chapterNum });
+      return;
+    }
+
     try {
+      // Validate UUID format
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(novelData.id)) {
+        console.error('[checkAccess] Invalid UUID format:', novelData.id);
+        throw new Error('Invalid novel ID format');
+      }
+
       const advanceInfo = novelData.advance_chapters?.find((c) => c.index === chapterNum) || {
         is_advance: false,
         free_release_date: null,
@@ -318,6 +325,13 @@ const ChapterScreen = () => {
 
       setIsAdvanceChapter(advanceInfo.is_advance);
       setIsUnlockedViaSubscription(false);
+
+      if (!userId) {
+        console.log('[checkAccess] No userId available, skipping payment check');
+        setIsLocked(true);
+        setCanUnlockNextThree(true);
+        return;
+      }
 
       const { data: payment, error: paymentError } = await supabase
         .from('chapter_payments')
@@ -328,6 +342,7 @@ const ChapterScreen = () => {
         .single();
 
       if (paymentError && paymentError.code !== 'PGRST116') {
+        console.error('[checkAccess] Payment check error:', paymentError);
         throw paymentError;
       }
 
@@ -346,6 +361,7 @@ const ChapterScreen = () => {
           .single();
 
         if (unlockError && unlockError.code !== 'PGRST116') {
+          console.error('[checkAccess] Unlock check error:', unlockError);
           throw unlockError;
         }
 
@@ -367,10 +383,12 @@ const ChapterScreen = () => {
       }
     } catch (error) {
       console.error('[checkAccess] Error:', error);
-      setError('Failed to verify chapter access.');
+      setError('Failed to verify chapter access. Please try again.');
       setTimeout(() => setError(null), 5000);
+      setIsLocked(true);
+      setCanUnlockNextThree(false);
     }
-  }, []);
+  }, [userId]);
 
   const shouldShowContent = useCallback(() => {
     if (!isWalletConnected) return false;
@@ -707,8 +725,19 @@ const ChapterScreen = () => {
   }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected]);
 
   useEffect(() => {
-    if (novel && chapterId && isWalletConnected) {
-      checkAccess(activeWalletAddress, novel, parseInt(chapterId, 10));
+    if (novel && chapterId && isWalletConnected && activeWalletAddress) {
+      const chapterNum = parseInt(chapterId, 10);
+      if (isNaN(chapterNum)) {
+        console.error('[useEffect checkAccess] Invalid chapter number:', chapterId);
+        setError('Invalid chapter number');
+        return;
+      }
+      console.log('[useEffect checkAccess] Checking access:', {
+        walletAddress: activeWalletAddress,
+        novelId: novel.id,
+        chapterNum
+      });
+      checkAccess(activeWalletAddress, novel, chapterNum);
       checkHasReadChapter(chapterId);
     }
   }, [novel, activeWalletAddress, chapterId, checkAccess, checkHasReadChapter, isWalletConnected]);
@@ -868,10 +897,10 @@ const ChapterScreen = () => {
     : 'This chapter is locked.';
   const threeChaptersSol = solPrice ? (3 / solPrice).toFixed(4) : 'N/A';
   const fullChaptersSol = solPrice ? (15 / solPrice).toFixed(4) : 'N/A';
-  const threeChaptersUsdc = (3 / usdcPrice).toFixed(2);
-  const fullChaptersUsdc = (15 / usdcPrice).toFixed(2);
-  const threeChaptersSmp = smpPrice ? (3 / smpPrice).toFixed(2) : 'N/A';
-  const fullChaptersSmp = smpPrice ? (15 / smpPrice).toFixed(2) : 'N/A';
+  const threeChaptersUsdc = 3;
+  const fullChaptersUsdc = 15;
+  const threeChaptersSmp = smpPrice ? Math.ceil(3 / smpPrice) : 'N/A';
+  const fullChaptersSmp = smpPrice ? Math.ceil(15 / smpPrice) : 'N/A';
 
   return (
     <SafeAreaView style={styles.container}>

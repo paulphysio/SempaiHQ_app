@@ -90,12 +90,33 @@ export const GoogleAuthProvider = ({ children }) => {
       console.log('ID Token acquired:', idToken.substring(0, 20) + '...');
 
       setLoading(true);
+
+      // Check if user already exists in Supabase
+      const email = userInfo.data?.user?.email;
+      const { data: existingUser, error: userCheckError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (userCheckError && userCheckError.code !== 'PGRST116') { // PGRST116 means no rows found
+        throw userCheckError;
+      }
+
+      // Sign in with Supabase
       const { data, error: signInError } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
       });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        if (signInError.message.includes('duplicate key value violates unique constraint')) {
+          console.log('User already exists, proceeding with sign-in...');
+        } else {
+          throw signInError;
+        }
+      }
+
       console.log('Supabase Sign-In successful:', !!data.session);
       setSession(data.session);
       await AsyncStorage.setItem('@user', JSON.stringify(userInfo.data));

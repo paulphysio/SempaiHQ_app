@@ -502,7 +502,7 @@ const NovelsPageScreen = () => {
     <View style={styles.bookCard}>
       <TouchableOpacity
         style={styles.bookLink}
-        onPress={() => navigation.navigate('Novel', { id: item.id })}
+        onPress={() => navigation.navigate('NovelDetail', { id: item.id })}
         accessible={true}
         accessibilityLabel={`View novel ${item.title}`}
       >
