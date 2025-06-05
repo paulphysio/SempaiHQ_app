@@ -1,14 +1,19 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "@supabase/supabase-js";
-import { Keypair, PublicKey, Connection, Transaction, sendAndConfirmTransaction } from "@solana/web3.js";
+import {
+  Keypair,
+  PublicKey,
+  Connection,
+  Transaction,
+  sendAndConfirmTransaction,
+  ComputeBudgetProgram,
+} from "@solana/web3.js";
 import {
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
   getAssociatedTokenAddressSync,
-  ComputeBudgetProgram,
 } from "@solana/spl-token";
 import { Buffer } from "node:buffer";
-import { randomUUID } from "node:crypto";
 
 const KEYPAIR_ENCRYPTION_SECRET = Deno.env.get("KEYPAIR_ENCRYPTION_SECRET") || "0162dfbc4a051f147c621d2b73a074f440e375de4f25d3db89fa1959ff70a677";
 const SOLANA_RPC_URL = Deno.env.get("SOLANA_RPC_URL") || "https://mainnet.helius-rpc.com/?api-key=ad8457f8-9c51-4122-95d4-91b15728ea90";
@@ -22,10 +27,9 @@ try {
   );
 } catch (e) {
   console.error('[airdrop-wallet] Failed to parse AIRDROP_WALLET_KEYPAIR:', e.message);
-  return Response.json({ message: "Invalid airdrop wallet keypair", error: e.message }, { status: 500 });
+  return new Response(JSON.stringify({ message: "Invalid airdrop wallet keypair", error: e.message }), { status: 500 });
 }
-const AIRDROP_SMP_AMOUNT = 1 * 1e6; // 1 SMP token
-const USE_MOCK_AIRDROP = Deno.env.get("USE_MOCK_AIRDROP") === "true";
+const AIRDROP_SMP_AMOUNT = 1_000_000; // 1 SMP token (6 decimals)
 
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL") || "",
@@ -38,7 +42,7 @@ try {
   connection = new Connection(SOLANA_RPC_URL, "confirmed");
 } catch (e) {
   console.error('[airdrop-wallet] Failed to initialize Solana connection:', e.message);
-  return Response.json({ message: "Solana RPC connection failed", error: e.message }, { status: 500 });
+  return new Response(JSON.stringify({ message: "Solana RPC connection failed", error: e.message }), { status: 500 });
 }
 
 function throwOnError({ data, error }: { data: any; error: any }) {
@@ -75,33 +79,33 @@ Deno.serve(async (req: Request) => {
   const authHeader = req.headers.get('Authorization');
 
   if (req.method !== "POST" && path !== "/health") {
-    return Response.json({ error: `Method must be POST, got: ${req.method}` }, { status: 405 });
+    return new Response(JSON.stringify({ error: `Method must be POST, got: ${req.method}` }), { status: 405 });
   }
 
   if (path === "/health") {
     try {
       const { data } = await supabaseAdmin.from("users").select("id").limit(1);
-      return Response.json({ status: "ok", database: "connected" }, { status: 200 });
+      return new Response(JSON.stringify({ status: "ok", database: "connected" }), { status: 200 });
     } catch (e) {
       console.error('[airdrop-wallet] Health check error:', e.message);
-      return Response.json({ status: "error", message: e.message }, { status: 500 });
+      return new Response(JSON.stringify({ status: "error", message: e.message }), { status: 500 });
     }
   }
 
   if (!authHeader) {
-    return Response.json({ error: "Missing Authorization header" }, { status: 401 });
+    return new Response(JSON.stringify({ error: "Missing Authorization header" }), { status: 401 });
   }
 
   const token = authHeader.replace("Bearer ", "");
   const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !user) {
-    return Response.json({ error: "Invalid or expired token" }, { status: 401 });
+    return new Response(JSON.stringify({ error: "Invalid or expired token" }), { status: 401 });
   }
 
   if (path === "/create-wallet") {
     const { user_id } = await req.json();
     if (!user_id || user_id !== user.id) {
-      return Response.json({ error: `Invalid user id: ${user_id}` }, { status: 400 });
+      return new Response(JSON.stringify({ error: `Invalid user id: ${user_id}` }), { status: 400 });
     }
 
     try {
@@ -111,7 +115,7 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user_id)
         .single();
       if (existingWallet.data) {
-        return Response.json({ error: `Wallet already exists for user ${user_id}` }, { status: 400 });
+        return new Response(JSON.stringify({ error: `Wallet already exists for user ${user_id}` }), { status: 400 });
       }
 
       const newKeypair = Keypair.generate();
@@ -135,17 +139,17 @@ Deno.serve(async (req: Request) => {
         })
         .then(throwOnError);
 
-      return Response.json({ userPublicKey: publicKey }, { status: 200 });
+      return new Response(JSON.stringify({ userPublicKey: publicKey }), { status: 200 });
     } catch (e) {
       console.error('[airdrop-wallet] Create wallet error:', e.message);
-      return Response.json({ message: e.message }, { status: 500 });
+      return new Response(JSON.stringify({ message: e.message }), { status: 500 });
     }
   }
 
   if (path === "/airdrop-wallet" || path === "") {
     const { user_id } = await req.json();
     if (!user_id || user_id !== user.id) {
-      return Response.json({ error: `Invalid user id: ${user_id}` }, { status: 400 });
+      return new Response(JSON.stringify({ error: `Invalid user id: ${user_id}` }), { status: 400 });
     }
 
     try {
@@ -156,7 +160,7 @@ Deno.serve(async (req: Request) => {
         .single()
         .then(throwOnError);
       if (!userWallet) {
-        return Response.json({ error: "User wallet not found" }, { status: 404 });
+        return new Response(JSON.stringify({ error: "User wallet not found" }), { status: 404 });
       }
 
       const existingClaim = await supabaseAdmin
@@ -165,53 +169,49 @@ Deno.serve(async (req: Request) => {
         .eq("user_id", user_id)
         .single();
       if (existingClaim.data) {
-        return Response.json({ error: `User ${user_id} already claimed airdrop` }, { status: 400 });
+        return new Response(JSON.stringify({ error: `User ${user_id} already claimed airdrop` }), { status: 400 });
       }
 
       const { count } = await supabaseAdmin
         .from("airdrop_transactions")
         .select("id", { count: "exact" });
       if (count >= 500) {
-        return Response.json({ error: "Airdrop limit of 500 users reached" }, { status: 400 });
+        return new Response(JSON.stringify({ error: "Airdrop limit of 500 users reached" }), { status: 400 });
       }
 
       let signature: string;
-      if (USE_MOCK_AIRDROP) {
-        signature = `mock-transaction-${randomUUID()}`;
-      } else {
-        try {
-          const smpAta = {
-            treasury: getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, AIRDROP_KEYPAIR.publicKey),
-            user: getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, new PublicKey(userWallet.address)),
-          };
+      try {
+        const smpAta = {
+          treasury: getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, AIRDROP_KEYPAIR.publicKey),
+          user: getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, new PublicKey(userWallet.address)),
+        };
 
-          const transaction = new Transaction();
-          transaction.add(
-            ComputeBudgetProgram.setComputeUnitLimit({ units: 27_000 }),
-            ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
-            createAssociatedTokenAccountInstruction(
-              AIRDROP_KEYPAIR.publicKey,
-              smpAta.user,
-              new PublicKey(userWallet.address),
-              SMP_MINT_ADDRESS
-            ),
-            createTransferInstruction(
-              smpAta.treasury,
-              smpAta.user,
-              AIRDROP_KEYPAIR.publicKey,
-              AIRDROP_SMP_AMOUNT
-            )
-          );
-          transaction.feePayer = AIRDROP_KEYPAIR.publicKey;
+        const transaction = new Transaction();
+        transaction.add(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 27_000 }),
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10_000 }),
+          createAssociatedTokenAccountInstruction(
+            AIRDROP_KEYPAIR.publicKey,
+            smpAta.user,
+            new PublicKey(userWallet.address),
+            SMP_MINT_ADDRESS
+          ),
+          createTransferInstruction(
+            smpAta.treasury,
+            smpAta.user,
+            AIRDROP_KEYPAIR.publicKey,
+            AIRDROP_SMP_AMOUNT
+          )
+        );
+        transaction.feePayer = AIRDROP_KEYPAIR.publicKey;
 
-          const { blockhash } = await connection.getLatestBlockhash("confirmed");
-          transaction.recentBlockhash = blockhash;
+        const { blockhash } = await connection.getLatestBlockhash("confirmed");
+        transaction.recentBlockhash = blockhash;
 
-          signature = await sendAndConfirmTransaction(connection, transaction, [AIRDROP_KEYPAIR]);
-        } catch (e) {
-          console.error('[airdrop-wallet] Solana transaction failed:', e.message);
-          return Response.json({ message: "Solana transaction failed", error: e.message }, { status: 500 });
-        }
+        signature = await sendAndConfirmTransaction(connection, transaction, [AIRDROP_KEYPAIR]);
+      } catch (e) {
+        console.error('[airdrop-wallet] Solana transaction failed:', e.message);
+        return new Response(JSON.stringify({ message: "Solana transaction failed", error: e.message }), { status: 500 });
       }
 
       await supabaseAdmin
@@ -251,16 +251,16 @@ Deno.serve(async (req: Request) => {
         )
         .then(throwOnError);
 
-      return Response.json({
+      return new Response(JSON.stringify({
         userPublicKey: userWallet.address,
         signature,
         confirmationError: null,
-      }, { status: 200 });
+      }), { status: 200 });
     } catch (e) {
       console.error('[airdrop-wallet] Airdrop error:', e.message);
-      return Response.json({ message: e.message }, { status: 500 });
+      return new Response(JSON.stringify({ message: e.message }), { status: 500 });
     }
   }
 
-  return Response.json({ error: "Invalid endpoint", path }, { status: 404 });
+  return new Response(JSON.stringify({ error: "Invalid endpoint", path }), { status: 404 });
 });

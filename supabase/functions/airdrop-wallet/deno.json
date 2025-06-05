@@ -1,7 +1,8 @@
 {
   "imports": {
-    "@supabase/supabase-js": "jsr:@supabase/supabase-js@^2",
-    "@solana/web3.js": "npm:@solana/web3.js@^1",
-    "@solana/spl-token": "npm:@solana/spl-token@^0"
+    "@solana/spl-token": "npm:@solana/spl-token",
+    "@solana/web3.js": "npm:@solana/web3.js@1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.48",
+    "@/shared/": "../_shared/"
   }
 }
