@@ -61,14 +61,21 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
         onClose();
         return;
       } catch (err) {
-        console.error(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`, JSON.stringify(err, null, 2));
+        const errorMsg = err.message || 'Unknown error occurred';
+        console.error(
+          `[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`,
+          JSON.stringify({ message: errorMsg, stack: err.stack }, null, 2)
+        );
+        // Stop retrying for specific errors
         if (
-          err.message.includes('already claimed') ||
-          err.message.includes('User not found') ||
-          err.message.includes('Airdrop limit') ||
-          err.message.includes('Invalid user id')
+          errorMsg.includes('already claimed') ||
+          errorMsg.includes('Invalid user id') ||
+          errorMsg.includes('Airdrop limit reached') ||
+          errorMsg.includes('Failed to retrieve user wallet') ||
+          errorMsg.includes('Invalid user wallet address') ||
+          errorMsg.includes('Airdrop wallet has insufficient SOL')
         ) {
-          setErrorMessage(err.message);
+          setErrorMessage(errorMsg);
           break;
         }
 
@@ -76,10 +83,10 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
         setRetryCount(attempts);
         if (attempts < MAX_RETRIES) {
           const delay = RETRY_DELAY * Math.pow(2, attempts - 1);
-          setErrorMessage(`Server error (attempt ${attempts}/${MAX_RETRIES}). Retrying in ${delay/1000} seconds...`);
+          setErrorMessage(`Retry ${attempts}/${MAX_RETRIES} in ${delay / 1000}s...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
-          setErrorMessage('The airdrop service is currently unavailable. Please try again later.');
+          setErrorMessage('Airdrop service unavailable. Please try again later.');
         }
       }
     }
