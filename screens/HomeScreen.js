@@ -1043,6 +1043,7 @@ const Home = () => {
         <View style={styles.sidebarContent}>
           {[
             { path: 'Home', icon: 'home', label: 'Home' },
+            { path: 'Wallet', icon: 'wallet', label: 'Wallet' },
             { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
             { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
             {

@@ -30,7 +30,6 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
   unpackAccount,
-  PublicKey as PublicKeyProgram,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -51,7 +50,10 @@ import MangaCommentSection from '../components/MangaCommentSection';
 const connection = new Connection(RPC_URL, 'confirmed');
 const MAX_PASSWORD_ATTEMPTS = 3;
 const PASSWORD_ERROR_TIMEOUT = 5000;
-const MERCHANT_WALLET = '3p1HL3nY5LUNwuAj6dKLRiseSU93UYRqYPGbR7LQaWd5';
+const MERCHANT_WALLET = TARGET_WALLET;
+const SMP_READ_COST = 1000; // Fixed cost for single chapter
+const threeChaptersSmp = 6480139; // Fixed $3 equivalent for 3 chapters
+const fullChaptersSmp = 32400693; // Fixed $15 equivalent for all chapters
 
 const fetchSolPrice = async () => {
   try {
@@ -91,7 +93,6 @@ const MangaChapterScreen = () => {
   const [showTransactionPopup, setShowTransactionPopup] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [solPrice, setSolPrice] = useState(100);
-  const [smpPrice, setSmpPrice] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState(null);
@@ -99,7 +100,8 @@ const MangaChapterScreen = () => {
   const [passwordAttempts, setPasswordAttempts] = useState(0);
   const [hasReadChapter, setHasReadChapter] = useState(false);
   const [amethystBalance, setAmethystBalance] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState(null); // Track payment method (SOL, USDC, SMP)
+  const [paymentMethod, setPaymentMethod] = useState(null);
+  const [chapterList, setChapterList] = useState([]);
   const usdcPrice = 1;
 
   const isWalletConnected = !!wallet?.publicKey;
@@ -169,20 +171,15 @@ const MangaChapterScreen = () => {
   const fetchPrices = useCallback(async (retryCount = 3, retryDelay = 1000) => {
     for (let attempt = 1; attempt <= retryCount; attempt++) {
       try {
-        const [solResponse, smpResponse] = await Promise.all([
-          fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'),
-          fetch('https://api.coingecko.com/api/v3/simple/price?ids=smp-token-id&vs_currencies=usd'),
-        ]);
-        const [solData, smpData] = await Promise.all([solResponse.json(), smpResponse.json()]);
+        const solResponse = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
+        const solData = await solResponse.json();
         setSolPrice(solData.solana?.usd || 100);
-        setSmpPrice(smpData['smp-token-id']?.usd || 0);
         return;
       } catch (error) {
         console.error(`Attempt ${attempt} - Error fetching prices:`, error);
         if (attempt === retryCount) {
           setError('Failed to fetch price data. Using default values.');
           setSolPrice(100);
-          setSmpPrice(0);
           setTimeout(() => setError(null), 5000);
         }
         await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
@@ -257,6 +254,22 @@ const MangaChapterScreen = () => {
     }
   }, []);
 
+  const fetchChapterList = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('manga_chapters')
+        .select('id, chapter_number')
+        .eq('manga_id', mangaId)
+        .order('chapter_number', { ascending: true });
+      if (error) throw new Error(`Failed to fetch chapter list: ${error.message}`);
+      setChapterList(data || []);
+    } catch (error) {
+      console.error('Error fetching chapter list:', error);
+      setError(`Unable to load chapter list: ${error.message}`);
+      setTimeout(() => setError(null), 5000);
+    }
+  }, [mangaId]);
+
   const checkHasReadChapter = useCallback(async () => {
     if (!activeWalletAddress || !manga || !chapterId) return;
     try {
@@ -293,7 +306,6 @@ const MangaChapterScreen = () => {
       }
 
       if (userId) {
-        // Check user_payments first
         const { data: payment, error: paymentError } = await supabase
           .from('user_payments')
           .select('id')
@@ -311,7 +323,6 @@ const MangaChapterScreen = () => {
           return;
         }
 
-        // Check unlocked_manga_chapters
         const { data: unlock, error: unlockError } = await supabase
           .from('unlocked_manga_chapters')
           .select('chapter_id, expires_at')
@@ -439,16 +450,16 @@ const MangaChapterScreen = () => {
         .eq('currency', 'SMP')
         .single();
       if (balanceError || !walletBalance) throw new Error(`Wallet balance not found: ${balanceError?.message}`);
-      if (walletBalance.amount < 1000) throw new Error(`Insufficient SMP balance: ${walletBalance.amount.toLocaleString()} SMP`);
+      if (walletBalance.amount < SMP_READ_COST) throw new Error(`Insufficient SMP balance: ${walletBalance.amount.toLocaleString()} SMP`);
 
       let sourceATA;
       try {
         sourceATA = await getOrCreateAssociatedTokenAccount(
           connection,
-          activePublicKey, // payer
+          activePublicKey,
           smpMint,
           activePublicKey,
-          true // allowOwnerOffCurve
+          true
         );
       } catch (err) {
         console.error('Error creating source ATA:', err);
@@ -466,7 +477,7 @@ const MangaChapterScreen = () => {
           throw err;
         }
       }
-      if (smpBalanceOnChain < 1000) throw new Error(`Insufficient SMP balance on-chain: ${smpBalanceOnChain.toLocaleString()} SMP`);
+      if (smpBalanceOnChain < SMP_READ_COST) throw new Error(`Insufficient SMP balance on-chain: ${smpBalanceOnChain.toLocaleString()} SMP`);
 
       const { data: mangaOwnerData, error: mangaOwnerError } = await supabase
         .from('manga')
@@ -501,10 +512,10 @@ const MangaChapterScreen = () => {
       try {
         destATA = await getOrCreateAssociatedTokenAccount(
           connection,
-          activePublicKey, // payer
+          activePublicKey,
           smpMint,
           targetPublicKey,
-          true // allowOwnerOffCurve
+          true
         );
       } catch (err) {
         console.error('Error creating destination ATA:', err);
@@ -520,7 +531,7 @@ const MangaChapterScreen = () => {
           sourceATA.address,
           destATA.address,
           activePublicKey,
-          1000 * 10 ** SMP_DECIMALS,
+          SMP_READ_COST * 10 ** SMP_DECIMALS,
           []
         )
       );
@@ -539,7 +550,7 @@ const MangaChapterScreen = () => {
 
       await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
 
-      const newSmpBalance = walletBalance.amount - 1000;
+      const newSmpBalance = walletBalance.amount - SMP_READ_COST;
       await supabase
         .from('wallet_balances')
         .update({ amount: newSmpBalance })
@@ -607,7 +618,7 @@ const MangaChapterScreen = () => {
             event_details: eventDetails,
             source_chain: 'SOL',
             source_currency: 'SMP',
-            amount_change: -1000,
+            amount_change: -SMP_READ_COST,
             wallet_address: activeWalletAddress,
             source_user_id: userData.id,
             destination_chain: 'SOL',
@@ -615,10 +626,31 @@ const MangaChapterScreen = () => {
         ]),
       ]);
 
-      setSuccessMessage(`Payment successful! 1,000 SMP sent. You earned ${readerReward} points.`);
+      await supabase.from('user_payments').insert({
+        user_wallet: activeWalletAddress,
+        manga_id: mangaId,
+        chapter_id: chapterId,
+        transaction_id: signature,
+        payment_amount: SMP_READ_COST,
+        payment_currency: 'SMP',
+        paid_at: new Date().toISOString(),
+        payment_type: 'single',
+        amount: SMP_READ_COST,
+      });
+
+      await supabase.from('unlocked_manga_chapters').insert({
+        user_id: userData.id,
+        manga_id: mangaId,
+        chapter_id: chapterId,
+        unlocked_at: new Date().toISOString(),
+        expires_at: null,
+      });
+
+      setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent. You earned ${readerReward} points.`);
       setSmpBalance(newSmpBalance);
       setWeeklyPoints(newReaderBalance);
       setHasReadChapter(true);
+      setIsLocked(false);
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
       console.error('Error in updateTokenBalance:', error);
@@ -631,7 +663,7 @@ const MangaChapterScreen = () => {
     }
   }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, requestPassword, amethystBalance]);
 
-  const initiatePayment = async (currency) => {
+  const initiatePayment = async (currency, paymentType = 'single') => {
     if (!activeWalletAddress || !activePublicKey) {
       setError('Please connect your wallet to proceed.');
       return;
@@ -642,7 +674,7 @@ const MangaChapterScreen = () => {
     }
     try {
       await fetchPrices();
-      const usdAmount = chapterPrice;
+      const usdAmount = paymentType === 'threeChapters' ? 3 : paymentType === 'fullChapters' ? 15 : chapterPrice;
       let amount, decimals, mint, displayAmount, solPriceUsed;
 
       if (currency === 'SOL') {
@@ -651,17 +683,31 @@ const MangaChapterScreen = () => {
         amount = Math.round((usdAmount / solPrice) * 1_000_000_000);
         decimals = 9;
         displayAmount = (amount / 1_000_000_000).toFixed(4);
-      } else {
-        const price = currency === 'USDC' ? usdcPrice : smpPrice;
-        if (!price && currency !== 'USDC') throw new Error(`${currency} price not available`);
-        mint = currency === 'USDC' ? USDC_MINT_ADDRESS : SMP_MINT_ADDRESS;
-        decimals = currency === 'USDC' ? 6 : SMP_DECIMALS;
-        amount = Math.round((usdAmount / price) * 10 ** decimals);
-        displayAmount = (amount / 10 ** decimals).toFixed(2);
+      } else if (currency === 'USDC') {
+        amount = Math.round(usdAmount * 10 ** 6);
+        decimals = 6;
+        mint = USDC_MINT_ADDRESS;
+        displayAmount = (amount / 10 ** 6).toFixed(2);
+      } else if (currency === 'SMP') {
+        if (paymentType === 'threeChapters') {
+          amount = threeChaptersSmp * 10 ** SMP_DECIMALS;
+          displayAmount = threeChaptersSmp.toLocaleString();
+          usdAmount = 3;
+        } else if (paymentType === 'fullChapters') {
+          amount = fullChaptersSmp * 10 ** SMP_DECIMALS;
+          displayAmount = fullChaptersSmp.toLocaleString();
+          usdAmount = 15;
+        } else {
+          amount = SMP_READ_COST * 10 ** SMP_DECIMALS;
+          displayAmount = SMP_READ_COST.toLocaleString();
+          usdAmount = chapterPrice;
+        }
+        decimals = SMP_DECIMALS;
+        mint = SMP_MINT_ADDRESS;
       }
 
-      setTransactionDetails({ currency, amount, displayAmount, decimals, mint, solPrice: solPriceUsed, chapterPrice: usdAmount });
-      setPaymentMethod(currency); // Track payment method
+      setTransactionDetails({ currency, amount, displayAmount, decimals, mint, solPrice: solPriceUsed, chapterPrice: usdAmount, paymentType });
+      setPaymentMethod(currency);
       setShowTransactionPopup(true);
     } catch (error) {
       console.error('Error initiating payment:', error);
@@ -673,7 +719,7 @@ const MangaChapterScreen = () => {
   const confirmPayment = async () => {
     if (!transactionDetails) return;
     console.log('Starting confirmPayment with details:', transactionDetails);
-    const { currency, amount, decimals, mint, solPrice, chapterPrice } = transactionDetails;
+    const { currency, amount, decimals, mint, solPrice, chapterPrice, paymentType } = transactionDetails;
     try {
       let targetPublicKey;
       try {
@@ -715,7 +761,7 @@ const MangaChapterScreen = () => {
         });
 
         await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-        await processUnlock(signature, amount / 1_000_000_000, currency, solPrice, chapterPrice);
+        await processUnlock(signature, amount / 1_000_000_000, currency, solPrice, chapterPrice, paymentType);
       } else {
         const sourceATA = await getOrCreateAssociatedTokenAccount(
           connection,
@@ -746,7 +792,7 @@ const MangaChapterScreen = () => {
         });
 
         await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
-        await processUnlock(signature, amount / 10 ** decimals, currency, undefined, chapterPrice);
+        await processUnlock(signature, amount / 10 ** decimals, currency, undefined, chapterPrice, paymentType);
       }
     } catch (error) {
       console.error('Confirm Payment error:', error);
@@ -760,22 +806,20 @@ const MangaChapterScreen = () => {
       setPasswordError(null);
       setPasswordAttempts(0);
       setPasswordCallback(null);
+      setPaymentMethod(null);
     }
   };
 
-  const processUnlock = async (signature, amount, currency, solPrice, chapterPrice) => {
+  const processUnlock = async (signature, amount, currency, solPrice, chapterPrice, paymentType) => {
     try {
-      // Validate inputs
       if (!activeWalletAddress || !mangaId || !chapterId || !signature || !amount || !currency) {
-        throw new Error('Missing required fields');
+        throw new Error('Missing required fields.');
       }
-
-      if (!['SOL', 'USDC'].includes(currency)) {
-        throw new Error('Unsupported currency');
+      if (!['SOL', 'USDC', 'SMP'].includes(currency)) {
+        throw new Error('Unsupported currency.');
       }
-
       if (!chapterPrice) {
-        throw new Error('Chapter price not provided');
+        throw new Error('Chapter price not provided.');
       }
 
       let senderPubkey, receiverPubkey;
@@ -783,28 +827,36 @@ const MangaChapterScreen = () => {
         senderPubkey = new PublicKey(activeWalletAddress);
         receiverPubkey = new PublicKey(MERCHANT_WALLET);
       } catch (e) {
-        throw new Error('Invalid wallet address format');
+        throw new Error('Invalid wallet address format.');
       }
 
-      // Calculate expected amount
-      const usdAmount = chapterPrice;
       let expectedAmount, decimals, mint;
-
       if (currency === 'SOL') {
-        if (!solPrice) throw new Error('SOL price not provided');
-        expectedAmount = usdAmount / solPrice;
+        if (!solPrice) throw new Error('SOL price not provided.');
+        expectedAmount = chapterPrice / solPrice;
         decimals = 9;
       } else if (currency === 'USDC') {
-        expectedAmount = usdAmount;
+        expectedAmount = chapterPrice;
         decimals = 6;
         mint = USDC_MINT_ADDRESS;
+      } else if (currency === 'SMP') {
+        if (paymentType === 'threeChapters') {
+          expectedAmount = threeChaptersSmp;
+          chapterPrice = 3;
+        } else if (paymentType === 'fullChapters') {
+          expectedAmount = fullChaptersSmp;
+          chapterPrice = 15;
+        } else {
+          expectedAmount = SMP_READ_COST;
+        }
+        decimals = SMP_DECIMALS;
+        mint = SMP_MINT_ADDRESS;
       }
 
       const tolerance = 0.02;
       const minAmount = expectedAmount * (1 - tolerance);
       const maxAmount = expectedAmount * (1 + tolerance);
 
-      // Verify transaction
       let tx = null;
       for (let i = 0; i < 3; i++) {
         tx = await connection.getTransaction(signature, {
@@ -813,118 +865,108 @@ const MangaChapterScreen = () => {
         });
         if (tx) break;
         console.log(`Attempt ${i + 1}: Transaction not found, retrying...`);
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
       if (!tx) {
         console.log('Transaction not found after retries:', signature);
-        throw new Error('Invalid transaction: not found');
+        throw new Error('Invalid transaction: not found.');
       }
 
       if (!tx.meta || tx.meta.err) {
         console.log('Transaction meta error:', tx.meta?.err);
-        throw new Error('Invalid transaction: failed on chain');
+        throw new Error('Invalid transaction: failed on chain.');
       }
 
-      console.log('Transaction accountKeys:', tx.transaction.message.accountKeys.map((key) => key.toBase58()));
+      console.log('Transaction accountKeys:', tx.transaction.message.accountKeys.map(key => key.toBase58()));
 
       const senderIndex = tx.transaction.message.accountKeys.findIndex(
-        (key) => key.toBase58() === senderPubkey.toBase58()
+        key => key.toBase58() === senderPubkey.toBase58()
       );
       const receiverIndex = tx.transaction.message.accountKeys.findIndex(
-        (key) => key.toBase58() === receiverPubkey.toBase58()
+        key => key.toBase58() === receiverPubkey.toBase58()
       );
 
       if (senderIndex === -1 || receiverIndex === -1) {
         console.log('Sender or receiver not found:', { senderIndex, receiverIndex });
         const missing = senderIndex === -1 ? 'sender' : 'receiver';
-        throw new Error(`Invalid transaction: ${missing} missing`);
+        throw new Error(`Invalid transaction: ${missing} missing.`);
       }
 
       let amountTransferred;
       if (currency === 'SOL') {
         amountTransferred = (tx.meta.postBalances[receiverIndex] - tx.meta.preBalances[receiverIndex]) / LAMPORTS_PER_SOL;
         console.log('SOL Transfer Details:', { amountTransferred });
-      } else if (currency === 'USDC') {
-        const senderATA = await PublicKeyProgram.findProgramAddress(
-          [
-            senderPubkey.toBuffer(),
-            new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA').toBuffer(),
-            new PublicKey(mint).toBuffer(),
-          ],
-          new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
+      } else {
+        const senderATA = await getAssociatedTokenAddressSync(
+          new PublicKey(mint),
+          senderPubkey
         );
-        const receiverATA = await PublicKeyProgram.findProgramAddress(
-          [
-            receiverPubkey.toBuffer(),
-            new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA').toBuffer(),
-            new PublicKey(mint).toBuffer(),
-          ],
-          new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL')
+        const receiverATA = await getAssociatedTokenAddressSync(
+          new PublicKey(mint),
+          receiverPubkey
         );
 
         const senderATAIndex = tx.transaction.message.accountKeys.findIndex(
-          (key) => key.toBase58() === senderATA[0].toBase58()
+          key => key.toBase58() === senderATA.toBase58()
         );
         const receiverATAIndex = tx.transaction.message.accountKeys.findIndex(
-          (key) => key.toBase58() === receiverATA[0].toBase58()
+          key => key.toBase58() === receiverATA.toBase58()
         );
 
         if (senderATAIndex === -1 || receiverATAIndex === -1) {
           console.log('ATA not found:', { senderATAIndex, receiverATAIndex });
-          throw new Error('Invalid USDC transaction: ATAs missing');
+          throw new Error(`Invalid ${currency} transaction: ATAs missing.`);
         }
 
         const preTokenBalances = tx.meta.preTokenBalances?.find(
-          (b) => b.accountIndex === senderATAIndex && b.mint
+          b => b.accountIndex === senderATAIndex && b.mint === mint
         );
         const postTokenBalances = tx.meta.postTokenBalances?.find(
-          (b) => b.accountIndex === receiverATAIndex && b.mint === mint
+          b => b.accountIndex === receiverATAIndex && b.mint === mint
         );
 
         if (!preTokenBalances || !postTokenBalances) {
           console.log('Token balances not found:', { preTokenBalances, postTokenBalances });
-          throw new Error('Invalid USDC transfer: token balances missing');
+          throw new Error(`Invalid ${currency} transfer: token balances missing.`);
         }
 
         amountTransferred =
-          (preTokenBalances.uiTokenAmount.uiAmount - (postTokenBalances.uiTokenAmount.uiAmount || 0)) /
+          (Number(preTokenBalances.uiTokenAmount.uiAmount) - (Number(postTokenBalances.uiTokenAmount.uiAmount) || 0)) /
           10 ** decimals;
         if (amountTransferred <= 0) {
-          amountTransferred = postTokenBalances.uiTokenAmount.uiAmount / 10 ** decimals;
+          amountTransferred = Number(postTokenBalances.uiTokenAmount.uiAmount) / 10 ** decimals;
         }
-        console.log('USDC Transfer Details:', { amountTransferred });
+        console.log(`${currency} Transfer Details:`, { amountTransferred });
       }
 
       console.log('Amount transferred:', amountTransferred, 'Expected range:', minAmount, '-', maxAmount);
 
       if (amountTransferred < minAmount || amountTransferred > maxAmount) {
         console.log('Incorrect payment amount:', { expected: expectedAmount, actual: amountTransferred });
-        throw new Error('Incorrect payment amount');
+        throw new Error('Incorrect payment amount.');
       }
 
       if (tx.transaction.message.accountKeys[receiverIndex].toBase58() !== MERCHANT_WALLET) {
         console.log('Invalid recipient:', tx.transaction.message.accountKeys[receiverIndex].toBase58());
-        throw new Error('Invalid recipient');
+        throw new Error('Invalid recipient.');
       }
 
-      // Validate chapter
-      const { data: chapter, error: chapterError } = await supabase
+      const { data: chapterData, error: chapterError } = await supabase
         .from('manga_chapters')
         .select('id, is_premium')
         .eq('id', chapterId)
         .eq('manga_id', mangaId)
         .single();
-      if (chapterError || !chapter) {
-        console.log('Chapter validation failed:', chapterError);
-        throw new Error('Manga chapter not found');
+      if (chapterError || !chapterData) {
+        console.log('Chapter validation error:', chapterError);
+        throw new Error('Manga chapter not found.');
       }
-      if (!chapter.is_premium) {
-        console.log('Chapter is not premium');
-        throw new Error('Chapter is not premium');
+      if (!chapterData.is_premium) {
+        console.log('Chapter is not premium.');
+        throw new Error('Chapter is not premium.');
       }
 
-      // Check for existing payment
       const { data: existingPayment, error: paymentError } = await supabase
         .from('user_payments')
         .select('id')
@@ -934,19 +976,18 @@ const MangaChapterScreen = () => {
         .single();
       if (paymentError && paymentError.code !== 'PGRST116') {
         console.error('Payment check error:', paymentError);
-        throw new Error('Failed to check existing payment');
+        throw new Error('Failed to check existing payment.');
       }
 
       if (existingPayment) {
-        console.log('Existing payment found, unlocking');
+        console.log('Existing payment found, unlocking.');
         setIsLocked(false);
-        setSuccessMessage('Chapter already unlocked');
+        setSuccessMessage('Chapter already unlocked.');
         setTimeout(() => setSuccessMessage(''), 5000);
         await checkAccess(userId, manga, chapter);
-        return;
+        return true;
       }
 
-      // Record payment
       const paymentData = {
         user_wallet: activeWalletAddress,
         manga_id: mangaId,
@@ -954,28 +995,57 @@ const MangaChapterScreen = () => {
         transaction_id: signature,
         payment_amount: amountTransferred,
         payment_currency: currency,
+        payment_type: paymentType || 'single',
+        amount: currency === 'SMP' ? expectedAmount : amount / 10 ** decimals,
         paid_at: new Date().toISOString(),
       };
 
       const { error: insertError } = await supabase.from('user_payments').insert(paymentData);
       if (insertError) {
         console.error('Error inserting payment:', insertError);
-        throw new Error('Failed to record payment');
+        throw new Error('Failed to record payment.');
       }
 
-      // Insert into unlocked_manga_chapters
-      const unlockData = {
+      let unlockData = {
         user_id: userId,
         manga_id: mangaId,
         chapter_id: chapterId,
         unlocked_at: new Date().toISOString(),
-        expires_at: null, // Adjust based on your expiration logic
+        expires_at: null,
       };
 
-      const { error: unlockInsertError } = await supabase.from('unlocked_manga_chapters').insert(unlockData);
-      if (unlockInsertError) {
-        console.error('Error inserting unlock record:', unlockInsertError);
-        throw new Error('Failed to record unlock');
+      if (currency === 'SMP' && (paymentType === 'threeChapters' || paymentType === 'fullChapters')) {
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 30);
+        unlockData.expires_at = expiresAt.toISOString();
+
+        if (paymentType === 'threeChapters') {
+          const currentIndex = chapterList.findIndex(ch => ch.id === chapterId);
+          const chaptersToUnlock = chapterList.slice(currentIndex, currentIndex + 3);
+          unlockData = chaptersToUnlock.map(ch => ({
+            user_id: userId,
+            manga_id: mangaId,
+            chapter_id: ch.id,
+            unlocked_at: new Date().toISOString(),
+            expires_at: expiresAt.toISOString(),
+          }));
+        } else if (paymentType === 'fullChapters') {
+          unlockData = {
+            user_id: userId,
+            manga_id: mangaId,
+            chapter_id: null,
+            unlocked_at: new Date().toISOString(),
+            expires_at: expiresAt.toISOString(),
+          };
+        }
+      }
+
+      const { error: unlockError } = await supabase
+        .from('unlocked_manga_chapters')
+        .insert(Array.isArray(unlockData) ? unlockData : [unlockData]);
+      if (unlockError) {
+        console.error('Error inserting unlock record:', unlockError);
+        throw new Error('Failed to record unlock.');
       }
 
       console.log('Unlock successful:', paymentData);
@@ -983,10 +1053,12 @@ const MangaChapterScreen = () => {
       setSuccessMessage('Chapter unlocked successfully!');
       setTimeout(() => setSuccessMessage(''), 5000);
       await checkAccess(userId, manga, chapter);
+      return true;
     } catch (error) {
       console.error('Error processing unlock:', error);
       setError(`Failed to unlock chapter: ${error.message}`);
       setTimeout(() => setError(null), 5000);
+      return false;
     }
   };
 
@@ -1006,13 +1078,13 @@ const MangaChapterScreen = () => {
     if (hasReadChapter) {
       return;
     }
-    setPaymentMethod('SMP'); // Set payment method for SMP
+    setPaymentMethod('SMP');
     await updateTokenBalance();
   };
 
   useEffect(() => {
     if (!mangaId || !chapterId) {
-      setError('Invalid manga or chapter ID. Please enter values below.');
+      setError('Invalid manga or chapter ID.');
       setUseInput(true);
       setLoading(false);
       return;
@@ -1028,10 +1100,11 @@ const MangaChapterScreen = () => {
         fetchPrices(),
         fetchUserBalances(),
         fetchManga(mangaId, chapterId),
+        fetchChapterList(),
       ]);
     };
     initialize();
-  }, [mangaId, chapterId, fetchManga, fetchUserBalances, fetchPrices, isWalletConnected]);
+  }, [mangaId, chapterId, fetchManga, fetchUserBalances, fetchPrices, isWalletConnected, fetchChapterList]);
 
   useEffect(() => {
     if (manga && chapter) {
@@ -1043,10 +1116,18 @@ const MangaChapterScreen = () => {
   }, [manga, chapter, userId, checkAccess, checkHasReadChapter, isWalletConnected]);
 
   useEffect(() => {
-    if (!loading && manga && !isLocked && isPremium && isWalletConnected && paymentMethod === 'SMP') {
+    if (
+      !loading &&
+      manga &&
+      !isLocked &&
+      isPremium &&
+      isWalletConnected &&
+      paymentMethod === 'SMP' &&
+      transactionDetails?.paymentType === 'single'
+    ) {
       updateTokenBalance();
     }
-  }, [loading, manga, isLocked, isPremium, updateTokenBalance, isWalletConnected, paymentMethod]);
+  }, [loading, manga, isLocked, isPremium, updateTokenBalance, isWalletConnected, paymentMethod, transactionDetails]);
 
   const handleManualFetch = () => {
     if (!inputMangaId || !inputChapterId) {
@@ -1157,8 +1238,8 @@ const MangaChapterScreen = () => {
             <Text style={styles.actionButtonText}>Try Another Chapter</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-            <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
             <Text style={styles.secondaryButtonText}>Back to Home</Text>
+            <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
           </TouchableOpacity>
         </Animated.View>
       </SafeAreaView>
@@ -1167,20 +1248,11 @@ const MangaChapterScreen = () => {
 
   const chapterTitle = chapter.title || `Chapter ${chapter.chapter_number}`;
   const chapterNum = parseInt(chapter.chapter_number, 10);
-
-  const chaptersData = supabase
-    .from('manga_chapters')
-    .select('id, chapter_number')
-    .eq('manga_id', mangaId)
-    .order('chapter_number', { ascending: true });
-  const chapterList = chaptersData.data || [];
-  const currentIndex = chapterList.findIndex((ch) => ch.id === chapterId);
+  const currentIndex = chapterList.findIndex(ch => ch.id === chapter.id);
   const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1]?.id : null;
-  const nextChapter = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1]?.id : null;
-
+  const nextChapterId = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1]?.id : null;
   const singleChapterSol = solPrice ? (chapterPrice / solPrice).toFixed(4) : 'N/A';
   const singleChapterUsdc = (chapterPrice / usdcPrice).toFixed(2);
-  const singleChapterSmp = smpPrice ? (chapterPrice / smpPrice).toFixed(2) : 'N/A';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1217,7 +1289,7 @@ const MangaChapterScreen = () => {
           style={styles.headerButton}
           onPress={() => navigation.navigate('Manga', { mangaId })}
         >
-          <Icon name="book" size={20} color="#ffffff" />
+          <Icon name="book" size={20} color="#ffffff" style={styles.buttonIcon} />
         </TouchableOpacity>
       </View>
 
@@ -1233,78 +1305,103 @@ const MangaChapterScreen = () => {
 
       {isLocked ? (
         <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
+          <Icon name="lock" size={48} color="#FF5722" style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>This chapter is locked.</Text>
-          <Text style={styles.lockedSubMessage}>Unlock with a Payment</Text>
+          <Text style={styles.lockedSubMessage}>Unlock with Payment or Subscription</Text>
           <View style={styles.paymentGrid}>
             {[
-              { currency: 'SOL', price: singleChapterSol, usd: chapterPrice },
-              { currency: 'USDC', price: singleChapterUsdc, usd: chapterPrice },
-              { currency: 'SMP', price: singleChapterSmp, usd: chapterPrice },
-            ].map(({ currency, price, usd }, index) => (
+              { currency: 'SOL', price: singleChapterSol, usd: chapterPrice, paymentType: 'single' },
+              { currency: 'USDC', price: singleChapterUsdc, usd: chapterPrice, paymentType: 'single' },
+              {
+                currency: 'SMP',
+                price: SMP_READ_COST.toLocaleString(),
+                usd: chapterPrice,
+                paymentType: 'single',
+                label: 'Single Chapter SMP',
+              },
+              {
+                currency: 'SMP',
+                price: threeChaptersSmp.toLocaleString(),
+                usd: 3,
+                paymentType: 'threeChapters',
+                label: '3 Chapters',
+              },
+              {
+                currency: 'SMP',
+                price: fullChaptersSmp.toLocaleString(),
+                usd: 15,
+                paymentType: 'fullChapters',
+                label: 'All Chapters',
+              },
+            ].map((item, index) => (
               <TouchableOpacity
-                key={currency}
+                key={item.currency + item.paymentType}
                 style={[
                   styles.paymentButton,
-                  (currency !== 'USDC' && !price) ? styles.disabledButton : null,
+                  item.currency !== 'SMP' && !item.price ? styles.disabledButton : null,
+                  item.paymentType === 'threeChapters' ? styles.threeChaptersButton : null,
+                  item.paymentType === 'fullChapters' ? styles.fullChaptersButton : null,
                 ]}
-                onPress={() => initiatePayment(currency)}
-                disabled={currency !== 'USDC' && !price}
+                onPress={() => initiatePayment(item.currency, item.paymentType)}
+                disabled={item.currency !== 'SMP' && !item.price}
               >
                 <Icon
-                  name="rocket"
+                  name={item.paymentType === 'fullChapters' ? 'crown' : 'rocket'}
                   size={20}
                   color="#ffffff"
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.paymentButtonText}>
-                  Unlock Chapter ({currency})
+                  {item.label || `Unlock Chapter (${item.currency})`}
                 </Text>
                 <Text style={styles.paymentPrice}>
-                  ${usd.toFixed(2)} / {price} {currency}
+                  ${item.usd.toFixed(2)} / {item.price} {item.currency}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         </Animated.View>
       ) : (
-        <FlatList
-          data={pages}
-          renderItem={renderPage}
-          keyExtractor={(item) => `page-${item.page_number}`}
-          style={styles.contentContainer}
-          ListHeaderComponent={
-            <>
-              {isPremium && (
-                <Animated.View entering={FadeIn} style={styles.readingOptions}>
-                  <TouchableOpacity
-                    style={[styles.smpButton, hasReadChapter ? styles.disabledButton : null]}
-                    onPress={handleReadWithSMP}
-                    disabled={hasReadChapter}
-                  >
-                    <Icon name="gem" size={16} color="#ffffff" style={styles.buttonIcon} />
-                    <Text style={styles.smpButtonText}>
-                      {hasReadChapter ? "You've earned points from this page" : 'Read with 1,000 SMP (Earn Points)'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={styles.readingModeText}>
-                    {isPremium ? 'Reading with SMP (Points Earned)' : 'Reading for Free (No Points)'}
-                  </Text>
-                </Animated.View>
-              )}
-            </>
-          }
-          ListFooterComponent={
-            <Animated.View entering={FadeIn}>
+        <>
+          {isPremium && (
+            <Animated.View entering={FadeIn} style={styles.readingOptions}>
+              <TouchableOpacity
+                style={[styles.smpButton, hasReadChapter ? styles.disabledButton : null]}
+                onPress={handleReadWithSMP}
+                disabled={hasReadChapter}
+              >
+                <Icon name="gem" size={20} color="#ffffff" style={styles.buttonIcon} />
+                <Text style={styles.smpButtonText}>
+                  {hasReadChapter
+                    ? "You've earned points from this chapter!"
+                    : 'Read with 1,000 SMP (Earn points)'}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.readingModeText}>
+                {isPremium ? 'Reading with SMP (Points Earned)' : 'Read for free (No Points)'}
+              </Text>
+            </Animated.View>
+          )}
+          <FlatList
+            data={pages}
+            renderItem={renderPage}
+            keyExtractor={(item) => item.page_number.toString()}
+            style={styles.contentContainer}
+            initialNumToRender={5}
+            maxToRenderPerBatch={5}
+            windowSize={3}
+            ListFooterComponent={() => (
               <View style={styles.navigation}>
                 <View style={styles.navRow}>
                   {prevChapter ? (
                     <TouchableOpacity
                       style={styles.navButton}
-                      onPress={() => navigation.navigate('MangaChapter', { mangaId, chapterId: prevChapter })}
+                      onPress={() =>
+                        navigation.navigate('MangaChapter', { mangaId, chapterId: prevChapter })
+                      }
                     >
-                      <Icon name="chevron-left" size={16} color="#ffffff" style={styles.buttonIcon} />
-                      <Text style={styles.navButtonText}>Previous</Text>
+                      <Icon name="chevron-left" size={16} color="#ffffff" />
+                      <Text style={styles.navButtonText}>Previous Chapter</Text>
                     </TouchableOpacity>
                   ) : (
                     <View style={styles.navPlaceholder} />
@@ -1313,53 +1410,54 @@ const MangaChapterScreen = () => {
                     style={styles.navButton}
                     onPress={() => navigation.navigate('Manga', { mangaId })}
                   >
-                    <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
+                    <Icon name="book-open" size={16} color="#ffffff" />
                     <Text style={styles.navButtonText}>Back to Manga</Text>
                   </TouchableOpacity>
-                  {nextChapter ? (
+                  {nextChapterId && (
                     <TouchableOpacity
                       style={styles.navButton}
-                      onPress={() => navigation.navigate('MangaChapter', { mangaId, chapterId: nextChapter })}
+                      onPress={() =>
+                        navigation.navigate('MangaChapter', { mangaId, chapterId: nextChapterId })
+                      }
                     >
-                      <Text style={styles.navButtonText}>Next</Text>
-                      <Icon name="chevron-right" size={16} color="#ffffff" style={styles.buttonIcon} />
+                      <Text style={styles.navButtonText}>Next Chapter</Text>
+                      <Icon name="chevron-right" size={16} color="#ffffff" />
                     </TouchableOpacity>
-                  ) : (
-                    <View style={styles.navPlaceholder} />
                   )}
                 </View>
+                <MangaCommentSection
+                  mangaId={mangaId}
+                  chapterId={chapterId}
+                  isWalletConnected={isWalletConnected}
+                  activePublicKey={activePublicKey}
+                />
               </View>
-              <MangaCommentSection
-                mangaId={mangaId}
-                chapterId={chapterId}
-                isWalletConnected={isWalletConnected}
-                activePublicKey={activePublicKey}
-              />
-            </Animated.View>
-          }
-          initialNumToRender={5}
-          maxToRenderPerBatch={5}
-          windowSize={3}
-        />
+            )}
+          />
+        </>
       )}
 
       <Modal
         visible={showTransactionPopup}
-        transparent
+        transparent={true}
         animationType="none"
         onRequestClose={() => {
-          console.log('Transaction modal close requested');
+          console.log('Transaction modal closing requested');
           setShowTransactionPopup(false);
           setTransactionDetails(null);
           setPaymentMethod(null);
         }}
       >
-        <View style={[styles.modalOverlay, { pointerEvents: 'box-none' }]}>
-          <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={styles.modalContent}>
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            exiting={FadeOut.duration(300)}
+            style={styles.modalContent}
+          >
             <TouchableOpacity
-              style={styles.closeButton}
+              style={styles.modalButton}
               onPress={() => {
-                console.log('Close button pressed');
+                console.log('Close modal button pressed');
                 setShowTransactionPopup(false);
                 setTransactionDetails(null);
                 setPaymentMethod(null);
@@ -1371,7 +1469,13 @@ const MangaChapterScreen = () => {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Confirm Transaction</Text>
             <Text style={styles.modalSubtitle}>
-              Unlock Chapter {chapterNum} for:
+              Unlock{' '}
+              {transactionDetails?.paymentType === 'threeChapters'
+                ? '3 Chapters'
+                : transactionDetails?.paymentType === 'fullChapters'
+                ? 'All Chapters'
+                : `Chapter ${chapterNum}`}
+              for:
             </Text>
             <View style={styles.transactionDetails}>
               <Text style={styles.detailText}>
@@ -1384,14 +1488,14 @@ const MangaChapterScreen = () => {
                 Wallet: {activeWalletAddress?.slice(0, 6)}...{activeWalletAddress?.slice(-4)}
               </Text>
               <Text style={styles.detailText}>
-                To: {MERCHANT_WALLET.slice(0, 6)}...{MERCHANT_WALLET.slice(-4)}
+                To: {MERCHANT_WALLET?.slice(0, 6)}...{MERCHANT_WALLET?.slice(-4)}
               </Text>
             </View>
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalConfirmButton}
                 onPress={() => {
-                  console.log('Confirm Payment button pressed');
+                  console.log('Confirm Payment modal button pressed');
                   confirmPayment();
                 }}
                 activeOpacity={0.7}
@@ -1402,7 +1506,7 @@ const MangaChapterScreen = () => {
               <TouchableOpacity
                 style={styles.modalCancelButton}
                 onPress={() => {
-                  console.log('Cancel button pressed');
+                  console.log('Cancel modal button pressed');
                   setShowTransactionPopup(false);
                   setTransactionDetails(null);
                   setPaymentMethod(null);
@@ -1413,14 +1517,14 @@ const MangaChapterScreen = () => {
                 <Text style={styles.modalButtonText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalNote}>You will be prompted for your wallet password.</Text>
+            <Text style={styles.modalNote}>You will need to enter your wallet password.</Text>
           </Animated.View>
         </View>
       </Modal>
 
       <Modal
         visible={showPasswordModal}
-        transparent
+        transparent={true}
         animationType="fade"
         onRequestClose={() => {
           console.log('Password modal close requested');
@@ -1436,7 +1540,11 @@ const MangaChapterScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.keyboardAvoidingView}
           >
-            <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(300)} style={styles.passwordModalContent}>
+            <Animated.View
+              entering={FadeIn.duration(300)}
+              exiting={FadeOut.duration(300)}
+              style={styles.passwordModalContent}
+            >
               <Text style={styles.passwordModalTitle}>Enter Wallet Password</Text>
               <TextInput
                 style={[styles.passwordInput, passwordError ? styles.inputError : null]}
@@ -1447,33 +1555,34 @@ const MangaChapterScreen = () => {
                   setPassword(text);
                   setPasswordError(null);
                 }}
-                secureTextEntry
-                autoFocus
+                secureTextEntry={true}
+                autoFocus={true}
                 accessibilityLabel="Wallet password input"
               />
               {passwordError && (
                 <Text style={styles.passwordErrorText}>
                   {passwordError}
-                  {passwordAttempts >= MAX_PASSWORD_ATTEMPTS ? '' : ` (${MAX_PASSWORD_ATTEMPTS - passwordAttempts} attempts left)`}
+                  {passwordAttempts >= MAX_PASSWORD_ATTEMPTS
+                    ? ''
+                    : ` (${MAX_PASSWORD_ATTEMPTS - passwordAttempts} attempts left)`}
                 </Text>
               )}
               <View style={styles.passwordModalButtonRow}>
                 <TouchableOpacity
                   style={styles.passwordModalConfirmButton}
                   onPress={() => {
-                    console.log('Password Confirm button pressed');
+                    console.log('Password modal Confirm pressed');
                     handlePasswordSubmit();
                   }}
                   disabled={passwordAttempts >= MAX_PASSWORD_ATTEMPTS}
                   activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.passwordModalButtonText}>Confirm</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.passwordModalCancelButton}
                   onPress={() => {
-                    console.log('Password Cancel button pressed');
+                    console.log('Password modal Cancel pressed');
                     setShowPasswordModal(false);
                     setPassword('');
                     setPasswordError(null);
@@ -1481,7 +1590,6 @@ const MangaChapterScreen = () => {
                     setPasswordCallback(null);
                   }}
                   activeOpacity={0.7}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Text style={styles.passwordModalButtonText}>Cancel</Text>
                 </TouchableOpacity>

@@ -66,14 +66,18 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
           `[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`,
           JSON.stringify({ message: errorMsg, stack: err.stack }, null, 2)
         );
-        // Stop retrying for specific errors
+        // Handle specific errors
         if (
           errorMsg.includes('already claimed') ||
           errorMsg.includes('Invalid user id') ||
           errorMsg.includes('Airdrop limit reached') ||
           errorMsg.includes('Failed to retrieve user wallet') ||
           errorMsg.includes('Invalid user wallet address') ||
-          errorMsg.includes('Airdrop wallet has insufficient SOL')
+          errorMsg.includes('Invalid wallet address') ||
+          errorMsg.includes('Airdrop wallet has insufficient SOL') ||
+          errorMsg.includes('User already claimed airdrop') ||
+          errorMsg.includes('non-2xx status code') ||
+          errorMsg.includes('Failed to log transaction')
         ) {
           setErrorMessage(errorMsg);
           break;
@@ -83,6 +87,7 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
         setRetryCount(attempts);
         if (attempts < MAX_RETRIES) {
           const delay = RETRY_DELAY * Math.pow(2, attempts - 1);
+          console.log(`[TokenClaimModal] Retrying in ${delay / 1000}s...`);
           setErrorMessage(`Retry ${attempts}/${MAX_RETRIES} in ${delay / 1000}s...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {

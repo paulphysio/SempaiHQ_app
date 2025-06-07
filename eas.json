@@ -13,26 +13,50 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://www.sempai.xyz/api/",
-        "SUPABASE_URL": "https://xqeimsncmnqsiowftdmz.supabase.co",
-        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhxZWltc25jbW5xc2lvd2Z0ZG16Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgwNDExOTYsImV4cCI6MjA1MzYxNzE5Nn0.B8mZGxtUDp5jC-SwqBj1G5BjZE_A6RC-ZeJtmkq76iY",
-        "GOOGLE_WEB_CLIENT_ID": "63667308763-6kecoi8ndtpqfd065noj278lhlb8j7qt.apps.googleusercontent.com"
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com/?api-key=${SOLANA_API_KEY}",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_KEY": "${SUPABASE_KEY}",
+        "GOOGLE_WEB_CLIENT_ID": "${GOOGLE_WEB_CLIENT_ID}",
+        "GOOGLE_ANDROID_CLIENT_ID": "${GOOGLE_ANDROID_CLIENT_ID}"
       }
     },
     "preview": {
+      "developmentClient": false,
+      "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "distribution": "internal",
-      "extends": "development"
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempai.xyz/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com/?api-key=${SOLANA_API_KEY}",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_KEY": "${SUPABASE_KEY}",
+        "GOOGLE_WEB_CLIENT_ID": "${GOOGLE_WEB_CLIENT_ID}",
+        "GOOGLE_ANDROID_CLIENT_ID": "${GOOGLE_ANDROID_CLIENT_ID}"
+      }
     },
     "production": {
+      "developmentClient": false,
       "autoIncrement": true,
+      "distribution": "store",
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempai.xyz/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com/?api-key=${SOLANA_API_KEY}",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_KEY": "${SUPABASE_KEY}",
+        "GOOGLE_WEB_CLIENT_ID": "${GOOGLE_WEB_CLIENT_ID}",
+        "GOOGLE_ANDROID_CLIENT_ID": "${GOOGLE_ANDROID_CLIENT_ID}"
       }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "android": {
+        "track": "production"
+      }
+    }
   }
 }

@@ -35,10 +35,11 @@ import MangaPageScreen from './screens/MangaPageScreen';
 import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
 import MangaChapterScreen from './screens/MangaChapterScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
-import SignIn from './components/SignIn'; // Updated to match components directory
+import SignIn from './components/SignIn';
 import { GoogleAuthProvider } from './components/GoogleAuthProvider';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SystemUiContext } from './context/SystemUiContext';
+import WalletScreen from './screens/WalletScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -196,6 +197,7 @@ const AppContent = () => {
             <Stack.Screen name="MangaPage" component={MangaPageScreen} />
             <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
             <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
+            <Stack.Screen name="Wallet" component={WalletScreen} />
           </>
         )}
       </Stack.Navigator>

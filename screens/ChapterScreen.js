@@ -20,6 +20,7 @@ import { createTransferInstruction, getOrCreateAssociatedTokenAccount, getAccoun
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as SecureStore from 'expo-secure-store';
+import axios from 'axios';
 import { styles } from '../styles/ChapterScreenStyles';
 import { RPC_URL, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, TARGET_WALLET, SMP_DECIMALS, AMETHYST_MINT_ADDRESS, AMETHYST_DECIMALS } from '../constants';
 import bs58 from 'bs58';
@@ -32,6 +33,8 @@ const MAX_PASSWORD_ATTEMPTS = 3;
 const PASSWORD_ERROR_TIMEOUT = 5000;
 const MIN_REWARD_WALLET_SOL = 0.05;
 const MIN_USER_SOL = 0;
+const poolAddress = "3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33";
+const meteoraApiUrl = `https://amm-v2.meteora.ag/pools?address=${poolAddress}`;
 
 const ChapterScreen = () => {
   const navigation = useNavigation();
@@ -143,11 +146,44 @@ const ChapterScreen = () => {
     }
   }, [activeWalletAddress]);
 
+  const fetchPoolData = async () => {
+    try {
+      const response = await axios.get(meteoraApiUrl);
+      const poolData = response.data[0]; // Assuming the API returns an array with the pool object
+      return poolData;
+    } catch (error) {
+      console.error(`[fetchPoolData] Failed to fetch pool data: ${error.message}`);
+      return null;
+    }
+  };
+
+  function calculateSmpPriceInSol(pool, smpDecimals = 6, solDecimals = 9) {
+    const smpAmount = parseFloat(pool.pool_token_amounts[0]) / Math.pow(10, smpDecimals);
+    const solAmount = parseFloat(pool.pool_token_amounts[1]) / Math.pow(10, solDecimals);
+  
+    if (smpAmount <= 0 || solAmount <= 0) {
+      throw new Error("Invalid pool amounts: SMP and SOL amounts must be positive");
+    }
+  
+    if (solAmount < 0.01) {
+      console.warn("Warning: Low SOL liquidity in pool. Price may be unreliable.");
+    }
+  
+    const smpPerSol = smpAmount / solAmount;
+    const priceInSol = 1 / smpPerSol;
+  
+    return {
+      priceInSol,
+      smpPerSol,
+      source: "pool data"
+    };
+  }
+  
   const fetchPrices = useCallback(async () => {
     try {
       const cacheKey = 'priceCache';
       const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-
+  
       const cachedData = await SecureStore.getItemAsync(cacheKey);
       if (cachedData) {
         const { timestamp, solPrice, smpPrice } = JSON.parse(cachedData);
@@ -157,7 +193,7 @@ const ChapterScreen = () => {
           return;
         }
       }
-
+  
       // Fetch SOL price from CoinGecko
       let solPrice = 100; // Default value
       try {
@@ -172,26 +208,29 @@ const ChapterScreen = () => {
       } catch (error) {
         console.warn('[fetchPrices] Failed to fetch SOL price:', error.message);
       }
-
-      // Fetch SMP price from Meteora
+  
+      // Fetch pool data from Meteora API
       let smpPrice = 0.01; // Default value
       try {
-        const response = await fetch('https://dlmm-api.meteora.ag/pair/6uTXoUh8yVkgSWwPayqcvFTeWyj38KgxQ7ErUfcCmKVv');
-        if (response.ok) {
-          const data = await response.json();
-          if (data?.current_price) {
-            // Convert SMP-SOL price to SMP-USD
-            smpPrice = data.current_price * solPrice;
-            console.log('[fetchPrices] SMP-USD price calculated:', smpPrice);
-          }
+        const poolData = await fetchPoolData();
+        if (poolData && poolData.pool_token_amounts) {
+          const poolResult = calculateSmpPriceInSol(poolData, 6, 9);
+          smpPrice = poolResult.priceInSol * solPrice;
+          console.log('[fetchPrices] SMP-SOL price:', poolResult.priceInSol.toExponential(6));
+          console.log('[fetchPrices] SMP per SOL:', poolResult.smpPerSol.toFixed(2));
+          console.log('[fetchPrices] SMP-USD price calculated:', smpPrice);
+          console.log('[fetchPrices] SMP for $3:', Math.ceil(3 / smpPrice));
+          console.log('[fetchPrices] SMP for $15:', Math.ceil(15 / smpPrice));
+        } else {
+          console.warn('[fetchPrices] No valid pool data for SMP price calculation');
         }
       } catch (error) {
-        console.warn('[fetchPrices] Failed to fetch SMP price:', error.message);
+        console.warn('[fetchPrices] Failed to calculate SMP price:', error.message);
       }
-
+  
       setSolPrice(solPrice);
       setSmpPrice(smpPrice);
-
+  
       await SecureStore.setItemAsync(cacheKey, JSON.stringify({
         timestamp: Date.now(),
         solPrice,
@@ -203,7 +242,7 @@ const ChapterScreen = () => {
       setSmpPrice(0.01);
     }
   }, []);
-
+  
   const fetchUserData = useCallback(async () => {
     if (!activeWalletAddress) return;
     try {
@@ -961,7 +1000,7 @@ const ChapterScreen = () => {
           </TouchableOpacity>
         </Animated.View>
       ) : isLocked && isAdvanceChapter ? (
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
+        <Animated.View style={styles.lockedContainer} entering={FadeIn}>
           <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>{releaseDateMessage}</Text>
           <Text style={styles.lockedSubMessage}>Unlock with a Subscription</Text>
@@ -1002,22 +1041,7 @@ const ChapterScreen = () => {
             ))}
           </View>
         </Animated.View>
-      ) : isLocked && parseInt(chapterId, 10) > 0 ? (
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="wallet" size={48} color="#E67E22" style={styles.lockIcon} />
-          <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
-          <Text style={styles.lockedSubMessage}>
-            Please connect your wallet to read chapters.
-          </Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('WalletImport')}
-          >
-            <Icon name="wallet" size={16} color="#ffffff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Connect Wallet</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      ) : !shouldShowContent() ? (
+      ) : isLocked ? (
         <Animated.View entering={FadeIn} style={styles.lockedContainer}>
           <Icon name="gem" size={48} color="#E67E22" style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Read this Chapter</Text>
@@ -1153,7 +1177,6 @@ const ChapterScreen = () => {
                   <Icon name="times" size={20} color="#ffffff" />
                 </TouchableOpacity>
               </View>
-
               <View style={[
                 styles.passwordInputContainer,
                 passwordError ? styles.inputError : null,
@@ -1173,14 +1196,12 @@ const ChapterScreen = () => {
                   autoFocus
                 />
               </View>
-
               {passwordError && (
                 <View style={styles.passwordErrorContainer}>
                   <Icon name="exclamation-circle" size={16} color="#FF5252" style={styles.errorIcon} />
                   <Text style={styles.passwordErrorText}>{passwordError}</Text>
                 </View>
               )}
-
               <View style={styles.passwordModalButtonRow}>
                 <TouchableOpacity
                   style={[
@@ -1205,7 +1226,6 @@ const ChapterScreen = () => {
                   <Text style={styles.passwordModalButtonText}>Cancel</Text>
                 </TouchableOpacity>
               </View>
-
               {passwordAttempts >= MAX_PASSWORD_ATTEMPTS - 1 && (
                 <View style={styles.lockoutMessage}>
                   <Icon name="clock" size={16} color="#FF5252" style={styles.lockoutIcon} />
@@ -1214,7 +1234,6 @@ const ChapterScreen = () => {
                   </Text>
                 </View>
               )}
-
               <Text style={styles.passwordModalNote}>
                 Enter your wallet password to sign this transaction
               </Text>
