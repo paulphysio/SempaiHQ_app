@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
-import { GoogleSignin, GoogleSigninButton } from '@react-native-google-signin/google-signin';
+import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
 import { supabase } from '../services/supabaseClient';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,8 +28,8 @@ let isSigningIn = false;
 GoogleSignin.configure({
   webClientId: googleWebClientId,
   androidClientId: googleAndroidClientId,
-  scopes: ['profile', 'email'],
-  offlineAccess: true,
+  scopes: ['profile', 'email', 'openid'],
+  offlineAccess: false, // Set to true if you need a server auth code
 });
 
 console.log('=== Google Auth Provider Initialization ===');
@@ -99,7 +99,8 @@ export const GoogleAuthProvider = ({ children }) => {
       const userInfo = await GoogleSignin.signIn();
       console.log('Google Sign-In Response:', JSON.stringify(userInfo, null, 2));
 
-      const idToken = userInfo.data?.idToken;
+      // Access idToken directly from userInfo
+      const idToken = userInfo.idToken;
       if (!idToken) {
         throw new Error('No ID token returned from Google Sign-In');
       }
@@ -109,7 +110,7 @@ export const GoogleAuthProvider = ({ children }) => {
       setLoading(true);
 
       // Check if user already exists in Supabase
-      const email = userInfo.data?.user?.email;
+      const email = userInfo.user.email;
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
         .select('id')
@@ -136,7 +137,7 @@ export const GoogleAuthProvider = ({ children }) => {
 
       console.log('Supabase Sign-In successful:', !!data.session);
       setSession(data.session);
-      await AsyncStorage.setItem('@user', JSON.stringify(userInfo.data));
+      await AsyncStorage.setItem('@user', JSON.stringify(userInfo.user));
     } catch (err) {
       logError(err, 'Google Sign In');
       console.log('Google Sign-In Error Code:', err.code || 'undefined');

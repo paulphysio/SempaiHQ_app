@@ -24,6 +24,14 @@ export default ({ config }) => ({
         backgroundColor: '#ffffff',
       },
       permissions: ['NOTIFICATIONS', 'POST_NOTIFICATIONS'],
+      signingConfig: {
+        keystore: {
+          keystorePath: './keystores/@david350__sempai-hq.jks',
+          keystorePassword: process.env.KEYSTORE_PASSWORD,
+          keyAlias: process.env.KEY_ALIAS,
+          keyPassword: process.env.KEY_PASSWORD,
+        },
+      },
     },
     web: {
       favicon: './assets/favicon.png',
@@ -36,8 +44,8 @@ export default ({ config }) => ({
         {
           android: {
             usesCleartextTraffic: true,
-            compileSdkVersion: 35, // Updated to 35
-            targetSdkVersion: 35, // Updated to 35
+            compileSdkVersion: 35,
+            targetSdkVersion: 35,
             minSdkVersion: 24,
           },
         },
