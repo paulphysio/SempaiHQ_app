@@ -24,14 +24,6 @@ export default ({ config }) => ({
         backgroundColor: '#ffffff',
       },
       permissions: ['NOTIFICATIONS', 'POST_NOTIFICATIONS'],
-      signingConfig: {
-        keystore: {
-          keystorePath: './keystores/@david350__sempai-hq.jks',
-          keystorePassword: process.env.KEYSTORE_PASSWORD,
-          keyAlias: process.env.KEY_ALIAS,
-          keyPassword: process.env.KEY_PASSWORD,
-        },
-      },
     },
     web: {
       favicon: './assets/favicon.png',
