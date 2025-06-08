@@ -45,6 +45,10 @@ next-env.d.ts
 
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
+# Keystore and credentials
+android/keystores/
+credentials.json
+
 # dependencies
 node_modules/
 

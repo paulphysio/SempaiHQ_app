@@ -1,6 +1,17 @@
-// src/constants.js
 import { PublicKey, Keypair } from '@solana/web3.js';
-import bs58 from 'bs58';
+
+// Handle bs58 import for ESM compatibility
+let bs58;
+try {
+  bs58 = require('bs58');
+} catch (error) {
+  console.warn('[constants.js] Failed to load bs58 with require, trying import:', error.message);
+  import('bs58').then(module => {
+    bs58 = module.default;
+  }).catch(err => {
+    console.error('[constants.js] Failed to load bs58:', err.message);
+  });
+}
 
 // Treasury wallet configuration
 let TREASURY_PRIVATE_KEY = null;
@@ -17,10 +28,15 @@ if (process.env.BACKEND_WALLET_PRIVATE_KEY) {
   try {
     const rawKey = process.env.BACKEND_WALLET_PRIVATE_KEY.trim();
     console.log('[constants.js] Raw BACKEND_WALLET_PRIVATE_KEY:', rawKey);
+    console.log('[constants.js] Key length:', rawKey.length);
     if (!isValidBase58(rawKey)) {
       throw new Error('Invalid Base58 characters in BACKEND_WALLET_PRIVATE_KEY');
     }
+    if (!bs58) {
+      throw new Error('bs58 module not loaded');
+    }
     const privateKeyBytes = bs58.decode(rawKey);
+    console.log('[constants.js] Decoded key length:', privateKeyBytes.length);
     if (privateKeyBytes.length !== 64) {
       throw new Error(`Invalid private key length: expected 64 bytes, got ${privateKeyBytes.length}`);
     }

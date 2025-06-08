@@ -1,55 +1,31 @@
 {
   "cli": {
-    "version": ">= 5.9.1",
+    "version": ">= 5.0.0",
     "appVersionSource": "remote"
   },
   "build": {
     "development": {
-      "developmentClient": true,
-      "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleDebug"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://www.sempai.xyz/api/",
-        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com/?api-key=${SOLANA_API_KEY}",
-        "SUPABASE_URL": "${SUPABASE_URL}",
-        "SUPABASE_KEY": "${SUPABASE_KEY}",
-        "GOOGLE_WEB_CLIENT_ID": "${GOOGLE_WEB_CLIENT_ID}",
-        "GOOGLE_ANDROID_CLIENT_ID": "${GOOGLE_ANDROID_CLIENT_ID}"
-      }
-    },
-    "preview": {
-      "developmentClient": false,
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://www.sempai.xyz/api/",
-        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com/?api-key=${SOLANA_API_KEY}",
-        "SUPABASE_URL": "${SUPABASE_URL}",
-        "SUPABASE_KEY": "${SUPABASE_KEY}",
-        "GOOGLE_WEB_CLIENT_ID": "${GOOGLE_WEB_CLIENT_ID}",
-        "GOOGLE_ANDROID_CLIENT_ID": "${GOOGLE_ANDROID_CLIENT_ID}"
-      }
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "preview"
     },
     "production": {
-      "developmentClient": false,
-      "autoIncrement": true,
       "distribution": "store",
+      "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "credentialsSource": "local"
       },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://www.sempai.xyz/api/",
-        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com/?api-key=${SOLANA_API_KEY}",
-        "SUPABASE_URL": "${SUPABASE_URL}",
-        "SUPABASE_KEY": "${SUPABASE_KEY}",
-        "GOOGLE_WEB_CLIENT_ID": "${GOOGLE_WEB_CLIENT_ID}",
-        "GOOGLE_ANDROID_CLIENT_ID": "${GOOGLE_ANDROID_CLIENT_ID}"
-      }
+      "channel": "production"
     }
   },
   "submit": {

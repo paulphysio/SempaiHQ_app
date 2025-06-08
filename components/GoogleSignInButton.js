@@ -14,24 +14,26 @@ const GoogleSignInButton = () => {
         await signIn();
       }
     } catch (error) {
-      console.error('Google sign in/out error:', error);
+      console.error('Google sign in/out error:', error.message);
     }
   };
 
-  if (loading) {
-    return (
-      <TouchableOpacity style={styles.button} disabled>
-        <ActivityIndicator color="#ffffff" />
-      </TouchableOpacity>
-    );
-  }
-
   return (
-    <TouchableOpacity style={styles.button} onPress={handlePress}>
-      <Icon name="google" size={20} color="#ffffff" style={styles.icon} />
-      <Text style={styles.text}>
-        {session ? 'Sign out of Google' : 'Sign in with Google'}
-      </Text>
+    <TouchableOpacity
+      style={[styles.button, loading && styles.disabledButton]}
+      onPress={handlePress}
+      disabled={loading}
+    >
+      {loading ? (
+        <ActivityIndicator color="#ffffff" />
+      ) : (
+        <>
+          <Icon name="google" size={20} color="#ffffff" style={styles.icon} />
+          <Text style={styles.text}>
+            {session ? 'Sign out of Google' : 'Sign in with Google'}
+          </Text>
+        </>
+      )}
     </TouchableOpacity>
   );
 };
@@ -45,6 +47,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     marginVertical: 10,
+  },
+  disabledButton: {
+    backgroundColor: '#a0c4ff',
   },
   text: {
     color: '#ffffff',

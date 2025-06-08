@@ -1,59 +1,32 @@
-// app.config.js
 import 'dotenv/config';
 
-export default ({ config }) => {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_KEY;
-  const googleWebClientId = process.env.GOOGLE_WEB_CLIENT_ID;
-  const googleAndroidClientId = process.env.GOOGLE_ANDROID_CLIENT_ID;
-
-  const missingVars = [];
-  if (!supabaseUrl) missingVars.push('SUPABASE_URL');
-  if (!supabaseKey) missingVars.push('SUPABASE_KEY');
-  if (!googleWebClientId) missingVars.push('GOOGLE_WEB_CLIENT_ID');
-  if (!googleAndroidClientId) missingVars.push('GOOGLE_ANDROID_CLIENT_ID');
-
-  if (missingVars.length > 0) {
-    console.error(`Missing required environment variables: ${missingVars.join(', ')}. Ensure these are set in your .env file.`);
-    throw new Error(`Missing environment variables: ${missingVars.join(', ')}`);
-  }
-
-  return {
-    ...config,
+export default ({ config }) => ({
+  ...config,
+  expo: {
     name: 'Sempai HQ',
     slug: 'sempai-hq',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'dark',
+    userInterfaceStyle: 'light',
     splash: {
       image: './assets/splash-icon.png',
       resizeMode: 'contain',
-      backgroundColor: '#000000',
+      backgroundColor: '#ffffff',
     },
-    assetBundlePatterns: ['**/*'],
-    ios: {
-      supportsTablet: true,
-      bundleIdentifier: 'com.turningpointKS.sempaihq',
-    },
+    assetBundlePatterns: ['assets/**/*'],
+    platforms: ['android'],
     android: {
       package: 'com.turningpointKS.sempaihq',
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#000000',
+        backgroundColor: '#ffffff',
       },
-      permissions: [],
+      permissions: ['NOTIFICATIONS', 'POST_NOTIFICATIONS'],
     },
-    scheme: 'com.turningpointks.sempaihq',
-    extra: {
-      supabaseUrl,
-      supabaseKey,
-      googleWebClientId,
-      googleAndroidClientId,
-      eas: {
-        projectId: '1add05f5-c57a-41f9-8a38-57625c724beb',
-      },
+    web: {
+      favicon: './assets/favicon.png',
     },
     owner: 'physiotelli350',
     plugins: [
@@ -63,9 +36,9 @@ export default ({ config }) => {
         {
           android: {
             usesCleartextTraffic: true,
-            compileSdkVersion: 34,
-            targetSdkVersion: 34,
-            minSdkVersion: 21,
+            compileSdkVersion: 35, // Updated to 35
+            targetSdkVersion: 35, // Updated to 35
+            minSdkVersion: 24,
           },
         },
       ],
@@ -73,18 +46,32 @@ export default ({ config }) => {
         'expo-notifications',
         {
           icon: './assets/notification-icon.png',
-          color: '#FF6B00',
+          color: '#ffffff',
         },
       ],
       'expo-font',
       [
         '@react-native-google-signin/google-signin',
         {
-          webClientId: googleWebClientId,
-          androidClientId: googleAndroidClientId, // Explicitly set Android client ID
+          androidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
+          iosUrlScheme: 'com.googleusercontent.apps.dummy',
         },
       ],
     ],
+    extra: {
+      supabaseUrl: process.env.SUPABASE_URL,
+      supabaseKey: process.env.SUPABASE_KEY,
+      backendWalletKeypair: process.env.BACKEND_WALLET_PRIVATE_KEY,
+      solanaNetwork: process.env.EXPO_PUBLIC_SOLANA_NETWORK,
+      solanaApiKey: process.env.SOLANA_API_KEY,
+      keypairEncryptionSecret: process.env.KEYPAIR_ENCRYPTION_SECRET,
+      apiUrl: process.env.EXPO_PUBLIC_API_URL,
+      googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
+      googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
+      eas: {
+        projectId: '1add05f5-c57a-41f9-8a38-57625c724beb',
+      },
+    },
     updates: {
       enabled: true,
       url: 'https://u.expo.dev/1add05f5-c57a-41f9-8a38-57625c724beb',
@@ -92,5 +79,5 @@ export default ({ config }) => {
     runtimeVersion: {
       policy: 'appVersion',
     },
-  };
-};
+  },
+});

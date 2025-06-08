@@ -20,9 +20,14 @@ const logError = (error, context) => {
 export const GoogleAuthContext = createContext();
 
 const googleWebClientId = Constants.expoConfig?.extra?.googleWebClientId || '63667308763-6kecoi8ndtpqfd065noj278lhlb8j7qt.apps.googleusercontent.com';
+const googleAndroidClientId = Constants.expoConfig?.extra?.googleAndroidClientId || '63667308763-kkqi7s6s2ftqg6ksvqnsgkkq8am9fmnl.apps.googleusercontent.com';
+
+// Track sign-in state
+let isSigningIn = false;
 
 GoogleSignin.configure({
   webClientId: googleWebClientId,
+  androidClientId: googleAndroidClientId,
   scopes: ['profile', 'email'],
   offlineAccess: true,
 });
@@ -30,6 +35,7 @@ GoogleSignin.configure({
 console.log('=== Google Auth Provider Initialization ===');
 console.log('Platform: Android');
 console.log('Web Client ID:', googleWebClientId);
+console.log('Android Client ID:', googleAndroidClientId);
 
 export const GoogleAuthProvider = ({ children }) => {
   const [session, setSession] = useState(null);
@@ -63,6 +69,11 @@ export const GoogleAuthProvider = ({ children }) => {
   }, []);
 
   const signIn = async () => {
+    if (isSigningIn) {
+      console.log('Sign-in already in progress, please wait...');
+      return;
+    }
+
     try {
       setError(null);
       setModalVisible(true);
@@ -73,7 +84,13 @@ export const GoogleAuthProvider = ({ children }) => {
   };
 
   const handleGoogleSignIn = async () => {
+    if (isSigningIn) {
+      console.log('Google Sign-In already in progress, please wait...');
+      return;
+    }
+
     try {
+      isSigningIn = true;
       console.log('Checking Google Play Services...');
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       console.log('Google Play Services available');
@@ -99,7 +116,7 @@ export const GoogleAuthProvider = ({ children }) => {
         .eq('email', email)
         .single();
 
-      if (userCheckError && userCheckError.code !== 'PGRST116') { // PGRST116 means no rows found
+      if (userCheckError && userCheckError.code !== 'PGRST116') {
         throw userCheckError;
       }
 
@@ -126,6 +143,7 @@ export const GoogleAuthProvider = ({ children }) => {
       console.log('Google Sign-In Error Details:', JSON.stringify(err));
       setError(`Google Sign-In failed: ${err.message}`);
     } finally {
+      isSigningIn = false;
       setModalVisible(false);
       setLoading(false);
     }
@@ -162,7 +180,9 @@ export const GoogleAuthProvider = ({ children }) => {
         animationType="slide"
         transparent={true}
         visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={() => {
+          if (!isSigningIn) setModalVisible(false);
+        }}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalView}>
@@ -172,12 +192,14 @@ export const GoogleAuthProvider = ({ children }) => {
               size={GoogleSigninButton.Size.Wide}
               color={GoogleSigninButton.Color.Light}
               onPress={handleGoogleSignIn}
-              disabled={loading}
+              disabled={loading || isSigningIn}
             />
             <Pressable
               style={[styles.button, styles.cancelButton]}
-              onPress={() => setModalVisible(false)}
-              disabled={loading}
+              onPress={() => {
+                if (!isSigningIn) setModalVisible(false);
+              }}
+              disabled={loading || isSigningIn}
             >
               <Text style={styles.buttonText}>Cancel</Text>
             </Pressable>
