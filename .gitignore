@@ -90,3 +90,22 @@ yarn-error.*
 supabase/.temp
 @physiotelli350__sempai-hq.jks
 @david350__sempai-hq.jks
+
+# Keystores (ignore all JKS files)
+*.jks
+
+# Certificates and encrypted key outputs
+certificate.pem
+sempai-hq-key.zip
+
+# Credentials and environment files
+.env
+credentials.json
+
+# Optional: Google’s encryption public key
+encryption_public_key.pem
+
+# Check these for sensitive data; include if needed
+# dapp.json
+# app.config.js
+# eas.json

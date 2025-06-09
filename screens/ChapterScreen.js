@@ -27,11 +27,10 @@ import bs58 from 'bs58';
 import CommentSection from '../components/Comments/CommentSection';
 
 const connection = new Connection(RPC_URL, 'confirmed');
-const MIN_ATA_SOL = 0.00203928;
-const SMP_READ_COST = 1000;
+const MIN_ATA_SOL = 0.00103928;
 const MAX_PASSWORD_ATTEMPTS = 3;
 const PASSWORD_ERROR_TIMEOUT = 5000;
-const MIN_REWARD_WALLET_SOL = 0.05;
+const MIN_REWARD_WALLET_SOL = 0.005;
 const MIN_USER_SOL = 0;
 const poolAddress = "3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33";
 const meteoraApiUrl = `https://amm-v2.meteora.ag/pools?address=${poolAddress}`;
@@ -93,6 +92,17 @@ const ChapterScreen = () => {
 
   const activeWalletAddress = activePublicKey?.toString();
 
+  // Dynamic SMP cost for $0.025
+  const SMP_READ_COST = useMemo(() => {
+    if (!smpPrice || smpPrice <= 0) {
+      console.warn('[SMP_READ_COST] Invalid SMP price, using default value');
+      return 1000; // Fallback to 1000 SMP if price is invalid
+    }
+    const costInSmp = Math.ceil(0.025 / smpPrice); // $0.025 worth of SMP, rounded up
+    console.log('[SMP_READ_COST] Calculated SMP cost for $0.025:', costInSmp);
+    return costInSmp;
+  }, [smpPrice]);
+
   const fetchSmpBalanceOnChain = useCallback(async (retryCount = 3, retryDelay = 1000) => {
     if (!activeWalletAddress || !activePublicKey) return 0;
 
@@ -153,37 +163,37 @@ const ChapterScreen = () => {
       return poolData;
     } catch (error) {
       console.error(`[fetchPoolData] Failed to fetch pool data: ${error.message}`);
-      return null;
+      throw new Error(`Failed to fetch pool data: ${error.message}`);
     }
   };
 
-  function calculateSmpPriceInSol(pool, smpDecimals = 6, solDecimals = 9) {
+  function calculateSmpPriceInSol(pool, smpDecimals = 9, solDecimals = 9) {
     const smpAmount = parseFloat(pool.pool_token_amounts[0]) / Math.pow(10, smpDecimals);
     const solAmount = parseFloat(pool.pool_token_amounts[1]) / Math.pow(10, solDecimals);
-  
+
     if (smpAmount <= 0 || solAmount <= 0) {
       throw new Error("Invalid pool amounts: SMP and SOL amounts must be positive");
     }
-  
+
     if (solAmount < 0.01) {
       console.warn("Warning: Low SOL liquidity in pool. Price may be unreliable.");
     }
-  
+
     const smpPerSol = smpAmount / solAmount;
     const priceInSol = 1 / smpPerSol;
-  
+
     return {
       priceInSol,
       smpPerSol,
       source: "pool data"
     };
   }
-  
+
   const fetchPrices = useCallback(async () => {
     try {
       const cacheKey = 'priceCache';
       const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-  
+
       const cachedData = await SecureStore.getItemAsync(cacheKey);
       if (cachedData) {
         const { timestamp, solPrice, smpPrice } = JSON.parse(cachedData);
@@ -193,7 +203,7 @@ const ChapterScreen = () => {
           return;
         }
       }
-  
+
       // Fetch SOL price from CoinGecko
       let solPrice = 100; // Default value
       try {
@@ -208,13 +218,13 @@ const ChapterScreen = () => {
       } catch (error) {
         console.warn('[fetchPrices] Failed to fetch SOL price:', error.message);
       }
-  
+
       // Fetch pool data from Meteora API
       let smpPrice = 0.01; // Default value
       try {
         const poolData = await fetchPoolData();
         if (poolData && poolData.pool_token_amounts) {
-          const poolResult = calculateSmpPriceInSol(poolData, 6, 9);
+          const poolResult = calculateSmpPriceInSol(poolData, 9, 9);
           smpPrice = poolResult.priceInSol * solPrice;
           console.log('[fetchPrices] SMP-SOL price:', poolResult.priceInSol.toExponential(6));
           console.log('[fetchPrices] SMP per SOL:', poolResult.smpPerSol.toFixed(2));
@@ -227,10 +237,10 @@ const ChapterScreen = () => {
       } catch (error) {
         console.warn('[fetchPrices] Failed to calculate SMP price:', error.message);
       }
-  
+
       setSolPrice(solPrice);
       setSmpPrice(smpPrice);
-  
+
       await SecureStore.setItemAsync(cacheKey, JSON.stringify({
         timestamp: Date.now(),
         solPrice,
@@ -242,7 +252,7 @@ const ChapterScreen = () => {
       setSmpPrice(0.01);
     }
   }, []);
-  
+
   const fetchUserData = useCallback(async () => {
     if (!activeWalletAddress) return;
     try {

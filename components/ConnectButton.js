@@ -18,14 +18,14 @@ export const EmbeddedWalletContext = createContext();
 const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
 const secureStoreWrapper = {
-  setItemAsync: async (key, value) => {
+  setItemAsync: async (key, value, useBiometrics = false) => {
     try {
       if (typeof value !== 'string') {
         throw new Error(`Value for ${key} must be a string, got ${typeof value}`);
       }
       if (Platform.OS === 'web') {
         localStorage.setItem(key, value);
-      } else {
+      } else if (useBiometrics) {
         try {
           await SecureStore.setItemAsync(key, value, {
             requireAuthentication: true,
@@ -36,6 +36,8 @@ const secureStoreWrapper = {
           console.warn('[secureStoreWrapper] Biometric failed, using fallback:', biometricError.message);
           await SecureStore.setItemAsync(key, value);
         }
+      } else {
+        await SecureStore.setItemAsync(key, value);
       }
       console.log(`[secureStoreWrapper] Set ${key}`);
     } catch (err) {
@@ -43,13 +45,13 @@ const secureStoreWrapper = {
       throw err;
     }
   },
-  getItemAsync: async (key) => {
+  getItemAsync: async (key, useBiometrics = false) => {
     try {
       if (Platform.OS === 'web') {
         const value = localStorage.getItem(key);
         console.log(`[secureStoreWrapper] Got ${key}: ${value ? 'exists' : 'null'}`);
         return value;
-      } else {
+      } else if (useBiometrics) {
         try {
           const value = await SecureStore.getItemAsync(key, {
             requireAuthentication: true,
@@ -64,6 +66,10 @@ const secureStoreWrapper = {
           console.log(`[secureStoreWrapper] Got ${key} (fallback): ${value ? 'exists' : 'null'}`);
           return value;
         }
+      } else {
+        const value = await SecureStore.getItemAsync(key);
+        console.log(`[secureStoreWrapper] Got ${key}: ${value ? 'exists' : 'null'}`);
+        return value;
       }
     } catch (err) {
       console.error(`[secureStoreWrapper] Failed to get ${key}:`, err.message);
@@ -125,13 +131,26 @@ export const EmbeddedWalletProvider = ({ children }) => {
       try {
         setIsLoading(true);
         console.log('[restoreWallet] Restoring wallet for user:', user.email);
-        const publicKeyStr = await secureStoreWrapper.getItemAsync('walletPublicKey');
-        const encryptedPrivateKey = await secureStoreWrapper.getItemAsync('walletPrivateKey');
-        const storedPassword = await secureStoreWrapper.getItemAsync('transactionPassword');
-        const biometricsEnabled = (await SecureStore.getItemAsync('useBiometrics')) === 'true';
+        const storedUseBiometrics = (await secureStoreWrapper.getItemAsync('useBiometrics', false)) === 'true';
+        setUseBiometrics(storedUseBiometrics);
 
-        if (!publicKeyStr || !encryptedPrivateKey || !storedPassword) {
-          console.log('[restoreWallet] Missing wallet data in storage');
+        const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', storedUseBiometrics);
+        if (!walletDataStr) {
+          console.log('[restoreWallet] No wallet data in storage');
+          return;
+        }
+
+        let walletData;
+        try {
+          walletData = JSON.parse(walletDataStr);
+        } catch (parseError) {
+          console.error('[restoreWallet] Failed to parse wallet data:', parseError.message);
+          throw new Error('Invalid wallet data format');
+        }
+
+        const { publicKey, encryptedPrivateKey, storedPassword } = walletData;
+        if (!publicKey || !encryptedPrivateKey || !storedPassword) {
+          console.log('[restoreWallet] Missing wallet data fields');
           return;
         }
 
@@ -150,9 +169,9 @@ export const EmbeddedWalletProvider = ({ children }) => {
         }
 
         const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
-        if (keypair.publicKey.toString() !== publicKeyStr) {
+        if (keypair.publicKey.toString() !== publicKey) {
           console.error('[restoreWallet] Public key mismatch:', {
-            stored: publicKeyStr,
+            stored: publicKey,
             derived: keypair.publicKey.toString(),
           });
           throw new Error('Private key does not match stored public key');
@@ -165,13 +184,12 @@ export const EmbeddedWalletProvider = ({ children }) => {
           .single();
         if (userError) throw new Error(`Supabase user query failed: ${userError.message}`);
 
-        if (userData && userData.wallet_address === publicKeyStr) {
+        if (userData && userData.wallet_address === publicKey) {
           setWallet({ publicKey: keypair.publicKey });
           setSecretKey(privateKeyBytes);
           setTransactionPassword(storedPassword);
-          setUseBiometrics(biometricsEnabled);
           setIsWalletConnected(true);
-          console.log('[restoreWallet] Wallet restored:', publicKeyStr);
+          console.log('[restoreWallet] Wallet restored:', publicKey);
         } else {
           console.log('[restoreWallet] Wallet mismatch, clearing');
           await disconnectWallet();
@@ -224,15 +242,6 @@ export const EmbeddedWalletProvider = ({ children }) => {
       } catch (encryptionError) {
         console.error('[createEmbeddedWallet] Encryption failed:', encryptionError.message);
         throw new Error('Failed to encrypt private key');
-      }
-
-      let encryptedPrivateKeyForStore;
-      try {
-        encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', secretKeyBase58);
-        console.log('[createEmbeddedWallet] Private key encrypted for SecureStore via edge function');
-      } catch (encryptionError) {
-        console.error('[createEmbeddedWallet] SecureStore encryption failed:', encryptionError.message);
-        throw new Error('Failed to encrypt private key for storage');
       }
 
       // Hash password
@@ -304,13 +313,26 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
       console.log('[createEmbeddedWallet] Wallet inserted for address:', publicKey.toString());
 
-      // Store wallet data
+      // Store wallet data as a single encrypted object
       const publicKeyStr = publicKey.toString();
-      console.log('[createEmbeddedWallet] Storing publicKey:', publicKeyStr, typeof publicKeyStr);
-      await secureStoreWrapper.setItemAsync('walletPublicKey', publicKeyStr);
-      await secureStoreWrapper.setItemAsync('walletPrivateKey', encryptedPrivateKeyForStore);
-      await secureStoreWrapper.setItemAsync('walletAddress', publicKeyStr);
-      await secureStoreWrapper.setItemAsync('transactionPassword', hashedPassword);
+      let encryptedPrivateKeyForStore;
+      try {
+        encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', secretKeyBase58);
+        console.log('[createEmbeddedWallet] Private key encrypted for SecureStore via edge function');
+      } catch (encryptionError) {
+        console.error('[createEmbeddedWallet] SecureStore encryption failed:', encryptionError.message);
+        throw new Error('Failed to encrypt private key for storage');
+      }
+
+      const walletData = {
+        publicKey: publicKeyStr,
+        encryptedPrivateKey: encryptedPrivateKeyForStore,
+        storedPassword: hashedPassword,
+      };
+      const walletDataStr = JSON.stringify(walletData);
+      console.log('[createEmbeddedWallet] Storing walletData');
+      await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
+      await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
       await AsyncStorage.setItem('walletAddress', publicKeyStr);
 
       setWallet({ publicKey });
@@ -326,7 +348,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, useBiometrics]);
 
   const retrieveEmbeddedWallet = useCallback(async (password) => {
     if (!user || user.isGuest) {
@@ -407,11 +429,15 @@ export const EmbeddedWalletProvider = ({ children }) => {
         throw new Error('Failed to encrypt private key for storage');
       }
 
-      console.log('[retrieveEmbeddedWallet] Storing publicKey:', publicKeyStr, typeof publicKeyStr);
-      await secureStoreWrapper.setItemAsync('walletPublicKey', publicKeyStr);
-      await secureStoreWrapper.setItemAsync('walletPrivateKey', encryptedPrivateKeyForStore);
-      await secureStoreWrapper.setItemAsync('walletAddress', publicKeyStr);
-      await secureStoreWrapper.setItemAsync('transactionPassword', hashedPassword);
+      const walletDataObj = {
+        publicKey: publicKeyStr,
+        encryptedPrivateKey: encryptedPrivateKeyForStore,
+        storedPassword: hashedPassword,
+      };
+      const walletDataStr = JSON.stringify(walletDataObj);
+      console.log('[retrieveEmbeddedWallet] Storing walletData');
+      await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
+      await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
       await AsyncStorage.setItem('walletAddress', publicKeyStr);
 
       setWallet({ publicKey });
@@ -427,15 +453,12 @@ export const EmbeddedWalletProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, useBiometrics]);
 
   const disconnectWallet = async () => {
     try {
       console.log('[disconnectWallet] Disconnecting wallet');
-      await secureStoreWrapper.deleteItemAsync('walletPublicKey');
-      await secureStoreWrapper.deleteItemAsync('walletPrivateKey');
-      await secureStoreWrapper.deleteItemAsync('walletAddress');
-      await secureStoreWrapper.deleteItemAsync('transactionPassword');
+      await secureStoreWrapper.deleteItemAsync('walletData');
       await secureStoreWrapper.deleteItemAsync('useBiometrics');
       await AsyncStorage.removeItem('walletAddress');
       setWallet(null);
@@ -456,7 +479,12 @@ export const EmbeddedWalletProvider = ({ children }) => {
       if (!inputPassword || typeof inputPassword !== 'string') {
         throw new Error('Input password must be a string');
       }
-      const storedPassword = await secureStoreWrapper.getItemAsync('transactionPassword');
+      const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', useBiometrics);
+      if (!walletDataStr) {
+        throw new Error('No wallet data found');
+      }
+      const walletData = JSON.parse(walletDataStr);
+      const storedPassword = walletData.storedPassword;
       if (!storedPassword) {
         throw new Error('No transaction password set');
       }
@@ -471,7 +499,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       console.error('[verifyPassword] Error:', err.message);
       throw err;
     }
-  }, []);
+  }, [useBiometrics]);
 
   const signAndSendTransaction = useCallback(async (transaction, inputPassword) => {
     if (!wallet?.publicKey) {
@@ -514,22 +542,26 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
       let privateKeyBase58;
       try {
-        const encryptedPrivateKey = await secureStoreWrapper.getItemAsync('walletPrivateKey');
-        if (!encryptedPrivateKey) {
+        const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', useBiometrics && !inputPassword);
+        if (!walletDataStr) {
+          throw new Error('Wallet data unavailable');
+        }
+        const walletData = JSON.parse(walletDataStr);
+        if (!walletData.encryptedPrivateKey) {
           throw new Error('Private key unavailable');
         }
-        privateKeyBase58 = await invokeEncryptionFunction('decrypt', encryptedPrivateKey);
+        privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.encryptedPrivateKey);
         console.log('[signAndSendTransaction] Private key decrypted (first 4 chars):', privateKeyBase58.slice(0, 4));
       } catch (err) {
-        console.error('[signAndSendTransaction] Error retrieving/decrypting private key:', err);
-        throw new Error('Failed to retrieve or decrypt private key: ' + err.message);
+        console.error('[signAndSendTransaction] Error retrieving/decrypting wallet data:', err);
+        throw new Error('Failed to retrieve or decrypt wallet data: ' + err.message);
       }
 
       if (!useBiometrics && !inputPassword) {
         throw new Error('Password required for transaction');
       }
 
-      if (!useBiometrics) {
+      if (!useBiometrics && inputPassword) {
         const isValid = await verifyPassword(inputPassword);
         if (!isValid) {
           throw new Error('Invalid transaction password');
@@ -610,7 +642,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       console.error('[signAndSendTransaction] Error:', err);
       throw err;
     }
-  }, [wallet, useBiometrics, verifyPassword]);
+  }, [wallet, useBiometrics]);
 
   return (
     <EmbeddedWalletContext.Provider
@@ -840,7 +872,6 @@ const ConnectButton = () => {
       console.log('[handleCreateWallet] Creating wallet');
       const result = await createEmbeddedWallet(password);
       if (result) {
-        await SecureStore.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false');
         const userId = await createUserAndBalance(result.publicKey);
         setShowPasswordSetup(false);
         setShowCreateForm(false);
@@ -871,7 +902,7 @@ const ConnectButton = () => {
     } finally {
       setIsCreatingWallet(false);
     }
-  }, [password, confirmPassword, createEmbeddedWallet, useBiometrics, createUserAndBalance, checkUserActivityTable, checkUserActivityEntry]);
+  }, [password, confirmPassword, createEmbeddedWallet, createUserAndBalance, checkUserActivityTable, checkUserActivityEntry]);
 
   const handleRetrieveWallet = useCallback(async () => {
     if (password !== confirmPassword) {
@@ -887,7 +918,6 @@ const ConnectButton = () => {
       console.log('[handleRetrieveWallet] Starting wallet retrieval');
       const result = await retrieveEmbeddedWallet(password);
       if (result) {
-        await SecureStore.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false');
         console.log('[handleRetrieveWallet] Biometrics preference stored:', useBiometrics);
 
         const { data: userData, error: userError } = await supabase
