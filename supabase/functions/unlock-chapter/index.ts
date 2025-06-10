@@ -44,7 +44,7 @@ try {
 }
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Validate public key
@@ -86,12 +86,29 @@ async function getUserPrivateKey(userPublicKey: string): Promise<Keypair> {
     }
 
     const privateKey = Buffer.from(decryptedData.result, "base64");
-    if (privateKey.length !== 64) {
-      console.error("Invalid private key length:", privateKey.length, "Public key:", userPublicKey);
+    console.log("Decoded private key length:", privateKey.length, "First 4 bytes (hex):", privateKey.slice(0, 4).toString("hex"));
+
+    let finalPrivateKey = privateKey;
+    if (privateKey.length === 66) {
+      console.warn("Private key is 66 bytes; attempting to trim to 64 bytes", "Public key:", userPublicKey);
+      // Try trimming last 2 bytes (possible padding or metadata)
+      finalPrivateKey = privateKey.slice(0, 64);
+      console.log("Trimmed private key length:", finalPrivateKey.length);
+    }
+
+    if (finalPrivateKey.length !== 64) {
+      console.error("Invalid private key length after processing:", finalPrivateKey.length, "Public key:", userPublicKey);
       throw new Error("Decrypted private key is invalid");
     }
-    
-    return Keypair.fromSecretKey(privateKey);
+
+    const keypair = Keypair.fromSecretKey(finalPrivateKey);
+    // Verify the public key matches
+    if (keypair.publicKey.toBase58() !== userPublicKey) {
+      console.error("Decrypted keypair public key does not match provided public key", "Public key:", userPublicKey);
+      throw new Error("Decrypted private key does not correspond to provided public key");
+    }
+
+    return keypair;
   } catch (error) {
     console.error("Error in getUserPrivateKey:", error.message, "Public key:", userPublicKey);
     throw error;
@@ -288,8 +305,8 @@ serve(async (req: Request) => {
         decimals = 9;
       } else {
         return new Response(JSON.stringify({ error: "Invalid currency" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
+          status: 400,
+          headers: { "Content-Type": "application/json" },
         });
       }
     } else if (paymentType === "FULL") {
