@@ -41,8 +41,7 @@ const ChapterScreen = () => {
   const [warningMessage, setWarningMessage] = useState('');
   const [isLocked, setIsLocked] = useState(true);
   const [smpBalance, setSmpBalance] = useState(0);
-  const [solPrice, setSolPrice] = useState(165.2); // Default until fetched
-  const [smpPrice, setSmpPrice] = useState(null);
+  const [smpCosts, setSmpCosts] = useState({ 0.025: null, 3: null, 15: null }); // SMP amounts for $0.025, $3, $15
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const hasFetchedPrices = useRef(false); // Track price fetch per page visit
   const prevWalletAddress = useRef(null); // Track wallet address changes
@@ -60,18 +59,7 @@ const ChapterScreen = () => {
 
   const activeWalletAddress = activePublicKey?.toString();
 
-  // SMP cost for $0.025
-  const SMP_READ_COST = useMemo(() => {
-    if (!smpPrice || smpPrice <= 0) {
-      console.warn('[SMP_READ_COST] Invalid SMP price, using default');
-      return 50000; // Fallback: 50,000 SMP
-    }
-    const costInSmp = Math.ceil((0.025 / smpPrice) * 10 ** SMP_DECIMALS);
-    console.log('[SMP_READ_COST] Calculated SMP cost:', costInSmp, 'SMP price:', smpPrice);
-    return costInSmp;
-  }, [smpPrice]);
-
-  // Fetch pool data (from provided script)
+  // Fetch pool data
   const fetchPoolData = useCallback(async () => {
     try {
       const response = await fetch(meteoraApiUrl).then((r) => r.json());
@@ -87,10 +75,23 @@ const ChapterScreen = () => {
     }
   }, []);
 
-  // Calculate SMP price in SOL (corrected with decimals)
-  const calculateSmpPriceInSol = useCallback((pool, smpDecimals = 6, solDecimals = 9) => {
-    const smpAmount = parseFloat(pool.pool_token_amounts[0]) / Math.pow(10, smpDecimals);
-    const solAmount = parseFloat(pool.pool_token_amounts[1]) / Math.pow(10, solDecimals);
+  // Calculate SOL price in USD
+  const calculateSolPriceInUsd = useCallback((pool) => {
+    const solAmount = parseFloat(pool.pool_token_amounts[1]); // SOL amount in pool
+    const solUsdValue = parseFloat(pool.pool_token_usd_amounts[1]); // USD value of SOL
+
+    if (solAmount <= 0 || solUsdValue <= 0) {
+      throw new Error("Invalid pool amounts: SOL amount or USD value must be positive");
+    }
+
+    const solPriceInUsd = solUsdValue / solAmount;
+    return solPriceInUsd;
+  }, []);
+
+  // Calculate SMP per SOL
+  const calculateSmpPerSol = useCallback((pool) => {
+    const smpAmount = parseFloat(pool.pool_token_amounts[0]); // SMP amount in pool
+    const solAmount = parseFloat(pool.pool_token_amounts[1]); // SOL amount in pool
 
     if (smpAmount <= 0 || solAmount <= 0) {
       throw new Error("Invalid pool amounts: SMP and SOL amounts must be positive");
@@ -101,17 +102,30 @@ const ChapterScreen = () => {
     }
 
     const smpPerSol = smpAmount / solAmount;
-    const priceInSol = 1 / smpPerSol;
-
-    console.log("From Pool Data:", { priceInSol, smpPerSol });
-    return {
-      priceInSol,
-      smpPerSol,
-      source: "pool data"
-    };
+    return smpPerSol;
   }, []);
 
-  // Fetch prices ($0.025 -> SOL -> SMP)
+  // Convert USDC to SMP
+  const convertUsdcToSmp = useCallback(async (usdcAmount) => {
+    try {
+      const poolData = await fetchPoolData();
+      const solPriceInUsd = calculateSolPriceInUsd(poolData);
+      const solAmount = usdcAmount / solPriceInUsd;
+      const smpPerSol = calculateSmpPerSol(poolData);
+      const smpAmount = solAmount * smpPerSol;
+
+      console.log(`[convertUsdcToSmp] ${usdcAmount} USDC = ${solAmount.toFixed(8)} SOL`);
+      console.log(`[convertUsdcToSmp] SMP per SOL: ${smpPerSol.toFixed(2)} SMP`);
+      console.log(`[convertUsdcToSmp] ${solAmount.toFixed(8)} SOL = ${smpAmount.toFixed(2)} SMP`);
+
+      return smpAmount;
+    } catch (error) {
+      console.error('[convertUsdcToSmp] Error:', error.message);
+      return null;
+    }
+  }, [fetchPoolData, calculateSolPriceInUsd, calculateSmpPerSol]);
+
+  // Fetch prices for $0.025, $3, and $15
   const fetchPrices = useCallback(async () => {
     if (hasFetchedPrices.current) {
       console.log('[fetchPrices] Prices already fetched, skipping...');
@@ -125,11 +139,10 @@ const ChapterScreen = () => {
       const cachedData = await SecureStore.getItemAsync(cacheKey);
       if (cachedData) {
         try {
-          const { solPrice, smpPrice, timestamp } = JSON.parse(cachedData);
-          if (Date.now() - timestamp < 5 * 60 * 1000 && solPrice > 0 && smpPrice > 0) {
-            console.log('[fetchPrices] Using cached prices:', { solPrice, smpPrice });
-            setSolPrice(solPrice);
-            setSmpPrice(smpPrice);
+          const { smpCosts, timestamp } = JSON.parse(cachedData);
+          if (Date.now() - timestamp < 5 * 60 * 1000 && smpCosts['0.025'] && smpCosts['3'] && smpCosts['15']) {
+            console.log('[fetchPrices] Using cached SMP costs:', smpCosts);
+            setSmpCosts(smpCosts);
             hasFetchedPrices.current = true;
             setPricesLoading(false);
             return;
@@ -139,44 +152,34 @@ const ChapterScreen = () => {
         }
       }
 
-      // Fetch SOL price from CoinGecko
-      let solPrice = 165.2;
-      try {
-        const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd');
-        if (response.ok) {
-          const data = await response.json();
-          solPrice = data.solana.usd;
-          console.log('[fetchPrices] SOL price:', solPrice);
-        }
-      } catch (error) {
-        console.warn('[fetchPrices] SOL price fetch error:', error.message);
-      }
-      setSolPrice(solPrice);
+      // Fetch SMP amounts for $0.025, $3, and $15
+      const amounts = [0.025, 3, 15];
+      const smpAmounts = await Promise.all(amounts.map(amount => convertUsdcToSmp(amount)));
+      
+      const newSmpCosts = amounts.reduce((acc, amount, index) => {
+        acc[amount] = smpAmounts[index] !== null ? Math.ceil(smpAmounts[index]) : 50000 * 10 ** SMP_DECIMALS;
+        return acc;
+      }, {});
 
-      // Fetch SMP price
-      const poolData = await fetchPoolData();
-      const { priceInSol, smpPerSol } = calculateSmpPriceInSol(poolData, SMP_DECIMALS, 9);
-      const smpPrice = priceInSol * solPrice;
-      console.log('[fetchPrices] SMP Price:', priceInSol.toExponential(6), 'SOL per SMP');
-      console.log('[fetchPrices] SMP per SOL:', smpPerSol.toFixed(2), 'SMP per SOL');
-      console.log('[fetchPrices] SMP price in USD:', smpPrice);
-
-      if (!isNaN(smpPrice) && smpPrice > 0) {
-        setSmpPrice(smpPrice);
-        await SecureStore.setItemAsync(cacheKey, JSON.stringify({ solPrice, smpPrice, timestamp: Date.now() }));
-        console.log('[fetchPrices] Prices saved to cache:', { solPrice, smpPrice });
+      if (Object.values(newSmpCosts).every(cost => cost !== null)) {
+        setSmpCosts(newSmpCosts);
+        await SecureStore.setItemAsync(cacheKey, JSON.stringify({ smpCosts: newSmpCosts, timestamp: Date.now() }));
+        console.log('[fetchPrices] SMP costs saved to cache:', newSmpCosts);
       } else {
-        console.warn('[fetchPrices] Invalid SMP price:', smpPrice);
-        setSmpPrice(null);
+        console.warn('[fetchPrices] Some SMP costs are invalid:', newSmpCosts);
       }
       hasFetchedPrices.current = true;
     } catch (error) {
       console.error('[fetchPrices] Error:', error.message);
-      setSmpPrice(null);
     } finally {
       setPricesLoading(false);
     }
-  }, [fetchPoolData, calculateSmpPriceInSol]);
+  }, [convertUsdcToSmp]);
+
+  // SMP cost for $0.025 (for "Read with ___ SMP")
+  const SMP_READ_COST = useMemo(() => {
+    return smpCosts[0.025] || 50000 * 10 ** SMP_DECIMALS; // Fallback
+  }, [smpCosts]);
 
   // Fetch SMP balance
   const fetchSmpBalanceOnChain = useCallback(async () => {
@@ -326,7 +329,7 @@ const ChapterScreen = () => {
   ), [prevChapter, nextChapter, novelId, chapterId, navigation]);
 
   // Render
-  console.log('[Render] SMP_READ_COST:', SMP_READ_COST, 'smpPrice:', smpPrice);
+  console.log('[Render] SMP_READ_COST:', SMP_READ_COST, 'smpCosts:', smpCosts);
 
   if (loading || pricesLoading) {
     return (
@@ -366,6 +369,17 @@ const ChapterScreen = () => {
       {isWalletConnected && (
         <Animated.View entering={FadeIn} style={styles.balanceContainer}>
           <Text style={styles.balanceText}>SMP: {smpBalance.toLocaleString()}</Text>
+          {/* Display $3 and $15 SMP costs */}
+          {smpCosts[3] && (
+            <Text style={styles.balanceText}>
+              $3 = {(smpCosts[3] / 10 ** SMP_DECIMALS).toLocaleString()} SMP
+            </Text>
+          )}
+          {smpCosts[15] && (
+            <Text style={styles.balanceText}>
+              $15 = {(smpCosts[15] / 10 ** SMP_DECIMALS).toLocaleString()} SMP
+            </Text>
+          )}
         </Animated.View>
       )}
       <View style={styles.header}>
