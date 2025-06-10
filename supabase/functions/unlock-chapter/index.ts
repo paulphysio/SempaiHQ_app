@@ -16,7 +16,7 @@ import {
 } from "https://esm.sh/@solana/spl-token@0.4.8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { Buffer } from "node:buffer";
-
+import bs58 from "https://esm.sh/bs58@4.0.1";
 // Constants
 const RPC_URL = Deno.env.get("RPC_URL") || "https://mainnet.helius-rpc.com/?api-key=ad8457f8-9c51-4122-95d4-91b15728ea90";
 const connection = new Connection(RPC_URL, "confirmed");
@@ -75,7 +75,7 @@ async function getUserPrivateKey(userPublicKey: string): Promise<Keypair> {
       console.error("User wallet query error:", error?.message || "No data found", "Public key:", userPublicKey);
       throw new Error("No wallet found for this public key in user_wallets table");
     }
-    console.log("Fetched private key for user:", userPublicKey);
+    console.log("Fetched encrypted private key for user:", userPublicKey);
 
     const { data: decryptedData, error: decryptError } = await supabase.functions.invoke("wallet-encryption", {
       body: { action: "decrypt", data: data.private_key },
@@ -84,29 +84,32 @@ async function getUserPrivateKey(userPublicKey: string): Promise<Keypair> {
       console.error("Decryption error:", decryptError?.message || "No result returned", "Public key:", userPublicKey);
       throw new Error("Failed to decrypt private key");
     }
+    console.log("Decrypted private key received for user:", userPublicKey);
 
-    const privateKey = Buffer.from(decryptedData.result, "base64");
-    console.log("Decoded private key length:", privateKey.length, "First 4 bytes (hex):", privateKey.slice(0, 4).toString("hex"));
-
-    let finalPrivateKey = privateKey;
-    if (privateKey.length === 66) {
-      console.warn("Private key is 66 bytes; attempting to trim to 64 bytes", "Public key:", userPublicKey);
-      // Try trimming last 2 bytes (possible padding or metadata)
-      finalPrivateKey = privateKey.slice(0, 64);
-      console.log("Trimmed private key length:", finalPrivateKey.length);
+    let privateKeyBytes: Uint8Array;
+    try {
+      privateKeyBytes = bs58.decode(decryptedData.result);
+    } catch (decodeError) {
+      console.error("Base58 decode error:", decodeError.message, "Decrypted result:", decryptedData.result, "Public key:", userPublicKey);
+      throw new Error("Failed to decode decrypted private key as base58");
     }
 
-    if (finalPrivateKey.length !== 64) {
-      console.error("Invalid private key length after processing:", finalPrivateKey.length, "Public key:", userPublicKey);
-      throw new Error("Decrypted private key is invalid");
+    if (privateKeyBytes.length !== 64) {
+      console.error("Invalid private key length:", privateKeyBytes.length, "Public key:", userPublicKey);
+      throw new Error(`Decrypted private key has invalid length: ${privateKeyBytes.length}, expected 64 bytes`);
     }
+    console.log("Decoded private key length:", privateKeyBytes.length);
 
-    const keypair = Keypair.fromSecretKey(finalPrivateKey);
-    // Verify the public key matches
+    const keypair = Keypair.fromSecretKey(privateKeyBytes);
     if (keypair.publicKey.toBase58() !== userPublicKey) {
-      console.error("Decrypted keypair public key does not match provided public key", "Public key:", userPublicKey);
-      throw new Error("Decrypted private key does not correspond to provided public key");
+      console.error(
+        "Public key mismatch. Expected:", userPublicKey,
+        "Got:", keypair.publicKey.toBase58(),
+        "Public key:", userPublicKey
+      );
+      throw new Error("Decrypted private key does not match provided public key");
     }
+    console.log("Keypair validated successfully for user:", userPublicKey);
 
     return keypair;
   } catch (error) {
@@ -176,7 +179,7 @@ async function fetchPrices() {
   }
 }
 
-// Main handler
+// Main handler (unchanged)
 serve(async (req: Request) => {
   try {
     if (!airdropKeypair) {
