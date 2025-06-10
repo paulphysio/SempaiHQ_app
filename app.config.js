@@ -5,7 +5,7 @@ export default ({ config }) => ({
   expo: {
     name: 'Sempai HQ',
     slug: 'sempai-hq',
-    version: '1.0.0',
+    version: '1.0.1', // ⬅️ Bump this
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -18,7 +18,7 @@ export default ({ config }) => ({
     platforms: ['android'],
     android: {
       package: 'com.turningpointKS.sempaihq',
-      versionCode: 1,
+      versionCode: 6, // ⬅️ Must be > 5
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
