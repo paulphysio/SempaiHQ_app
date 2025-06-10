@@ -17,6 +17,7 @@ import {
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 import { Buffer } from "node:buffer";
 import bs58 from "https://esm.sh/bs58@4.0.1";
+
 // Constants
 const RPC_URL = Deno.env.get("RPC_URL") || "https://mainnet.helius-rpc.com/?api-key=ad8457f8-9c51-4122-95d4-91b15728ea90";
 const connection = new Connection(RPC_URL, "confirmed");
@@ -29,7 +30,7 @@ const AIRDROP_WALLET_KEY = Deno.env.get("AIRDROP_WALLET_KEYPAIR") || "";
 let airdropKeypair: Keypair | null = null;
 
 // Price cache
-let priceCache: { solPrice: number; smpPrice: number; usdcPrice: number } = { solPrice: 100, smpPrice: 0.01, usdcPrice: 1 };
+let priceCache: { solPrice: number; smpPrice: number; usdcPrice: number } = { solPrice: 100, smpPrice: 0.000000003, usdcPrice: 1 };
 let cacheTimestamp = 0;
 const cacheExpiry = 5 * 60 * 1000; // 5 minutes
 
@@ -50,7 +51,14 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Validate public key
 function validatePublicKey(key: string, label: string): PublicKey {
   try {
-    return new PublicKey(key);
+    if (!key || typeof key !== "string" || key.length < 32 || key.length > 44) {
+      throw new Error(`Invalid ${label} public key: incorrect length or format`);
+    }
+    const publicKey = new PublicKey(key);
+    if (!PublicKey.isOnCurve(publicKey.toBytes())) {
+      throw new Error(`${label} public key is not on the Ed25519 curve`);
+    }
+    return publicKey;
   } catch (error) {
     console.error(`Invalid ${label} public key:`, key, "Error:", error.message);
     throw new Error(`Invalid ${label} public key: ${error.message}`);
@@ -122,64 +130,83 @@ async function getUserPrivateKey(userPublicKey: string): Promise<Keypair> {
 async function fetchPrices() {
   try {
     if (priceCache && Date.now() - cacheTimestamp < cacheExpiry) {
+      console.log("Using cached prices:", priceCache);
       return priceCache;
     }
 
     let solPrice = 100;
-    let smpPrice = 0.01;
+    let smpPrice = 0.000000003; // Default fallback
     const usdcPrice = 1;
 
+    // Fetch SOL price
     try {
       const solResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
       if (!solResponse.ok) throw new Error(`HTTP ${solResponse.status}`);
       const solData = await solResponse.json();
       solPrice = solData?.solana?.usd || 100;
+      console.log("Fetched SOL price:", solPrice);
     } catch (error) {
       console.warn("SOL price fetch error:", error.message);
     }
 
+    // Fetch SMP price
     try {
       const poolAddress = "3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33";
       const meteoraApiUrl = `https://amm-v2.meteora.ag/pools?address=${poolAddress}`;
       const response = await fetch(meteoraApiUrl);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} - ${response.statusText}`);
+      }
       const poolData = (await response.json())[0];
+      console.log("Meteora API pool_token_amounts:", poolData?.pool_token_amounts);
 
-      if (!poolData || !poolData.pool_token_amounts) {
-        throw new Error("Invalid pool data");
+      if (!poolData || !poolData.pool_token_amounts || !Array.isArray(poolData.pool_token_amounts) || poolData.pool_token_amounts.length < 2) {
+        console.error("Invalid pool data structure:", poolData);
+        throw new Error("Invalid pool data: missing or malformed pool_token_amounts");
       }
 
-      const smpAmount = parseFloat(poolData.pool_token_amounts[0]);
-      const solAmount = parseFloat(poolData.pool_token_amounts[1]);
+      // Parse amounts explicitly as strings to avoid scientific notation
+      const smpRaw = String(poolData.pool_token_amounts[0]);
+      const solRaw = String(poolData.pool_token_amounts[1]);
+      console.log("Raw pool amounts:", { smpRaw, solRaw });
+
+      // Convert to numbers and adjust for decimals
+      const smpAmount = Number(smpRaw) / 1e9; // SMP decimals = 9
+      const solAmount = Number(solRaw) / 1e9; // SOL decimals = 9
+      console.log("Parsed pool amounts:", { smpAmount, solAmount });
 
       if (isNaN(smpAmount) || isNaN(solAmount) || smpAmount <= 0 || solAmount <= 0) {
-        throw new Error("Invalid pool amounts");
+        console.error("Invalid pool amounts:", { smpAmount, solAmount });
+        throw new Error("Invalid pool amounts: non-numeric or non-positive values");
       }
 
       if (solAmount < 0.01) {
-        console.warn("Low SOL liquidity; using fallback SMP price");
+        console.warn("Low SOL liquidity in pool:", solAmount, "Using fallback SMP price:", smpPrice);
       } else {
-        const priceInSol = solAmount / smpAmount;
-        smpPrice = priceInSol * solPrice;
-        if (smpPrice < 0.000001 || smpPrice > 1) {
-          console.warn("SMP price out of range; using fallback");
-          smpPrice = 0.01;
+        const priceInSol = solAmount / smpAmount; // SOL per SMP
+        smpPrice = priceInSol * solPrice; // SMP price in USD
+        console.log("Calculated SMP price in SOL:", priceInSol, "SMP price in USD:", smpPrice);
+        if (smpPrice < 0.0000000001 || smpPrice > 1) {
+          console.warn("SMP price out of range:", smpPrice, "Using fallback:", 0.000000003);
+          smpPrice = 0.000000003;
         }
       }
+      console.log("Final SMP price:", smpPrice);
     } catch (error) {
       console.warn("SMP price fetch error:", error.message);
     }
 
     priceCache = { solPrice, smpPrice, usdcPrice };
     cacheTimestamp = Date.now();
+    console.log("Updated price cache:", priceCache);
     return priceCache;
   } catch (error) {
     console.error("Price fetch error:", error.message);
-    return { solPrice: 100, smpPrice: 0.01, usdcPrice: 1 };
+    return { solPrice: 100, smpPrice: 0.000000003, usdcPrice: 1 };
   }
 }
 
-// Main handler (unchanged)
+// Main handler
 serve(async (req: Request) => {
   try {
     if (!airdropKeypair) {
@@ -191,18 +218,39 @@ serve(async (req: Request) => {
 
     const { userPublicKey, novelId, chapterId, paymentType, currency } = await req.json();
     if (!userPublicKey || !novelId || !chapterId || !paymentType || !currency) {
+      console.error("Missing required fields in request:", { userPublicKey, novelId, chapterId, paymentType, currency });
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
-    console.log("Request payload:", { userPublicKey, novelId, chapterId, paymentType, currency });
+    console.log("Request payload:", { userPublicKey, novelId, paymentType, currency });
+
+    // Validate chapterId as a positive integer
+    const chapterNumber = parseInt(chapterId, 10);
+    if (isNaN(chapterNumber) || chapterNumber < 1) {
+      console.error("Invalid chapterId:", chapterId);
+      return new Response(JSON.stringify({ error: "Invalid chapterId: must be a positive integer" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate novelId
+    if (typeof novelId !== "string" && typeof novelId !== "number") {
+      console.error("Invalid novelId:", novelId);
+      return new Response(JSON.stringify({ error: "Invalid novelId: must be a string or number" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     let user: PublicKey;
     try {
       user = validatePublicKey(userPublicKey, "user");
+      console.log("Validated user public key:", user.toBase58());
     } catch (error) {
-      return new Response(JSON.stringify({ error: "Invalid user public key" }), {
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
@@ -218,42 +266,51 @@ serve(async (req: Request) => {
       });
     }
 
-    // Validate novel
+    // Validate novel and fetch chapter data
     const { data: novel, error: novelError } = await supabase
       .from("novels")
-      .select("id, user_id")
+      .select("id, user_id, chaptertitles, advance_chapters")
       .eq("id", novelId)
       .single();
     if (novelError || !novel) {
-      console.error("Novel query error:", novelError?.message || "No data");
+      console.error("Novel query error:", novelError?.message || "No data", "novelId:", novelId);
       return new Response(JSON.stringify({ error: "Novel not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Validate chapter and lock status
-    const { data: chapter, error: chapterError } = await supabase
-      .from("chapter_queue")
-      .select("is_advance, chapter_number")
-      .eq("novel_id", novelId)
-      .eq("chapter_number", parseInt(chapterId, 10))
-      .single();
-    if (chapterError || !chapter) {
-      console.error("Chapter query error:", chapterError?.message || "No data");
+    // Validate chapter existence
+    const chapterIndex = chapterNumber - 1; // 1-based chapterNumber, 0-based array index
+    if (!novel.chaptertitles || novel.chaptertitles.length <= chapterIndex) {
+      console.error("No chapter found for novelId:", novelId, "chapterNumber:", chapterNumber);
       return new Response(JSON.stringify({ error: "Chapter not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    if (chapter.is_advance && paymentType === "SINGLE") {
+    // Determine if chapter is advance
+    let isAdvance = false;
+    if (novel.advance_chapters && Array.isArray(novel.advance_chapters)) {
+      const advanceChapter = novel.advance_chapters.find((ch: any) => ch.index === chapterIndex);
+      if (advanceChapter) {
+        isAdvance = advanceChapter.is_advance;
+        if (advanceChapter.free_release_date && new Date(advanceChapter.free_release_date) <= new Date()) {
+          isAdvance = false;
+        }
+      }
+    }
+    console.log("Chapter found:", { novelId, chapterNumber, is_advance: isAdvance });
+
+    // Validate payment type based on advance status
+    if (isAdvance && paymentType === "SINGLE") {
       return new Response(JSON.stringify({ error: "Locked chapter requires 3CHAPTERS or FULL payment" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
-    if (!chapter.is_advance && paymentType !== "SINGLE") {
+    if (!isAdvance && paymentType !== "SINGLE") {
       return new Response(JSON.stringify({ error: "Non-locked chapter requires SINGLE payment" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
@@ -267,7 +324,7 @@ serve(async (req: Request) => {
       .eq("id", novel.user_id)
       .single();
     if (authorError || !authorData?.wallet_address) {
-      console.error("Author query error:", authorError?.message || "No wallet address");
+      console.error("Author query error:", authorError?.message || "No wallet address", "user_id:", novel.user_id);
       return new Response(JSON.stringify({ error: "Author wallet not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -276,8 +333,9 @@ serve(async (req: Request) => {
     let author: PublicKey;
     try {
       author = validatePublicKey(authorData.wallet_address, "author");
+      console.log("Validated author public key:", author.toBase58());
     } catch (error) {
-      return new Response(JSON.stringify({ error: "Invalid author wallet address" }), {
+      return new Response(JSON.stringify({ error: error.message }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
@@ -296,6 +354,7 @@ serve(async (req: Request) => {
       }
       amount = Math.ceil(0.025 / smpPrice) * 1e6; // SMP lamports (6 decimals)
       decimals = 6;
+      console.log("SINGLE payment amount:", amount, "SMP lamports (~", amount / 1e6, "SMP)");
     } else if (paymentType === "3CHAPTERS") {
       if (currency === "SMP") {
         amount = Math.ceil(3 / smpPrice) * 1e6;
@@ -312,6 +371,7 @@ serve(async (req: Request) => {
           headers: { "Content-Type": "application/json" },
         });
       }
+      console.log("3CHAPTERS payment amount:", amount, currency, "lamports");
     } else if (paymentType === "FULL") {
       if (currency === "SMP") {
         amount = Math.ceil(15 / smpPrice) * 1e6;
@@ -328,6 +388,7 @@ serve(async (req: Request) => {
           headers: { "Content-Type": "application/json" },
         });
       }
+      console.log("FULL payment amount:", amount, currency, "lamports");
     } else {
       return new Response(JSON.stringify({ error: "Invalid payment type" }), {
         status: 400,
@@ -358,12 +419,14 @@ serve(async (req: Request) => {
     let userBalance = 0;
     const mint = currency === "SMP" ? SMP_MINT_ADDRESS : currency === "USDC" ? USDC_MINT_ADDRESS : NATIVE_MINT;
     if (currency !== "SOL") {
+      console.log("Computing ATA for user:", user.toBase58(), "Mint:", mint.toBase58());
       const userAta = getAssociatedTokenAddressSync(mint, user);
       const ataInfo = await connection.getAccountInfo(userAta);
       userBalance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) : 0;
     } else {
       userBalance = userSolBalance;
     }
+    console.log("User balance:", userBalance, currency, "lamports", "Required:", amount);
     if (userBalance < amount) {
       return new Response(JSON.stringify({ error: `Insufficient ${currency} balance` }), {
         status: 400,
@@ -387,6 +450,7 @@ serve(async (req: Request) => {
           burn: 0,
         };
         amounts.burn = amount - (amounts.author + amounts.treasury + amounts.squads);
+        console.log("SMP SINGLE distribution:", amounts);
 
         const authorAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, author);
         tx.add(createTransferInstruction(userSmpAta, authorAta, user, amounts.author));
@@ -406,6 +470,7 @@ serve(async (req: Request) => {
           squads: 0,
         };
         amounts.squads = amount - amounts.author;
+        console.log("SMP 3CHAPTERS/FULL distribution:", amounts);
 
         const authorAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, author);
         tx.add(createTransferInstruction(userSmpAta, authorAta, user, amounts.author));
@@ -420,6 +485,7 @@ serve(async (req: Request) => {
         squads: 0,
       };
       amounts.squads = amount - amounts.author;
+      console.log("USDC distribution:", amounts);
 
       const authorAta = getAssociatedTokenAddressSync(USDC_MINT_ADDRESS, author);
       tx.add(createTransferInstruction(userAta, authorAta, user, amounts.author));
@@ -432,6 +498,7 @@ serve(async (req: Request) => {
         squads: 0,
       };
       amounts.squads = amount - amounts.author;
+      console.log("SOL distribution:", amounts);
 
       tx.add(SystemProgram.transfer({ fromPubkey: user, toPubkey: author, lamports: amounts.author }));
       tx.add(SystemProgram.transfer({ fromPubkey: user, toPubkey: SQUADS_WALLET, lamports: amounts.squads }));
@@ -452,7 +519,7 @@ serve(async (req: Request) => {
     const paymentData = {
       wallet_address: userPublicKey,
       novel_id: novelId,
-      chapter_number: parseInt(chapterId, 10),
+      chapter_number: chapterNumber,
       amount: amount,
       currency,
       payment_type: paymentType,
@@ -481,16 +548,16 @@ serve(async (req: Request) => {
         .eq("wallet_address", userPublicKey)
         .single();
       if (userError || !userData) {
-        console.error("User query error for unlock:", userError?.message || "No data");
+        console.error("User query error for unlock:", userError?.message || "No data", "wallet_address:", userPublicKey);
         return new Response(JSON.stringify({ error: "User not found for unlock" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
+        status: 404,
+        headers: { "Content-Type": "application/json" },
         });
       }
       const unlockData = {
         user_id: userData.id,
         story_id: novelId,
-        chapter_unlocked_till: chaptersToUnlock === -1 ? -1 : parseInt(chapterId, 10) + chaptersToUnlock - 1,
+        chapter_unlocked_till: chaptersToUnlock === -1 ? -1 : chapterNumber + chaptersToUnlock - 1,
         expires_at: expiresAt.toISOString(),
       };
       const { error: unlockError } = await supabase
