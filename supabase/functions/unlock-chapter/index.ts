@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { decodeBase64 } from "jsr:@std/encoding/base64";
 import {
   Connection,
   PublicKey,
@@ -6,34 +7,41 @@ import {
   SystemProgram,
   LAMPORTS_PER_SOL,
   Keypair,
-} from "https://esm.sh/@solana/web3.js@1.93.0";
+  ComputeBudgetProgram,
+  sendAndConfirmTransaction,
+} from "https://esm.sh/@solana/web3.js@1";
 import {
   createBurnInstruction,
   createTransferInstruction,
+  getAccount,
   getAssociatedTokenAddressSync,
   NATIVE_MINT,
   TOKEN_PROGRAM_ID,
 } from "https://esm.sh/@solana/spl-token@0.4.8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
-import { Buffer } from "node:buffer";
 import bs58 from "https://esm.sh/bs58@4.0.1";
 
 // Constants
-const RPC_URL = Deno.env.get("RPC_URL") || "https://mainnet.helius-rpc.com/?api-key=ad8457f8-9c51-4122-95d4-91b15728ea90";
+const RPC_URL =
+  Deno.env.get("RPC_URL") ||
+  "https://mainnet.helius-rpc.com/?api-key=ad8457f8-9c51-4122-95d4-91b15728ea90";
 const connection = new Connection(RPC_URL, "confirmed");
 
-const SMP_MINT_ADDRESS = new PublicKey("SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor");
-const USDC_MINT_ADDRESS = new PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
-const SQUADS_WALLET = new PublicKey("4EeY4iDCp36yvLFvwhFhBrurKGJwNqLDzvM3PVsxrPdR");
-const TREASURY_WALLET = new PublicKey("9JA3f2Nwx9wpgh2wAg8KQv2bSQGRvYwvyQbgTyPmB8nc");
+const SMP_MINT_ADDRESS = new PublicKey(
+  "SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor",
+);
+const USDC_MINT_ADDRESS = new PublicKey(
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+);
+const SQUADS_WALLET = new PublicKey(
+  "4EeY4iDCp36yvLFvwhFhBrurKGJwNqLDzvM3PVsxrPdR",
+);
+const TREASURY_WALLET = new PublicKey(
+  "9JA3f2Nwx9wpgh2wAg8KQv2bSQGRvYwvyQbgTyPmB8nc",
+);
+
 const AIRDROP_WALLET_KEY = Deno.env.get("AIRDROP_WALLET_KEYPAIR") || "";
-let airdropKeypair: Keypair | null = null;
-
-// Price cache
-let priceCache: { solPrice: number; smpPrice: number; usdcPrice: number } = { solPrice: 100, smpPrice: 0.000000003, usdcPrice: 1 };
-let cacheTimestamp = 0;
-const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-
+let airdropKeypair: Keypair;
 try {
   if (AIRDROP_WALLET_KEY) {
     const secretKey = JSON.parse(AIRDROP_WALLET_KEY);
@@ -41,553 +49,493 @@ try {
     console.log("Airdrop keypair loaded successfully");
   }
 } catch (error) {
-  console.error("Failed to parse AIRDROP_WALLET_KEYPAIR:", error.message);
+  console.error("Failed to parse AIRDROP_WALLET_KEYPAIR:", error);
 }
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
-// Validate public key
-function validatePublicKey(key: string, label: string): PublicKey {
-  try {
-    if (!key || typeof key !== "string" || key.length < 32 || key.length > 44) {
-      throw new Error(`Invalid ${label} public key: incorrect length or format`);
-    }
-    const publicKey = new PublicKey(key);
-    if (!PublicKey.isOnCurve(publicKey.toBytes())) {
-      throw new Error(`${label} public key is not on the Ed25519 curve`);
-    }
-    return publicKey;
-  } catch (error) {
-    console.error(`Invalid ${label} public key:`, key, "Error:", error.message);
-    throw new Error(`Invalid ${label} public key: ${error.message}`);
+function throwOnError<T>({ data, error }: { data: T; error: any }): T {
+  if (error) {
+    console.error("[supabase] Error:", error?.message, error?.stack);
+    throw new Error(error?.message);
   }
+  return data;
 }
 
 // Helper: Fetch and decrypt user private key
-async function getUserPrivateKey(userPublicKey: string): Promise<Keypair> {
-  try {
-    if (!userPublicKey || typeof userPublicKey !== "string") {
-      console.error("Invalid user public key provided:", userPublicKey);
-      throw new Error("Invalid user public key: must be a non-empty string");
-    }
+async function getUserPrivateKey(userId: string): Promise<Keypair> {
+  const wallet = await supabaseAdmin
+    .from("user_wallets")
+    .select("private_key")
+    .eq("user_id", userId)
+    .maybeSingle()
+    .then(throwOnError);
+  if (!wallet) throw new Error(`could not find wallet for user ${userId}`);
 
-    const { data, error } = await supabase
-      .from("user_wallets")
-      .select("private_key")
-      .eq("address", userPublicKey)
-      .single();
-    
-    if (error || !data?.private_key) {
-      console.error("User wallet query error:", error?.message || "No data found", "Public key:", userPublicKey);
-      throw new Error("No wallet found for this public key in user_wallets table");
-    }
-    console.log("Fetched encrypted private key for user:", userPublicKey);
+  const { privateKey } = await supabaseAdmin.functions
+    .invoke("wallet-encryption", {
+      body: { action: "decrypt", data: wallet.private_key },
+    })
+    .then(throwOnError);
 
-    const { data: decryptedData, error: decryptError } = await supabase.functions.invoke("wallet-encryption", {
-      body: { action: "decrypt", data: data.private_key },
-    });
-    if (decryptError || !decryptedData?.result) {
-      console.error("Decryption error:", decryptError?.message || "No result returned", "Public key:", userPublicKey);
-      throw new Error("Failed to decrypt private key");
-    }
-    console.log("Decrypted private key received for user:", userPublicKey);
-
-    let privateKeyBytes: Uint8Array;
-    try {
-      privateKeyBytes = bs58.decode(decryptedData.result);
-    } catch (decodeError) {
-      console.error("Base58 decode error:", decodeError.message, "Decrypted result:", decryptedData.result, "Public key:", userPublicKey);
-      throw new Error("Failed to decode decrypted private key as base58");
-    }
-
-    if (privateKeyBytes.length !== 64) {
-      console.error("Invalid private key length:", privateKeyBytes.length, "Public key:", userPublicKey);
-      throw new Error(`Decrypted private key has invalid length: ${privateKeyBytes.length}, expected 64 bytes`);
-    }
-    console.log("Decoded private key length:", privateKeyBytes.length);
-
-    const keypair = Keypair.fromSecretKey(privateKeyBytes);
-    if (keypair.publicKey.toBase58() !== userPublicKey) {
-      console.error(
-        "Public key mismatch. Expected:", userPublicKey,
-        "Got:", keypair.publicKey.toBase58(),
-        "Public key:", userPublicKey
-      );
-      throw new Error("Decrypted private key does not match provided public key");
-    }
-    console.log("Keypair validated successfully for user:", userPublicKey);
-
-    return keypair;
-  } catch (error) {
-    console.error("Error in getUserPrivateKey:", error.message, "Public key:", userPublicKey);
-    throw error;
-  }
+  return Keypair.fromSecretKey(bs58.decode(privateKey));
 }
 
 // Helper: Fetch prices
 async function fetchPrices() {
-  try {
-    if (priceCache && Date.now() - cacheTimestamp < cacheExpiry) {
-      console.log("Using cached prices:", priceCache);
-      return priceCache;
+  const [pool] = await fetch(
+    "https://amm-v2.meteora.ag/pools?address=3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33",
+  ).then((r) => r.json());
+
+  // pool: [SMP, SOL]
+  const smpAmount = parseFloat(pool.pool_token_amounts[0]);
+  const solAmount = parseFloat(pool.pool_token_amounts[1]);
+
+  const smpUsdAmount = parseFloat(pool.pool_token_usd_amounts[0]);
+  const solUsdAmount = parseFloat(pool.pool_token_usd_amounts[1]);
+
+  return {
+    smpPerUsd: smpAmount / smpUsdAmount,
+    solPerUsd: solAmount / solUsdAmount,
+  };
+}
+
+function createPaymentTransaction({
+  paymentMint,
+  paymentAmount,
+  user,
+  author,
+}: {
+  paymentMint: PublicKey | null;
+  paymentAmount: number;
+  user: PublicKey | Keypair;
+  author: PublicKey;
+}): Transaction {
+  const [authorAmount, treasuryAmount, squadsAmount, burnAmount] =
+    splitAmountWithResidual(paymentAmount, [30, 30, 25, 15]);
+
+  const instructions = [
+    // ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1000 }),
+    // ComputeBudgetProgram.setComputeUnitLimit({ units: 100_000 }),
+  ];
+
+  const userPublicKey = "publicKey" in user ? user.publicKey : user;
+
+  // sol
+  if (!paymentMint) {
+    instructions.push(
+      // author
+      SystemProgram.transfer({
+        fromPubkey: userPublicKey,
+        toPubkey: author,
+        lamports: authorAmount,
+      }),
+      // treasury + burn
+      SystemProgram.transfer({
+        fromPubkey: userPublicKey,
+        toPubkey: TREASURY_WALLET,
+        lamports: treasuryAmount + burnAmount,
+      }),
+      // squads
+      SystemProgram.transfer({
+        fromPubkey: userPublicKey,
+        toPubkey: SQUADS_WALLET,
+        lamports: squadsAmount,
+      }),
+    );
+  } else {
+    const atas = {
+      user: getAssociatedTokenAddressSync(paymentMint, userPublicKey),
+      author: getAssociatedTokenAddressSync(paymentMint, author),
+      treasury: getAssociatedTokenAddressSync(
+        paymentMint,
+        TREASURY_WALLET,
+        true,
+      ),
+      squads: getAssociatedTokenAddressSync(paymentMint, SQUADS_WALLET, true),
+    };
+
+    // usdc
+    if (paymentMint.equals(USDC_MINT_ADDRESS)) {
+      instructions.push(
+        // author
+        createTransferInstruction(
+          atas.user,
+          atas.author,
+          userPublicKey,
+          authorAmount,
+        ),
+        // treasury + burn
+        createTransferInstruction(
+          atas.user,
+          atas.treasury,
+          userPublicKey,
+          treasuryAmount + burnAmount,
+        ),
+        // squads
+        createTransferInstruction(
+          atas.user,
+          atas.squads,
+          userPublicKey,
+          squadsAmount,
+        ),
+      );
     }
-
-    let solPrice = 100;
-    let smpPrice = 0.000000003; // Default fallback
-    const usdcPrice = 1;
-
-    // Fetch SOL price
-    try {
-      const solResponse = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
-      if (!solResponse.ok) throw new Error(`HTTP ${solResponse.status}`);
-      const solData = await solResponse.json();
-      solPrice = solData?.solana?.usd || 100;
-      console.log("Fetched SOL price:", solPrice);
-    } catch (error) {
-      console.warn("SOL price fetch error:", error.message);
-    }
-
-    // Fetch SMP price
-    try {
-      const poolAddress = "3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33";
-      const meteoraApiUrl = `https://amm-v2.meteora.ag/pools?address=${poolAddress}`;
-      const response = await fetch(meteoraApiUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} - ${response.statusText}`);
-      }
-      const poolData = (await response.json())[0];
-      console.log("Meteora API pool_token_amounts:", poolData?.pool_token_amounts);
-
-      if (!poolData || !poolData.pool_token_amounts || !Array.isArray(poolData.pool_token_amounts) || poolData.pool_token_amounts.length < 2) {
-        console.error("Invalid pool data structure:", poolData);
-        throw new Error("Invalid pool data: missing or malformed pool_token_amounts");
-      }
-
-      // Parse amounts explicitly as strings to avoid scientific notation
-      const smpRaw = String(poolData.pool_token_amounts[0]);
-      const solRaw = String(poolData.pool_token_amounts[1]);
-      console.log("Raw pool amounts:", { smpRaw, solRaw });
-
-      // Convert to numbers and adjust for decimals
-      const smpAmount = Number(smpRaw) / 1e9; // SMP decimals = 9
-      const solAmount = Number(solRaw) / 1e9; // SOL decimals = 9
-      console.log("Parsed pool amounts:", { smpAmount, solAmount });
-
-      if (isNaN(smpAmount) || isNaN(solAmount) || smpAmount <= 0 || solAmount <= 0) {
-        console.error("Invalid pool amounts:", { smpAmount, solAmount });
-        throw new Error("Invalid pool amounts: non-numeric or non-positive values");
-      }
-
-      if (solAmount < 0.01) {
-        console.warn("Low SOL liquidity in pool:", solAmount, "Using fallback SMP price:", smpPrice);
-      } else {
-        const priceInSol = solAmount / smpAmount; // SOL per SMP
-        smpPrice = priceInSol * solPrice; // SMP price in USD
-        console.log("Calculated SMP price in SOL:", priceInSol, "SMP price in USD:", smpPrice);
-        if (smpPrice < 0.0000000001 || smpPrice > 1) {
-          console.warn("SMP price out of range:", smpPrice, "Using fallback:", 0.000000003);
-          smpPrice = 0.000000003;
-        }
-      }
-      console.log("Final SMP price:", smpPrice);
-    } catch (error) {
-      console.warn("SMP price fetch error:", error.message);
-    }
-
-    priceCache = { solPrice, smpPrice, usdcPrice };
-    cacheTimestamp = Date.now();
-    console.log("Updated price cache:", priceCache);
-    return priceCache;
-  } catch (error) {
-    console.error("Price fetch error:", error.message);
-    return { solPrice: 100, smpPrice: 0.000000003, usdcPrice: 1 };
+    // smp
+    else if (paymentMint.equals(SMP_MINT_ADDRESS)) {
+      instructions.push(
+        // author
+        createTransferInstruction(
+          atas.user,
+          atas.author,
+          userPublicKey,
+          authorAmount,
+        ),
+        // treasury
+        createTransferInstruction(
+          atas.user,
+          atas.treasury,
+          userPublicKey,
+          treasuryAmount,
+        ),
+        // squads
+        createTransferInstruction(
+          atas.user,
+          atas.squads,
+          userPublicKey,
+          squadsAmount,
+        ),
+        //burn
+        createBurnInstruction(
+          atas.user,
+          paymentMint,
+          userPublicKey,
+          burnAmount,
+        ),
+      );
+    } else throw new Error(`unsupported payment mint: ${paymentMint}`);
   }
+
+  const tx = new Transaction();
+  tx.add(...instructions);
+  // airdrop wallet, we pay the fees
+  if (user instanceof Keypair) {
+    tx.feePayer = airdropKeypair.publicKey;
+  }
+  // else, user is paying the fees
+  else {
+    tx.feePayer = userPublicKey;
+  }
+
+  return tx;
+}
+
+function splitAmountWithResidual(amount: number, ratios: number[]): number[] {
+  const totalRatio = ratios.reduce((a, b) => a + b, 0);
+  const r = [];
+  let runningTotal = 0;
+  for (let i = 0; i < ratios.length - 1; i++) {
+    r[i] = Math.floor((amount * ratios[i]) / totalRatio);
+    runningTotal += r[i];
+  }
+  r[ratios.length - 1] = amount - runningTotal;
+  return r;
 }
 
 // Main handler
 serve(async (req: Request) => {
-  try {
-    if (!airdropKeypair) {
-      return new Response(JSON.stringify({ error: "Airdrop wallet not configured" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  if (!airdropKeypair) {
+    return Response.json(
+      { error: "Airdrop wallet not configured" },
+      { status: 500 },
+    );
+  }
 
-    const { userPublicKey, novelId, chapterId, paymentType, currency } = await req.json();
-    if (!userPublicKey || !novelId || !chapterId || !paymentType || !currency) {
-      console.error("Missing required fields in request:", { userPublicKey, novelId, chapterId, paymentType, currency });
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
+  const jwt = req.headers.get("authorization")?.replace(/^Bearer /, "");
+  if (!jwt)
+    return Response.json(
+      JSON.stringify({ error: "authorization header missing" }),
+      {
+        status: 403,
         headers: { "Content-Type": "application/json" },
-      });
-    }
-    console.log("Request payload:", { userPublicKey, novelId, paymentType, currency });
+      },
+    );
 
-    // Validate chapterId as a positive integer
-    const chapterNumber = parseInt(chapterId, 10);
-    if (isNaN(chapterNumber) || chapterNumber < 1) {
-      console.error("Invalid chapterId:", chapterId);
-      return new Response(JSON.stringify({ error: "Invalid chapterId: must be a positive integer" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  const jwtBody = JSON.parse(
+    new TextDecoder().decode(decodeBase64(jwt.split(".")[1])),
+  );
+  if (typeof jwtBody?.email != "string")
+    return Response.json(
+      { error: "authorization header missing email" },
+      { status: 400 },
+    );
 
-    // Validate novelId
-    if (typeof novelId !== "string" && typeof novelId !== "number") {
-      console.error("Invalid novelId:", novelId);
-      return new Response(JSON.stringify({ error: "Invalid novelId: must be a string or number" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  const { data: userData, error } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("email", jwtBody.email)
+    .maybeSingle();
+  if (!userData) {
+    console.error(error);
+    return Response.json(
+      {
+        error:
+          `could not find user with email ${jwtBody.email}: ` + error?.message,
+      },
+      { status: 400 },
+    );
+  }
 
-    let user: PublicKey;
-    try {
-      user = validatePublicKey(userPublicKey, "user");
-      console.log("Validated user public key:", user.toBase58());
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  const { userPublicKey, novelId, chapterId, paymentType, currency } =
+    await req.json();
+  if (!novelId || !chapterId || !paymentType || !currency) {
+    console.error("Missing required fields in request:", {
+      userPublicKey,
+      novelId,
+      chapterId,
+      paymentType,
+      currency,
+    });
+    return Response.json({ error: "Missing required fields" }, { status: 400 });
+  }
 
-    let userKeypair: Keypair;
-    try {
-      userKeypair = await getUserPrivateKey(userPublicKey);
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  let user: PublicKey;
+  let userKeypair = null;
+  if (userPublicKey) {
+    user = new PublicKey(userPublicKey);
+  } else {
+    userKeypair = await getUserPrivateKey(userData.id);
+    user = userKeypair.publicKey;
+  }
 
-    // Validate novel and fetch chapter data
-    const { data: novel, error: novelError } = await supabase
-      .from("novels")
-      .select("id, user_id, chaptertitles, advance_chapters")
-      .eq("id", novelId)
-      .single();
-    if (novelError || !novel) {
-      console.error("Novel query error:", novelError?.message || "No data", "novelId:", novelId);
-      return new Response(JSON.stringify({ error: "Novel not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
+  if (!userKeypair) {
+    const airdropBalance = await connection.getBalance(
+      airdropKeypair.publicKey,
+    );
+    if (airdropBalance < 1_000_000) {
+      return Response.json(
+        { error: "Airdrop wallet has insufficient SOL" },
+        { status: 500 },
+      );
     }
+  }
 
-    // Validate chapter existence
-    const chapterIndex = chapterNumber - 1; // 1-based chapterNumber, 0-based array index
-    if (!novel.chaptertitles || novel.chaptertitles.length <= chapterIndex) {
-      console.error("No chapter found for novelId:", novelId, "chapterNumber:", chapterNumber);
-      return new Response(JSON.stringify({ error: "Chapter not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  // Validate novel and fetch chapter data
+  const novel = await supabaseAdmin
+    .from("novels")
+    .select("id, user_id, chaptertitles, advance_chapters")
+    .eq("id", novelId)
+    .maybeSingle()
+    .then(throwOnError);
 
-    // Determine if chapter is advance
-    let isAdvance = false;
-    if (novel.advance_chapters && Array.isArray(novel.advance_chapters)) {
-      const advanceChapter = novel.advance_chapters.find((ch: any) => ch.index === chapterIndex);
-      if (advanceChapter) {
-        isAdvance = advanceChapter.is_advance;
-        if (advanceChapter.free_release_date && new Date(advanceChapter.free_release_date) <= new Date()) {
-          isAdvance = false;
-        }
+  // Validate chapter existence
+  const chapterIndex = chapterId - 1; // 1-based chapterNumber, 0-based array index
+  if (!novel?.chaptertitles?.[chapterIndex]) {
+    console.error(
+      "No chapter found for novelId:",
+      novelId,
+      "chapterNumber:",
+      chapterId,
+    );
+    return Response.json({ error: "Chapter not found" }, { status: 404 });
+  }
+
+  // Determine if chapter is advance
+  let isAdvance = false;
+  if (Array.isArray(novel.advance_chapters)) {
+    const advanceChapter = novel.advance_chapters.find(
+      (ch) => ch.index === chapterIndex,
+    );
+    if (advanceChapter) {
+      isAdvance = advanceChapter.is_advance;
+      if (
+        advanceChapter.free_release_date &&
+        new Date(advanceChapter.free_release_date) <= new Date()
+      ) {
+        isAdvance = false;
       }
     }
-    console.log("Chapter found:", { novelId, chapterNumber, is_advance: isAdvance });
+  }
 
-    // Validate payment type based on advance status
-    if (isAdvance && paymentType === "SINGLE") {
-      return new Response(JSON.stringify({ error: "Locked chapter requires 3CHAPTERS or FULL payment" }), {
+  // Validate payment type based on advance status
+  if (isAdvance && paymentType === "SINGLE") {
+    return new Response(
+      JSON.stringify({
+        error: "Locked chapter requires 3CHAPTERS or FULL payment",
+      }),
+      {
         status: 400,
         headers: { "Content-Type": "application/json" },
-      });
-    }
-    if (!isAdvance && paymentType !== "SINGLE") {
-      return new Response(JSON.stringify({ error: "Non-locked chapter requires SINGLE payment" }), {
+      },
+    );
+  }
+  if (!isAdvance && paymentType !== "SINGLE") {
+    return new Response(
+      JSON.stringify({ error: "Non-locked chapter requires SINGLE payment" }),
+      {
         status: 400,
         headers: { "Content-Type": "application/json" },
-      });
-    }
+      },
+    );
+  }
 
-    // Get author wallet
-    const { data: authorData, error: authorError } = await supabase
-      .from("users")
-      .select("wallet_address")
-      .eq("id", novel.user_id)
-      .single();
-    if (authorError || !authorData?.wallet_address) {
-      console.error("Author query error:", authorError?.message || "No wallet address", "user_id:", novel.user_id);
-      return new Response(JSON.stringify({ error: "Author wallet not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    let author: PublicKey;
-    try {
-      author = validatePublicKey(authorData.wallet_address, "author");
-      console.log("Validated author public key:", author.toBase58());
-    } catch (error) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  // Get author wallet
+  const authorData = await supabaseAdmin
+    .from("users")
+    .select("wallet_address")
+    .eq("id", novel.user_id)
+    .maybeSingle()
+    .then(throwOnError);
+  if (!authorData)
+    throw new Error(`could not load author data for ${novel.user_id}`);
+  const author = new PublicKey(authorData.wallet_address);
 
-    // Fetch prices
-    const { solPrice, smpPrice, usdcPrice } = await fetchPrices();
-    let amount: number;
-    let decimals: number;
-    if (paymentType === "SINGLE") {
-      if (currency !== "SMP") {
-        return new Response(JSON.stringify({ error: "Single chapter only supports SMP" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      amount = Math.ceil(0.025 / smpPrice) * 1e6; // SMP lamports (6 decimals)
-      decimals = 6;
-      console.log("SINGLE payment amount:", amount, "SMP lamports (~", amount / 1e6, "SMP)");
-    } else if (paymentType === "3CHAPTERS") {
-      if (currency === "SMP") {
-        amount = Math.ceil(3 / smpPrice) * 1e6;
-        decimals = 6;
-      } else if (currency === "USDC") {
-        amount = 3 * 1e6;
-        decimals = 6;
-      } else if (currency === "SOL") {
-        amount = Math.ceil(3 / solPrice) * LAMPORTS_PER_SOL;
-        decimals = 9;
-      } else {
-        return new Response(JSON.stringify({ error: "Invalid currency" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      console.log("3CHAPTERS payment amount:", amount, currency, "lamports");
-    } else if (paymentType === "FULL") {
-      if (currency === "SMP") {
-        amount = Math.ceil(15 / smpPrice) * 1e6;
-        decimals = 6;
-      } else if (currency === "USDC") {
-        amount = 15 * 1e6;
-        decimals = 6;
-      } else if (currency === "SOL") {
-        amount = Math.ceil(15 / solPrice) * LAMPORTS_PER_SOL;
-        decimals = 9;
-      } else {
-        return new Response(JSON.stringify({ error: "Invalid currency" }), {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-      console.log("FULL payment amount:", amount, currency, "lamports");
+  let usdAmount = 0;
+  switch (paymentType) {
+    case "SINGLE":
+      usdAmount = 0.025;
+      break;
+    case "3CHAPTERS":
+      usdAmount = 0.025;
+      break;
+    case "FULL":
+      usdAmount = 0.025;
+      break;
+    default:
+      return Response.json(
+        { error: `Invalid payment type: ${paymentType}` },
+        { status: 400 },
+      );
+  }
+
+  // Fetch prices
+  let paymentMint = null;
+  let paymentAmount = 0;
+  if (currency == "USDC") {
+    paymentMint = USDC_MINT_ADDRESS;
+    paymentAmount = Math.floor(usdAmount * 1e6);
+  } else {
+    const { smpPerUsd, solPerUsd } = await fetchPrices();
+    if (currency == "SOL") {
+      paymentAmount = Math.floor(usdAmount * solPerUsd * 1e9);
+    } else if (currency == "SMP") {
+      paymentMint = SMP_MINT_ADDRESS;
+      paymentAmount = Math.floor(usdAmount * smpPerUsd * 1e6);
     } else {
-      return new Response(JSON.stringify({ error: "Invalid payment type" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+      return Response.json(
+        { error: `Invalid currency: ${currency}` },
+        { status: 400 },
+      );
     }
+  }
 
-    // Check balances
+  // Check balances
+  if (!userKeypair) {
     const userSolBalance = await connection.getBalance(user);
-    const minSolRequired = paymentType === "SINGLE" ? 0.001 : 0.002;
-    if (userSolBalance < minSolRequired * LAMPORTS_PER_SOL) {
-      return new Response(JSON.stringify({ error: `Insufficient SOL for fees (need ${minSolRequired} SOL)` }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    const minSolRequired = 1_000_000 + (currency == "SOL" ? paymentAmount : 0);
+    if (userSolBalance < minSolRequired) {
+      return Response.json(
+        {
+          error:
+            "Insufficient SOL for fees " +
+            `(need ${(minSolRequired / LAMPORTS_PER_SOL).toFixed(4)} SOL)`,
+        },
+        { status: 400 },
+      );
     }
+  }
 
-    if (paymentType === "SINGLE") {
-      const airdropBalance = await connection.getBalance(airdropKeypair.publicKey);
-      if (airdropBalance < 0.001 * LAMPORTS_PER_SOL) {
-        return new Response(JSON.stringify({ error: "Airdrop wallet has insufficient SOL" }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-    }
+  if (paymentMint) {
+    const userAta = getAssociatedTokenAddressSync(paymentMint, user);
+    const userBalance = await getAccount(connection, userAta)
+      .then((a) => Number(a.amount))
+      .catch(() => 0);
 
-    let userBalance = 0;
-    const mint = currency === "SMP" ? SMP_MINT_ADDRESS : currency === "USDC" ? USDC_MINT_ADDRESS : NATIVE_MINT;
-    if (currency !== "SOL") {
-      console.log("Computing ATA for user:", user.toBase58(), "Mint:", mint.toBase58());
-      const userAta = getAssociatedTokenAddressSync(mint, user);
-      const ataInfo = await connection.getAccountInfo(userAta);
-      userBalance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) : 0;
-    } else {
-      userBalance = userSolBalance;
+    if (userBalance < paymentAmount) {
+      return Response.json(
+        { error: `Insufficient ${paymentMint} balance` },
+        { status: 400 },
+      );
     }
-    console.log("User balance:", userBalance, currency, "lamports", "Required:", amount);
-    if (userBalance < amount) {
-      return new Response(JSON.stringify({ error: `Insufficient ${currency} balance` }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+  }
 
-    // Build transaction
-    const tx = new Transaction();
+  // Build transaction
+  const tx = createPaymentTransaction({
+    paymentMint,
+    paymentAmount,
+    author,
+    user: userKeypair ?? user,
+  });
+
+  // user is sending the transaction
+  if (!userKeypair) {
     const blockhashInfo = await connection.getLatestBlockhash();
     tx.recentBlockhash = blockhashInfo.blockhash;
-    tx.feePayer = paymentType === "SINGLE" ? airdropKeypair.publicKey : user;
+    return Response.json({
+      serializedTx: tx
+        .serialize({ requireAllSignatures: false })
+        .toString("base64"),
+      blockhashInfo,
+    });
+  }
 
-    if (currency === "SMP") {
-      const userSmpAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, user);
-      if (paymentType === "SINGLE") {
-        const amounts = {
-          author: Math.floor(0.3 * amount),
-          treasury: Math.floor(0.3 * amount),
-          squads: Math.floor(0.25 * amount),
-          burn: 0,
-        };
-        amounts.burn = amount - (amounts.author + amounts.treasury + amounts.squads);
-        console.log("SMP SINGLE distribution:", amounts);
+  tx.recentBlockhash = PublicKey.default.toBase58();
+  console.log(tx.serialize({ requireAllSignatures: false }).toString("base64"));
+  const signature = await sendAndConfirmTransaction(
+    connection,
+    tx,
+    [airdropKeypair, userKeypair],
+    {
+      skipPreflight: false,
+    },
+  );
 
-        const authorAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, author);
-        tx.add(createTransferInstruction(userSmpAta, authorAta, user, amounts.author));
-
-        const treasuryAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, TREASURY_WALLET);
-        tx.add(createTransferInstruction(userSmpAta, treasuryAta, user, amounts.treasury));
-
-        const squadsAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, SQUADS_WALLET);
-        tx.add(createTransferInstruction(userSmpAta, squadsAta, user, amounts.squads));
-
-        if (amounts.burn > 0) {
-          tx.add(createBurnInstruction(userSmpAta, SMP_MINT_ADDRESS, user, amounts.burn));
-        }
-      } else {
-        const amounts = {
-          author: Math.floor(0.7 * amount),
-          squads: 0,
-        };
-        amounts.squads = amount - amounts.author;
-        console.log("SMP 3CHAPTERS/FULL distribution:", amounts);
-
-        const authorAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, author);
-        tx.add(createTransferInstruction(userSmpAta, authorAta, user, amounts.author));
-
-        const squadsAta = getAssociatedTokenAddressSync(SMP_MINT_ADDRESS, SQUADS_WALLET);
-        tx.add(createTransferInstruction(userSmpAta, squadsAta, user, amounts.squads));
-      }
-    } else if (currency === "USDC") {
-      const userAta = getAssociatedTokenAddressSync(USDC_MINT_ADDRESS, user);
-      const amounts = {
-        author: Math.floor(0.7 * amount),
-        squads: 0,
-      };
-      amounts.squads = amount - amounts.author;
-      console.log("USDC distribution:", amounts);
-
-      const authorAta = getAssociatedTokenAddressSync(USDC_MINT_ADDRESS, author);
-      tx.add(createTransferInstruction(userAta, authorAta, user, amounts.author));
-
-      const squadsAta = getAssociatedTokenAddressSync(USDC_MINT_ADDRESS, SQUADS_WALLET);
-      tx.add(createTransferInstruction(userAta, squadsAta, user, amounts.squads));
-    } else if (currency === "SOL") {
-      const amounts = {
-        author: Math.floor(0.7 * amount),
-        squads: 0,
-      };
-      amounts.squads = amount - amounts.author;
-      console.log("SOL distribution:", amounts);
-
-      tx.add(SystemProgram.transfer({ fromPubkey: user, toPubkey: author, lamports: amounts.author }));
-      tx.add(SystemProgram.transfer({ fromPubkey: user, toPubkey: SQUADS_WALLET, lamports: amounts.squads }));
-    }
-
-    // Sign transaction
-    if (paymentType === "SINGLE") {
-      tx.partialSign(airdropKeypair);
-      tx.partialSign(userKeypair);
-    } else {
-      tx.sign(userKeypair);
-    }
-
-    // Submit transaction
-    const signature = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: true });
-
-    // Record payment
-    const paymentData = {
-      wallet_address: userPublicKey,
+  // update database
+  await supabaseAdmin
+    .from("chapter_payments")
+    .insert({
+      wallet_address: user.toBase58(),
       novel_id: novelId,
-      chapter_number: chapterNumber,
-      amount: amount,
+      chapter_number: chapterId,
+      amount: paymentAmount,
       currency,
       payment_type: paymentType,
       transaction_id: signature,
       decimals: currency === "SOL" ? 9 : 6,
-    };
-    const { error: paymentError } = await supabase
-      .from("chapter_payments")
-      .insert(paymentData);
-    if (paymentError) {
-      console.error("Payment insert error:", paymentError.message);
-      return new Response(JSON.stringify({ error: `Failed to record payment: ${paymentError.message}` }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    })
+    .then(throwOnError);
 
-    // Record unlock for 3CHAPTERS or FULL
-    if (paymentType !== "SINGLE") {
-      const chaptersToUnlock = paymentType === "3CHAPTERS" ? 3 : -1;
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("wallet_address", userPublicKey)
-        .single();
-      if (userError || !userData) {
-        console.error("User query error for unlock:", userError?.message || "No data", "wallet_address:", userPublicKey);
-        return new Response(JSON.stringify({ error: "User not found for unlock" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-        });
-      }
-      const unlockData = {
+  // record unlock
+  if (paymentType == "SINGLE") {
+    await supabaseAdmin
+      .from("unlocked_story_chapters")
+      .upsert({
         user_id: userData.id,
         story_id: novelId,
-        chapter_unlocked_till: chaptersToUnlock === -1 ? -1 : chapterNumber + chaptersToUnlock - 1,
+        purchase_start_chapter: chapterId,
+      })
+      .then(throwOnError);
+  } else {
+    const chaptersToUnlock = paymentType === "3CHAPTERS" ? 3 : -1;
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30);
+    await supabaseAdmin
+      .from("unlocked_story_chapters")
+      .upsert({
+        user_id: userData.id,
+        story_id: novelId,
+        purchase_start_chapter: chapterId,
+        chapter_unlocked_till:
+          chaptersToUnlock === -1 ? -1 : chapterId + chaptersToUnlock - 1,
         expires_at: expiresAt.toISOString(),
-      };
-      const { error: unlockError } = await supabase
-        .from("unlocked_story_chapters")
-        .upsert(unlockData);
-      if (unlockError) {
-        console.error("Unlock insert error:", unlockError.message);
-        return new Response(JSON.stringify({ error: `Failed to record unlock: ${unlockError.message}` }), {
-          status: 500,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    // Serialize transaction for response
-    const serializedTx = tx.serialize().toString("base64");
-    return new Response(
-      JSON.stringify({
-        transaction: serializedTx,
-        signature,
-        amount: amount / 10 ** (currency === "SOL" ? 9 : 6),
-        currency,
-      }),
-      { status: 200, headers: { "Content-Type": "application/json" } }
-    );
-  } catch (error) {
-    console.error("Error in unlock-chapter:", error.message, "Stack:", error.stack);
-    return new Response(JSON.stringify({ error: error.message || "Unknown error in unlock-chapter" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+      })
+      .then(throwOnError);
   }
+
+  return Response.json({
+    success: true,
+    signature,
+  });
 });
