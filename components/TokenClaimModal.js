@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -14,38 +14,105 @@ import { supabase } from '../services/supabaseClient';
 
 const MAX_CLAIMS = 500;
 
-const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
+const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
   const [claimCount, setClaimCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [isEligible, setIsEligible] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 2000;
 
+  const checkEligibility = useCallback(async () => {
+    if (!userId) {
+      console.error('[TokenClaimModal] No userId provided');
+      setErrorMessage('User not authenticated. Please sign in.');
+      setIsEligible(false);
+      return false;
+    }
+    try {
+      setIsCheckingEligibility(true);
+      const { data, error } = await supabase
+        .from('user_activity')
+        .select('has_claimed_airdrop')
+        .eq('user_id', userId)
+        .single();
+      if (error && error.code === 'PGRST116') {
+        console.log('[TokenClaimModal] No user_activity entry for user:', userId);
+        return true; // Eligible if no entry exists
+      }
+      if (error) {
+        console.error('[TokenClaimModal] Eligibility check error:', error.message);
+        throw new Error(`Failed to check eligibility: ${error.message}`);
+      }
+      console.log('[TokenClaimModal] Eligibility check result:', data.has_claimed_airdrop);
+      return !data.has_claimed_airdrop;
+    } catch (err) {
+      console.error('[TokenClaimModal] Unexpected eligibility error:', err.message);
+      setErrorMessage('Unable to verify eligibility. Please try again.');
+      return false;
+    } finally {
+      setIsCheckingEligibility(false);
+    }
+  }, [userId]);
+
   useEffect(() => {
-    const fetchClaimCount = async () => {
+    const initialize = async () => {
       try {
-        const { count, error } = await supabase
+        setIsLoading(true);
+        // Fetch claim count
+        const { count, error: countError } = await supabase
           .from('airdrop_transactions')
           .select('id', { count: 'exact' });
-        if (error) throw new Error(`Supabase error: ${error.message}`);
+        if (countError) {
+          throw new Error(`Supabase count error: ${countError.message}`);
+        }
         console.log('[TokenClaimModal] Fetched claim count:', count);
         setClaimCount(count || 0);
+
+        // Check eligibility
+        const eligible = await checkEligibility();
+        setIsEligible(eligible);
+        if (!eligible) {
+          setErrorMessage('You have already claimed the airdrop.');
+        }
       } catch (err) {
-        console.error('[TokenClaimModal] Error loading claim count:', err.message);
+        console.error('[TokenClaimModal] Initialization error:', err.message);
         setErrorMessage('Failed to load airdrop status. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     };
 
     if (visible) {
-      fetchClaimCount();
+      initialize();
       setErrorMessage(null);
       setRetryCount(0);
     }
-  }, [visible]);
+  }, [visible, checkEligibility]);
+
+  // Default onTokenClaim implementation
+  const defaultOnTokenClaim = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('airdrop-function/airdrop', {
+        body: JSON.stringify({ user_id: userId }),
+        method: 'POST',
+      });
+      if (error) {
+        throw new Error(error.message || 'Failed to claim airdrop');
+      }
+      if (!data.signature) {
+        throw new Error('No transaction signature returned');
+      }
+      return data.signature;
+    } catch (err) {
+      throw new Error(err.message);
+    }
+  };
 
   const handleClaim = async () => {
-    if (isLoading || claimCount >= MAX_CLAIMS) return;
+    if (isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible) return;
     setIsLoading(true);
     setErrorMessage(null);
 
@@ -53,7 +120,7 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
     while (attempts < MAX_RETRIES) {
       try {
         console.log(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} to claim tokens`);
-        const signature = await onTokenClaim();
+        const signature = await (onTokenClaim || defaultOnTokenClaim)();
         console.log('[TokenClaimModal] Airdrop successful, signature:', signature);
         Alert.alert('Success', `Airdrop claimed!\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`);
         setClaimCount(prev => prev + 1);
@@ -66,16 +133,16 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
           `[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} failed:`,
           JSON.stringify({ message: errorMsg, stack: err.stack }, null, 2)
         );
-        // Handle specific errors
+        // Stop retries for non-recoverable errors
         if (
           errorMsg.includes('already claimed') ||
           errorMsg.includes('Invalid user id') ||
           errorMsg.includes('Airdrop limit reached') ||
           errorMsg.includes('Failed to retrieve user wallet') ||
           errorMsg.includes('Invalid user wallet address') ||
-          errorMsg.includes('Invalid wallet address') ||
+          errorMsg.includes('No wallet address found for user') ||
           errorMsg.includes('Airdrop wallet has insufficient SOL') ||
-          errorMsg.includes('User already claimed airdrop') ||
+          errorMsg.includes('User has already claimed airdrop') ||
           errorMsg.includes('non-2xx status code') ||
           errorMsg.includes('Failed to log transaction')
         ) {
@@ -86,12 +153,12 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
         attempts++;
         setRetryCount(attempts);
         if (attempts < MAX_RETRIES) {
-          const delay = RETRY_DELAY * Math.pow(2, attempts - 1);
+          const delay = RETRY_DELAY * Math.pow(2, attempts);
           console.log(`[TokenClaimModal] Retrying in ${delay / 1000}s...`);
-          setErrorMessage(`Retry ${attempts}/${MAX_RETRIES} in ${delay / 1000}s...`);
+          setErrorMessage(`Retrying (${attempts}/${MAX_RETRIES}) in ${delay / 1000}s...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
-          setErrorMessage('Airdrop service unavailable. Please try again later.');
+          setErrorMessage('Airdrop service unavailable. Please try again later or contact support.');
         }
       }
     }
@@ -115,11 +182,17 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
           <View style={styles.ornateBorder}>
             <View style={styles.contentContainer}>
               <Text style={styles.title}>Token Faucet</Text>
-              <Text style={styles.message}>
-                {claimCount >= MAX_CLAIMS
-                  ? "Sorry, the faucet has been emptied out!"
-                  : "Claim your 1 million Sempai Tokens"}
-              </Text>
+              {isCheckingEligibility ? (
+                <Text style={styles.message}>Checking eligibility...</Text>
+              ) : (
+                <Text style={styles.message}>
+                  {claimCount >= MAX_CLAIMS
+                    ? 'Sorry, the faucet has been emptied out!'
+                    : isEligible
+                    ? 'Claim your 1 million Sempai Tokens'
+                    : 'You are not eligible for this airdrop.'}
+                </Text>
+              )}
               <View style={styles.counterContainer}>
                 <Text style={styles.counterText}>
                   Claims: {claimCount}/{MAX_CLAIMS}
@@ -133,10 +206,10 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
               <TouchableOpacity
                 style={[
                   styles.claimButton,
-                  (isLoading || claimCount >= MAX_CLAIMS) && styles.claimButtonDisabled,
+                  (isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible) && styles.claimButtonDisabled,
                 ]}
                 onPress={handleClaim}
-                disabled={isLoading || claimCount >= MAX_CLAIMS}
+                disabled={isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible}
               >
                 {isLoading ? (
                   <View style={styles.loadingContainer}>
@@ -148,7 +221,7 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim }) => {
                 ) : (
                   <Text style={[
                     styles.claimButtonText,
-                    claimCount >= MAX_CLAIMS && styles.claimButtonTextDisabled,
+                    (claimCount >= MAX_CLAIMS || !isEligible) && styles.claimButtonTextDisabled,
                   ]}>
                     Claim Tokens
                   </Text>

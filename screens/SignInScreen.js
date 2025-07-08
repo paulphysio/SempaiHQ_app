@@ -31,7 +31,6 @@ const SignInScreen = () => {
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-      <Text style={{ fontSize: 24, marginBottom: 20 }}>Sign In</Text>
       <TouchableOpacity
         style={{ backgroundColor: '#333', padding: 15, borderRadius: 10, marginBottom: 10 }}
         onPress={handleSignIn}

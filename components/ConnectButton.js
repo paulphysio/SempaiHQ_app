@@ -18,7 +18,7 @@ export const EmbeddedWalletContext = createContext();
 const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
 const secureStoreWrapper = {
-  setItemAsync: async (key, value, useBiometrics = false) => {
+  setItemAsync: async (key: string, value: string, useBiometrics: boolean = false) => {
     try {
       if (typeof value !== 'string') {
         throw new Error(`Value for ${key} must be a string, got ${typeof value}`);
@@ -45,7 +45,7 @@ const secureStoreWrapper = {
       throw err;
     }
   },
-  getItemAsync: async (key, useBiometrics = false) => {
+  getItemAsync: async (key: string, useBiometrics: boolean = false) => {
     try {
       if (Platform.OS === 'web') {
         const value = localStorage.getItem(key);
@@ -76,7 +76,7 @@ const secureStoreWrapper = {
       throw err;
     }
   },
-  deleteItemAsync: async (key) => {
+  deleteItemAsync: async (key: string) => {
     try {
       if (Platform.OS === 'web') {
         localStorage.removeItem(key);
@@ -101,7 +101,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const [useBiometrics, setUseBiometrics] = useState(false);
   const { user } = useAuth();
 
-  const invokeEncryptionFunction = async (action, data) => {
+  const invokeEncryptionFunction = async (action: string, data: string) => {
     try {
       const { data: response, error } = await supabase.functions.invoke('wallet-encryption', {
         body: { action, data },
@@ -179,7 +179,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
         const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('wallet_address')
+          .select('id, wallet_address')
           .eq('email', user.email)
           .single();
         if (userError) throw new Error(`Supabase user query failed: ${userError.message}`);
@@ -206,7 +206,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     restoreWallet();
   }, [user]);
 
-  const createEmbeddedWallet = useCallback(async (password) => {
+  const createEmbeddedWallet = useCallback(async (password: string) => {
     if (!user || user.isGuest) {
       throw new Error('Sign in with an account to create a wallet');
     }
@@ -220,6 +220,11 @@ export const EmbeddedWalletProvider = ({ children }) => {
       // Verify authenticated user
       const { data: authUser, error: authError } = await supabase.auth.getUser();
       if (authError) throw new Error(`Auth error: ${authError.message}`);
+      console.log('[createEmbeddedWallet] Auth user:', {
+        authUserId: authUser.user?.id,
+        contextUserId: user.id,
+        email: user.email,
+      });
       if (!authUser.user || authUser.user.id !== user.id) {
         console.error('[createEmbeddedWallet] Auth user mismatch:', {
           authUserId: authUser.user?.id,
@@ -313,8 +318,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
       console.log('[createEmbeddedWallet] Wallet inserted for address:', publicKey.toString());
 
-      // Store wallet data as a single encrypted object
-      const publicKeyStr = publicKey.toString();
+      // Store wallet data
       let encryptedPrivateKeyForStore;
       try {
         encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', secretKeyBase58);
@@ -325,7 +329,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
 
       const walletData = {
-        publicKey: publicKeyStr,
+        publicKey: publicKey.toString(),
         encryptedPrivateKey: encryptedPrivateKeyForStore,
         storedPassword: hashedPassword,
       };
@@ -333,14 +337,14 @@ export const EmbeddedWalletProvider = ({ children }) => {
       console.log('[createEmbeddedWallet] Storing walletData');
       await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
       await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
-      await AsyncStorage.setItem('walletAddress', publicKeyStr);
+      await AsyncStorage.setItem('walletAddress', publicKey.toString());
 
       setWallet({ publicKey });
       setSecretKey(secretKeyBytes);
       setTransactionPassword(hashedPassword);
       setIsWalletConnected(true);
-      console.log('[createEmbeddedWallet] Wallet created:', publicKeyStr);
-      return { publicKey: publicKeyStr, privateKey: secretKeyBase58 };
+      console.log('[createEmbeddedWallet] Wallet created:', publicKey.toString());
+      return { publicKey: publicKey.toString(), privateKey: secretKeyBase58 };
     } catch (err) {
       console.error('[createEmbeddedWallet] Error:', err.message);
       setError('Failed to create wallet: ' + err.message);
@@ -350,7 +354,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [user, useBiometrics]);
 
-  const retrieveEmbeddedWallet = useCallback(async (password) => {
+  const retrieveEmbeddedWallet = useCallback(async (password: string) => {
     if (!user || user.isGuest) {
       throw new Error('Sign in with an account to retrieve a wallet');
     }
@@ -360,6 +364,23 @@ export const EmbeddedWalletProvider = ({ children }) => {
     try {
       setIsLoading(true);
       console.log('[retrieveEmbeddedWallet] Retrieving wallet for:', user.email);
+
+      // Verify authenticated user
+      const { data: authUser, error: authError } = await supabase.auth.getUser();
+      if (authError) throw new Error(`Auth error: ${authError.message}`);
+      console.log('[retrieveEmbeddedWallet] Auth user:', {
+        authUserId: authUser.user?.id,
+        contextUserId: user.id,
+        email: user.email,
+      });
+      if (!authUser.user || authUser.user.id !== user.id) {
+        console.error('[retrieveEmbeddedWallet] Auth user mismatch:', {
+          authUserId: authUser.user?.id,
+          contextUserId: user.id,
+        });
+        throw new Error('Authenticated user mismatch');
+      }
+
       await disconnectWallet();
 
       const { data: userData, error: userError } = await supabase
@@ -368,10 +389,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
         .eq('email', user.email)
         .single();
       if (userError || !userData) {
-        throw new Error('User or wallet not found');
+        throw new Error('User not found. Please ensure your account is registered.');
       }
-      if (typeof userData.wallet_address !== 'string') {
-        throw new Error('Invalid wallet_address format in users table');
+      if (!userData.wallet_address) {
+        throw new Error('No wallet address associated with this user. Please create a new wallet.');
       }
 
       const { data: walletData, error: walletError } = await supabase
@@ -381,11 +402,11 @@ export const EmbeddedWalletProvider = ({ children }) => {
         .eq('address', userData.wallet_address)
         .single();
       if (walletError || !walletData) {
-        throw new Error('Wallet not found in user_wallets table');
+        throw new Error('No wallet found for this user. Please create a new wallet or contact support.');
       }
       if (typeof walletData.address !== 'string' || typeof walletData.private_key !== 'string') {
         console.error('[retrieveEmbeddedWallet] Invalid wallet data:', walletData);
-        throw new Error('Invalid wallet data format from user_wallets table');
+        throw new Error('Invalid wallet data format in database.');
       }
 
       let privateKeyBase58;
@@ -395,7 +416,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         console.log('[retrieveEmbeddedWallet] Private key decrypted from database via edge function');
       } catch (decryptionError) {
         console.error('[retrieveEmbeddedWallet] Decryption failed:', decryptionError.message);
-        throw new Error('Failed to decrypt private key from database');
+        throw new Error('Failed to decrypt private key. Please check your password or contact support.');
       }
 
       const privateKeyBytes = bs58.decode(privateKeyBase58);
@@ -412,7 +433,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
           stored: walletData.address,
           derived: publicKeyStr,
         });
-        throw new Error('Public key mismatch between keypair and stored address');
+        throw new Error('Public key mismatch. Please contact support.');
       }
 
       const hashedPassword = await Crypto.digestStringAsync(
@@ -426,7 +447,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         console.log('[retrieveEmbeddedWallet] Private key encrypted for SecureStore via edge function');
       } catch (encryptionError) {
         console.error('[retrieveEmbeddedWallet] SecureStore encryption failed:', encryptionError.message);
-        throw new Error('Failed to encrypt private key for storage');
+        throw new Error('Failed to encrypt private key for storage.');
       }
 
       const walletDataObj = {
@@ -448,7 +469,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       return { publicKey: publicKeyStr, privateKey: privateKeyBase58 };
     } catch (err) {
       console.error('[retrieveEmbeddedWallet] Error:', err.message);
-      setError('Failed to retrieve wallet: ' + err.message);
+      setError(`Failed to retrieve wallet: ${err.message}`);
       return null;
     } finally {
       setIsLoading(false);
@@ -474,7 +495,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   };
 
-  const verifyPassword = useCallback(async (inputPassword) => {
+  const verifyPassword = useCallback(async (inputPassword: string) => {
     try {
       if (!inputPassword || typeof inputPassword !== 'string') {
         throw new Error('Input password must be a string');
@@ -698,39 +719,51 @@ const ConnectButton = () => {
         .select('user_id')
         .limit(1);
       if (error && error.code === '42P01') {
-        console.log('[checkUserActivityTable] Table does not exist');
+        console.warn('[checkUserActivityTable] Table "user_activity" does not exist');
         return false;
       }
-      if (error) throw new Error(`Table check failed: ${error.message}`);
-      console.log('[checkUserActivityTable] Table exists');
+      if (error) {
+        console.error('[checkUserActivityTable] Error checking table:', error.message);
+        throw new Error(`Failed to check user_activity table: ${error.message}`);
+      }
+      console.log('[checkUserActivityTable] Table "user_activity" exists');
       return true;
     } catch (err) {
-      console.error('[checkUserActivityTable] Error:', err.message);
+      console.error('[checkUserActivityTable] Unexpected error:', err.message);
+      setModalError('Unable to verify token claim eligibility. Please try again or contact support.');
       return false;
     }
   }, []);
 
-  const checkUserActivityEntry = useCallback(async (userId) => {
+  const checkUserActivityEntry = useCallback(async (userId: string) => {
+    if (!userId || typeof userId !== 'string') {
+      console.error('[checkUserActivityEntry] Invalid userId:', userId);
+      throw new Error('Invalid user ID');
+    }
     try {
       const { data, error } = await supabase
         .from('user_activity')
-        .select('user_id')
+        .select('user_id, has_claimed_airdrop')
         .eq('user_id', userId)
         .single();
       if (error && error.code === 'PGRST116') {
         console.log('[checkUserActivityEntry] No entry for user:', userId);
         return false;
       }
-      if (error) throw new Error(`User activity check failed: ${error.message}`);
-      console.log('[checkUserActivityEntry] Entry exists for user:', userId);
-      return !!data;
+      if (error) {
+        console.error('[checkUserActivityEntry] Error checking user entry:', error.message);
+        throw new Error(`User activity check failed: ${error.message}`);
+      }
+      console.log('[checkUserActivityEntry] Entry exists for user:', userId, 'has_claimed_airdrop:', data.has_claimed_airdrop);
+      return !!data && data.has_claimed_airdrop;
     } catch (err) {
-      console.error('[checkUserActivityEntry] Error:', err.message);
+      console.error('[checkUserActivityEntry] Unexpected error:', err.message);
+      setModalError('Unable to verify user activity. Please try again or contact support.');
       return false;
     }
   }, []);
 
-  const createUserAndBalance = useCallback(async (publicKey) => {
+  const createUserAndBalance = useCallback(async (publicKey: string) => {
     if (!user || !publicKey) {
       setModalError('Invalid user or wallet');
       throw new Error('Invalid user or wallet');
@@ -869,40 +902,45 @@ const ConnectButton = () => {
     }
     try {
       setIsCreatingWallet(true);
-      console.log('[handleCreateWallet] Creating wallet');
+      console.log('[handleCreateWallet] Creating wallet for user:', user?.email);
       const result = await createEmbeddedWallet(password);
-      if (result) {
-        const userId = await createUserAndBalance(result.publicKey);
-        setShowPasswordSetup(false);
-        setShowCreateForm(false);
-        setShowModal(false);
-        setIsCreateMode(false);
-
-        const tableExists = await checkUserActivityTable();
-        if (tableExists) {
-          const hasActivityEntry = await checkUserActivityEntry(userId);
-          if (!hasActivityEntry) {
-            setShowTokenClaimModal(true);
-            console.log('[handleCreateWallet] Showing TokenClaimModal for user:', userId);
-          } else {
-            console.log('[handleCreateWallet] User activity entry exists, skipping TokenClaimModal');
-          }
-        } else {
-          Alert.alert('Info', 'Wallet created, but token claiming unavailable. Contact support.');
-        }
-
-        setPassword('');
-        setConfirmPassword('');
-      } else {
-        setModalError('Failed to create wallet');
+      if (!result) {
+        throw new Error('Wallet creation failed');
       }
+
+      const userId = await createUserAndBalance(result.publicKey);
+      setShowPasswordSetup(false);
+      setShowCreateForm(false);
+      setShowModal(false);
+      setIsCreateMode(false);
+
+      // Check eligibility for token claim
+      const tableExists = await checkUserActivityTable();
+      if (tableExists) {
+        const hasActivityEntry = await checkUserActivityEntry(userId);
+        if (!hasActivityEntry) {
+          console.log('[handleCreateWallet] User eligible for token claim, showing TokenClaimModal');
+          setShowTokenClaimModal(true);
+        } else {
+          console.log('[handleCreateWallet] User has activity entry or has claimed, skipping TokenClaimModal');
+        }
+      } else {
+        console.warn('[handleCreateWallet] user_activity table missing, skipping token claim');
+        Alert.alert(
+          'Info',
+          'Wallet created successfully, but token claiming is unavailable due to missing configuration. Please contact support.'
+        );
+      }
+
+      setPassword('');
+      setConfirmPassword('');
     } catch (err) {
       console.error('[handleCreateWallet] Error:', err.message);
-      setModalError('Failed to create wallet: ' + err.message);
+      setModalError(`Failed to create wallet: ${err.message}`);
     } finally {
       setIsCreatingWallet(false);
     }
-  }, [password, confirmPassword, createEmbeddedWallet, createUserAndBalance, checkUserActivityTable, checkUserActivityEntry]);
+  }, [password, confirmPassword, createEmbeddedWallet, createUserAndBalance, checkUserActivityTable, checkUserActivityEntry, user]);
 
   const handleRetrieveWallet = useCallback(async () => {
     if (password !== confirmPassword) {
@@ -910,53 +948,55 @@ const ConnectButton = () => {
       return;
     }
     if (!password || typeof password !== 'string' || password.length < 8) {
-      setModalError('Password must be a string and at least 8 characters long');
+      setModalError('Password must be at least 8 characters long');
       return;
     }
     try {
       setIsCreatingWallet(true);
-      console.log('[handleRetrieveWallet] Starting wallet retrieval');
+      console.log('[handleRetrieveWallet] Retrieving wallet for user:', user?.email);
       const result = await retrieveEmbeddedWallet(password);
-      if (result) {
-        console.log('[handleRetrieveWallet] Biometrics preference stored:', useBiometrics);
-
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('id')
-          .eq('email', user.email)
-          .single();
-        if (userError || !userData) {
-          throw new Error('User not found during retrieval');
-        }
-
-        setShowPasswordSetup(false);
-        setShowRetrieveForm(false);
-        setShowModal(false);
-        setIsCreateMode(false);
-
-        const tableExists = await checkUserActivityTable();
-        if (tableExists) {
-          const hasActivityEntry = await checkUserActivityEntry(userData.id);
-          if (!hasActivityEntry) {
-            setShowTokenClaimModal(true);
-            console.log('[handleRetrieveWallet] Showing TokenClaimModal for user:', userData.id);
-          } else {
-            console.log('[handleRetrieveWallet] User activity entry exists, skipping TokenClaimModal');
-          }
-        } else {
-          Alert.alert('Info', 'Wallet retrieved, but token claiming unavailable. Contact support.');
-        }
-
-        setPassword('');
-        setConfirmPassword('');
-        console.log('[handleRetrieveWallet] Wallet retrieved successfully for publicKey:', result.publicKey);
-      } else {
-        setModalError('Failed to retrieve wallet. Please ensure your account has a wallet or create a new one.');
-        console.log('[handleRetrieveWallet] No result from retrieveEmbeddedWallet');
+      if (!result) {
+        throw new Error('Wallet retrieval failed');
       }
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', user.email)
+        .single();
+      if (userError || !userData) {
+        throw new Error('User not found during retrieval');
+      }
+
+      setShowPasswordSetup(false);
+      setShowRetrieveForm(false);
+      setShowModal(false);
+      setIsCreateMode(false);
+
+      // Check eligibility for token claim
+      const tableExists = await checkUserActivityTable();
+      if (tableExists) {
+        const hasActivityEntry = await checkUserActivityEntry(userData.id);
+        if (!hasActivityEntry) {
+          console.log('[handleRetrieveWallet] User eligible for token claim, showing TokenClaimModal');
+          setShowTokenClaimModal(true);
+        } else {
+          console.log('[handleRetrieveWallet] User has activity entry or has claimed, skipping TokenClaimModal');
+        }
+      } else {
+        console.warn('[handleRetrieveWallet] user_activity table missing, skipping token claim');
+        Alert.alert(
+          'Info',
+          'Wallet retrieved successfully, but token claiming is unavailable due to missing configuration. Please contact support.'
+        );
+      }
+
+      setPassword('');
+      setConfirmPassword('');
+      console.log('[handleRetrieveWallet] Wallet retrieved successfully for publicKey:', result.publicKey);
     } catch (err) {
       console.error('[handleRetrieveWallet] Error:', err.message);
-      setModalError('Failed to retrieve wallet: ' + err.message);
+      setModalError(`Failed to retrieve wallet: ${err.message}`);
     } finally {
       setIsCreatingWallet(false);
     }
@@ -1237,17 +1277,16 @@ const ConnectButton = () => {
       <TokenClaimModal
         visible={showTokenClaimModal}
         onClose={() => setShowTokenClaimModal(false)}
+        userId={user?.id}
         onTokenClaim={async () => {
           try {
-            console.log('[TokenClaimModal] Invoking airdrop-function/airdrop for user:', user.id);
-            if (!user?.id || !wallet?.publicKey) {
-              throw new Error('User or wallet not available');
+            console.log('[TokenClaimModal] Invoking airdrop-function/airdrop for user:', user?.id);
+            if (!user?.id) {
+              throw new Error('User not available');
             }
             const { data, error } = await supabase.functions.invoke('airdrop-function/airdrop', {
-              body: {
-                user_id: user.id,
-                wallet_address: wallet.publicKey.toString(),
-              },
+              body: JSON.stringify({ user_id: user.id }),
+              method: 'POST',
             });
             if (error) {
               console.error('[TokenClaimModal] Airdrop error details:', JSON.stringify(error, null, 2));
@@ -1258,38 +1297,6 @@ const ConnectButton = () => {
               throw new Error('No transaction signature returned');
             }
             console.log('[TokenClaimModal] Airdrop signature:', data.signature);
-            // Insert into airdrop_transactions
-            const { error: txError } = await supabase
-              .from('airdrop_transactions')
-              .insert({
-                user_id: user.id,
-                wallet_address: wallet.publicKey.toString(),
-                transaction_signature: data.signature,
-                amount: 1000000, // 1 million Sempai Tokens
-              });
-            if (txError) {
-              console.error('[TokenClaimModal] Failed to log airdrop transaction:', JSON.stringify(txError, null, 2));
-              throw new Error(`Failed to log transaction: ${txError.message}`);
-            }
-            // Update wallet_balances
-            const { error: balanceError } = await supabase
-              .from('wallet_balances')
-              .upsert(
-                {
-                  user_id: user.id,
-                  chain: 'SOL',
-                  currency: 'SMP',
-                  amount: 1000000,
-                  decimals: 6,
-                  wallet_address: wallet.publicKey.toString(),
-                },
-                { onConflict: 'user_id,chain,currency' }
-              );
-            if (balanceError) {
-              console.error('[TokenClaimModal] Failed to update balance:', JSON.stringify(balanceError, null, 2));
-              throw new Error(`Failed to update balance: ${balanceError.message}`);
-            }
-            console.log('[TokenClaimModal] Wallet balance updated for user:', user.id);
             return data.signature;
           } catch (err) {
             console.error('[TokenClaimModal] onTokenClaim error:', err.message);
