@@ -18,7 +18,7 @@ export const EmbeddedWalletContext = createContext();
 const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
 const secureStoreWrapper = {
-  setItemAsync: async (key: string, value: string, useBiometrics: boolean = false) => {
+  setItemAsync: async (key, value, useBiometrics = false) => {
     try {
       if (typeof value !== 'string') {
         throw new Error(`Value for ${key} must be a string, got ${typeof value}`);
@@ -45,7 +45,7 @@ const secureStoreWrapper = {
       throw err;
     }
   },
-  getItemAsync: async (key: string, useBiometrics: boolean = false) => {
+  getItemAsync: async (key, useBiometrics = false) => {
     try {
       if (Platform.OS === 'web') {
         const value = localStorage.getItem(key);
@@ -76,7 +76,7 @@ const secureStoreWrapper = {
       throw err;
     }
   },
-  deleteItemAsync: async (key: string) => {
+  deleteItemAsync: async (key) => {
     try {
       if (Platform.OS === 'web') {
         localStorage.removeItem(key);
@@ -101,7 +101,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const [useBiometrics, setUseBiometrics] = useState(false);
   const { user } = useAuth();
 
-  const invokeEncryptionFunction = async (action: string, data: string) => {
+  const invokeEncryptionFunction = async (action, data) => {
     try {
       const { data: response, error } = await supabase.functions.invoke('wallet-encryption', {
         body: { action, data },
@@ -206,7 +206,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     restoreWallet();
   }, [user]);
 
-  const createEmbeddedWallet = useCallback(async (password: string) => {
+  const createEmbeddedWallet = useCallback(async (password) => {
     if (!user || user.isGuest) {
       throw new Error('Sign in with an account to create a wallet');
     }
@@ -354,7 +354,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [user, useBiometrics]);
 
-  const retrieveEmbeddedWallet = useCallback(async (password: string) => {
+  const retrieveEmbeddedWallet = useCallback(async (password) => {
     if (!user || user.isGuest) {
       throw new Error('Sign in with an account to retrieve a wallet');
     }
@@ -495,7 +495,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   };
 
-  const verifyPassword = useCallback(async (inputPassword: string) => {
+  const verifyPassword = useCallback(async (inputPassword) => {
     try {
       if (!inputPassword || typeof inputPassword !== 'string') {
         throw new Error('Input password must be a string');
@@ -735,7 +735,7 @@ const ConnectButton = () => {
     }
   }, []);
 
-  const checkUserActivityEntry = useCallback(async (userId: string) => {
+  const checkUserActivityEntry = useCallback(async (userId) => {
     if (!userId || typeof userId !== 'string') {
       console.error('[checkUserActivityEntry] Invalid userId:', userId);
       throw new Error('Invalid user ID');
@@ -763,7 +763,7 @@ const ConnectButton = () => {
     }
   }, []);
 
-  const createUserAndBalance = useCallback(async (publicKey: string) => {
+  const createUserAndBalance = useCallback(async (publicKey) => {
     if (!user || !publicKey) {
       setModalError('Invalid user or wallet');
       throw new Error('Invalid user or wallet');
