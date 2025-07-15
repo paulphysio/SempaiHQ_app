@@ -893,6 +893,13 @@ const Home = () => {
               label: isWriter && !isArtist ? "Writer's Dashboard" : isArtist && !isWriter ? "Artist's Dashboard" : 'Creator Dashboard',
               onPress: handleDashboardNavigation,
             },
+            // Conditionally add the 'Become a Creator' link
+            ...(!isWriter && !isArtist ? [{
+              path: 'Apply',
+              icon: 'user-plus',
+              label: 'Become a Creator',
+              onPress: () => handleNavigation('Apply'),
+            }] : []),
           ].map((item, index) => (
             <TouchableOpacity
               key={index}
