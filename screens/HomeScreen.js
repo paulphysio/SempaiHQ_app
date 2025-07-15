@@ -852,6 +852,68 @@ const Home = () => {
     );
   };
 
+  // Update the sidebar rendering part of the Home component
+
+  // In the Home component, replace the sidebar rendering with this
+  const renderSidebarContent = () => {
+    return (
+      <View style={styles.sidebarContent}>
+        {/* Profile Section at Top */}
+        <View style={styles.sidebarProfileSection}>
+          <View style={styles.sidebarButtons}>
+            <GoogleSignInButton />
+            {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />}
+          </View>
+        </View>
+        
+        <View style={styles.sidebarDivider} />
+        
+        {/* Navigation Links - Make these scrollable */}
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.navLinksContainer}
+        >
+          {[
+            { path: 'Home', icon: 'home', label: 'Home' },
+            { path: 'Wallet', icon: 'wallet', label: 'Wallet' },
+            { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
+            { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
+            {
+              path: '',
+              icon: 'user',
+              label: isWriter || isArtist || isSuperuser ? 'Profile' : 'Edit Profile',
+              onPress: handleProfileNavigation,
+            },
+            { path: 'Chat', icon: 'comments', label: 'Chat' },
+            { path: 'KaitoAdventure', icon: 'gamepad', label: "Kaito's Adventure" },
+            { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
+            {
+              path: '',
+              icon: 'bullhorn',
+              label: isWriter && !isArtist ? "Writer's Dashboard" : isArtist && !isWriter ? "Artist's Dashboard" : 'Creator Dashboard',
+              onPress: handleDashboardNavigation,
+            },
+          ].map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              activeOpacity={0.7}
+              style={styles.navLink}
+              onPress={item.onPress || (() => handleNavigation(item.path))}
+              accessible={true}
+              accessibilityLabel={item.label}
+            >
+              <FontAwesome5 name={item.icon} size={16} color="#FF5733" style={styles.navIcon} />
+              <Text style={styles.navLinkText}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+          
+          {/* Add some bottom padding for better scrolling */}
+          <View style={{ height: 10 }} />
+        </ScrollView>
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -1040,43 +1102,7 @@ const Home = () => {
 
       {/* Sidebar */}
       <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
-        <View style={styles.sidebarContent}>
-          {[
-            { path: 'Home', icon: 'home', label: 'Home' },
-            { path: 'Wallet', icon: 'wallet', label: 'Wallet' },
-            { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
-            { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
-            {
-              path: '',
-              icon: 'user',
-              label: isWriter || isArtist || isSuperuser ? 'Profile' : 'Edit Profile',
-              onPress: handleProfileNavigation,
-            },
-            { path: 'Chat', icon: 'comments', label: 'Chat' },
-            { path: 'KaitoAdventure', icon: 'gamepad', label: "Kaito's Adventure" },
-            { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
-            {
-              path: '',
-              icon: 'bullhorn',
-              label: isWriter && !isArtist ? "Writer's Dashboard" : isArtist && !isWriter ? "Artist's Dashboard" : 'Creator Dashboard',
-              onPress: handleDashboardNavigation,
-            },
-          ].map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              activeOpacity={0.7}
-              style={styles.navLink}
-              onPress={item.onPress || (() => handleNavigation(item.path))}
-              accessible={true}
-              accessibilityLabel={item.label}
-            >
-              <FontAwesome5 name={item.icon} size={16} color="#fff" style={styles.navIcon} />
-              <Text style={styles.navLinkText}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-          <GoogleSignInButton />
-          {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />}
-        </View>
+        {renderSidebarContent()}
       </Animated.View>
 
       {/* Sidebar overlay */}

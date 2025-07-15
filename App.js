@@ -1,10 +1,9 @@
-// App.js
 import 'react-native-get-random-values';
 import React, { useState, useEffect } from 'react';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
-import { Platform, Alert, View, Text } from 'react-native';
+import { Platform, Alert, View, Text, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { EmbeddedWalletProvider } from './components/ConnectButton';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -51,6 +50,29 @@ Notifications.setNotificationHandler({
 
 const Stack = createStackNavigator();
 
+// Create global text styles
+const globalTextStyles = StyleSheet.create({
+  default: {
+    fontFamily: 'AnimeAce',
+    color: '#FFFFFF',
+  },
+  title: {
+    fontFamily: 'AnimeAce',
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  subtitle: {
+    fontFamily: 'AnimeAce',
+    fontSize: 18,
+    color: '#CCCCCC',
+  }
+});
+
+// Apply to all Text components
+Text.defaultProps = Text.defaultProps || {};
+Text.defaultProps.style = globalTextStyles.default;
+
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
 
@@ -78,6 +100,7 @@ class ErrorBoundary extends React.Component {
 
 const MainApp = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
+  const [isStatusBarHidden, setIsStatusBarHidden] = useState(true); // State for StatusBar visibility
 
   return (
     <SafeAreaProvider>
@@ -87,19 +110,19 @@ const MainApp = () => {
             <EmbeddedWalletProvider>
               <NavigationProvider>
                 <ErrorBoundary>
-                  <AppContent />
+                  <AppContent setIsStatusBarHidden={setIsStatusBarHidden} />
                 </ErrorBoundary>
               </NavigationProvider>
             </EmbeddedWalletProvider>
           </GoogleAuthProvider>
         </AuthProvider>
       </SystemUiContext.Provider>
-      <StatusBar style="light" />
+      <StatusBar style="light" hidden={isStatusBarHidden} />
     </SafeAreaProvider>
   );
 };
 
-const AppContent = () => {
+const AppContent = ({ setIsStatusBarHidden }) => {
   const { user, isLoading } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -127,7 +150,7 @@ const AppContent = () => {
           'Failed to load AnimeAce font. Using system font as fallback.',
           [{ text: 'OK' }]
         );
-        setFontsLoaded(true);
+        setFontsLoaded(true); // Proceed even if font fails
       }
     };
     loadFonts();
@@ -135,32 +158,34 @@ const AppContent = () => {
 
   useEffect(() => {
     if (Platform.OS === 'android') {
-      const initializeNavigationBar = async () => {
+      const initializeSystemUi = async () => {
         try {
+          await NavigationBar.setBehaviorAsync('overlay-swipe');
           await NavigationBar.setVisibilityAsync('hidden');
-          await NavigationBar.setBackgroundColorAsync('transparent');
+          setIsStatusBarHidden(true); // Hide StatusBar
         } catch (error) {
-          console.error('NavigationBar initialization error:', error);
+          console.error('System UI initialization error:', error);
         }
       };
-      initializeNavigationBar();
+      initializeSystemUi();
 
       return () => {
-        const cleanupNavigationBar = async () => {
+        const cleanupSystemUi = async () => {
           try {
             await NavigationBar.setVisibilityAsync('visible');
-            await NavigationBar.setBackgroundColorAsync('#000000');
+            await NavigationBar.setBehaviorAsync('overlay');
+            setIsStatusBarHidden(false); // Show StatusBar
           } catch (error) {
-            console.error('NavigationBar cleanup error:', error);
+            console.error('System UI cleanup error:', error);
           }
         };
-        cleanupNavigationBar();
+        cleanupSystemUi();
       };
     }
-  }, []);
+  }, [setIsStatusBarHidden]);
 
   if (!fontsLoaded || isLoading) {
-    return null;
+    return null; // Render nothing until fonts and auth are loaded
   }
 
   return (
@@ -172,9 +197,25 @@ const AppContent = () => {
         }}
       >
         {showWelcome ? (
-          <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          <Stack.Screen
+            name="Welcome"
+            component={WelcomeScreen}
+            options={{
+              cardStyle: {
+                backgroundColor: '#0A0A18',
+              },
+            }}
+          />
         ) : !user ? (
-          <Stack.Screen name="SignIn" component={SignIn} />
+          <Stack.Screen
+            name="SignIn"
+            component={SignIn}
+            options={{
+              cardStyle: {
+                backgroundColor: '#0A0A18',
+              },
+            }}
+          />
         ) : (
           <>
             <Stack.Screen name="Home" component={HomeScreen} />

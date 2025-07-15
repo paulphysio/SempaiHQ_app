@@ -1,0 +1,10 @@
+{
+  "name": "weekly_rewards",
+  "version": "1.0",
+  "description": "Automatically distributes weekly rewards based on user points",
+  "verify_jwt": false,
+  "schedule": {
+    "cron": "0 0 * * 0",
+    "timezone": "UTC"
+  }
+} 

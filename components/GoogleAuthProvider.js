@@ -1,9 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet } from 'react-native';
-import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { supabase } from '../services/supabaseClient';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withSpring, 
+  withTiming, 
+  Easing, 
+  interpolate,
+  Extrapolate,
+  runOnJS,
+} from 'react-native-reanimated';
+import LinearGradient from 'react-native-linear-gradient';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
@@ -22,14 +33,13 @@ export const GoogleAuthContext = createContext();
 const googleWebClientId = Constants.expoConfig?.extra?.googleWebClientId || '63667308763-6kecoi8ndtpqfd065noj278lhlb8j7qt.apps.googleusercontent.com';
 const googleAndroidClientId = Constants.expoConfig?.extra?.googleAndroidClientId || '63667308763-kkqi7s6s2ftqg6ksvqnsgkkq8am9fmnl.apps.googleusercontent.com';
 
-// Track sign-in state
 let isSigningIn = false;
 
 GoogleSignin.configure({
   webClientId: googleWebClientId,
   androidClientId: googleAndroidClientId,
   scopes: ['profile', 'email', 'openid'],
-  offlineAccess: false, // Set to true if you need a server auth code
+  offlineAccess: false,
 });
 
 console.log('=== Google Auth Provider Initialization ===');
@@ -42,6 +52,13 @@ export const GoogleAuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Animation values
+  const modalScale = useSharedValue(0.6);
+  const modalOpacity = useSharedValue(0);
+  const buttonGlow = useSharedValue(0);
+  const backdropOpacity = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -77,6 +94,21 @@ export const GoogleAuthProvider = ({ children }) => {
     try {
       setError(null);
       setModalVisible(true);
+      // Trigger animations
+      modalScale.value = withSpring(1, { damping: 10, stiffness: 120 });
+      modalOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.exp) });
+      backdropOpacity.value = withTiming(0.8, { duration: 500 });
+      buttonGlow.value = withTiming(1, { 
+        duration: 1000, 
+        easing: Easing.inOut(Easing.sin),
+        loop: true 
+      });
+      buttonScale.value = withTiming(1.05, { 
+        duration: 600, 
+        easing: Easing.inOut(Easing.quad),
+        loop: true,
+        direction: 'alternate'
+      });
     } catch (err) {
       logError(err, 'Sign In Start');
       setError('Failed to start sign in process');
@@ -99,7 +131,6 @@ export const GoogleAuthProvider = ({ children }) => {
       const userInfo = await GoogleSignin.signIn();
       console.log('Google Sign-In Response:', JSON.stringify(userInfo, null, 2));
 
-      // Access idToken directly from userInfo
       const idToken = userInfo.idToken;
       if (!idToken) {
         throw new Error('No ID token returned from Google Sign-In');
@@ -109,7 +140,6 @@ export const GoogleAuthProvider = ({ children }) => {
 
       setLoading(true);
 
-      // Check if user already exists in Supabase
       const email = userInfo.user.email;
       const { data: existingUser, error: userCheckError } = await supabase
         .from('users')
@@ -121,7 +151,6 @@ export const GoogleAuthProvider = ({ children }) => {
         throw userCheckError;
       }
 
-      // Sign in with Supabase
       const { data, error: signInError } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,
@@ -166,6 +195,29 @@ export const GoogleAuthProvider = ({ children }) => {
     }
   };
 
+  const closeModal = () => {
+    setModalVisible(false);
+  };
+
+  const animatedModalStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: modalScale.value },
+      { rotate: `${interpolate(modalScale.value, [0.6, 1], [-0.05, 0], Extrapolate.CLAMP)}rad` },
+    ],
+    opacity: modalOpacity.value,
+    shadowOpacity: interpolate(modalScale.value, [0.6, 1], [0.3, 0.5], Extrapolate.CLAMP),
+  }));
+
+  const animatedButtonStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+    shadowOpacity: buttonGlow.value * 0.5,
+    elevation: 10 + buttonGlow.value * 10,
+  }));
+
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
   return (
     <GoogleAuthContext.Provider
       value={{
@@ -178,34 +230,68 @@ export const GoogleAuthProvider = ({ children }) => {
     >
       {children}
       <Modal
-        animationType="slide"
+        animationType="none"
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => {
-          if (!isSigningIn) setModalVisible(false);
+          if (!isSigningIn) {
+            modalScale.value = withSpring(0.6);
+            modalOpacity.value = withTiming(0);
+            backdropOpacity.value = withTiming(0, { duration: 300 }, () => {
+              runOnJS(closeModal)();
+            });
+          }
         }}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalView}>
-            <Text style={styles.modalText}>Sign In with Google</Text>
-            <GoogleSigninButton
-              style={styles.googleButton}
-              size={GoogleSigninButton.Size.Wide}
-              color={GoogleSigninButton.Color.Light}
-              onPress={handleGoogleSignIn}
-              disabled={loading || isSigningIn}
-            />
-            <Pressable
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => {
-                if (!isSigningIn) setModalVisible(false);
-              }}
-              disabled={loading || isSigningIn}
+        <Animated.View style={[styles.modalContainer, animatedBackdropStyle]}>
+          <Animated.View style={[styles.modalContent, animatedModalStyle]}>
+            <LinearGradient
+              colors={['rgba(255, 87, 51, 0.3)', 'rgba(255, 147, 0, 0.3)']}
+              style={styles.modalBackground}
             >
-              <Text style={styles.buttonText}>Cancel</Text>
-            </Pressable>
-          </View>
-        </View>
+              <Text style={styles.modalTitle}>Sempai HQ Awaits!</Text>
+              <Text style={styles.modalSubtitle}>Unleash Your Anime Adventure!</Text>
+              {error && <Text style={styles.errorText}>{error}</Text>}
+              <Animated.View style={[styles.googleButtonContainer, animatedButtonStyle]}>
+                <TouchableOpacity
+                  style={styles.googleButton}
+                  onPress={handleGoogleSignIn}
+                  disabled={loading || isSigningIn}
+                >
+                  <LinearGradient
+                    colors={['#FF4500', '#FF8C00', '#FFD700']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.googleButtonGradient}
+                  >
+                    <Image
+                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/1200px-Google_%22G%22_Logo.svg.png' }}
+                      style={styles.googleLogo}
+                    />
+                    <Text style={styles.googleButtonText}>
+                      {loading ? 'SIGNING IN...' : 'SIGN IN WITH GOOGLE'}
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </Animated.View>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  if (!isSigningIn) {
+                    modalScale.value = withSpring(0.6);
+                    modalOpacity.value = withTiming(0);
+                    backdropOpacity.value = withTiming(0, { duration: 300 }, () => {
+                      runOnJS(closeModal)();
+                    });
+                  }
+                }}
+                disabled={loading || isSigningIn}
+              >
+                <Text style={styles.cancelButtonText}>CANCEL</Text>
+              </TouchableOpacity>
+            </LinearGradient>
+          </Animated.View>
+        </Animated.View>
       </Modal>
     </GoogleAuthContext.Provider>
   );
@@ -216,43 +302,113 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0)', // Animated backdrop
   },
-  modalView: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
+  modalBackground: {
+    borderRadius: 28,
+    padding: 28,
+    width: '100%',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
   },
-  modalText: {
+  modalContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Stronger glassmorphism
+    borderRadius: 28,
+    width: '92%',
+    maxWidth: 360,
+    alignItems: 'center',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 15,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 69, 0, 0.4)',
+    overflow: 'hidden',
+  },
+  modalTitle: {
+    fontFamily: 'AnimeAce',
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#1A1A1A',
+    marginBottom: 16,
+    textShadowColor: 'rgba(255, 69, 0, 0.5)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 6,
+  },
+  modalSubtitle: {
+    fontFamily: 'AnimeAce',
     fontSize: 18,
-    marginBottom: 15,
-    fontWeight: 'bold',
+    color: '#333333',
+    textAlign: 'center',
+    marginBottom: 28,
+    lineHeight: 26,
+    fontWeight: '600',
+    textShadowColor: 'rgba(255, 147, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 4,
+  },
+  errorText: {
+    fontFamily: 'AnimeAce',
+    fontSize: 16,
+    color: '#FF3333',
+    marginBottom: 20,
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 51, 51, 0.2)',
+    padding: 10,
+    borderRadius: 10,
+    fontWeight: '600',
+  },
+  googleButtonContainer: {
+    width: '100%',
+    marginBottom: 20,
   },
   googleButton: {
-    width: 250,
-    height: 48,
-    marginBottom: 10,
+    borderRadius: 20,
+    overflow: 'hidden',
+    width: '100%',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 215, 0, 0.5)',
   },
-  button: {
-    backgroundColor: '#4285F4',
-    padding: 10,
-    borderRadius: 5,
-    width: 250,
+  googleButtonGradient: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 28,
+    justifyContent: 'center',
+    borderRadius: 20,
+  },
+  googleLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 14,
+  },
+  googleButtonText: {
+    fontFamily: 'AnimeAce',
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
   },
   cancelButton: {
-    backgroundColor: '#ccc',
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 69, 0, 0.5)',
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
+  cancelButtonText: {
+    fontFamily: 'AnimeAce',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FF4500',
+    textShadowColor: 'rgba(255, 69, 0, 0.3)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
 });
 

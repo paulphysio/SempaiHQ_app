@@ -20,6 +20,7 @@ import { styles } from '../styles/NovelsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PublicKey } from '@solana/web3.js';
 import { TREASURY_PUBLIC_KEY, SMP_MINT_ADDRESS } from '../constants';
+import { fetchSmpTokenBalance } from '../utils/solana';
 
 const API_BASE_URL = 'https://sempaihq.xyz';
 
@@ -50,6 +51,9 @@ const MIN_WITHDRAWAL = 2500;
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 
 const NovelsPageScreen = () => {
+  // ...
+  const [onChainBalance, setOnChainBalance] = useState(0);
+
   const navigation = useNavigation();
   const { wallet } = useContext(EmbeddedWalletContext);
   const [publicKey, setPublicKey] = useState(null);
@@ -146,38 +150,32 @@ const NovelsPageScreen = () => {
         .single();
 
       if (userError) {
-        console.error('Error fetching user:', userError.message);
+        setErrorMessage('User not found. Please register your wallet.');
         throw new Error(`User lookup failed: ${userError.message}`);
       }
-      
-      if (!user) {
-        console.error('No user found for wallet address:', normalizedWalletAddress);
-        throw new Error('User not found. Please ensure your wallet is properly connected.');
-      }
 
-      console.log('Found user:', user);
       setWeeklyPoints(user.weekly_points || 0);
 
-      // Get both on-chain and off-chain balances
-      const { data: balances, error: balancesError } = await supabase
+      // Fetch off-chain balance from Supabase (wallet_balances table)
+      const { data: walletBalances, error: walletBalancesError } = await supabase
         .from('wallet_balances')
-        .select('amount, chain')
+        .select('amount')
         .eq('wallet_address', normalizedWalletAddress)
+        .eq('chain', 'SOL')
         .eq('currency', 'SMP');
 
-      if (balancesError) {
-        console.error('Error fetching balances:', balancesError.message);
-        throw new Error(`Balance lookup failed: ${balancesError.message}`);
+      console.log('wallet_balances query result:', walletBalances);
+
+      if (walletBalancesError) {
+        throw new Error(`Balances lookup failed: ${walletBalancesError.message}`);
       }
 
-      // Find on-chain (SOL) and off-chain balances
-      const onChainBalance = balances?.find(b => b.chain === 'SOL')?.amount || 0;
-      const offChainBalance = balances?.find(b => b.chain === 'OFF_CHAIN')?.amount || 0;
-
-      console.log('Balances found:', { onChain: onChainBalance, offChain: offChainBalance });
-      
-      setBalance(onChainBalance);
+      const offChainBalance = walletBalances && walletBalances.length > 0 ? walletBalances[0].amount : 0;
       setOffChainBalance(offChainBalance);
+
+      // Only use off-chain SMP balance
+      setBalance(offChainBalance);
+      console.log('Off-chain SMP balance:', offChainBalance);
 
       // Get pending withdrawals
       const { data: pendingData, error: pendingError } = await supabase
@@ -238,13 +236,26 @@ const NovelsPageScreen = () => {
         throw new Error('Failed to fetch balances');
       }
 
-      // Find off-chain balance
-      const offChainBalance = balances?.find(b => b.chain === 'OFF_CHAIN')?.amount || 0;
+      // Fetch user's SMP balance from wallet_balances using user_id (backend-compatible)
+      const { data: walletBalances, error: walletBalancesError } = await supabase
+        .from('wallet_balances')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('chain', 'SOL')
+        .eq('currency', 'SMP');
+      if (walletBalancesError) {
+        throw new Error(`Balances lookup failed: ${walletBalancesError.message}`);
+      }
+      console.log('wallet_balances query result (withdrawal, user_id):', walletBalances);
+      if (!walletBalances || walletBalances.length === 0) {
+        throw new Error('Wallet balance not found. Please contact support if this is unexpected.');
+      }
+      const offChainBalance = walletBalances[0].amount;
       console.log('User off-chain balance:', offChainBalance);
 
       if (offChainBalance < amount) {
         throw new Error(
-          `Insufficient off-chain balance: ${offChainBalance.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP`
+          `Insufficient off-chain balance: ${offChainBalance.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP.`
         );
       }
 
@@ -442,12 +453,31 @@ const NovelsPageScreen = () => {
   }, []);
 
   useEffect(() => {
-    if (isWalletConnected && publicKey) {
+    const fetchAll = async () => {
       setLoading(true);
-      Promise.all([checkBalance(), fetchNovels()]).finally(() => setLoading(false));
-    } else {
-      fetchNovels().finally(() => setLoading(false));
-    }
+      try {
+        if (isWalletConnected && publicKey) {
+          await Promise.all([
+            checkBalance(),
+            fetchNovels(),
+            (async () => {
+              try {
+                const bal = await fetchSmpTokenBalance(publicKey);
+                setOnChainBalance(bal);
+              } catch (e) {
+                setOnChainBalance(0);
+                console.error('Error fetching on-chain SMP balance:', e);
+              }
+            })(),
+          ]);
+        } else {
+          await fetchNovels();
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAll();
   }, [isWalletConnected, publicKey]);
 
   useEffect(() => {
@@ -632,6 +662,7 @@ const NovelsPageScreen = () => {
         isWalletConnected={isWalletConnected}
         balance={balance}
         offChainBalance={offChainBalance}
+        onChainBalance={onChainBalance}
         weeklyPoints={weeklyPoints}
         pendingWithdrawal={pendingWithdrawal}
         withdrawAmount={withdrawAmount}

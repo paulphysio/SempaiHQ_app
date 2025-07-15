@@ -20,7 +20,7 @@ import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-nati
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as SecureStore from 'expo-secure-store';
 import { styles } from '../styles/ChapterScreenStyles';
-import { getAssociatedTokenAddress } from '@solana/spl-token';
+import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import {
   RPC_URL,
   SMP_MINT_ADDRESS,
@@ -43,7 +43,7 @@ const ChapterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { novelId, chapterId } = route.params || {};
-  const { wallet, isWalletConnected: contextWalletConnected } = useContext(EmbeddedWalletContext);
+  const { wallet, isWalletConnected: contextWalletConnected, signAndSendTransaction } = useContext(EmbeddedWalletContext);
 
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -413,80 +413,137 @@ const ChapterScreen = () => {
 
   const processChapterPayment = useCallback(
     async (targetChapterId, paymentType = 'SINGLE', currency = 'SMP') => {
-      if (!activeWalletAddress || !novelId || !targetChapterId || !activePublicKey) {
+      console.log('[processChapterPayment] Active Wallet Address:', activeWalletAddress);
+      if (!activeWalletAddress || !novelId || !targetChapterId || !activePublicKey || !wallet || !signAndSendTransaction) {
         setError('Please connect your wallet and try again.');
         return false;
       }
+  
       setIsProcessing(true);
       setError(null);
       setSuccessMessage('');
       setWarningMessage('');
+  
       try {
+        // Check for and create SMP ATA if it doesn't exist
+        const smpMintPublicKey = new PublicKey(SMP_MINT_ADDRESS);
+        const userSmpAta = await getAssociatedTokenAddress(
+          smpMintPublicKey,
+          activePublicKey
+        );
+
+        const ataInfo = await connection.getAccountInfo(userSmpAta);
+        if (!ataInfo) {
+          console.log('[processChapterPayment] SMP ATA not found. Creating it...');
+          setWarningMessage('Initializing your token account...');
+
+          const createAtaTx = new Transaction().add(
+            createAssociatedTokenAccountInstruction(
+              activePublicKey, // payer
+              userSmpAta,      // ata
+              activePublicKey, // owner
+              smpMintPublicKey // mint
+            )
+          );
+
+          const { blockhash } = await connection.getLatestBlockhash('confirmed');
+          createAtaTx.recentBlockhash = blockhash;
+          createAtaTx.feePayer = activePublicKey;
+
+          const signature = await signAndSendTransaction(createAtaTx);
+          await connection.confirmTransaction(signature, 'confirmed');
+          console.log('[processChapterPayment] SMP ATA created, signature:', signature);
+          setWarningMessage('');
+        }
+
         const isPaid = await checkChapterPayment(parseInt(targetChapterId, 10));
         if (isPaid && paymentType === 'SINGLE') {
           console.log('[processChapterPayment] Chapter already paid');
           setIsLocked(false);
           return true;
         }
+  
         const userSolBalance = await connection.getBalance(activePublicKey);
         if (userSolBalance < MIN_ATA_SOL * 10 ** 9) {
           throw new Error(`Insufficient SOL for transaction fees (need ${MIN_ATA_SOL} SOL)`);
         }
-        // Client-side balance check
+  
         if (currency === 'SMP' && smpBalance * 10 ** SMP_DECIMALS < SMP_READ_COST && paymentType === 'SINGLE') {
           throw new Error('Insufficient SMP balance');
         }
+  
         if (paymentType !== 'SINGLE') {
-          const amount = currency === 'SMP' ? Math.ceil((paymentType === '3CHAPTERS' ? 3 : 15) / smpPrice) * 10 ** SMP_DECIMALS :
-                        currency === 'USDC' ? (paymentType === '3CHAPTERS' ? 3 : 15) * 10 ** 6 :
-                        Math.ceil((paymentType === '3CHAPTERS' ? 3 : 15) / solPrice) * 10 ** 9;
+          const amount =
+            currency === 'SMP'
+              ? Math.ceil((paymentType === '3CHAPTERS' ? 3 : 15) / smpPrice) * 10 ** SMP_DECIMALS
+              : currency === 'USDC'
+              ? (paymentType === '3CHAPTERS' ? 3 : 15) * 10 ** 6
+              : Math.ceil((paymentType === '3CHAPTERS' ? 3 : 15) / solPrice) * 10 ** 9;
           if (currency === 'SMP' && smpBalance * 10 ** SMP_DECIMALS < amount) {
             throw new Error('Insufficient SMP balance');
           }
-          // Add USDC and SOL balance checks if available
         }
-        console.log('[processChapterPayment] Invoking unlock-chapter:', {
-          userPublicKey: activeWalletAddress,
+  
+        const requestBody = {
           novelId,
           chapterId: targetChapterId,
+          userPublicKey: activeWalletAddress,
           paymentType,
           currency,
-        });
-        const { data, error: invokeError } = await supabase.functions.invoke('unlock-chapter', {
-          body: {
-            userPublicKey: activeWalletAddress,
-            novelId,
-            chapterId: targetChapterId,
-            paymentType,
-            currency,
-          },
-        });
+        };
+  
+        console.log('[processChapterPayment] Invoking unlock-chapter with body:', JSON.stringify(requestBody, null, 2));
+  
+        let data, invokeError;
+        try {
+          const response = await supabase.functions.invoke('unlock-chapter', {
+            body: requestBody,
+          });
+          data = response.data;
+          invokeError = response.error;
+          console.log('[processChapterPayment] Raw response from unlock-chapter:', JSON.stringify(response, null, 2));
+        } catch (e) {
+          console.error('[processChapterPayment] Critical error during function invocation:', e);
+          throw new Error(`Function invocation failed: ${e.message}`);
+        }
+  
         if (invokeError) {
           console.error('[processChapterPayment] Invoke error:', invokeError);
           throw new Error(`Edge function error: ${invokeError.message || 'Non-2xx status code'}`);
         }
-        if (!data?.transaction) throw new Error('No transaction returned');
-
-        const transaction = Transaction.from(Buffer.from(data.transaction, 'base64'));
-        const signature = await connection.sendRawTransaction(transaction.serialize());
-        let confirmation;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            confirmation = await connection.confirmTransaction(signature, 'confirmed');
-            if (confirmation.value.err) throw new Error('Transaction failed on chain');
-            break;
-          } catch (err) {
-            if (attempt === 3) throw err;
-            await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
-          }
+  
+        if (!data?.serializedTx) {
+          console.error('[processChapterPayment] Invalid response from API:', data);
+          throw new Error('No serialized transaction returned from the API.');
         }
-
-        setSuccessMessage(
-          `Payment successful! ${data.amount / (currency === 'SOL' ? 10 ** 9 : 10 ** 6)} ${currency} paid for ${
-            paymentType === 'SINGLE' ? 'chapter' : paymentType === '3CHAPTERS' ? '3 chapters' : 'all chapters'
-          }.`
+  
+        const transaction = Transaction.from(Buffer.from(data.serializedTx, 'base64'));
+        console.log('[processChapterPayment] Deserialized Transaction:', transaction);
+  
+        console.log('[processChapterPayment] Wallet before signing:', wallet);
+        console.log('[processChapterPayment] signAndSendTransaction available:', !!signAndSendTransaction);
+  
+        // Use signAndSendTransaction, which signs and sends the transaction
+        const signature = await signAndSendTransaction(transaction);
+        console.log('[processChapterPayment] Transaction signature:', signature);
+  
+        // Confirm the transaction
+        const confirmation = await connection.confirmTransaction(
+          {
+            signature,
+            blockhash: data.blockhashInfo.blockhash,
+            lastValidBlockHeight: data.blockhashInfo.lastValidBlockHeight,
+          },
+          'confirmed'
         );
-        setSmpBalance((prev) => (currency === 'SMP' ? prev - (data.amount / 10 ** SMP_DECIMALS) : prev));
+  
+        if (confirmation.value.err) {
+          console.error('[processChapterPayment] On-chain transaction failed:', confirmation.value.err);
+          throw new Error('Transaction failed on the blockchain.');
+        }
+  
+        setSuccessMessage('Payment successful! Chapter unlocked.');
+        await fetchSmpBalanceOnChain(); // Re-fetch balance to be sure it's correct
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setTimeout(() => setSuccessMessage(''), 5000);
@@ -510,7 +567,7 @@ const ChapterScreen = () => {
         setIsProcessing(false);
       }
     },
-    [activeWalletAddress, activePublicKey, novelId, smpBalance, smpPrice, solPrice, navigation]
+    [activeWalletAddress, activePublicKey, novelId, smpBalance, smpPrice, solPrice, navigation, signAndSendTransaction, checkChapterPayment, wallet, fetchSmpBalanceOnChain]
   );
 
   const handleNextChapter = useCallback(
@@ -908,7 +965,7 @@ const ChapterScreen = () => {
               </Text>
               <Text style={styles.detailText}>USD Value: ${transactionDetails?.usd}</Text>
               <Text style={styles.detailText}>
-                Wallet: {activeWalletAddress?.slice(0, 6)}...{activeWalletAddress?.slice(-4)}
+                Wallet: {activeWalletAddress ? `${activeWalletAddress.slice(0, 6)}...${activeWalletAddress.slice(-4)}` : 'N/A'}
               </Text>
             </View>
             <View style={styles.modalButtonRow}>

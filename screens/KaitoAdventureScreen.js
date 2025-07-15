@@ -198,7 +198,7 @@ const skillTrees = {
 // ---- KaitoAdventure Component ----
 const KaitoAdventureScreen = () => {
   const navigation = useNavigation();
-  const { wallet, connected } = useContext(EmbeddedWalletContext);
+  const { wallet, connected, isConnected, isWalletConnected } = useContext(EmbeddedWalletContext);
   const defaultPlayerMemo = useMemo(
     () => ({
       ...defaultPlayer,
@@ -228,6 +228,8 @@ const KaitoAdventureScreen = () => {
     guild: false,
     guide: false,
   });
+  // New flag to prevent repeated combat modal
+  const [combatHandled, setCombatHandled] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState([]);
   const [lastGatherTimes, setLastGatherTimes] = useState({});
   const [lastQueuedGatherTime, setLastQueuedGatherTime] = useState(null);
@@ -245,7 +247,6 @@ const KaitoAdventureScreen = () => {
   const [travelDestination, setTravelDestination] = useState(null);
   const [gatherBuff, setGatherBuff] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
   const { session } = useGoogleAuth();
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
@@ -254,13 +255,13 @@ const KaitoAdventureScreen = () => {
   useEffect(() => {
     const loadPlayer = async () => {
       // Log context state for debugging
-      console.log('EmbeddedWalletContext state:', { isWalletConnected, wallet });
+      console.log('EmbeddedWalletContext state:', { isConnected, wallet });
   
       // Check for wallet.publicKey
       const walletAddress = wallet?.publicKey;
       if (!walletAddress) {
         console.warn('Cannot load player: No publicKey found in wallet', {
-          isWalletConnected,
+          isConnected,
           wallet,
         });
         setPlayer(defaultPlayerMemo);
@@ -269,7 +270,7 @@ const KaitoAdventureScreen = () => {
       }
   
       try {
-        const normalizedWalletAddress = walletAddress.toLowerCase();
+        const normalizedWalletAddress = String(walletAddress).toLowerCase();
         console.log(`Fetching player data for wallet: ${walletAddress}`);
   
         // Fetch player from Supabase
@@ -394,15 +395,16 @@ const KaitoAdventureScreen = () => {
 
   const syncPlayerToSupabase = useCallback(
     debounce(async () => {
-      if (!connected || !wallet || !player.wallet_address) {
+      if (!connected || !wallet || !wallet.publicKey) {
         console.warn("Cannot sync to Supabase: Wallet not connected or wallet_address is null");
         return;
       }
 
       try {
+        const walletAddress = wallet.publicKey.toString();
         const { error } = await supabase.from('players').upsert(
           {
-            wallet_address: player.wallet_address,
+            wallet_address: walletAddress,
             name: player.name,
             level: player.level,
             gold: player.gold,
@@ -437,7 +439,7 @@ const KaitoAdventureScreen = () => {
   );
 
   useEffect(() => {
-    if (connected && wallet && player.wallet_address) {
+    if (connected && wallet && wallet.publicKey) {
       syncPlayerToSupabase();
       saveToLocalStorage();
     }
@@ -474,7 +476,12 @@ const KaitoAdventureScreen = () => {
           {
             type: "raid",
             description: "Bandits raid the town for 1 hour!",
-            effect: () => setModals((prev) => ({ ...prev, combat: true })),
+            effect: () => {
+              if (!combatHandled) {
+                setModals((prev) => ({ ...prev, combat: true }));
+                setCombatHandled(true);
+              }
+            },
             duration: 60 * 60 * 1000,
           },
           {
@@ -494,15 +501,21 @@ const KaitoAdventureScreen = () => {
     triggerEvent();
     const interval = setInterval(triggerEvent, 300000);
     return () => clearInterval(interval);
-  }, [currentTown]);
+  }, [currentTown, combatHandled]);
 
   useEffect(() => {
     if (eventTimer && Date.now() >= eventTimer) {
       setCurrentEvent(null);
       setEventTimer(null);
       setGameMessage("The event has ended!");
+      setCombatHandled(false); // Reset when event ends
     }
   }, [eventTimer]);
+
+  // Reset combatHandled when a new event starts
+  useEffect(() => {
+    setCombatHandled(false);
+  }, [currentEvent]);
 
   // ---- XP and Leveling ----
   const updateXP = useCallback((xpGain) => {
@@ -925,7 +938,7 @@ const KaitoAdventureScreen = () => {
                 if (rare_items.includes(drop)) newrare_items.push(drop);
               }
               const enemyTask = p.daily_tasks.find((t) => t.id === "defeatEnemies");
-              const updatedTasks = enemyTask && !enemyTask.completed
+              const updatedTasks = enemyTask
                 ? p.daily_tasks.map((t) =>
                     t.id === "defeatEnemies"
                       ? { ...t, progress: Math.min(t.progress + 1, t.target) }
@@ -1067,8 +1080,15 @@ const KaitoAdventureScreen = () => {
 
   // ---- Leaderboard ----
   const fetchLeaderboardData = useCallback(async () => {
-    if (!connected || !wallet) return;
+    console.log('Fetching leaderboard data...');
+    const isWalletActive = isConnected || connected || isWalletConnected;
+    console.log('Leaderboard fetch check:', { isConnected, connected, isWalletConnected, wallet });
+    if (!isWalletActive || !wallet) {
+      console.log('Not connected or no wallet, skipping leaderboard fetch');
+      return;
+    }
     try {
+      console.log('Querying Supabase for leaderboard data');
       const { data, error } = await supabase
         .from('players')
         .select('wallet_address, name, level, gold')
@@ -1076,25 +1096,32 @@ const KaitoAdventureScreen = () => {
         .order('gold', { ascending: false })
         .limit(10);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Leaderboard fetch error:', error);
+        throw error;
+      }
+      
+      console.log('Leaderboard data received:', data);
       setLeaderboardData(data || []);
+      
       if (data && data.length > 0 && data[0].wallet_address === player.wallet_address) {
         setGameMessage("You're #1 on the leaderboard! Claim 100 gold next login!");
       }
     } catch (error) {
-      console.error("Leaderboard fetch error:", error);
+      console.error('Leaderboard fetch error:', error);
       setLeaderboardData([]);
       setGameMessage("Failed to load leaderboard.");
     }
-  }, [connected, wallet, player.wallet_address]);
+  }, [isConnected, connected, isWalletConnected, wallet, player.wallet_address]);
 
   useEffect(() => {
-    if (connected && wallet && modals.leaderboard) {
+    const isWalletActive = isConnected || connected || isWalletConnected;
+    if (isWalletActive && wallet && modals.leaderboard) {
       fetchLeaderboardData();
     }
     const interval = setInterval(fetchLeaderboardData, 10000);
     return () => clearInterval(interval);
-  }, [fetchLeaderboardData, modals.leaderboard, connected, wallet]);
+  }, [fetchLeaderboardData, modals.leaderboard, isConnected, connected, isWalletConnected, wallet]);
 
   // ---- Equipment ----
   const equipItem = useCallback((itemName) => {
@@ -1563,6 +1590,9 @@ const KaitoAdventureScreen = () => {
   // ---- Modal Toggle ----
   const toggleModal = useCallback((modal) => {
     setModals((prev) => ({ ...prev, [modal]: !prev[modal] }));
+    if (modal === 'combat') {
+      setCombatHandled(false); // Allow retrigger after manual close
+    }
   }, []);
 
   // ---- Render Data for FlatList ----
@@ -1588,14 +1618,17 @@ const KaitoAdventureScreen = () => {
       case 'navbar':
         return (
           <View style={styles.navbar}>
-            <View style={styles.navbarBrand}>
+            <TouchableOpacity
+              style={styles.navbarBrand}
+              onPress={() => navigation.navigate('Home')}
+            >
               <Image
                 source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/logo.png' }}
                 style={styles.logo}
                 resizeMode="contain"
               />
               <Text style={styles.logoText}>Sempai HQ</Text>
-            </View>
+            </TouchableOpacity>
             <TouchableOpacity onPress={toggleMenu} style={styles.menuToggle}>
               <Icon name={menuOpen ? 'times' : 'bars'} size={24} color="#ff6200" />
             </TouchableOpacity>
@@ -2773,12 +2806,10 @@ const KaitoAdventureScreen = () => {
         </View>
       ) : (
         <View style={styles.gameContainer}>
-          {/* Your existing game content */}
-          {renderGameContent()}
+          <Text>Game content goes here</Text>
         </View>
       )}
     </SafeAreaView>
   );
 };
 export default KaitoAdventureScreen;
-

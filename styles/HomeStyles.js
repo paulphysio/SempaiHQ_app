@@ -382,21 +382,22 @@ export const styles = StyleSheet.create({
   navLink: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 87, 51, 0.2)',
-    marginVertical: 8,
+    gap: 8, // Reduced from 12
+    paddingVertical: 10, // Reduced from 10
+    paddingHorizontal: 14, // Reduced from 16
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 87, 51, 0.1)',
+    marginVertical: 3, // Reduced from 5
   },
   navLinkText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 16, // Reduced from 14
     fontWeight: '600',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'AnimeAce', // Keep existing font
   },
   navIcon: {
-    fontSize: 18,
+    fontSize: 16, // Reduced from 18
+    marginRight: 6, // Reduced from 8
   },
   sidebar: {
     position: 'absolute',
@@ -404,11 +405,11 @@ export const styles = StyleSheet.create({
     right: 0,
     width: 280,
     height: '100%',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1D1D1D',
     zIndex: 1000,
-    paddingTop: 80,
-    paddingHorizontal: 16,
-    paddingBottom: 80,
+    paddingTop: 60, // Reduced from 80
+    paddingHorizontal: 12, // Reduced from 16
+    paddingBottom: 70, // Reduced from 80
     borderLeftWidth: 2,
     borderLeftColor: '#FF5733',
     shadowColor: '#000',
@@ -419,7 +420,26 @@ export const styles = StyleSheet.create({
   },
   sidebarContent: {
     flex: 1,
-    paddingTop: 20,
+    paddingTop: 10, // Reduced from 20
+  },
+  sidebarProfileSection: {
+    padding: 8, // Reduced from 16
+    marginBottom: 8, // Reduced from 12
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 87, 51, 0.1)',
+  },
+  sidebarButtons: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginTop: 6, // Reduced from 6
+    marginBottom: 6, // Reduced from 6
+    gap: 6, // Added gap to control spacing between buttons
+  },
+  sidebarDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255, 87, 51, 0.2)',
+    marginVertical: 8, // Reduced from 12
+    marginHorizontal: 4, // Reduced from 8
   },
   overlay: {
     position: 'absolute',
@@ -698,5 +718,9 @@ export const styles = StyleSheet.create({
     padding: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  navLinksContainer: {
+    paddingTop: 5,
+    paddingBottom: 15,
   },
 });

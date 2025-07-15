@@ -15,6 +15,7 @@ const WalletPanel = ({
   isWalletConnected,
   balance,
   offChainBalance,
+  onChainBalance,
   weeklyPoints,
   pendingWithdrawal,
   withdrawAmount,
@@ -40,7 +41,7 @@ const WalletPanel = ({
       timeLeft,
       isOpen,
     });
-  }, [isWalletConnected, balance, weeklyPoints, pendingWithdrawal, timeLeft, isOpen]);
+  }, [isWalletConnected, balance, weeklyPoints, pendingWithdrawal, isOpen]);
 
   // Pulse animation for floating button
   useEffect(() => {
@@ -170,14 +171,14 @@ const WalletPanel = ({
           <View style={styles.panelContent}>
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
-                <FontAwesome5 name="gem" size={16} color="#F36316" />
-                <Text style={styles.infoLabel}>On-Chain Balance</Text>
+                <FontAwesome5 name="coins" size={16} color="#F36316" />
+                <Text style={styles.infoLabel}>SMP (Off-chain)</Text>
                 <Text style={styles.infoValue}>{balance.toLocaleString()} SMP</Text>
               </View>
               <View style={styles.infoItem}>
-                <FontAwesome5 name="coins" size={16} color="#F36316" />
-                <Text style={styles.infoLabel}>Off-Chain Balance</Text>
-                <Text style={styles.infoValue}>{offChainBalance.toLocaleString()} SMP</Text>
+                <FontAwesome5 name="wallet" size={16} color="#F36316" />
+                <Text style={styles.infoLabel}>SMP (On-chain)</Text>
+                <Text style={styles.infoValue}>{onChainBalance?.toLocaleString(undefined, {maximumFractionDigits: 6}) || 0} SMP</Text>
               </View>
               <View style={styles.infoItem}>
                 <FontAwesome5 name="star" size={16} color="#F36316" />

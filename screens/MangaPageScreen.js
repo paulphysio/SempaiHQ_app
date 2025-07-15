@@ -19,6 +19,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
 import ConnectButton from '../components/ConnectButton';
+import { fetchSmpTokenBalance } from '../utils/solana';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { styles } from '../styles/MangaPageStyles';
 
@@ -45,7 +46,11 @@ const TAG_OPTIONS = [
   { value: 'Josei', label: 'Josei' },
 ];
 
+const API_BASE_URL = 'https://sempaihq.xyz';
+const MIN_WITHDRAWAL = 2500;
+
 const MangaPageScreen = () => {
+  const [onChainBalance, setOnChainBalance] = useState(0);
   const navigation = useNavigation();
   const { wallet } = React.useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
@@ -71,7 +76,20 @@ const MangaPageScreen = () => {
     if (walletPanelOpen && scrollViewRef.current) {
       scrollViewRef.current.scrollToEnd({ animated: true });
     }
-  }, [walletPanelOpen]);
+    // Fetch on-chain balance when wallet panel opens and wallet is connected
+    const fetchOnChain = async () => {
+      if (walletPanelOpen && wallet?.publicKey) {
+        try {
+          const bal = await fetchSmpTokenBalance(wallet.publicKey.toString());
+          setOnChainBalance(bal);
+        } catch (e) {
+          setOnChainBalance(0);
+          console.error('Error fetching on-chain SMP balance:', e);
+        }
+      }
+    };
+    fetchOnChain();
+  }, [walletPanelOpen, wallet]);
 
   const checkBalance = async () => {
     if (!wallet?.publicKey) return;
@@ -110,10 +128,75 @@ const MangaPageScreen = () => {
   };
 
   const handleWithdraw = async () => {
-    // Placeholder: Implement Solana transaction logic here
-    Alert.alert('Withdraw', 'Withdrawal functionality not implemented. Please provide Solana transaction logic.');
-    setWithdrawAmount('');
+    if (!isWalletConnected || !wallet?.publicKey) {
+      setErrorMessage('Please connect your wallet.');
+      return;
+    }
+    const amount = parseFloat(withdrawAmount);
+    if (isNaN(amount) || amount < MIN_WITHDRAWAL) {
+      setErrorMessage(`Withdrawal amount must be at least ${MIN_WITHDRAWAL} SMP.`);
+      return;
+    }
+    try {
+      setLoading(true);
+      setErrorMessage('');
+      // Get user ID
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('wallet_address', wallet.publicKey.toString())
+        .single();
+      if (userError || !user) throw new Error('User not found');
+      // Get off-chain SMP balance
+      const { data: walletBalances, error: walletBalancesError } = await supabase
+        .from('wallet_balances')
+        .select('amount')
+        .eq('user_id', user.id)
+        .eq('chain', 'SOL')
+        .eq('currency', 'SMP');
+      if (walletBalancesError) throw new Error(`Balances lookup failed: ${walletBalancesError.message}`);
+      if (!walletBalances || walletBalances.length === 0) throw new Error('Wallet balance not found. Please contact support if this is unexpected.');
+      const offChainBalance = walletBalances[0].amount;
+      if (offChainBalance < amount) {
+        throw new Error(`Insufficient off-chain balance: ${offChainBalance.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP.`);
+      }
+      // Make withdrawal request
+      const apiUrl = `${API_BASE_URL}/api/withdraw-smp`;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          walletAddress: wallet.publicKey.toString(),
+          amount,
+        }),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || `Withdrawal failed: HTTP ${response.status}`;
+        } catch (e) {
+          errorMessage = `Withdrawal failed: ${errorText || `HTTP ${response.status}`}`;
+        }
+        throw new Error(errorMessage);
+      }
+      const result = await response.json();
+      if (result.error) throw new Error(result.error);
+      // Update off-chain balance in UI
+      setBalance(offChainBalance - amount);
+      setWithdrawAmount('');
+      setErrorMessage(`Successfully withdrew ${amount.toLocaleString()} SMP to your wallet! Transaction signature: ${result.signature}`);
+      await checkBalance();
+      setTimeout(() => setErrorMessage(''), 10000);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
 
   const fetchManga = async () => {
     try {
@@ -359,7 +442,7 @@ const MangaPageScreen = () => {
         <Animated.View entering={FadeIn} style={styles.rewardsBelt}>
           <View style={styles.beltContent}>
             <Text style={styles.rewardItem}>
-                           🎉 Weekly Reward: <Text style={styles.bold}>25,000,000 SMP Tokens</Text> every week based on points! 🌟
+              🎉 Weekly Reward: <Text style={styles.bold}>25,000,000 SMP Tokens</Text> every week based on points! 🌟
             </Text>
             <Text style={styles.rewardItem}>
               👑 Top Reader: <Text style={styles.bold}>100 Pts Daily</Text> 🏆
@@ -455,7 +538,10 @@ const MangaPageScreen = () => {
                 <Animated.View entering={FadeIn}>
                   <View style={styles.walletInfo}>
                     <Text style={styles.walletInfoText}>
-                      <Text style={styles.bold}>Balance:</Text> {balance} SMP
+                      <Text style={styles.bold}>SMP (Off-chain):</Text> {balance} SMP
+                    </Text>
+                    <Text style={styles.walletInfoText}>
+                      <Text style={styles.bold}>SMP (On-chain):</Text> {onChainBalance?.toLocaleString(undefined, {maximumFractionDigits: 6}) || 0} SMP
                     </Text>
                     <Text style={styles.walletInfoText}>
                       <Text style={styles.bold}>Points:</Text> {weeklyPoints}
