@@ -238,6 +238,8 @@ const KaitoAdventureScreen = () => {
   const [combatState, setCombatState] = useState(null);
   const [combatResult, setCombatResult] = useState(null);
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const [leaderboardTab, setLeaderboardTab] = useState('level'); // 'level' or 'gold'
+  const [leaderboardLastFetch, setLeaderboardLastFetch] = useState(null); // Track last fetch to prevent overwrites
   const [townLevels, setTownLevels] = useState({ "Sakura Village": 1, "Iron Port": 1, "Mist Hollow": 1 });
   const [activeTab, setActiveTab] = useState("drinks");
   const [weather, setWeather] = useState(weatherTypes[0]);
@@ -1078,50 +1080,10 @@ const KaitoAdventureScreen = () => {
     return () => clearInterval(interval);
   }, [gatherBuff]);
 
-  // ---- Leaderboard ----
-  const fetchLeaderboardData = useCallback(async () => {
-    console.log('Fetching leaderboard data...');
-    const isWalletActive = isConnected || connected || isWalletConnected;
-    console.log('Leaderboard fetch check:', { isConnected, connected, isWalletConnected, wallet });
-    if (!isWalletActive || !wallet) {
-      console.log('Not connected or no wallet, skipping leaderboard fetch');
-      return;
-    }
-    try {
-      console.log('Querying Supabase for leaderboard data');
-      const { data, error } = await supabase
-        .from('players')
-        .select('wallet_address, name, level, gold')
-        .order('level', { ascending: false })
-        .order('gold', { ascending: false })
-        .limit(10);
-
-      if (error) {
-        console.error('Leaderboard fetch error:', error);
-        throw error;
-      }
-      
-      console.log('Leaderboard data received:', data);
-      setLeaderboardData(data || []);
-      
-      if (data && data.length > 0 && data[0].wallet_address === player.wallet_address) {
-        setGameMessage("You're #1 on the leaderboard! Claim 100 gold next login!");
-      }
-    } catch (error) {
-      console.error('Leaderboard fetch error:', error);
-      setLeaderboardData([]);
-      setGameMessage("Failed to load leaderboard.");
-    }
-  }, [isConnected, connected, isWalletConnected, wallet, player.wallet_address]);
-
-  useEffect(() => {
-    const isWalletActive = isConnected || connected || isWalletConnected;
-    if (isWalletActive && wallet && modals.leaderboard) {
-      fetchLeaderboardData();
-    }
-    const interval = setInterval(fetchLeaderboardData, 10000);
-    return () => clearInterval(interval);
-  }, [fetchLeaderboardData, modals.leaderboard, isConnected, connected, isWalletConnected, wallet]);
+  // ---- Leaderboard ---- 
+  // Removed duplicate fetchLeaderboardData function that was missing XP field
+  // and overwriting our enhanced leaderboard data. The enhanced fetchLeaderboardRankings
+  // function above handles all leaderboard data fetching with proper XP inclusion.
 
   // ---- Equipment ----
   const equipItem = useCallback((itemName) => {
@@ -1587,13 +1549,81 @@ const KaitoAdventureScreen = () => {
     setGameMessage(`Character customized! Welcome, ${customName || player.name}!`);
   }, [customName, customAvatar, customTrait, player.name]);
 
+  // ---- Leaderboard Data Fetching ----
+  const fetchLeaderboardRankings = useCallback(async () => {
+    try {
+      const fetchTime = Date.now();
+      console.log('🔍 Fetching leaderboard data at:', new Date(fetchTime).toLocaleTimeString());
+      
+      const { data: players, error } = await supabase
+        .from('players')
+        .select('wallet_address, name, level, gold, xp')
+        .not('wallet_address', 'is', null)
+        .order('level', { ascending: false })
+        .limit(50); // Get top 50 players for comprehensive data
+
+      if (error) {
+        console.error('❌ Error fetching leaderboard data:', error);
+        return;
+      }
+
+      if (players && players.length > 0) {
+        // Clean and validate the data to prevent null/undefined issues
+        const cleanedPlayers = players.map(player => ({
+          ...player,
+          level: Number(player.level) || 0,
+          gold: Number(player.gold) || 0,
+          xp: Number(player.xp) || 0,
+          name: player.name || `Player ${player.wallet_address?.slice(0, 6)}...`
+        }));
+        
+        console.log('✅ Leaderboard data fetched:', cleanedPlayers.length, 'players');
+        console.log('📊 Sample cleaned data:', cleanedPlayers.slice(0, 3));
+        
+        // Update data with timestamp to prevent overwrites
+        setLeaderboardData(cleanedPlayers);
+        setLeaderboardLastFetch(fetchTime);
+        
+        console.log('💾 Leaderboard data updated and protected from overwrites');
+      } else {
+        console.log('⚠️ No players found in database');
+        setLeaderboardData([]);
+      }
+    } catch (error) {
+      console.error('🔥 Unexpected error fetching leaderboard:', error);
+    }
+  }, []);
+
+  // Calculate combined score for Gold+XP ranking (same as edge function)
+  // Gold gets more weight (0.5) since it resets weekly, XP gets less (0.1) since it accumulates
+  const calculatePlayerScore = (gold, xp) => {
+    return (gold * 0.5) + (xp * 0.1);
+  };
+
   // ---- Modal Toggle ----
   const toggleModal = useCallback((modal) => {
     setModals((prev) => ({ ...prev, [modal]: !prev[modal] }));
     if (modal === 'combat') {
       setCombatHandled(false); // Allow retrigger after manual close
     }
-  }, []);
+    // Fetch leaderboard data when opening leaderboard modal
+    if (modal === 'leaderboard' && !modals.leaderboard) {
+      // First ensure current player data is synced, then fetch leaderboard
+      console.log('🔄 Syncing current player data before fetching leaderboard...');
+      console.log('Current player state:', { 
+        name: player.name, 
+        level: player.level, 
+        gold: player.gold, 
+        xp: player.xp,
+        wallet_address: player.wallet_address 
+      });
+      
+      // Trigger sync and then fetch leaderboard
+      setTimeout(() => {
+        fetchLeaderboardRankings();
+      }, 1000); // Give time for sync to complete
+    }
+  }, [fetchLeaderboardRankings, modals.leaderboard]);
 
   // ---- Render Data for FlatList ----
   const renderData = [
@@ -2332,42 +2362,163 @@ const KaitoAdventureScreen = () => {
       </View>
     </Modal>
   );
-  const renderLeaderboardModal = () => (
-    <Modal
-      isVisible={modals.leaderboard}
-      onBackdropPress={() => toggleModal('leaderboard')}
-      style={styles.modal}
-    >
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Leaderboard</Text>
-        {leaderboardData.length === 0 ? (
-          <Text style={styles.emptyText}>No players on the leaderboard!</Text>
-        ) : (
-          <FlatList
-            data={leaderboardData}
-            keyExtractor={(item) => item.wallet_address}
-            renderItem={({ item, index }) => (
-              <View style={styles.leaderboardItem}>
-                <Text style={styles.leaderboardRank}>#{index + 1}</Text>
-                <Text style={styles.leaderboardName}>
-                  {item.name || `Player ${item.wallet_address.slice(0, 6)}`}
-                </Text>
-                <Text style={styles.leaderboardStats}>
-                  Level {item.level} | {item.gold} Gold
-                </Text>
-              </View>
-            )}
-          />
-        )}
-        <TouchableOpacity
-          style={styles.modalButton}
-          onPress={() => toggleModal('leaderboard')}
-        >
-          <Text style={styles.modalButtonText}>Close</Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
-  );
+  const renderLeaderboardModal = () => {
+    // Sort data based on selected tab
+    const getSortedData = () => {
+      if (!leaderboardData || leaderboardData.length === 0) return [];
+      
+      if (leaderboardTab === 'level') {
+        // Sort by level (desc), then by XP (desc)
+        return [...leaderboardData]
+          .sort((a, b) => {
+            if (b.level !== a.level) return b.level - a.level;
+            return (b.xp || 0) - (a.xp || 0);
+          })
+          .slice(0, 20); // Show top 20
+      } else {
+        // Sort by Gold+XP combined score (desc) - top 10 for rewards
+        return [...leaderboardData]
+          .map(player => ({
+            ...player,
+            combinedScore: calculatePlayerScore(player.gold || 0, player.xp || 0)
+          }))
+          .sort((a, b) => b.combinedScore - a.combinedScore)
+          .slice(0, 10); // Show top 10 only
+      }
+    };
+
+    const sortedData = getSortedData();
+
+    return (
+      <Modal
+        isVisible={modals.leaderboard}
+        onBackdropPress={() => toggleModal('leaderboard')}
+        style={styles.modal}
+      >
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>🏆 Kaito Adventure Leaderboard</Text>
+          
+          {/* Tab Container */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, leaderboardTab === 'level' && styles.activeTab]}
+              onPress={() => setLeaderboardTab('level')}
+            >
+              <Icon name="star" size={16} color={leaderboardTab === 'level' ? '#ff6200' : '#888'} />
+              <Text style={[styles.tabText, leaderboardTab === 'level' && styles.activeTabText]}>By Level</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, leaderboardTab === 'gold' && styles.activeTab]}
+              onPress={() => setLeaderboardTab('gold')}
+            >
+              <Icon name="trophy" size={16} color={leaderboardTab === 'gold' ? '#ff6200' : '#888'} />
+              <Text style={[styles.tabText, leaderboardTab === 'gold' && styles.activeTabText]}>Reward List</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Tab Description */}
+          <Text style={styles.leaderboardDescription}>
+            {leaderboardTab === 'level' 
+              ? 'Top players ranked by their adventure level and experience'
+              : '🎁 Top 10 players who receive weekly 5M SMP rewards (Gold + XP score)'
+            }
+          </Text>
+
+          {/* Leaderboard Content */}
+          {sortedData.length === 0 ? (
+            <View style={styles.emptyLeaderboard}>
+              <Icon name="users" size={48} color="#666" />
+              <Text style={styles.emptyText}>No players found!</Text>
+              <Text style={styles.emptySubtext}>Be the first to join the adventure</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={sortedData}
+              keyExtractor={(item) => item.wallet_address}
+              style={styles.leaderboardList}
+              renderItem={({ item, index }) => {
+                const rank = index + 1;
+                const isCurrentPlayer = item.wallet_address === player.wallet_address;
+                const isTopThree = rank <= 3;
+                const isRewardEligible = leaderboardTab === 'gold' && rank <= 10;
+                
+                return (
+                  <View style={[
+                    styles.leaderboardItem,
+                    isCurrentPlayer && styles.currentPlayerItem,
+                    isTopThree && styles.topThreeItem,
+                    isRewardEligible && styles.rewardEligibleItem
+                  ]}>
+                    {/* Rank */}
+                    <View style={styles.rankContainer}>
+                      {isTopThree ? (
+                        <View style={[styles.medalContainer, 
+                          rank === 1 && styles.goldMedal,
+                          rank === 2 && styles.silverMedal,
+                          rank === 3 && styles.bronzeMedal
+                        ]}>
+                          <Text style={styles.medalText}>{rank}</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.leaderboardRank}>#{rank}</Text>
+                      )}
+                    </View>
+
+                    {/* Player Info */}
+                    <View style={styles.playerInfoContainer}>
+                      <Text style={[
+                        styles.leaderboardName,
+                        isCurrentPlayer && styles.currentPlayerName
+                      ]}>
+                        {item.name || `Player ${item.wallet_address.slice(0, 6)}...`}
+                        {isCurrentPlayer && ' (You)'}
+                      </Text>
+                      
+                      {leaderboardTab === 'level' ? (
+                        <Text style={styles.leaderboardStats}>
+                          Level {item.level || 0} • {item.xp ?? 0} XP • {item.gold ?? 0} Gold
+                        </Text>
+                      ) : (
+                        <Text style={styles.leaderboardStats}>
+                          Score: {item.combinedScore?.toFixed(1) || '0.0'} • Gold: {item.gold ?? 0} • XP: {item.xp ?? 0}
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Reward Indicator */}
+                    {isRewardEligible && (
+                      <View style={styles.rewardIndicator}>
+                        <Icon name="gift" size={16} color="#ffd700" />
+                        <Text style={styles.rewardText}>SMP</Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              }}
+            />
+          )}
+
+          {/* Action Buttons */}
+          <View style={styles.leaderboardActions}>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={fetchLeaderboardRankings}
+            >
+              <Icon name="sync-alt" size={16} color="#ff6200" />
+              <Text style={styles.refreshButtonText}>Refresh</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => toggleModal('leaderboard')}
+            >
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
   const renderQuestsModal = () => (
     <Modal
       isVisible={modals.quests}
