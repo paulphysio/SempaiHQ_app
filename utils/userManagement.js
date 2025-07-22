@@ -98,22 +98,17 @@ export const getUserDetails = async (userId) => {
     const { data, error } = await supabase
       .from('users')
       .select(`
-        *,
-        chapter_payments(count),
-        comments(count),
-        unlocked_story_chapters(count)
+        id,
+        wallet_address,
+        email,
+        name
       `)
       .eq('id', userId)
       .single();
 
     if (error) throw error;
 
-    return {
-      ...data,
-      totalPayments: data.chapter_payments?.[0]?.count || 0,
-      totalComments: data.comments?.[0]?.count || 0,
-      totalUnlocked: data.unlocked_story_chapters?.[0]?.count || 0
-    };
+    return data;
   } catch (error) {
     console.error('Error fetching user details:', error);
     throw error;

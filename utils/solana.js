@@ -1,6 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
-import { SMP_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
+import { SMP_MINT_ADDRESS, RPC_URL, SMP_DECIMALS, LAMPORTS_PER_SOL } from '../constants';
 
 /**
  * Fetch the on-chain SMP SPL token balance for a given wallet address.
@@ -23,6 +23,23 @@ export async function fetchSmpTokenBalance(walletAddress) {
       return 0;
     }
     console.error('[fetchSmpTokenBalance] Error:', err);
+    throw err;
+  }
+}
+
+/**
+ * Fetch the SOL balance for a given wallet address.
+ * @param {string|PublicKey} walletAddress - The wallet public key (string or PublicKey)
+ * @returns {Promise<number>} The SOL balance (in SOL, not lamports)
+ */
+export async function fetchSolBalance(walletAddress) {
+  try {
+    const connection = new Connection(RPC_URL, 'confirmed');
+    const publicKey = typeof walletAddress === 'string' ? new PublicKey(walletAddress) : walletAddress;
+    const lamports = await connection.getBalance(publicKey);
+    return lamports / LAMPORTS_PER_SOL;
+  } catch (err) {
+    console.error('[fetchSolBalance] Error:', err);
     throw err;
   }
 }

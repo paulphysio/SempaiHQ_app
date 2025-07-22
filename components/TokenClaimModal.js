@@ -11,8 +11,11 @@ import {
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../services/supabaseClient';
+import { getUserDetails } from '../utils/userManagement';
+import { fetchSolBalance } from '../utils/solana';
 
 const MAX_CLAIMS = 500;
+const MINIMUM_SOL_FOR_AIRDROP = 0.005; // 0.5 USD worth of SOL (assuming 1 SOL = $100)
 
 const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
   const [claimCount, setClaimCount] = useState(0);
@@ -23,6 +26,8 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 2000;
+  const [solBalance, setSolBalance] = useState(null);
+  const [walletAddress, setWalletAddress] = useState(null);
 
   const checkEligibility = useCallback(async () => {
     if (!userId) {
@@ -70,6 +75,27 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
         }
         console.log('[TokenClaimModal] Fetched claim count:', count);
         setClaimCount(count || 0);
+
+        // Fetch wallet address and SOL balance
+        let userWallet = null;
+        if (userId) {
+          try {
+            const userDetails = await getUserDetails(userId);
+            if (userDetails && userDetails.wallet_address) {
+              setWalletAddress(userDetails.wallet_address);
+              userWallet = userDetails.wallet_address;
+              const sol = await fetchSolBalance(userDetails.wallet_address);
+              setSolBalance(sol);
+            } else {
+              setWalletAddress(null);
+              setSolBalance(null);
+            }
+          } catch (err) {
+            setWalletAddress(null);
+            setSolBalance(null);
+            console.error('[TokenClaimModal] Failed to fetch wallet address or SOL balance:', err.message);
+          }
+        }
 
         // Check eligibility
         const eligible = await checkEligibility();
@@ -203,13 +229,20 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
                   <Text style={styles.errorText}>{errorMessage}</Text>
                 </View>
               )}
+              {isEligible && solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP && (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>
+                    Warning: Your wallet has less than 0.5 USD worth of SOL. You need at least 0.5 USD worth of SOL to pay for transaction fees and account creation. Please reconnect your wallet after topping up your wallet before claiming. 
+                  </Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={[
                   styles.claimButton,
-                  (isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible) && styles.claimButtonDisabled,
+                  (isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible || solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP) && styles.claimButtonDisabled,
                 ]}
                 onPress={handleClaim}
-                disabled={isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible}
+                disabled={isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible || (solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP)}
               >
                 {isLoading ? (
                   <View style={styles.loadingContainer}>
