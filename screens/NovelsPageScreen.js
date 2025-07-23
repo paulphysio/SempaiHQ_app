@@ -260,47 +260,45 @@ const NovelsPageScreen = () => {
       }
 
       // Make the withdrawal request which will check Treasury's on-chain balance
-      const apiUrl = `${API_BASE_URL}/api/withdraw-smp`;
-      console.log('Making withdrawal request to:', apiUrl, {
+
+      // Call the Deno Edge Function for withdrawal
+      const edgeUrl = `https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/withdraw-smp`;
+      console.log('Making withdrawal request to:', edgeUrl, {
         userId: user.id,
         walletAddress: publicKey,
-        amount,
-        treasuryAddress: TREASURY_PUBLIC_KEY,
-        tokenMint: SMP_MINT_ADDRESS.toString()
+        amount
       });
 
-      const response = await fetch(apiUrl, {
+      // Get the user's Supabase access token for authorization
+      let accessToken = null;
+      if (supabase.auth.getSession) {
+        const sessionRes = await supabase.auth.getSession();
+        accessToken = sessionRes?.data?.session?.access_token;
+      } else if (supabase.auth.session) {
+        accessToken = supabase.auth.session()?.access_token;
+      }
+
+      const response = await fetch(edgeUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           userId: user.id,
           walletAddress: publicKey,
-          amount,
-          treasuryAddress: TREASURY_PUBLIC_KEY,
-          tokenMint: SMP_MINT_ADDRESS.toString()
+          amount
         }),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage;
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error && errorJson.error.includes('Treasury has insufficient SMP')) {
-            errorMessage = 'Treasury has insufficient on-chain SMP balance. Please try again later or contact support.';
-          } else {
-            errorMessage = errorJson.error || `Withdrawal failed: HTTP ${response.status}`;
-          }
-        } catch (e) {
-          errorMessage = `Withdrawal failed: ${errorText || `HTTP ${response.status}`}`;
+      const result = await response.json();
+      if (!response.ok || result.error) {
+        let errorMessage = result.error || `Withdrawal failed: HTTP ${response.status}`;
+        if (errorMessage.includes('Treasury has insufficient SMP')) {
+          errorMessage = 'Treasury has insufficient on-chain SMP balance. Please try again later or contact support.';
         }
         throw new Error(errorMessage);
       }
-
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
 
       // Update off-chain balance after successful on-chain transfer
       const { error: updateError } = await supabase

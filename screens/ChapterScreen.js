@@ -463,9 +463,15 @@ const ChapterScreen = () => {
           return true;
         }
   
+        const rentExempt = await connection.getMinimumBalanceForRentExemption(165); // 165 is the size of a token account
+        const feeEstimate = 10000; // Add a little extra for transaction fees
+        const minRequired = rentExempt + feeEstimate;
         const userSolBalance = await connection.getBalance(activePublicKey);
-        if (userSolBalance < MIN_ATA_SOL * 10 ** 9) {
-          throw new Error(`Insufficient SOL for transaction fees (need ${MIN_ATA_SOL} SOL)`);
+
+        if (userSolBalance < minRequired) {
+          throw new Error(
+            `Insufficient SOL for transaction fees and account creation. You have ${(userSolBalance / 1e9).toFixed(6)} SOL, but need at least ${(minRequired / 1e9).toFixed(6)} SOL.`
+          );
         }
   
         if (currency === 'SMP' && smpBalance * 10 ** SMP_DECIMALS < SMP_READ_COST && paymentType === 'SINGLE') {
@@ -506,48 +512,56 @@ const ChapterScreen = () => {
           console.error('[processChapterPayment] Critical error during function invocation:', e);
           throw new Error(`Function invocation failed: ${e.message}`);
         }
-  
+
         if (invokeError) {
           console.error('[processChapterPayment] Invoke error:', invokeError);
           throw new Error(`Edge function error: ${invokeError.message || 'Non-2xx status code'}`);
         }
-  
-        if (!data?.serializedTx) {
-          console.error('[processChapterPayment] Invalid response from API:', data);
-          throw new Error('No serialized transaction returned from the API.');
+
+        // Handle new server-side signing response
+        if (data?.success && data?.signature) {
+          setSuccessMessage('Payment successful! Transaction signature: ' + data.signature);
+          setIsLocked(false);
+          setCanUnlockNextThree(true);
+          setTimeout(() => setSuccessMessage(''), 5000);
+          return true;
         }
+        // (Optional) handle legacy client-side signing if ever needed
+        if (data?.serializedTx) {
+          const transaction = Transaction.from(Buffer.from(data.serializedTx, 'base64'));
+          console.log('[processChapterPayment] Deserialized Transaction:', transaction);
   
-        const transaction = Transaction.from(Buffer.from(data.serializedTx, 'base64'));
-        console.log('[processChapterPayment] Deserialized Transaction:', transaction);
+          console.log('[processChapterPayment] Wallet before signing:', wallet);
+          console.log('[processChapterPayment] signAndSendTransaction available:', !!signAndSendTransaction);
   
-        console.log('[processChapterPayment] Wallet before signing:', wallet);
-        console.log('[processChapterPayment] signAndSendTransaction available:', !!signAndSendTransaction);
+          // Use signAndSendTransaction, which signs and sends the transaction
+          const signature = await signAndSendTransaction(transaction);
+          console.log('[processChapterPayment] Transaction signature:', signature);
   
-        // Use signAndSendTransaction, which signs and sends the transaction
-        const signature = await signAndSendTransaction(transaction);
-        console.log('[processChapterPayment] Transaction signature:', signature);
+          // Confirm the transaction
+          const confirmation = await connection.confirmTransaction(
+            {
+              signature,
+              blockhash: data.blockhashInfo.blockhash,
+              lastValidBlockHeight: data.blockhashInfo.lastValidBlockHeight,
+            },
+            'confirmed'
+          );
   
-        // Confirm the transaction
-        const confirmation = await connection.confirmTransaction(
-          {
-            signature,
-            blockhash: data.blockhashInfo.blockhash,
-            lastValidBlockHeight: data.blockhashInfo.lastValidBlockHeight,
-          },
-          'confirmed'
-        );
+          if (confirmation.value.err) {
+            console.error('[processChapterPayment] On-chain transaction failed:', confirmation.value.err);
+            throw new Error('Transaction failed on the blockchain.');
+          }
   
-        if (confirmation.value.err) {
-          console.error('[processChapterPayment] On-chain transaction failed:', confirmation.value.err);
-          throw new Error('Transaction failed on the blockchain.');
+          setSuccessMessage('Payment successful! Chapter unlocked.');
+          await fetchSmpBalanceOnChain(); // Re-fetch balance to be sure it's correct
+          setIsLocked(false);
+          setCanUnlockNextThree(true);
+          setTimeout(() => setSuccessMessage(''), 5000);
+          return true;
         }
-  
-        setSuccessMessage('Payment successful! Chapter unlocked.');
-        await fetchSmpBalanceOnChain(); // Re-fetch balance to be sure it's correct
-        setIsLocked(false);
-        setCanUnlockNextThree(true);
-        setTimeout(() => setSuccessMessage(''), 5000);
-        return true;
+
+        throw new Error('Unexpected response from the API.');
       } catch (err) {
         console.error('[processChapterPayment] Error:', err.message);
         if (err.message.includes('Insufficient')) {
@@ -575,14 +589,13 @@ const ChapterScreen = () => {
       if (!nextChapterId) return;
       setIsProcessing(true);
       try {
-        const isPaid = await checkChapterPayment(parseInt(nextChapterId, 10));
-        if (isPaid) {
-          navigation.navigate('Chapter', { novelId, chapterId: nextChapterId });
-          return;
-        }
+        // Always attempt to pay/unlock the next chapter before navigating
         const success = await processChapterPayment(nextChapterId);
         if (success) {
           navigation.navigate('Chapter', { novelId, chapterId: nextChapterId });
+        } else {
+          setError('Failed to unlock next chapter.');
+          setTimeout(() => setError(null), 5000);
         }
       } catch (err) {
         console.error('[handleNextChapter] Error:', err.message);
@@ -592,7 +605,7 @@ const ChapterScreen = () => {
         setIsProcessing(false);
       }
     },
-    [checkChapterPayment, processChapterPayment, navigation, novelId]
+    [processChapterPayment, navigation, novelId]
   );
 
   useEffect(() => {
@@ -686,7 +699,7 @@ const ChapterScreen = () => {
             )}
             <TouchableOpacity
               style={styles.navButton}
-              onPress={() => navigation.navigate('Novel', { novelId })}
+              onPress={() => navigation.navigate('NovelsPage', { novelId })}
             >
               <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
               <Text style={styles.navButtonText}>Back to Novel</Text>
@@ -776,7 +789,7 @@ const ChapterScreen = () => {
 
   const chapterTitle = novel.chaptertitles?.[chapterId] || `Chapter ${parseInt(chapterId) + 1}`;
   const chapterKeys = Object.keys(novel.chaptercontents || {});
-  const currentIndex = chapterKeys.indexOf(chapterId);
+  const currentIndex = chapterKeys.indexOf(String(chapterId));
   const prevChapter = currentIndex > 0 ? chapterKeys[currentIndex - 1] : null;
   const nextChapter = currentIndex < chapterKeys.length - 1 ? chapterKeys[currentIndex + 1] : null;
   const releaseDateMessage =
@@ -816,7 +829,7 @@ const ChapterScreen = () => {
         <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
         <TouchableOpacity
           style={styles.headerButton}
-          onPress={() => navigation.navigate('Novel', { novelId })}
+          onPress={() => navigation.navigate('NovelsPage', { novelId })}
         >
           <Icon name="book" size={20} color="#ffffff" />
         </TouchableOpacity>
