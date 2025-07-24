@@ -411,6 +411,20 @@ serve(async (req) => {
         expires_at: expiresAt.toISOString()
       }).then(throwOnError);
     }
+    // Award weekly_points after successful payment
+    let pointsToAdd = 0;
+    if (paymentType === "SINGLE") {
+      pointsToAdd = 100;
+    } else if (paymentType === "3CHAPTERS" || paymentType === "FULL") {
+      pointsToAdd = 1000;
+    }
+    if (pointsToAdd > 0) {
+      console.log(`[unlock-chapter] Awarding ${pointsToAdd} weekly_points to user ${userData.id}`);
+      await supabaseAdmin.rpc('increment_weekly_points', {
+        user_id: userData.id,
+        points: pointsToAdd
+      });
+    }
     console.log('[unlock-chapter] All DB updates complete. Returning success.');
     return Response.json({
       success: true,

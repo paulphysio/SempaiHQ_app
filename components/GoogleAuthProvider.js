@@ -61,6 +61,39 @@ export const GoogleAuthProvider = ({ children }) => {
   const buttonScale = useSharedValue(1);
 
   useEffect(() => {
+    const trySilentSignIn = async () => {
+      try {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+          const userInfo = await GoogleSignin.signInSilently();
+          const idToken = userInfo.idToken;
+          if (idToken) {
+            setLoading(true);
+            // Sign in to Supabase with the Google idToken
+            const { data, error: signInError } = await supabase.auth.signInWithIdToken({
+              provider: 'google',
+              token: idToken,
+            });
+            if (signInError) {
+              if (signInError.message.includes('duplicate key value violates unique constraint')) {
+                console.log('User already exists, proceeding with sign-in...');
+              } else {
+                throw signInError;
+              }
+            }
+            setSession(data.session);
+            await AsyncStorage.setItem('@user', JSON.stringify(userInfo.user));
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.log('Silent Google sign-in failed:', err.message);
+        // Not fatal, user will need to sign in manually
+      }
+    };
+
+    trySilentSignIn();
     const checkSession = async () => {
       try {
         setLoading(true);

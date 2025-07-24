@@ -63,14 +63,7 @@ const Home = () => {
 
   // Feature cards
   const features = [
-    {
-      title: 'Google Sign-In',
-      image: {
-        uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEkUlEQVR4nO2Zf2hVZRjHv+fHvefes7l5N6dOmomWWmkUlpkFUWBFEKXOamlJIkGBhRWUVH9kf0gUFUhkQf4TEf2jv1KKDEK0H2qIhBpRKUUqrUzn3Nx2z7n3nNPzvu+5Z7t3Z3vP2b0jfOAL973nPe/zfp/n+zzP+7xKpZFGGv9jKACqABQDyPwvk88FsADAKwBaALwKYDKA3HQRzwLwIIBmAF8A6ADQCuBpAJUAcq5l8vkA6gC8DuBzAEcBHAKwA8BGAPcBKACgX23iGQDKATwM4CUAL30vl2ULgE8BHBH5XwHYC2ArgA0AqgEUXQ3yqpxhBYDHALwNYDeALwEcBnAcwHEAPwD4XiR0GsA5AN0AzgA4AeAQgD0A3gKwDsD9AEqvFPl0AKUAFgF4EsA2AB8B+BbALwDOAugE8CeAPgADAC4CGAQQABAEEAIQBmADcAAYAK4A6JYxfpIx35cxXwJQJ2OPm3wOgGIANQDWA3gXwD4AxwCcAtABoAfARQCXAIQAWAAsABEAUQBxADEABgBd/o8DiMm9qNwbknH6ZNw/AHwjc1kn8ysdCXkVQBGAeQAel+1xUMh0iF0YlRWLCuGokI8JcUtWW5eVjwJwA3ABMAGYQt4EYADQhHwYgE/k9QrxPgC/AfgUwCYAD8iq5owlfwaAMgDLALwG4BMAv8qqXpAJBQEMi4QiQl6XSRsioSkSsEXGhpDXJXhNSKsy6ZBsHV3I+0XePgC/A/gAwBMAFkoSjAo+Q1a7AsB6kc1PAM7LSnlFAkOyukNiHrqQsWRCpkjBFPKGEI8JaUMIx4SwJqtsy8rbstp+mVu3zPUwgJ0A1gKYMxb5XADzATwL4CMZIC4T9sjEfEI6IKsbFjKakDCEgCnELSFrC1lTyOoi0biQNoS0IaQNIW1LzgkJeY/M/RyAbQDuG4v8AgBbxVrD4qEhIR4U0mEhYQgBU0gYQsAS0paQtYSsKWR1IWwIYUMIG0LaFNKmyMiQXBQS8ufFHO8ei/wqALvFQqNCIiwS0IWEKSRMIWEJWVNImULWFLKGEDWFqClETSFqSXQyJT8ZQj4qxC8D2AlgxVjkVwPYL4NHhUhYJGAICVOImELEEjKWkLKElCWkTCFlCClDSBlCypQIZQppU0hbksDCAL4DsGwsocracy8msBfC0DRUSP9hUkbAkZS8hYQsoSUpaQMoWUIaR0IaULKV1IGULKEFKmkLYAfANg6Vjk1wE4IANFRQIRIWBJtLGEjCVkLCFlCSlTSBlCShcyhpAxhIwhZEwhYwL4GsDiscg/B+A7GcQS/7aEgCUELCFgCgFTCJhCwBQCphAwxVctAF8BqBmLfBpppJFGGhOO/wA36kJcbZkxjgAAAABJRU5ErkJggg==',
-      },
-      path: 'GoogleSignIn',
-      requiresWallet: false,
-    },
+    
     {
       title: "Kaito's Adventure",
       image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/background.jpg' },
@@ -843,7 +836,7 @@ const Home = () => {
             <Text style={styles.featureTitle} numberOfLines={1}>{item.title}</Text>
             {item.requiresWallet && (
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}>Premium</Text>
+                <Text style={styles.premiumBadgeText}></Text>
               </View>
             )}
           </View>
@@ -874,10 +867,14 @@ const Home = () => {
           contentContainerStyle={styles.navLinksContainer}
         >
           {[
-            { path: 'Home', icon: 'home', label: 'Home' },
+            {
+              label: 'Edit Profile',
+              icon: 'user-edit',
+              onPress: () => handleNavigation('EditProfile', { id: userId }),
+            },
             { path: 'Wallet', icon: 'wallet', label: 'Wallet' },
             { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
-            { path: 'StatPage', icon: 'chart-bar', label: 'Stats' },
+            { path: 'Stats', icon: 'chart-bar', label: 'Stats' },
             {
               path: '',
               icon: 'user',
@@ -886,7 +883,6 @@ const Home = () => {
             },
             { path: 'Chat', icon: 'comments', label: 'Chat' },
             { path: 'KaitoAdventure', icon: 'gamepad', label: "Kaito's Adventure" },
-            { path: 'WalletImport', icon: 'wallet', label: 'Import Wallet' },
             {
               path: '',
               icon: 'bullhorn',
@@ -913,7 +909,6 @@ const Home = () => {
               <Text style={styles.navLinkText}>{item.label}</Text>
             </TouchableOpacity>
           ))}
-          
           {/* Add some bottom padding for better scrolling */}
           <View style={{ height: 10 }} />
         </ScrollView>

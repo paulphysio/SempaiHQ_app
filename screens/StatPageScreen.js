@@ -1,4 +1,3 @@
-// ./screens/StatsScreen.js
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -38,7 +37,7 @@ const StatPageScreen = () => {
   const [userSmpBalance, setUserSmpBalance] = useState({ onChain: null, offChain: null });
   const [usersOverTime, setUsersOverTime] = useState([]);
   const [activeUsers, setActiveUsers] = useState({ last7: 0, last30: 0 });
-  const [smpDistribution, setSmpDistribution] = useState({});
+  const [smpDistribution, setSmpDistribution] = useState({ '<1K': 0, '1K-10K': 0, '>10K': 0 });
   const [activityTypes, setActivityTypes] = useState({});
   const [totalNovelsRead, setTotalNovelsRead] = useState(0);
   const [avgWeeklyPoints, setAvgWeeklyPoints] = useState(0);
@@ -56,6 +55,15 @@ const StatPageScreen = () => {
     ]);
   };
 
+  // Sanitize chart data to prevent NaN, Infinity, or undefined values
+  const sanitizeChartData = (data, defaultValue = 0) => {
+    if (!Array.isArray(data)) return [defaultValue];
+    return data.map((value) => {
+      const num = Number(value);
+      return Number.isFinite(num) && num >= 0 ? num : defaultValue;
+    });
+  };
+
   const fetchStats = useCallback(async () => {
     try {
       setLoading(true);
@@ -63,15 +71,15 @@ const StatPageScreen = () => {
 
       // Total User Count
       console.log('Fetching total users...');
-      const { data: users, error: userError } = await withTimeout(
+      const { count: userCount, error: userError } = await withTimeout(
         supabase
           .from('users')
-          .select('id')
+          .select('id', { count: 'exact', head: true })
           .not('wallet_address', 'is', null)
       );
       if (userError) throw new Error(`User fetch error: ${userError.message}`);
-      console.log('Total users:', users?.length);
-      setTotalUsers(users?.length || 0);
+      console.log('Total users:', userCount);
+      setTotalUsers(userCount || 0);
 
       // Mint Treasury SMP Balance
       console.log('Fetching treasury balance...');
@@ -96,8 +104,9 @@ const StatPageScreen = () => {
           .eq('currency', 'SMP')
       );
       if (rewardsError) throw new Error(`Rewards balance fetch error: ${rewardsError.message}`);
-      const totalRewardsBalance = (rewardsBalances || []).reduce(
-        (sum, { amount }) => sum + (Number(amount) || 0),
+      const rewardsBalancesNum = (rewardsBalances || []).map((b) => ({ ...b, amount: Number(b.amount) }));
+      const totalRewardsBalance = rewardsBalancesNum.reduce(
+        (sum, { amount }) => sum + (Number.isFinite(amount) ? amount : 0),
         0
       );
       console.log('Total rewards balance:', totalRewardsBalance);
@@ -193,7 +202,8 @@ const StatPageScreen = () => {
           .eq('currency', 'SMP')
       );
       if (balanceError) throw new Error(`Balance fetch error: ${balanceError.message}`);
-      const dist = calculateSmpDistribution(balances || []);
+      const balancesNum = (balances || []).map((b) => ({ ...b, amount: Number(b.amount) }));
+      const dist = calculateSmpDistribution(balancesNum);
       console.log('SMP distribution:', dist);
       setSmpDistribution(dist);
 
@@ -283,6 +293,7 @@ const StatPageScreen = () => {
   const calculateSmpDistribution = (balances) => {
     const buckets = { '<1K': 0, '1K-10K': 0, '>10K': 0 };
     balances.forEach(({ amount }) => {
+      if (!Number.isFinite(amount)) return;
       if (amount < 1000) buckets['<1K']++;
       else if (amount <= 10000) buckets['1K-10K']++;
       else buckets['>10K']++;
@@ -290,12 +301,12 @@ const StatPageScreen = () => {
     return buckets;
   };
 
-  // Chart Data
+  // Chart Data with sanitization
   const usersOverTimeData = {
-    labels: usersOverTime.map((d) => d.date),
+    labels: usersOverTime.length ? usersOverTime.map((d) => d.date || 'N/A') : ['No Data'],
     datasets: [
       {
-        data: usersOverTime.map((d) => d.count),
+        data: usersOverTime.length ? sanitizeChartData(usersOverTime.map((d) => d.count)) : [0],
         color: () => '#F28C38',
         strokeWidth: 2,
       },
@@ -306,7 +317,7 @@ const StatPageScreen = () => {
     labels: ['Last 7 Days', 'Last 30 Days'],
     datasets: [
       {
-        data: [activeUsers.last7, activeUsers.last30],
+        data: sanitizeChartData([activeUsers.last7, activeUsers.last30]),
         color: () => '#E67E22',
         strokeWidth: 2,
       },
@@ -314,16 +325,33 @@ const StatPageScreen = () => {
   };
 
   const smpDistributionData = [
-    { value: smpDistribution['<1K'] || 0, color: '#F28C38', label: '<1K SMP' },
-    { value: smpDistribution['1K-10K'] || 0, color: '#E67E22', label: '1K-10K SMP' },
-    { value: smpDistribution['>10K'] || 0, color: '#D76E1B', label: '>10K SMP' },
-  ].filter((item) => item.value > 0);
+    {
+      value: Number.isFinite(smpDistribution['<1K']) ? smpDistribution['<1K'] : 0,
+      color: '#F28C38',
+      name: '<1K SMP',
+    },
+    {
+      value: Number.isFinite(smpDistribution['1K-10K']) ? smpDistribution['1K-10K'] : 0,
+      color: '#E67E22',
+      name: '1K-10K SMP',
+    },
+    {
+      value: Number.isFinite(smpDistribution['>10K']) ? smpDistribution['>10K'] : 0,
+      color: '#D76E1B',
+      name: '>10K SMP',
+    },
+  ];
+  // If all values are zero, show a single 'No Data' slice
+  const allZero = smpDistributionData.every((item) => item.value === 0);
+  const pieChartData = allZero
+    ? [{ value: 1, color: '#444', name: 'No Data' }]
+    : smpDistributionData.filter((item) => item.value > 0);
 
   const activityTypesData = {
-    labels: Object.keys(activityTypes),
+    labels: Object.keys(activityTypes).length ? Object.keys(activityTypes) : ['No Data'],
     datasets: [
       {
-        data: Object.values(activityTypes),
+        data: Object.keys(activityTypes).length ? sanitizeChartData(Object.values(activityTypes)) : [0],
         color: () => '#F28C38',
         strokeWidth: 2,
       },
@@ -331,10 +359,10 @@ const StatPageScreen = () => {
   };
 
   const commentActivityData = {
-    labels: commentActivity.map((d) => d.date),
+    labels: commentActivity.length ? commentActivity.map((d) => d.date || 'N/A') : ['No Data'],
     datasets: [
       {
-        data: commentActivity.map((d) => d.count),
+        data: commentActivity.length ? sanitizeChartData(commentActivity.map((d) => d.count)) : [0],
         color: () => '#E67E22',
         strokeWidth: 2,
       },
@@ -342,12 +370,40 @@ const StatPageScreen = () => {
   };
 
   const chartConfig = {
-    backgroundGradientFrom: '#2A2A3E',
-    backgroundGradientTo: '#2A2A3E',
-    color: () => '#FFFFFF',
-    labelColor: () => '#FFFFFF',
-    propsForDots: { r: '4', strokeWidth: '2', stroke: '#F28C38' },
+    backgroundGradientFrom: '#23234A',
+    backgroundGradientTo: '#1A1A2E',
+    backgroundGradientFromOpacity: 0.95,
+    backgroundGradientToOpacity: 0.95,
+    color: (opacity = 1) => `rgba(242, 140, 56, ${opacity})`, // vibrant orange
+    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    fillShadowGradient: '#F28C38',
+    fillShadowGradientOpacity: 0.18,
+    propsForDots: {
+      r: '7',
+      strokeWidth: '3',
+      stroke: '#FFD580',
+      fill: '#F28C38',
+      shadowColor: '#F28C38',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.4,
+      shadowRadius: 4,
+    },
+    propsForBackgroundLines: {
+      stroke: 'rgba(255,255,255,0.08)',
+      strokeDasharray: '',
+    },
+    propsForLabels: {
+      fontSize: 13,
+      fontWeight: '600',
+      fontFamily: 'System',
+      fill: '#FFD580',
+    },
+    barPercentage: 0.6,
     decimalPlaces: 0,
+    style: {
+      borderRadius: 12,
+    },
+    useShadowColorFromDataset: false,
   };
 
   useEffect(() => {
@@ -375,9 +431,7 @@ const StatPageScreen = () => {
           <Icon name="home" size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Platform Stats</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Menu')}>
-          <Icon name="bars" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        
       </View>
 
       {errorMessage && (
@@ -394,25 +448,25 @@ const StatPageScreen = () => {
         <View style={styles.statGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Total Users</Text>
-            <Text style={styles.statValue}>{totalUsers.toLocaleString()}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(totalUsers) ? totalUsers.toLocaleString() : 'N/A'}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>SMP Rewards Bank</Text>
             <Text style={styles.statValue}>
-              {mintTreasuryBalance !== null ? mintTreasuryBalance.toLocaleString() : 'Loading...'}
+              {Number.isFinite(mintTreasuryBalance) ? mintTreasuryBalance.toLocaleString() : 'Loading...'}
             </Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Total SMP Rewarded</Text>
             <Text style={styles.statValue}>
-              {rewardsWalletBalance !== null ? rewardsWalletBalance.toLocaleString() : 'Loading...'}
+              {Number.isFinite(rewardsWalletBalance) ? rewardsWalletBalance.toLocaleString() : 'Loading...'}
             </Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Your SMP Balance</Text>
             <Text style={styles.statValue}>
               {isWalletConnected
-                ? userSmpBalance.onChain !== null && userSmpBalance.offChain !== null
+                ? Number.isFinite(userSmpBalance.onChain) && Number.isFinite(userSmpBalance.offChain)
                   ? `${userSmpBalance.onChain.toLocaleString()} (${userSmpBalance.offChain.toLocaleString()})`
                   : 'Loading...'
                 : 'Connect Wallet'}
@@ -420,11 +474,11 @@ const StatPageScreen = () => {
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Total Novel Reads</Text>
-            <Text style={styles.statValue}>{totalNovelsRead.toLocaleString()}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(totalNovelsRead) ? totalNovelsRead.toLocaleString() : 'N/A'}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Avg Weekly Points</Text>
-            <Text style={styles.statValue}>{avgWeeklyPoints.toFixed(2)}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(avgWeeklyPoints) ? avgWeeklyPoints.toFixed(2) : 'N/A'}</Text>
           </View>
         </View>
 
@@ -438,7 +492,14 @@ const StatPageScreen = () => {
               chartConfig={chartConfig}
               bezier
               style={styles.chart}
+              withShadow={true}
+              withDots={true}
+              withInnerLines={true}
+              withOuterLines={false}
             />
+            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+              Number of unique users per day
+            </Text>
           </View>
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Active Users</Text>
@@ -448,19 +509,38 @@ const StatPageScreen = () => {
               height={220}
               chartConfig={chartConfig}
               style={styles.chart}
+              showBarTops={true}
+              withInnerLines={true}
+              fromZero={true}
+              withHorizontalLabels={true}
             />
+            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+              Active users in the last 7 and 30 days
+            </Text>
           </View>
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>SMP Balance Distribution</Text>
             <PieChart
-              data={smpDistributionData}
+              data={pieChartData.map((item, i) => ({
+                ...item,
+                color: item.color,
+                legendFontColor: '#FFD580',
+                legendFontSize: 14,
+                legendFontWeight: '600',
+                legendFontFamily: 'System',
+                name: item.name,
+              }))}
               width={width - 40}
               height={220}
               chartConfig={chartConfig}
               accessor="value"
               backgroundColor="transparent"
               style={styles.chart}
+              hasLegend={true}
             />
+            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+              Distribution of SMP token holders
+            </Text>
           </View>
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Top Activity Types</Text>
@@ -470,7 +550,14 @@ const StatPageScreen = () => {
               height={220}
               chartConfig={chartConfig}
               style={styles.chart}
+              showBarTops={true}
+              withInnerLines={true}
+              fromZero={true}
+              withHorizontalLabels={true}
             />
+            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+              Number of events by activity type
+            </Text>
           </View>
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Comment Activity (30 Days)</Text>
@@ -481,7 +568,14 @@ const StatPageScreen = () => {
               chartConfig={chartConfig}
               bezier
               style={styles.chart}
+              withShadow={true}
+              withDots={true}
+              withInnerLines={true}
+              withOuterLines={false}
             />
+            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+              Comments posted per day (last 30 days)
+            </Text>
           </View>
         </View>
       </ScrollView>

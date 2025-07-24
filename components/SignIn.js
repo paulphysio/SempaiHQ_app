@@ -177,10 +177,7 @@ const SignIn = ({ onSkip, onWalletConnect }) => {
       <View style={styles.content}>
         <Text style={styles.title}>Welcome to SempaiHQ</Text>
 
-        <View style={styles.walletSection}>
-          <Text style={styles.sectionTitle}>Connect Your Wallet</Text>
-          <ConnectButton onConnect={handleWalletConnect} onDisconnect={handleDisconnect} />
-        </View>
+       
 
         <View style={styles.dividerContainer}>
           <View style={styles.divider} />

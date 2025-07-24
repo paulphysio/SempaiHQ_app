@@ -104,7 +104,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
   const [pendingTransaction, setPendingTransaction] = useState(null);
   const [resolveTransaction, setResolveTransaction] = useState(null);
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const invokeEncryptionFunction = async (action, data) => {
     try {
@@ -146,10 +146,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth/session restore to finish
     const restoreWallet = async () => {
       if (!user || user.isGuest) {
-        console.log('[restoreWallet] No authenticated user or guest user, clearing wallet');
-        await disconnectWallet();
+        console.log('[restoreWallet] No authenticated user or guest user, skipping wallet restore');
         return;
       }
       try {
@@ -228,7 +228,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     };
 
     restoreWallet();
-  }, [user, disconnectWallet]);
+  }, [user, authLoading, disconnectWallet]);
 
   const createEmbeddedWallet = useCallback(async (password) => {
     if (!user || user.isGuest) {
@@ -450,7 +450,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         retrieveEmbeddedWallet,
         disconnectWallet,
         signAndSendTransaction,
-        isLoading,
+        isLoading, // Expose wallet loading state
         error,
         useBiometrics,
         setUseBiometrics,

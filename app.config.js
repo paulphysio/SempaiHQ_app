@@ -64,7 +64,6 @@ export default ({ config }) => ({
       backendWalletKeypair: process.env.BACKEND_WALLET_PRIVATE_KEY,
       solanaNetwork: process.env.EXPO_PUBLIC_SOLANA_NETWORK,
       solanaApiKey: process.env.SOLANA_API_KEY,
-      keypairEncryptionSecret: process.env.KEYPAIR_ENCRYPTION_SECRET,
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,

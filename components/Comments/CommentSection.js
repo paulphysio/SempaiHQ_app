@@ -15,6 +15,7 @@ import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token'
 import { EmbeddedWalletContext } from '../../components/ConnectButton';
 import { styles } from '../../styles/CommentSectionStyles';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../../constants';
+import { FadeIn, FadeOut } from 'react-native-reanimated';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -276,8 +277,14 @@ const CommentSection = ({ novelId, chapter }) => {
 
   useEffect(() => {
     fetchComments();
-    const subscription = supabase
-      .channel(`comments-${novelId}-${chapter}`)
+    const channelName = `comments-${novelId}-${chapter}`;
+    // Remove any existing channel with the same name before creating a new one
+    const existing = supabase.getChannels().find((c) => c.topic === channelName);
+    if (existing) {
+      supabase.removeChannel(existing);
+    }
+    const channel = supabase
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -289,7 +296,9 @@ const CommentSection = ({ novelId, chapter }) => {
         fetchComments
       )
       .subscribe();
-    return () => supabase.removeChannel(subscription);
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [novelId, chapter]);
 
   const deleteComment = async (commentId) => {
@@ -306,7 +315,7 @@ const CommentSection = ({ novelId, chapter }) => {
       if (error) throw error;
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
-      console.error('Delete comment error:', err);
+      console.error('[deleteComment] Error:', err);
       setTemporaryError('Failed to delete comment.');
     }
   };
@@ -320,15 +329,13 @@ const CommentSection = ({ novelId, chapter }) => {
       setTemporaryError(`Comment must be at least ${MIN_COMMENT_LENGTH} characters long.`);
       return;
     }
-
     const now = Date.now();
-    if (now - lastCommentTime < COMMENT_COOLD | false) {
+    if (now - lastCommentTime < COMMENT_COOLDOWN) {
       setTemporaryError(
         `Please wait ${(COMMENT_COOLDOWN - (now - lastCommentTime)) / 1000} seconds before posting again.`
       );
       return;
     }
-
     try {
       const { data: user, error: userError } = await supabase
         .from('users')
@@ -425,7 +432,7 @@ const CommentSection = ({ novelId, chapter }) => {
       setRewardedCountToday(rewardedToday.length + 1);
       fetchComments();
     } catch (err) {
-      console.error('Submit comment error:', err);
+      console.error('[handleCommentSubmit] Error:', err);
       setTemporaryError('Failed to post comment.');
     }
   };
@@ -500,7 +507,7 @@ const CommentSection = ({ novelId, chapter }) => {
           <View style={styles.inputFooter}>
             <Text style={styles.charCounter}>{newComment.length}/500</Text>
             <TouchableOpacity
-              style={[styles.postButton, !isWalletConnected || !newComment && styles.postButtonDisabled]}
+              style={[styles.postButton, (!isWalletConnected || !newComment) && styles.postButtonDisabled]}
               onPress={handleCommentSubmit}
               disabled={!isWalletConnected || !newComment}
               accessibilityLabel={replyingTo ? 'Post Reply' : 'Post Comment'}
@@ -540,4 +547,4 @@ const CommentSection = ({ novelId, chapter }) => {
   );
 };
 
-export default CommentSection;
+export default React.memo(CommentSection);

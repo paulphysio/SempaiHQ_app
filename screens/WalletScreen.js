@@ -378,7 +378,7 @@ const WalletScreen = () => {
               <View style={styles.balanceDisplay}>
                 <Icon name="gem" size={16} color="#E67E22" />
                 <Text style={styles.balanceText}>
-                  Balance: {balance.toFixed(2)} {selectedToken}
+                  Balance: {balance.toFixed(4)} {selectedToken}
                 </Text>
                 <TouchableOpacity onPress={checkBalance} style={styles.refreshButton}>
                   <Icon name="sync-alt" size={16} color="#ffffff" />

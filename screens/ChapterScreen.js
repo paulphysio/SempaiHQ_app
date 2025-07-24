@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -31,6 +31,7 @@ import {
 } from '../constants';
 import { Buffer } from 'buffer';
 import CommentSection from '../components/Comments/CommentSection';
+import { CardStyleInterpolators } from '@react-navigation/stack';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const MIN_ATA_SOL = 0.00103928;
@@ -70,6 +71,7 @@ const ChapterScreen = () => {
   const [isAdvanceChapter, setIsAdvanceChapter] = useState(false);
   const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const flatListRef = useRef(null);
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = useMemo(() => {
@@ -88,7 +90,7 @@ const ChapterScreen = () => {
   const SMP_READ_COST = useMemo(() => {
     if (!smpPrice || smpPrice <= 0) {
       console.warn('[SMP_READ_COST] Invalid SMP price, using default value');
-      return 2500000; // Fallback: 0.025 USD / 0.01 USD per SMP = 2,500,000 lamports (6 decimals)
+      return 50000000000; // Fallback: 0.025 USD / 0.000001 USD per SMP = 2,500,000 lamports (6 decimals)
     }
     const costInSmp = Math.ceil((0.025 / smpPrice) * 10 ** SMP_DECIMALS);
     console.log('[SMP_READ_COST] Calculated SMP cost for $0.025:', costInSmp, 'SMP price:', smpPrice);
@@ -96,7 +98,7 @@ const ChapterScreen = () => {
   }, [smpPrice]);
 
   // Fetch pool data from Meteora API
-  async function fetchPoolData() {
+  const fetchPoolData = useCallback(async () => {
     try {
       const response = await fetch(meteoraApiUrl).then((r) => r.json());
       const poolData = response[0]; // Assuming the API returns an array with the pool object
@@ -106,10 +108,10 @@ const ChapterScreen = () => {
       console.error('[fetchPoolData] Error:', error.message);
       throw new Error(`Failed to fetch pool data: ${error.message}`);
     }
-  }
+  }, []);
 
   // Calculate SOL price in USD
-  function calculateSolPriceInUsd(pool) {
+  const calculateSolPriceInUsd = useCallback((pool) => {
     const solAmount = parseFloat(pool.pool_token_amounts[1]); // SOL amount in pool
     const solUsdValue = parseFloat(pool.pool_token_usd_amounts[1]); // USD value of SOL
 
@@ -120,10 +122,10 @@ const ChapterScreen = () => {
     const solPriceInUsd = solUsdValue / solAmount;
     console.log('[calculateSolPriceInUsd] SOL Price:', solPriceInUsd.toFixed(2), 'USD');
     return solPriceInUsd;
-  }
+  }, []);
 
   // Calculate SMP per SOL
-  function calculateSmpPerSol(pool) {
+  const calculateSmpPerSol = useCallback((pool) => {
     const smpAmount = parseFloat(pool.pool_token_amounts[0]); // SMP amount in pool
     const solAmount = parseFloat(pool.pool_token_amounts[1]); // SOL amount in pool
 
@@ -138,10 +140,10 @@ const ChapterScreen = () => {
     const smpPerSol = smpAmount / solAmount;
     console.log('[calculateSmpPerSol] SMP per SOL:', smpPerSol.toFixed(2));
     return smpPerSol;
-  }
+  }, []);
 
   // Convert USDC to SMP
-  async function convertUsdcToSmp(usdcAmount) {
+  const convertUsdcToSmp = useCallback(async (usdcAmount) => {
     try {
       const poolData = await fetchPoolData();
       const solPriceInUsd = calculateSolPriceInUsd(poolData);
@@ -154,7 +156,7 @@ const ChapterScreen = () => {
       console.error('[convertUsdcToSmp] Error:', error.message);
       return null;
     }
-  }
+  }, [fetchPoolData, calculateSolPriceInUsd, calculateSmpPerSol]);
 
   // Fetch prices (SOL and SMP)
   const fetchPrices = useCallback(async () => {
@@ -205,7 +207,7 @@ const ChapterScreen = () => {
       setSolPrice(100);
       setSmpPrice(0.01);
     }
-  }, []);
+  }, [fetchPoolData, convertUsdcToSmp, calculateSolPriceInUsd]);
 
   const fetchSmpBalanceOnChain = useCallback(async (retryCount = 3, retryDelay = 1000) => {
     if (!activeWalletAddress || !activePublicKey) return 0;
@@ -243,6 +245,7 @@ const ChapterScreen = () => {
       const ataAddress = await getAssociatedTokenAddress(amethystMint, activePublicKey);
       const ataInfo = await connection.getAccountInfo(ataAddress);
       const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** AMETHYST_DECIMALS : 0;
+      console.log('[fetchAmethystBalance] Balance:', balance);
       setAmethystBalance(balance);
       return balance;
     } catch (error) {
@@ -418,20 +421,16 @@ const ChapterScreen = () => {
         setError('Please connect your wallet and try again.');
         return false;
       }
-  
+
       setIsProcessing(true);
       setError(null);
       setSuccessMessage('');
       setWarningMessage('');
-  
+
       try {
         // Check for and create SMP ATA if it doesn't exist
         const smpMintPublicKey = new PublicKey(SMP_MINT_ADDRESS);
-        const userSmpAta = await getAssociatedTokenAddress(
-          smpMintPublicKey,
-          activePublicKey
-        );
-
+        const userSmpAta = await getAssociatedTokenAddress(smpMintPublicKey, activePublicKey);
         const ataInfo = await connection.getAccountInfo(userSmpAta);
         if (!ataInfo) {
           console.log('[processChapterPayment] SMP ATA not found. Creating it...');
@@ -462,7 +461,7 @@ const ChapterScreen = () => {
           setIsLocked(false);
           return true;
         }
-  
+
         const rentExempt = await connection.getMinimumBalanceForRentExemption(165); // 165 is the size of a token account
         const feeEstimate = 10000; // Add a little extra for transaction fees
         const minRequired = rentExempt + feeEstimate;
@@ -473,11 +472,11 @@ const ChapterScreen = () => {
             `Insufficient SOL for transaction fees and account creation. You have ${(userSolBalance / 1e9).toFixed(6)} SOL, but need at least ${(minRequired / 1e9).toFixed(6)} SOL.`
           );
         }
-  
+
         if (currency === 'SMP' && smpBalance * 10 ** SMP_DECIMALS < SMP_READ_COST && paymentType === 'SINGLE') {
           throw new Error('Insufficient SMP balance');
         }
-  
+
         if (paymentType !== 'SINGLE') {
           const amount =
             currency === 'SMP'
@@ -489,7 +488,7 @@ const ChapterScreen = () => {
             throw new Error('Insufficient SMP balance');
           }
         }
-  
+
         const requestBody = {
           novelId,
           chapterId: targetChapterId,
@@ -497,9 +496,9 @@ const ChapterScreen = () => {
           paymentType,
           currency,
         };
-  
+
         console.log('[processChapterPayment] Invoking unlock-chapter with body:', JSON.stringify(requestBody, null, 2));
-  
+
         let data, invokeError;
         try {
           const response = await supabase.functions.invoke('unlock-chapter', {
@@ -518,7 +517,6 @@ const ChapterScreen = () => {
           throw new Error(`Edge function error: ${invokeError.message || 'Non-2xx status code'}`);
         }
 
-        // Handle new server-side signing response
         if (data?.success && data?.signature) {
           setSuccessMessage('Payment successful! Transaction signature: ' + data.signature);
           setIsLocked(false);
@@ -526,19 +524,14 @@ const ChapterScreen = () => {
           setTimeout(() => setSuccessMessage(''), 5000);
           return true;
         }
-        // (Optional) handle legacy client-side signing if ever needed
+
         if (data?.serializedTx) {
           const transaction = Transaction.from(Buffer.from(data.serializedTx, 'base64'));
           console.log('[processChapterPayment] Deserialized Transaction:', transaction);
-  
-          console.log('[processChapterPayment] Wallet before signing:', wallet);
-          console.log('[processChapterPayment] signAndSendTransaction available:', !!signAndSendTransaction);
-  
-          // Use signAndSendTransaction, which signs and sends the transaction
+
           const signature = await signAndSendTransaction(transaction);
           console.log('[processChapterPayment] Transaction signature:', signature);
-  
-          // Confirm the transaction
+
           const confirmation = await connection.confirmTransaction(
             {
               signature,
@@ -547,14 +540,14 @@ const ChapterScreen = () => {
             },
             'confirmed'
           );
-  
+
           if (confirmation.value.err) {
             console.error('[processChapterPayment] On-chain transaction failed:', confirmation.value.err);
             throw new Error('Transaction failed on the blockchain.');
           }
-  
+
           setSuccessMessage('Payment successful! Chapter unlocked.');
-          await fetchSmpBalanceOnChain(); // Re-fetch balance to be sure it's correct
+          await fetchSmpBalanceOnChain();
           setIsLocked(false);
           setCanUnlockNextThree(true);
           setTimeout(() => setSuccessMessage(''), 5000);
@@ -589,7 +582,6 @@ const ChapterScreen = () => {
       if (!nextChapterId) return;
       setIsProcessing(true);
       try {
-        // Always attempt to pay/unlock the next chapter before navigating
         const success = await processChapterPayment(nextChapterId);
         if (success) {
           navigation.navigate('Chapter', { novelId, chapterId: nextChapterId });
@@ -632,6 +624,12 @@ const ChapterScreen = () => {
   }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected]);
 
   useEffect(() => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: false });
+    }
+  }, [chapterId]);
+
+  useEffect(() => {
     if (novel && chapterId && isWalletConnected && activeWalletAddress) {
       const chapterNum = parseInt(chapterId, 10);
       if (isNaN(chapterNum)) {
@@ -649,7 +647,19 @@ const ChapterScreen = () => {
     }
   }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter]);
 
-  const handleManualFetch = () => {
+  // Optimize Amethyst balance fetching
+  useEffect(() => {
+    if (!isWalletConnected || !activeWalletAddress) return;
+    let intervalId;
+    const fetchAndSchedule = async () => {
+      await fetchAmethystBalance();
+      intervalId = setInterval(fetchAmethystBalance, 300000); // Fetch every 5 minutes
+    };
+    fetchAndSchedule();
+    return () => clearInterval(intervalId);
+  }, [isWalletConnected, activeWalletAddress, fetchAmethystBalance]);
+
+  const handleManualFetch = useCallback(() => {
     if (!inputNovelId || !inputChapterId) {
       setError('Please enter both Novel ID and Chapter ID.');
       return;
@@ -658,7 +668,7 @@ const ChapterScreen = () => {
     setError(null);
     setUseInput(false);
     fetchNovel(inputNovelId, inputChapterId);
-  };
+  }, [inputNovelId, inputChapterId, fetchNovel]);
 
   const chapterContent = novel?.chaptercontents?.[chapterId] || '';
   const paragraphs = useMemo(() => {
@@ -673,13 +683,6 @@ const ChapterScreen = () => {
     ({ item }) => <Text style={styles.paragraph}>{item}</Text>,
     []
   );
-
-  useEffect(() => {
-    if (!isWalletConnected) return;
-    fetchSmpBalanceOnChain();
-    const intervalId = setInterval(fetchSmpBalanceOnChain, 30000);
-    return () => clearInterval(intervalId);
-  }, [isWalletConnected, fetchSmpBalanceOnChain]);
 
   const ListFooter = useCallback(
     () => (
@@ -699,7 +702,7 @@ const ChapterScreen = () => {
             )}
             <TouchableOpacity
               style={styles.navButton}
-              onPress={() => navigation.navigate('NovelsPage', { novelId })}
+              onPress={() => navigation.navigate('NovelDetail', { id: novelId })}
             >
               <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
               <Text style={styles.navButtonText}>Back to Novel</Text>
@@ -789,9 +792,11 @@ const ChapterScreen = () => {
 
   const chapterTitle = novel.chaptertitles?.[chapterId] || `Chapter ${parseInt(chapterId) + 1}`;
   const chapterKeys = Object.keys(novel.chaptercontents || {});
-  const currentIndex = chapterKeys.indexOf(String(chapterId));
+  const chapterIdStr = String(chapterId);
+  const currentIndex = chapterKeys.findIndex(key => String(key) === chapterIdStr);
   const prevChapter = currentIndex > 0 ? chapterKeys[currentIndex - 1] : null;
-  const nextChapter = currentIndex < chapterKeys.length - 1 ? chapterKeys[currentIndex + 1] : null;
+  const nextChapter = currentIndex >= 0 && currentIndex < chapterKeys.length - 1 ? chapterKeys[currentIndex + 1] : null;
+  console.log('chapterId:', chapterId, 'chapterKeys:', chapterKeys, 'currentIndex:', currentIndex, 'prevChapter:', prevChapter, 'nextChapter:', nextChapter);
   const releaseDateMessage =
     advanceInfo?.is_advance && advanceInfo?.free_release_date
       ? `Locked until ${new Date(advanceInfo.free_release_date).toLocaleString()}`
@@ -935,6 +940,7 @@ const ChapterScreen = () => {
         </Animated.View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={paragraphs}
           renderItem={renderParagraph}
           keyExtractor={(_, index) => `para-${index}`}
@@ -1010,4 +1016,11 @@ const ChapterScreen = () => {
   );
 };
 
-export default ChapterScreen;
+// Set navigation options to avoid overlay issues
+ChapterScreen.navigationOptions = {
+  cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+  cardOverlayEnabled: false,
+  gestureEnabled: true,
+};
+
+export default React.memo(ChapterScreen);
