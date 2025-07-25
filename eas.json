@@ -9,26 +9,38 @@
       "developmentClient": true,
       "android": {
         "buildType": "apk",
-        "credentialsSource": "remote"
+        "credentialsSource": "local"
       },
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempaihq.xyz/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://devnet.helius-rpc.com"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk",
-        "credentialsSource": "remote"
+        "credentialsSource": "local"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempaihq.xyz/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://devnet.helius-rpc.com"
+      }
     },
     "production": {
       "distribution": "store",
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle",
-        "credentialsSource": "remote"
+        "credentialsSource": "local"
       },
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempaihq.xyz/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com"
+      }
     }
   },
   "submit": {

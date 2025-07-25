@@ -5,7 +5,7 @@ export default ({ config }) => ({
   expo: {
     name: 'Sempai HQ',
     slug: 'sempai-hq',
-    version: '1.0.1', // ⬅️ Bump this
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -18,7 +18,7 @@ export default ({ config }) => ({
     platforms: ['android'],
     android: {
       package: 'com.turningpointKS.sempaihq',
-      versionCode: 6, // ⬅️ Must be > 5
+      versionCode: 6,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
@@ -28,7 +28,7 @@ export default ({ config }) => ({
     web: {
       favicon: './assets/favicon.png',
     },
-    owner: 'physiotelli350',
+    owner: 'physionerdy',
     plugins: [
       'expo-router',
       [
@@ -60,20 +60,17 @@ export default ({ config }) => ({
     ],
     extra: {
       supabaseUrl: process.env.SUPABASE_URL,
-      supabaseKey: process.env.SUPABASE_KEY,
-      backendWalletKeypair: process.env.BACKEND_WALLET_PRIVATE_KEY,
-      solanaNetwork: process.env.EXPO_PUBLIC_SOLANA_NETWORK,
-      solanaApiKey: process.env.SOLANA_API_KEY,
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
+      solanaNetwork: process.env.EXPO_PUBLIC_SOLANA_NETWORK,
       googleWebClientId: process.env.GOOGLE_WEB_CLIENT_ID,
       googleAndroidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
       eas: {
-        projectId: '1add05f5-c57a-41f9-8a38-57625c724beb',
+        projectId: 'd5eca5d1-6fe0-4d21-ae79-dfd681139dd8',
       },
     },
     updates: {
       enabled: true,
-      url: 'https://u.expo.dev/1add05f5-c57a-41f9-8a38-57625c724beb',
+      url: 'https://u.expo.dev/d5eca5d1-6fe0-4d21-ae79-dfd681139dd8',
     },
     runtimeVersion: {
       policy: 'appVersion',
