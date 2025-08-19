@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  ScrollView,
 } from 'react-native';
 import Modal from 'react-native-modal';
 import { Picker } from '@react-native-picker/picker';
@@ -479,10 +480,7 @@ const KaitoAdventureScreen = () => {
             type: "raid",
             description: "Bandits raid the town for 1 hour!",
             effect: () => {
-              if (!combatHandled) {
-                setModals((prev) => ({ ...prev, combat: true }));
-                setCombatHandled(true);
-              }
+              setGameMessage('Heads up! Bandits are raiding the town.');
             },
             duration: 60 * 60 * 1000,
           },
@@ -500,10 +498,9 @@ const KaitoAdventureScreen = () => {
         setEventTimer(Date.now() + event.duration);
       }
     };
-    triggerEvent();
     const interval = setInterval(triggerEvent, 300000);
     return () => clearInterval(interval);
-  }, [currentTown, combatHandled]);
+  }, [currentTown]);
 
   useEffect(() => {
     if (eventTimer && Date.now() >= eventTimer) {
@@ -2051,7 +2048,7 @@ const KaitoAdventureScreen = () => {
                 <Text style={styles.tabText}>Equipment</Text>
               </TouchableOpacity>
             </View>
-            <View style={styles.ingredientSelection}>
+            <ScrollView style={styles.ingredientSelection} contentContainerStyle={styles.ingredientSelectionContent}>
               {allIngredients.map((ing, index) => {
                 const item = getAvailableIngredients.find((i) => i.name === ing);
                 return (
@@ -2063,7 +2060,6 @@ const KaitoAdventureScreen = () => {
                       !item?.owned && styles.disabledIngredient,
                     ]}
                     onPress={() => item?.owned && toggleIngredient(ing)}
-                    disabled={!item?.owned}
                   >
                     <Image
                       source={{ uri: itemImages[ing.toLowerCase()] || itemImages.default }}
@@ -2076,7 +2072,7 @@ const KaitoAdventureScreen = () => {
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
             <View style={styles.modalButtonGroup}>
               <TouchableOpacity
                 style={styles.modalButton}
@@ -2420,7 +2416,7 @@ const KaitoAdventureScreen = () => {
           <Text style={styles.leaderboardDescription}>
             {leaderboardTab === 'level' 
               ? 'Top players ranked by their adventure level and experience'
-              : '🎁 Top 10 players who receive weekly 5M SMP rewards (Gold + XP score)'
+              : 'Top 10 players who receive weekly 5M SMP rewards (Gold + XP score)'
             }
           </Text>
 
@@ -2488,7 +2484,6 @@ const KaitoAdventureScreen = () => {
                     {/* Reward Indicator */}
                     {isRewardEligible && (
                       <View style={styles.rewardIndicator}>
-                        <Icon name="gift" size={16} color="#ffd700" />
                         <Text style={styles.rewardText}>SMP</Text>
                       </View>
                     )}

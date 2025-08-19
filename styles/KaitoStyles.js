@@ -402,9 +402,14 @@ export const styles = StyleSheet.create({
     fontSize: 14,
   },
   ingredientSelection: {
+    maxHeight: 300, // Limit height to enable scrolling
+    marginBottom: 15,
+  },
+  ingredientSelectionContent: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'center', // Center items for a cleaner look
+    paddingBottom: 20, // Add padding to avoid cutting off last row
   },
   ingredientButton: {
     width: (width - 80) / 3,
@@ -504,6 +509,118 @@ export const styles = StyleSheet.create({
   leaderboardStats: {
     color: '#aaa',
     fontSize: 14,
+  },
+  leaderboardDescription: {
+    color: '#ccc',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  leaderboardList: {
+    marginTop: 5,
+    marginBottom: 10,
+  },
+  rankContainer: {
+    width: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medalContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  goldMedal: {
+    backgroundColor: '#3a2b00',
+    borderColor: '#ffd700',
+  },
+  silverMedal: {
+    backgroundColor: '#2f3136',
+    borderColor: '#c0c0c0',
+  },
+  bronzeMedal: {
+    backgroundColor: '#3a2615',
+    borderColor: '#cd7f32',
+  },
+  medalText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  playerInfoContainer: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  currentPlayerItem: {
+    backgroundColor: '#2f2f2f',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    marginVertical: 4,
+  },
+  currentPlayerName: {
+    color: '#00ccff',
+  },
+  topThreeItem: {
+    backgroundColor: '#2b2b2b',
+  },
+  rewardEligibleItem: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#ffd700',
+    paddingLeft: 7,
+  },
+  rewardIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#332b00',
+    borderWidth: 1,
+    borderColor: '#ffd700',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  rewardText: {
+    color: '#ffd700',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  leaderboardActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1f1f1f',
+    borderWidth: 1,
+    borderColor: '#ff6200',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  refreshButtonText: {
+    color: '#ff6200',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  emptyLeaderboard: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptySubtext: {
+    color: '#888',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  activeTabText: {
+    fontWeight: '700',
+    color: '#fff',
   },
   // Quests & Tasks
   questItem: {
