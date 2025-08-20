@@ -15,27 +15,27 @@ app:
     - purpose: icons
       uri: <<RELATIVE_PATH_TO_APP_ICON>>
 release:
-  address: ''
-  media:
+  address: 'https://www.sempaihq.xyz/downloads'
+  media: 
     - purpose: icon
-      uri: <<RELATIVE_PATH_TO_RELEASE_ICON>>
+      uri: <<dapp-store\store-assets\Dapp Icon.png>>
     - purpose: banner
-      uri: <<RELATIVE_PATH_TO_BANNER>>
+      uri: <<dapp-store\store-assets\Banner for Dapp Store.png>>
     - purpose: featureGraphic
-      uri: <<RELATIVE_PATH_TO_FEATURE_GRAPHIC>>
+      uri: <<dapp-store\store-assets\Feature Graphic.png>>
     - purpose: screenshot
-      uri: <<RELATIVE_PATH_TO_SCREENSHOT1>>
+      uri: <<dapp-store\store-assets\Combat Modal.jpg>>
     - purpose: screenshot
-      uri: <<RELATIVE_PATH_TO_SCREENSHOT2>>
+      uri: <<dapp-store\store-assets\Airdrop.jpg>>
     - purpose: screenshot
-      uri: <<RELATIVE_PATH_TO_SCREENSHOT3>>
+      uri: <<dapp-store\store-assets\Hoard Screen.jpg>>
     - purpose: screenshot
-      uri: <<RELATIVE_PATH_TO_SCREENSHOT4>>
+      uri: <<dapp-store/store-assets/Creator_das.JPG>>
     - purpose: video
       uri: <<RELATIVE_PATH_TO_VIDEO1>>
   files:
     - purpose: install
-      uri: <<RELATIVE_PATH_TO_APK>>
+      uri: <<dapp-store\store-assets\SempaiHQ.apk>>
   catalog:
     en-US:
       name: <<APP_NAME>>
@@ -73,7 +73,7 @@ solana_mobile_dapp_publisher_portal:
   google_store_package: <<ANDROID_PACKAGE_NAME_OF_GOOGLE_PLAY_STORE_VERSION_IF_DIFFERENT>>
   testing_instructions: <<TESTING_INSTRUCTIONS>>
   alpha_testers:
-    - address: <<genesis token wallet address>>
+    - address: <<>>
       comment: <<Optional. For internal use only>>
     - address: <<genesis token wallet address>>
       comment: <<Optional. For internal use only>>
