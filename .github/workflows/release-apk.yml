@@ -31,33 +31,9 @@ jobs:
       - name: Download APK
         run: |
           mkdir -p dapp-store-build
-          curl -L -o dapp-store-build/sempaihq-unsigned.apk "${{ steps.eas_build.outputs.build_url }}"
+          curl -L -o dapp-store-build/sempaihq-signed.apk "${{ steps.eas_build.outputs.build_url }}"
         env:
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
-      - name: Decode Keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: echo $KEYSTORE_BASE64 | base64 -d > ./dapp-store-signing-keys/release-key.keystore
-      - name: Set up JDK
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-      - name: Install Android Build Tools
-        run: |
-          sdkmanager --install "build-tools;35.0.0"
-        env:
-          ANDROID_HOME: $HOME/android-sdk
-        shell: bash
-      - name: Sign APK
-        run: |
-          ~/android-sdk/build-tools/35.0.0/apksigner sign \
-            --ks ./dapp-store-signing-keys/release-key.keystore \
-            --ks-pass pass:${{ secrets.KEYSTORE_PASSWORD }} \
-            --ks-key-alias 41349a67d6d871c3e72ec878e54978cc \
-            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
-            --out ./dapp-store-build/sempaihq-signed.apk \
-            ./dapp-store-build/sempaihq-unsigned.apk
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
