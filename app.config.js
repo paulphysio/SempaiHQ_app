@@ -18,7 +18,6 @@ export default ({ config }) => ({
     platforms: ['android'],
     android: {
       package: 'com.turningpointKS.sempaihq',
-      versionCode: 7,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
@@ -54,7 +53,7 @@ export default ({ config }) => ({
         '@react-native-google-signin/google-signin',
         {
           androidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
-          iosUrlScheme: 'com.googleusercontent.apps.dummy', // Dummy value to satisfy plugin
+          iosUrlScheme: 'com.googleusercontent.apps.dummy',
         },
       ],
     ],
