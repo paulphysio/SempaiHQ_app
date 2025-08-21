@@ -54,7 +54,7 @@ export default ({ config }) => ({
         '@react-native-google-signin/google-signin',
         {
           androidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
-          iosUrlScheme: 'com.googleuserapps.dummy',
+          // iosUrlScheme removed since Android-only
         },
       ],
     ],
