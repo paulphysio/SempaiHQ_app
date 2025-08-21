@@ -1,37 +1,26 @@
 name: Build and Release APK
-
 on:
   push:
     tags:
       - 'v*.*.*'
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
-
-      # Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
-
-      # Install dependencies
       - name: Install dependencies
         run: npm install
-
-      # Set up EAS CLI
       - name: Set up EAS CLI
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EAS_TOKEN }}
-
-      # Build APK with EAS
       - name: Build APK
         id: eas_build
         run: |
@@ -39,37 +28,27 @@ jobs:
           echo "build_url=$(jq -r '.builds[0].artifacts.buildUrl' build-output.json)" >> $GITHUB_OUTPUT
         env:
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
-
-      # Download APK
       - name: Download APK
         run: |
           mkdir -p dapp-store-build
           curl -L -o dapp-store-build/sempaihq-unsigned.apk "${{ steps.eas_build.outputs.build_url }}"
         env:
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
-
-      # Decode keystore from Base64
       - name: Decode Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: echo $KEYSTORE_BASE64 | base64 -d > ./dapp-store-signing-keys/release-key.keystore
-
-      # Set up JDK
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
-
-      # Install Android Build Tools
       - name: Install Android Build Tools
         run: |
           sdkmanager --install "build-tools;35.0.0"
         env:
           ANDROID_HOME: $HOME/android-sdk
         shell: bash
-
-      # Sign APK
       - name: Sign APK
         run: |
           ~/android-sdk/build-tools/35.0.0/apksigner sign \
@@ -79,8 +58,6 @@ jobs:
             --key-pass pass:${{ secrets.KEY_PASSWORD }} \
             --out ./dapp-store-build/sempaihq-signed.apk \
             ./dapp-store-build/sempaihq-unsigned.apk
-
-      # Create GitHub Release
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -91,8 +68,6 @@ jobs:
           release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
-
-      # Upload APK to Release
       - name: Upload APK to Release
         uses: actions/upload-release-asset@v1
         env:
