@@ -41,6 +41,17 @@
         "EXPO_PUBLIC_API_URL": "https://www.sempaihq.xyz/api/",
         "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com"
       }
+    },
+    "dapp-store": {
+      "channel": "production",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "local"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempaihq.xyz/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com"
+      }
     }
   },
   "submit": {
