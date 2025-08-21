@@ -65,3 +65,13 @@ encryption_public_key.pem
 # Project-specific checks
 check.js
 checkSmpAta.js
+
+
+# Existing sensitive files
+.env
+credentials.json
+*.jks
+
+# Add APK files
+*.apk
+dapp-store/*.apk
