@@ -3,7 +3,7 @@ name: Build and Release APK
 on:
   push:
     tags:
-      - 'v*.*.*' # Triggers on tags like v1.0.0
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -33,7 +33,20 @@ jobs:
 
       # Build APK with EAS
       - name: Build APK
-        run: eas build --platform android --profile dapp-store --non-interactive --output ./dapp-store-build/sempaihq-unsigned.apk
+        id: eas_build
+        run: |
+          eas build --platform android --profile dapp-store --non-interactive --json > build-output.json
+          echo "build_url=$(jq -r '.builds[0].artifacts.buildUrl' build-output.json)" >> $GITHUB_OUTPUT
+        env:
+          EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+
+      # Download APK
+      - name: Download APK
+        run: |
+          mkdir -p dapp-store-build
+          curl -L -o dapp-store-build/sempaihq-unsigned.apk "${{ steps.eas_build.outputs.build_url }}"
+        env:
+          EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
 
       # Decode keystore from Base64
       - name: Decode Keystore
