@@ -48,7 +48,7 @@
       "channel": "production",
       "android": {
         "buildType": "apk",
-        "credentialsSource": "local"
+        "credentialsSource": "remote"
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://www.sempaihq.xyz/api/",
