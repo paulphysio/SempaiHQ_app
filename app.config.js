@@ -5,7 +5,7 @@ export default ({ config }) => ({
   expo: {
     name: 'Sempai HQ',
     slug: 'sempai-hq',
-    version: '1.0.6',
+    version: '1.0.7',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -18,7 +18,7 @@ export default ({ config }) => ({
     platforms: ['android'],
     android: {
       package: 'com.turningpointKS.sempaihq',
-      versionCode: 6,
+      versionCode: 7,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#ffffff',
@@ -54,7 +54,7 @@ export default ({ config }) => ({
         '@react-native-google-signin/google-signin',
         {
           androidClientId: process.env.GOOGLE_ANDROID_CLIENT_ID,
-          iosUrlScheme: 'com.googleusercontent.apps.dummy',
+          iosUrlScheme: 'com.googleuserapps.dummy',
         },
       ],
     ],
