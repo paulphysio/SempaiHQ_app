@@ -24,12 +24,20 @@ jobs:
       - name: Build APK
         id: eas_build
         run: |
-          eas build --platform android --profile dapp-store --non-interactive --json > build-output.json
-          echo "build_url=$(jq -r '.builds[0].artifacts.buildUrl' build-output.json)" >> $GITHUB_OUTPUT
+          eas build --platform android --profile dapp-store --non-interactive --json > build-output.json || { echo "Build failed"; cat build-output.json; exit 1; }
+          echo "build_url=$(jq -r '.builds[0].artifacts.buildUrl // "null"' build-output.json)" >> $GITHUB_OUTPUT
         env:
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
+      - name: Debug build output
+        run: |
+          echo "Build output:"
+          cat build-output.json
       - name: Download APK
         run: |
+          if [ "${{ steps.eas_build.outputs.build_url }}" == "null" ]; then
+            echo "No build URL found, build likely failed"
+            exit 1
+          fi
           mkdir -p dapp-store-build
           curl -L -o dapp-store-build/sempaihq-signed.apk "${{ steps.eas_build.outputs.build_url }}"
         env:
