@@ -5,7 +5,7 @@ export default ({ config }) => ({
   expo: {
     name: 'Sempai HQ',
     slug: 'sempai-hq',
-    version: '1.0.7',
+    version: '1.0.8',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
