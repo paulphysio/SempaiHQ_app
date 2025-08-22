@@ -25,7 +25,7 @@ jobs:
         id: eas_build
         run: |
           eas build --platform android --profile dapp-store --non-interactive --json > build-output.json || { echo "Build failed"; cat build-output.json; exit 1; }
-          echo "build_url=$(jq -r '.builds[0].artifacts.buildUrl // "null"' build-output.json)" >> $GITHUB_OUTPUT
+          echo "build_url=$(jq -r '.[0].artifacts.buildUrl // "null"' build-output.json)" >> $GITHUB_OUTPUT
         env:
           EXPO_TOKEN: ${{ secrets.EAS_TOKEN }}
       - name: Debug build output
