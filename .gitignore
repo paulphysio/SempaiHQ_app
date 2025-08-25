@@ -75,3 +75,5 @@ credentials.json
 # Add APK files
 *.apk
 dapp-store/*.apk
+
+dapp-store/node_modules/
