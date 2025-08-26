@@ -15,7 +15,7 @@ app:
     - purpose: icon
       uri: store-assets/icon.png
 release:
-  address: https://www.sempaihq.xyz/downloads
+  address: https://www.sempaihq.xyz/download
   media:
     - purpose: icon
       uri: store-assets/icon.png
