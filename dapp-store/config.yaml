@@ -4,7 +4,7 @@ publisher:
   email: beautifulshameless@gmail.com
 app:
   name: Sempai HQ
-  address: ''
+  address: 47RuNNRyHhdDgQARdsSMnjy158DqxMnPeEjEjAEbwR7k
   android_package: com.turningpointKS.sempaihq
   urls:
     license_url: https://www.sempaihq.xyz/terms
@@ -15,7 +15,19 @@ app:
     - purpose: icon
       uri: store-assets/icon.png
 release:
-  address: https://www.sempaihq.xyz/download
+  android_details:
+    cert_fingerprint: 38b5a91421394918729dd4da26d373ae0caee8476eb488c1aed2308a8bf3b14e
+    min_sdk: 24
+    version: 1.0.8
+    version_code: 10
+    locales:
+      - en-AU
+      - en-CA
+      - en-GB
+      - en-IN
+      - en-US
+      - en-XC
+  address: FqaCmxTckRq2X6wkMKHGWnCzHrFNxFhNPzV8NQAkJYdE
   media:
     - purpose: icon
       uri: store-assets/icon.png
@@ -69,3 +81,9 @@ release:
       new_in_version: First release!
 solana_mobile_dapp_publisher_portal:
   testing_instructions: ''
+lastSubmittedVersionOnChain:
+  address: FqaCmxTckRq2X6wkMKHGWnCzHrFNxFhNPzV8NQAkJYdE
+  version_code: 10
+  apk_hash: WAZU0MaKXOHn/JWl2oxUiui0gWmjK5R2U4dcFkpqZQA=
+lastUpdatedVersionOnStore:
+  address: FqaCmxTckRq2X6wkMKHGWnCzHrFNxFhNPzV8NQAkJYdE

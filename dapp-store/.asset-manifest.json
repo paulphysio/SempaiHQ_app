@@ -1,0 +1,49 @@
+{
+  "assets": {
+    "store-assets/icon.png": {
+      "path": "store-assets/icon.png",
+      "sha256": "mFMEm1rTvA1S/54vY2MvXW5vrFL5ico3OUMRaQ14OiY=",
+      "uri": "https://arweave.net/5d8X3vSR26ExsfXuXuqdgr_LM6h0NrNIkmWTKszk0oE"
+    },
+    "store-assets/Creator_das.jpg": {
+      "path": "store-assets/Creator_das.jpg",
+      "sha256": "2uxo+RZUwBXRTNJUA9nUPSYaMD3Jx2VUO/uIsEMPddE=",
+      "uri": "https://arweave.net/24JIFfUoczReYKlM_nk0Ej3HzFZ7IlrBM4Z7k2Zw1XI"
+    },
+    "store-assets/Hoard Screen.jpg": {
+      "path": "store-assets/Hoard Screen.jpg",
+      "sha256": "2uxo+RZUwBXRTNJUA9nUPSYaMD3Jx2VUO/uIsEMPddE=",
+      "uri": "https://arweave.net/9paOmSH2xCVA5XwBJlTaeT5XL1bfV8t_E5R2v5emd0s"
+    },
+    "store-assets/Airdrop.jpg": {
+      "path": "store-assets/Airdrop.jpg",
+      "sha256": "2uxo+RZUwBXRTNJUA9nUPSYaMD3Jx2VUO/uIsEMPddE=",
+      "uri": "https://arweave.net/K5acXzHOcCC6NcZNVMYQNI7mGH1fxlU_zEQWRWN6vtg"
+    },
+    "store-assets/banner.png": {
+      "path": "store-assets/banner.png",
+      "sha256": "hKOyA8otYNn/B9qIFhV4rR55FpFSAxRQklOGfRVnJBA=",
+      "uri": "https://arweave.net/JtEblutrVuvfJA79NEVye_JO8FG-SPFl-BiJ3svPQ10"
+    },
+    "store-assets/featureGraphic.png": {
+      "path": "store-assets/featureGraphic.png",
+      "sha256": "HfR4FEBTYchPRsoP9g1k5UlbTW9CPgTMM0yXxTxLD4k=",
+      "uri": "https://arweave.net/sPvg5aN7sVax6dDfOtUVe2c2Wpv2X0q6uiIKK8XIefU"
+    },
+    "store-assets/Combat Modal.jpg": {
+      "path": "store-assets/Combat Modal.jpg",
+      "sha256": "O+9A8a9U7cPUJTPlVCQoT6Ed+EMUuzbounCYajx8mT4=",
+      "uri": "https://arweave.net/mvkCyllzY_x-DGso9_dxh7q0_FzlKC7krt4CeDoH82I"
+    },
+    "store-assets/Sempai Feature Video.mp4": {
+      "path": "store-assets/Sempai Feature Video.mp4",
+      "sha256": "6DM+MHB1kz+A3eRhaGL4D985S9hu9sxwh2oSXzQfIH8=",
+      "uri": "https://arweave.net/ITLptuVf3EH4_vkPGa1lmKIaGu3dFRiSeO6Knz-e2bc"
+    },
+    "store-assets/SempaiHQ.apk": {
+      "path": "store-assets/SempaiHQ.apk",
+      "sha256": "WAZU0MaKXOHn/JWl2oxUiui0gWmjK5R2U4dcFkpqZQA=",
+      "uri": "https://arweave.net/5PcZMbh7Chxgjm-hVIBdEKzvbVA3wQBDKRak1IOSNaU"
+    }
+  }
+}
