@@ -19,7 +19,7 @@ The platform includes an automated weekly rewards system that distributes SMP to
 1. Users earn weekly points through platform activity
 2. Points are tracked in the `weekly_points` field of the users table
 3. The weekly rewards function runs automatically every Sunday
-4. 2,000,000 SMP tokens are distributed proportionally to users with points
+4. 35,000,000 SMP tokens are distributed proportionally to users with points
 5. Tokens are added to users' off-chain wallet balances
 6. Weekly points are reset after distribution
 7. Users can withdraw their SMP tokens through the Novels page
