@@ -16,10 +16,10 @@ app:
       uri: store-assets/icon.png
 release:
   android_details:
-    cert_fingerprint: 38b5a91421394918729dd4da26d373ae0caee8476eb488c1aed2308a8bf3b14e
+    cert_fingerprint: fdca1897321795324781cd7c37238a2d83657581d7f2d33b3ac4ea51bddd8349
     min_sdk: 24
     version: 1.0.8
-    version_code: 10
+    version_code: 11
     locales:
       - en-AU
       - en-CA
@@ -27,7 +27,7 @@ release:
       - en-IN
       - en-US
       - en-XC
-  address: FqaCmxTckRq2X6wkMKHGWnCzHrFNxFhNPzV8NQAkJYdE
+  address: AVFSvAF8QpqqjADJQx4qsqjfvD7NbzkgW6YbAofwib77
   media:
     - purpose: icon
       uri: store-assets/icon.png
@@ -78,12 +78,12 @@ release:
         5. Tokens are added to users' off-chain wallet balances
         6. Weekly points are reset after distribution
         7. Users can withdraw their SMP tokens through the Novels page
-      new_in_version: First release!
+      new_in_version: Fix Google Login
 solana_mobile_dapp_publisher_portal:
   testing_instructions: ''
 lastSubmittedVersionOnChain:
-  address: FqaCmxTckRq2X6wkMKHGWnCzHrFNxFhNPzV8NQAkJYdE
-  version_code: 10
-  apk_hash: WAZU0MaKXOHn/JWl2oxUiui0gWmjK5R2U4dcFkpqZQA=
+  address: AVFSvAF8QpqqjADJQx4qsqjfvD7NbzkgW6YbAofwib77
+  version_code: 11
+  apk_hash: WNbrpKKpM5pmpoZrpiZAfCBs10e3P2PDbXpNjqQRU2E=
 lastUpdatedVersionOnStore:
-  address: FqaCmxTckRq2X6wkMKHGWnCzHrFNxFhNPzV8NQAkJYdE
+  address: AVFSvAF8QpqqjADJQx4qsqjfvD7NbzkgW6YbAofwib77
