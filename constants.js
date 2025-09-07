@@ -18,7 +18,7 @@ let TREASURY_PRIVATE_KEY = null;
 let TREASURY_PUBLIC_KEY = null;
 
 // Fallback public key (valid Solana address for safety)
-const FALLBACK_PUBLIC_KEY = '3p1HL3nY5LUNwuAj6dKLRiseSU93UYRqYPGbR7LQaWd5';
+const FALLBACK_PUBLIC_KEY = '4EeY4iDCp36yvLFvwhFhBrurKGJwNqLDzvM3PVsxrPdR';
 const isValidBase58 = (str) => {
   const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
   return typeof str === 'string' && base58Regex.test(str);
