@@ -10,6 +10,8 @@ import {
   Dimensions,
   Alert,
   Text,
+  Clipboard,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
@@ -27,8 +29,8 @@ const { width, height } = Dimensions.get('window');
 
 const Home = () => {
   const navigation = useNavigation();
-  const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
-  const { session } = useGoogleAuth();
+  const { wallet, isWalletConnected, disconnectWallet, createEmbeddedWallet, retrieveEmbeddedWallet } = useContext(EmbeddedWalletContext);
+  const { session, signIn, signOut } = useGoogleAuth();
 
   // State for UI and data
   const [menuOpen, setMenuOpen] = useState(false);
@@ -40,6 +42,9 @@ const Home = () => {
   const [error, setError] = useState(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAuthMenu, setShowAuthMenu] = useState(false);
+  const [showWalletMenu, setShowWalletMenu] = useState(false);
+
   const [publicKey, setPublicKey] = useState(null);
   const [userId, setUserId] = useState(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -47,14 +52,23 @@ const Home = () => {
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [showDashboardPopup, setShowDashboardPopup] = useState(false);
+  const [showWalletConnectModal, setShowWalletConnectModal] = useState(false);
+  const [walletModalMode, setWalletModalMode] = useState('choose'); // 'choose' | 'create' | 'retrieve'
+  const [walletPassword, setWalletPassword] = useState('');
+  const [walletPassword2, setWalletPassword2] = useState('');
+  const [walletModalError, setWalletModalError] = useState(null);
 
   // Animation refs
   const slideAnim = useRef(new Animated.Value(280)).current;
   const announcementAnim = useRef(new Animated.Value(0)).current;
   const notificationAnim = useRef(new Animated.Value(0)).current;
+  const authAnim = useRef(new Animated.Value(0)).current;
+  const walletMenuAnim = useRef(new Animated.Value(0)).current;
+
   const heroTextAnim = useRef(new Animated.Value(0)).current;
   const waveAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
+  const headerPulse = useRef(new Animated.Value(0)).current;
   const isMounted = useRef(true);
   const novelFlatListRef = useRef(null);
   const mangaFlatListRef = useRef(null);
@@ -63,7 +77,6 @@ const Home = () => {
 
   // Feature cards
   const features = [
-    
     {
       title: "Kaito's Adventure",
       image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/background.jpg' },
@@ -123,6 +136,24 @@ const Home = () => {
     };
   }, []);
 
+  // Wallet dropdown handlers
+  const toggleWalletMenu = () => {
+    const toValue = showWalletMenu ? 0 : 1;
+    Animated.timing(walletMenuAnim, { toValue, duration: 250, useNativeDriver: true }).start();
+    setShowWalletMenu(!showWalletMenu);
+  };
+
+  const copyWalletAddress = () => {
+    try {
+      if (wallet?.publicKey) {
+        Clipboard.setString(wallet.publicKey.toString());
+        Alert.alert('Copied', 'Wallet address copied to clipboard');
+      }
+    } catch (e) {
+      console.warn('Copy failed:', e.message);
+    }
+  };
+
   // Hero and feature animations
   useEffect(() => {
     Animated.parallel([
@@ -140,6 +171,14 @@ const Home = () => {
         })
       ),
     ]).start();
+
+    // Subtle pulse for wallet button in header
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(headerPulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+        Animated.timing(headerPulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
+      ])
+    ).start();
   }, []);
 
   // Sync wallet and fetch user ID/roles
@@ -388,7 +427,9 @@ const Home = () => {
       try {
         const { data: novelsData, error } = await supabase
           .from('novels')
-          .select('id, title, image, summary, user_id, tags, viewers_count');
+          .select('id, title, image, summary, user_id, tags, viewers_count, show_in_home')
+          .eq('is_visible', true)
+          .eq('show_in_home', true);
 
         if (error) {
           throw new Error(`Failed to fetch novels: ${error.message}`);
@@ -427,18 +468,20 @@ const Home = () => {
           return acc;
         }, {});
 
-        const enrichedNovels = novelsData.map(novel => {
-          const ratings = ratingsMap[novel.id] || [];
-          const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
-          return {
-            ...novel,
-            id: novel.id || `temp-${Math.random()}`,
-            writer: usersMap[novel.user_id] || { name: 'Unknown', isWriter: false },
-            viewers: novel.viewers_count || 0,
-            averageRating: averageRating.toFixed(2),
-            isAdult: novel.tags?.includes('Adult(18+)') || false,
-          };
-        });
+        const enrichedNovels = (novelsData || [])
+          .filter(n => n?.show_in_home !== false)
+          .map(novel => {
+            const ratings = ratingsMap[novel.id] || [];
+            const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
+            return {
+              ...novel,
+              id: novel.id || `temp-${Math.random()}`,
+              writer: usersMap[novel.user_id] || { name: 'Unknown', isWriter: false },
+              viewers: novel.viewers_count || 0,
+              averageRating: averageRating.toFixed(2),
+              isAdult: novel.tags?.includes('Adult(18+)') || false,
+            };
+          });
 
         if (isMounted.current) {
           setNovels(enrichedNovels.sort((a, b) => b.viewers - a.viewers).slice(0, 6));
@@ -465,7 +508,9 @@ const Home = () => {
       try {
         const { data: mangaData, error } = await supabase
           .from('manga')
-          .select('id, title, cover_image, summary, user_id, status, tags, viewers_count')
+          .select('id, title, cover_image, summary, user_id, status, tags, viewers_count, show_in_home')
+          .eq('is_visible', true)
+          .eq('show_in_home', true)
           .in('status', ['ongoing', 'completed'])
           .limit(5);
 
@@ -519,7 +564,9 @@ const Home = () => {
           return acc;
         }, {});
 
-        const enrichedManga = mangaData.map(manga => {
+        const enrichedManga = (mangaData || [])
+          .filter(m => m?.show_in_home !== false)
+          .map(manga => {
           const ratings = ratingsMap[manga.id] || [];
           const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
           const uniqueViewers = viewerCounts[manga.id]?.size || 0;
@@ -564,6 +611,8 @@ const Home = () => {
 
   // Toggle announcements dropdown
   const toggleAnnouncements = () => {
+    if (showAuthMenu) { setShowAuthMenu(false); Animated.timing(authAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
+    if (showWalletMenu) { setShowWalletMenu(false); Animated.timing(walletMenuAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
     Animated.timing(announcementAnim, {
       toValue: showAnnouncements ? 0 : 1,
       duration: 300,
@@ -574,12 +623,28 @@ const Home = () => {
 
   // Toggle notifications dropdown
   const toggleNotifications = () => {
+    if (showAuthMenu) { setShowAuthMenu(false); Animated.timing(authAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
+    if (showWalletMenu) { setShowWalletMenu(false); Animated.timing(walletMenuAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
     Animated.timing(notificationAnim, {
       toValue: showNotifications ? 0 : 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
     setShowNotifications(!showNotifications);
+  };
+
+  // Toggle auth dropdown
+  const toggleAuthMenu = () => {
+    // close other dropdowns
+    if (showAnnouncements) setShowAnnouncements(false);
+    if (showNotifications) setShowNotifications(false);
+    if (showWalletMenu) setShowWalletMenu(false);
+    Animated.timing(announcementAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+    Animated.timing(notificationAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+
+    const toValue = showAuthMenu ? 0 : 1;
+    Animated.timing(authAnim, { toValue, duration: 250, useNativeDriver: true }).start();
+    setShowAuthMenu(!showAuthMenu);
   };
 
   // Mark notifications as read
@@ -920,12 +985,57 @@ const Home = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton} accessible={true} accessibilityLabel="Open menu">
-          <FontAwesome5 name="bars" size={24} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.headerRight}>
-          <GoogleSignInButton />
-          {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />}
+        <View style={styles.brand}>
+          <Image
+            source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
+            style={styles.brandLogo}
+            defaultSource={{ uri: 'https://via.placeholder.com/28x28' }}
+          />
+          <Text style={styles.brandText}>SempaiHQ</Text>
+        </View>
+        <View style={styles.headerAuthRow}>
+          {!session ? (
+            <TouchableOpacity
+              onPress={signIn}
+              activeOpacity={0.85}
+              style={styles.headerSignInBtn}
+              accessible
+              accessibilityLabel="Sign in with Google"
+            >
+              <Image
+                source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png' }}
+                style={styles.headerSignInIcon}
+              />
+              <Text style={styles.headerSignInText}>Sign in</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <Animated.View style={{ transform: [{ scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] }}>
+                <TouchableOpacity
+                  onPress={toggleWalletMenu}
+                  activeOpacity={0.85}
+                  style={styles.headerWalletBtn}
+                  accessible
+                  accessibilityLabel="Wallet menu"
+                >
+                  <FontAwesome5 name="wallet" size={14} color="#fff" />
+                  <Text style={styles.headerWalletText}>
+                    {wallet?.publicKey ? `${wallet.publicKey.toString().slice(0,3)}...${wallet.publicKey.toString().slice(-3)}` : 'Wallet'}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+              <TouchableOpacity
+                onPress={signOut}
+                activeOpacity={0.85}
+                style={styles.signOutBtn}
+                accessible
+                accessibilityLabel="Sign out"
+              >
+                <FontAwesome5 name="sign-out-alt" size={14} color="#FF5733" />
+                <Text style={styles.signOutText}>Sign out</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
 
@@ -970,16 +1080,7 @@ const Home = () => {
         <View style={styles.circle3} />
       </View>
 
-      {/* Logo Section */}
-
-      <View style={styles.logoContainer}>
-        <Image
-          source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
-          style={styles.logoImage}
-          defaultSource={{ uri: 'https://via.placeholder.com/40x40' }}
-        />
-        <Text style={styles.logoText}>SempaiHQ</Text>
-      </View>
+      {/* Logo is now integrated into the header brand; removed floating logo container to avoid obstruction */}
 
       {/* Main content */}
       <ScrollView
@@ -1098,7 +1199,7 @@ const Home = () => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
+          <Text style={styles.footerText}> 2025 SempaiHQ. All rights reserved.</Text>
         </View>
       </ScrollView>
 
@@ -1150,6 +1251,55 @@ const Home = () => {
                   <Text style={styles.markReadButtonText}>Mark All as Read</Text>
                 </TouchableOpacity>
               )}
+            </>
+          )}
+        </Animated.View>
+      )}
+
+      {/* Header Wallet dropdown (root-level for layering) */}
+      {showWalletMenu && (
+        <Animated.View
+          style={[
+            styles.headerWalletDropdown,
+            {
+              opacity: walletMenuAnim,
+              transform: [{ translateY: walletMenuAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+            },
+          ]}
+        >
+          {wallet?.publicKey ? (
+            <>
+              <TouchableOpacity style={styles.headerWalletItem} activeOpacity={0.8} onPress={copyWalletAddress}>
+                <FontAwesome5 name="copy" size={14} color="#fff" />
+                <Text style={styles.headerWalletItemText}>Copy address</Text>
+              </TouchableOpacity>
+              <View style={styles.headerWalletDivider} />
+              <TouchableOpacity style={styles.headerWalletItem} activeOpacity={0.8} onPress={() => { setShowWalletMenu(false); handleNavigation('Wallet'); }}>
+                <FontAwesome5 name="external-link-alt" size={14} color="#fff" />
+                <Text style={styles.headerWalletItemText}>Open wallet</Text>
+              </TouchableOpacity>
+              <View style={styles.headerWalletDivider} />
+              <TouchableOpacity style={styles.headerWalletItem} activeOpacity={0.8} onPress={async () => { try { await disconnectWallet?.(); } finally { setShowWalletMenu(false); } }}>
+                <FontAwesome5 name="unlink" size={14} color="#ff9b82" />
+                <Text style={[styles.headerWalletItemText, { color: '#ff9b82' }]}>Disconnect</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.headerWalletItem, { justifyContent: 'center' }]}
+                onPress={() => {
+                  setShowWalletMenu(false);
+                  setWalletModalMode('choose');
+                  setWalletPassword('');
+                  setWalletPassword2('');
+                  setWalletModalError(null);
+                  setShowWalletConnectModal(true);
+                }}
+              >
+                <Text style={styles.headerWalletItemText}>Connect</Text>
+              </TouchableOpacity>
             </>
           )}
         </Animated.View>
@@ -1225,6 +1375,106 @@ const Home = () => {
           >
             <Text style={styles.popupCancelButtonText}>Cancel</Text>
           </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* Wallet connect modal */}
+      <Modal isVisible={showWalletConnectModal} onBackdropPress={() => setShowWalletConnectModal(false)}>
+        <View style={styles.popupContainer}>
+          {walletModalMode === 'choose' && (
+            <>
+              <Text style={styles.popupTitle}>Connect Wallet</Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.popupButton}
+                onPress={() => setWalletModalMode('create')}
+              >
+                <Text style={styles.popupButtonText}>Create New Wallet</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.popupButton}
+                onPress={() => setWalletModalMode('retrieve')}
+              >
+                <Text style={styles.popupButtonText}>Retrieve Existing Wallet</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.popupCancelButton}
+                onPress={() => setShowWalletConnectModal(false)}
+              >
+                <Text style={styles.popupCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {walletModalMode !== 'choose' && (
+            <>
+              <Text style={styles.popupTitle}>
+                {walletModalMode === 'create' ? 'Create Wallet' : 'Retrieve Wallet'}
+              </Text>
+              {!!walletModalError && (
+                <Text style={styles.headerModalError}>{walletModalError}</Text>
+              )}
+              <TextInput
+                style={styles.headerInput}
+                placeholder="Password (min 8 chars)"
+                placeholderTextColor="#999"
+                secureTextEntry
+                value={walletPassword}
+                onChangeText={setWalletPassword}
+              />
+              <TextInput
+                style={styles.headerInput}
+                placeholder={walletModalMode === 'create' ? 'Confirm Password' : 'Re-enter Password'}
+                placeholderTextColor="#999"
+                secureTextEntry
+                value={walletPassword2}
+                onChangeText={setWalletPassword2}
+              />
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.popupButton}
+                onPress={async () => {
+                  try {
+                    setWalletModalError(null);
+                    if (!walletPassword || walletPassword.length < 8) {
+                      setWalletModalError('Password must be at least 8 characters long.');
+                      return;
+                    }
+                    if (walletPassword !== walletPassword2) {
+                      setWalletModalError('Passwords do not match.');
+                      return;
+                    }
+                    if (walletModalMode === 'create') {
+                      const res = await createEmbeddedWallet(walletPassword);
+                      if (!res) throw new Error('Failed to create wallet');
+                    } else {
+                      const res = await retrieveEmbeddedWallet(walletPassword);
+                      if (!res) throw new Error('Failed to retrieve wallet');
+                    }
+                    setShowWalletConnectModal(false);
+                    setWalletPassword('');
+                    setWalletPassword2('');
+                    setWalletModalMode('choose');
+                  } catch (e) {
+                    setWalletModalError(e.message || 'Operation failed');
+                  }
+                }}
+              >
+                <Text style={styles.popupButtonText}>
+                  {walletModalMode === 'create' ? 'Create Wallet' : 'Retrieve Wallet'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.popupCancelButton}
+                onPress={() => setWalletModalMode('choose')}
+              >
+                <Text style={styles.popupCancelButtonText}>Back</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </Modal>
 

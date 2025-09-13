@@ -55,7 +55,9 @@ const MangaDetailScreen = () => {
         .from('manga')
         .select('id, title, cover_image, summary, user_id, users:user_id (name), tags')
         .eq('id', id)
+        .eq('is_visible', true)
         .single();
+
       if (mangaError) throw mangaError;
 
       const { data: chaptersData, error: chaptersError } = await supabase

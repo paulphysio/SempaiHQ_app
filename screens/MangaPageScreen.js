@@ -210,7 +210,8 @@ const MangaPageScreen = () => {
           tags,
           user_id,
           users:user_id (name)
-        `);
+        `)
+        .eq('is_visible', true);
 
       if (mangaError) throw new Error(`Failed to fetch manga: ${mangaError.message}`);
 

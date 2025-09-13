@@ -81,6 +81,7 @@ const NovelDetailScreen = () => {
         .from('novels')
         .select('*')
         .eq('id', id)
+        .eq('is_visible', true)
         .single();
 
       if (error) throw new Error('Novel not found');

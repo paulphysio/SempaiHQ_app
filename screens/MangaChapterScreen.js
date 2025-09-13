@@ -222,7 +222,9 @@ const MangaChapterScreen = () => {
         .from('manga')
         .select('id, title, user_id')
         .eq('id', mangaId)
+        .eq('is_visible', true)
         .single();
+
       if (mangaError) throw new Error(`Failed to fetch manga: ${mangaError.message}`);
 
       const { data: chapterData, error: chapterError } = await supabase

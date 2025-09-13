@@ -11,6 +11,7 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
     minWidth: 100, // Reduced from 110
     maxWidth: 150,
+
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -21,12 +22,24 @@ export const styles = StyleSheet.create({
     elevation: 2,
     marginVertical: 6, // Reduced from 8
   },
+  // Compact variant for header usage
+  connectButtonWrapperCompact: {
+    height: 32,
+    borderRadius: 16,
+    minWidth: 84,
+    maxWidth: 120,
+    marginVertical: 2,
+  },
   connectButtonGradient: {
     flex: 1,
     paddingHorizontal: 10, // Reduced from 12
     justifyContent: 'center',
     alignItems: 'center',
   },
+  connectButtonGradientCompact: {
+    paddingHorizontal: 8,
+  },
+
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -50,6 +63,10 @@ export const styles = StyleSheet.create({
     fontSize: 13, // Reduced from 14
     fontWeight: '600',
   },
+  connectButtonTextCompact: {
+    fontSize: 11,
+  },
+
   dropdownIcon: {
     marginLeft: 4, // Reduced from 6
   },
