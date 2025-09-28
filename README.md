@@ -12,7 +12,7 @@ We seek to power an ecosystem of creators and consumers/customers in a structure
 
 ## Weekly Rewards System
 
-The platform includes an automated weekly rewards system that distributes SMP tokens to users based on their activity points. Every Sunday at midnight UTC, 2,000,000 SMP tokens are distributed proportionally to users based on their accumulated weekly points.
+The platform includes an automated weekly rewards system that distributes SMP tokens to users based on their activity points. Every Sunday at midnight UTC, 35,000,000 SMP tokens are distributed proportionally to users based on their accumulated weekly points.
 
 ### How It Works
 
