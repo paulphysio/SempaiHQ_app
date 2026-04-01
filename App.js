@@ -5,7 +5,7 @@ global.Buffer = Buffer;
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { Platform, Alert, View, Text, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { EmbeddedWalletProvider } from './components/ConnectButton';
+import { EmbeddedWalletProvider } from './components/ConnectButtonEnhanced';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';

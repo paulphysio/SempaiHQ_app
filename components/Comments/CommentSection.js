@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../services/supabaseClient';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
-import { EmbeddedWalletContext } from '../../components/ConnectButton';
+import { EmbeddedWalletContext } from '../../components/ConnectButtonEnhanced';
 import { styles } from '../../styles/CommentSectionStyles';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../../constants';
 import { FadeIn, FadeOut } from 'react-native-reanimated';

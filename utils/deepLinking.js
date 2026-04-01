@@ -10,7 +10,7 @@ import Constants from 'expo-constants';
 export const createUniversalLink = (path, params = {}) => {
   const isExpoGo = Constants.appOwnership === 'expo';
   const scheme = 'sempai-hq';
-  const webDomain = 'sempaihq.xyz';
+  const webDomain = 'sempaihq.com';
 
   // For Expo Go
   if (isExpoGo) {

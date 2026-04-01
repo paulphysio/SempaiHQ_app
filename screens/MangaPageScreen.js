@@ -46,7 +46,7 @@ const TAG_OPTIONS = [
   { value: 'Josei', label: 'Josei' },
 ];
 
-const API_BASE_URL = 'https://sempaihq.xyz';
+const API_BASE_URL = 'https://sempaihq.com';
 const MIN_WITHDRAWAL = 2500;
 
 const MangaPageScreen = () => {

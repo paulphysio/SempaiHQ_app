@@ -282,4 +282,83 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
+
+  // Wallet selection modal styles
+  modalScrollView: {
+    maxHeight: '80%',
+  },
+  walletOption: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  walletOptionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  walletOptionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginLeft: 12,
+  },
+  walletOptionDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+    marginBottom: 12,
+  },
+  walletOptionFeatures: {
+    gap: 4,
+  },
+  walletOptionFeature: {
+    fontSize: 12,
+    color: '#28a745',
+    fontWeight: '500',
+  },
+
+  // Enhanced dropdown styles
+  dropdownHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 0, 0, 0.1)',
+    marginBottom: 8,
+  },
+  dropdownTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  dropdownAction: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8f9fa',
+    marginBottom: 4,
+  },
+  dropdownActionText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  disconnectAction: {
+    backgroundColor: '#fff5f5',
+    borderWidth: 1,
+    borderColor: '#fed7d7',
+  },
+  disconnectActionText: {
+    color: '#e53e3e',
+  },
 });

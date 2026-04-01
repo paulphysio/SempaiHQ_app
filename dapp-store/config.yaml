@@ -1,16 +1,16 @@
 publisher:
   name: Sempai HQ
-  website: https://www.sempaihq.xyz/
+  website: https://www.sempaihq.com/
   email: beautifulshameless@gmail.com
 app:
   name: Sempai HQ
   address: 47RuNNRyHhdDgQARdsSMnjy158DqxMnPeEjEjAEbwR7k
   android_package: com.turningpointKS.sempaihq
   urls:
-    license_url: https://www.sempaihq.xyz/terms
-    copyright_url: https://www.sempaihq.xyz/terms
-    privacy_policy_url: https://www.sempaihq.xyz/privacy-policy
-    website: https://www.sempaihq.xyz/
+    license_url: https://www.sempaihq.com/terms
+    copyright_url: https://www.sempaihq.com/terms
+    privacy_policy_url: https://www.sempaihq.com/privacy-policy
+    website: https://www.sempaihq.com/
   media:
     - purpose: icon
       uri: store-assets/icon.png

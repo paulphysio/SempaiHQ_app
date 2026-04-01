@@ -12,8 +12,8 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
-import ConnectButton from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
+import ConnectButton from '../components/ConnectButtonEnhanced';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import MangaDetailCommentSection from '../components/MangaDetailCommentSection';
 import { styles } from '../styles/MangaDetailStyles';

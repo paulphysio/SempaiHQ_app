@@ -17,7 +17,7 @@ import { getAssociatedTokenAddressSync, unpackAccount, getAccount } from '@solan
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 import { styles } from '../styles/SwapStyles';
 
@@ -172,7 +172,7 @@ const SwapScreen = () => {
       });
 
       const response = await fetchWithRetry(
-        'https://sempaihq.xyz/api/swap',
+        'https://sempaihq.com/api/swap',
         {
           method: 'POST',
           headers: {

@@ -14,7 +14,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
 import GoogleSignInButton from '../components/GoogleSignInButton';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
 import { LinearGradient } from 'expo-linear-gradient';
 import { styles } from '../styles/NovelPageStyles';

@@ -17,7 +17,7 @@ import { createTransferInstruction, getAssociatedTokenAddressSync, unpackAccount
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 import { styles } from '../styles/SwapStyles';
 

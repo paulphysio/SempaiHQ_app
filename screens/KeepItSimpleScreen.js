@@ -186,7 +186,7 @@ const KeepItSimpleScreen = () => {
       >
         {/* How to Use Section */}
         <View style={styles.howTo}>
-          <Text style={styles.howToTitle}>How to Use Sempaihq.xyz</Text>
+          <Text style={styles.howToTitle}>How to Use sempaihq.com</Text>
           {[
             'Visit the Dapp in the browser. (Jupiter or Phantom)',
             'Create your account/login by connecting seamlessly.',

@@ -152,14 +152,14 @@ const SignIn = ({ onSkip, onWalletConnect }) => {
               By connecting your wallet, you agree to our{' '}
               <Text
                 style={styles.termsLink}
-                onPress={() => Linking.openURL('https://www.sempaihq.xyz/terms')}
+                onPress={() => Linking.openURL('https://www.sempaihq.com/terms')}
               >
                 Terms of Service
               </Text>
               {' '}and{' '}
               <Text
                 style={styles.termsLink}
-                onPress={() => Linking.openURL('https://www.sempaihq.xyz/privacy-policy')}
+                onPress={() => Linking.openURL('https://www.sempaihq.com/privacy-policy')}
               >
                 Privacy Policy
               </Text>
@@ -231,14 +231,14 @@ const SignIn = ({ onSkip, onWalletConnect }) => {
             By continuing, you agree to our{' '}
             <Text
               style={styles.termsLink}
-              onPress={() => Linking.openURL('https://www.sempaihq.xyz/terms')}
+              onPress={() => Linking.openURL('https://www.sempaihq.com/terms')}
             >
               Terms of Service
             </Text>
             {' '}and{' '}
             <Text
               style={styles.termsLink}
-              onPress={() => Linking.openURL('https://www.sempaihq.xyz/privacy-policy')}
+              onPress={() => Linking.openURL('https://www.sempaihq.com/privacy-policy')}
             >
               Privacy Policy
             </Text>

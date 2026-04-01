@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
-import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
+import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import WalletPanel from '../components/WalletPanel';
 import { styles } from '../styles/NovelsStyles';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,7 +22,7 @@ import { PublicKey } from '@solana/web3.js';
 import { TREASURY_PUBLIC_KEY, SMP_MINT_ADDRESS } from '../constants';
 import { fetchSmpTokenBalance } from '../utils/solana';
 
-const API_BASE_URL = 'https://sempaihq.xyz';
+const API_BASE_URL = 'https://sempaihq.com';
 
 const TAG_OPTIONS = [
   { value: 'Action', label: 'Action' },
