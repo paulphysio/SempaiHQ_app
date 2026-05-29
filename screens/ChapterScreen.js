@@ -11,15 +11,17 @@ import {
   Platform,
   StatusBar,
   SafeAreaView,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
-import Icon from 'react-native-vector-icons/FontAwesome5';
+import { FontAwesome5 } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { styles } from '../styles/ChapterScreenStyles';
 import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, createTransferInstruction, createBurnInstruction } from '@solana/spl-token';
 import {
   RPC_URL,
@@ -33,14 +35,465 @@ import { Buffer } from 'buffer';
 import CommentSection from '../components/Comments/CommentSection';
 import { CardStyleInterpolators } from '@react-navigation/stack';
 
+const { width, height } = Dimensions.get('window');
+
+// Kaito Adventure Design System - Japanese Dark-Orange
+const KA_COLORS = {
+  bgPrimary: '#0c0c0c',
+  bgCard: '#141210',
+  bgElevated: '#1a1714',
+  orangePrimary: '#cc5500',
+  orangeBright: '#ff6b35',
+  orangeSoft: '#e67e22',
+  orangeDim: '#8b4513',
+  gold: '#c9a84c',
+  goldBright: '#ffd700',
+  ivory: '#f5e6d3',
+  ivoryDim: '#c4b5a0',
+  border: '#2d2418',
+  textPrimary: '#f5e6d3',
+  textSecondary: '#a09080',
+  textMuted: '#6b5d4f',
+  success: '#4a7c59',
+  error: '#c41e3a',
+  warning: '#c9a84c',
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  emberContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+  ember: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: KA_COLORS.orangePrimary,
+    shadowColor: KA_COLORS.orangeBright,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  loadingText: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    marginTop: 16,
+    letterSpacing: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgPrimary,
+    padding: 20,
+  },
+  errorTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 20,
+    letterSpacing: 2,
+  },
+  input: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    width: '100%',
+    marginBottom: 16,
+    letterSpacing: 1,
+  },
+  actionButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    borderWidth: 1,
+    borderColor: KA_COLORS.orangeBright,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    marginBottom: 12,
+    shadowColor: KA_COLORS.orangePrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  actionButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  secondaryButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+  },
+  secondaryButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  buttonIcon: {
+    marginRight: 8,
+  },
+  balanceContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  balanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balanceIcon: {
+    marginRight: 4,
+  },
+  balanceText: {
+    color: KA_COLORS.gold,
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: KA_COLORS.bgCard,
+    borderBottomWidth: 1,
+    borderBottomColor: KA_COLORS.border,
+  },
+  headerButton: {
+    padding: 8,
+  },
+  headerTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+    flex: 1,
+    textAlign: 'center',
+  },
+  messageContainer: {
+    margin: 16,
+    padding: 16,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  errorMessage: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderColor: KA_COLORS.error,
+  },
+  warningMessage: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderColor: KA_COLORS.warning,
+  },
+  successMessage: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderColor: KA_COLORS.success,
+  },
+  messageText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  lockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  lockIcon: {
+    marginBottom: 20,
+  },
+  lockedMessage: {
+    color: KA_COLORS.ivory,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: 2,
+  },
+  lockedSubMessage: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: 1,
+  },
+  paymentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 24,
+  },
+  paymentButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 16,
+    alignItems: 'center',
+    width: '45%',
+    minWidth: 140,
+  },
+  fullChaptersButton: {
+    borderColor: KA_COLORS.gold,
+  },
+  threeChaptersButton: {
+    borderColor: KA_COLORS.orangeDim,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  paymentButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  paymentPrice: {
+    color: KA_COLORS.gold,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 24,
+  },
+  smpButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    borderWidth: 1,
+    borderColor: KA_COLORS.orangeBright,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    flex: 1,
+    shadowColor: KA_COLORS.orangePrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  smpButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  getSmpButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    alignItems: 'center',
+    flex: 1,
+  },
+  getSmpButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 16,
+  },
+  paragraph: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    lineHeight: 28,
+    marginBottom: 16,
+    letterSpacing: 0.5,
+  },
+  navigation: {
+    marginTop: 32,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: KA_COLORS.border,
+  },
+  navRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  navButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  navButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  navPlaceholder: {
+    width: 100,
+  },
+  readingOptions: {
+    padding: 16,
+    marginBottom: 16,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.gold,
+    borderRadius: 4,
+  },
+  readingModeText: {
+    color: KA_COLORS.gold,
+    fontSize: 14,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 8,
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    letterSpacing: 2,
+  },
+  modalSubtitle: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    marginBottom: 16,
+    letterSpacing: 1,
+  },
+  transactionDetails: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 16,
+    marginBottom: 16,
+  },
+  detailText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  modalButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  modalConfirmButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    borderWidth: 1,
+    borderColor: KA_COLORS.orangeBright,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    flex: 1,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    flex: 1,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  modalNote: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+});
 const connection = new Connection(RPC_URL, 'confirmed');
 const MIN_ATA_SOL = 0.00103928;
 const MIN_USER_SOL = 0.001;
 const poolAddress = "3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33";
 const meteoraApiUrl = `https://amm-v2.meteora.ag/pools?address=${poolAddress}`;
-const USDC_AMOUNT = 0.0025; // Amount to convert (in USDC) for SMP_READ_COST
+const USDC_AMOUNT = 0.0025;
 
-// Treasury wallet addresses (same as edge function)
 const SQUADS_WALLET = new PublicKey("4EeY4iDCp36yvLFvwhFhBrurKGJwNqLDzvM3PVsxrPdR");
 const TREASURY_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
 
@@ -185,6 +638,48 @@ const ChapterScreen = () => {
   const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const flatListRef = useRef(null);
+  const emberAnims = useRef([]);
+  const embersData = useRef([]);
+  const embersInitialized = useRef(false);
+
+  // Initialize ember particles
+  useEffect(() => {
+    if (embersInitialized.current) return;
+    
+    try {
+      const embers = Array.from({ length: 12 }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,
+        delay: Math.random() * 8,
+        duration: 6 + Math.random() * 4,
+      }));
+      embersData.current = embers;
+      
+      // Only initialize Animated.Value if Animated is available
+      if (Animated && Animated.Value) {
+        emberAnims.current = embers.map(() => new Animated.Value(0));
+        
+        emberAnims.current.forEach((anim, index) => {
+          if (Animated.loop && Animated.sequence && Animated.delay && Animated.timing) {
+            Animated.loop(
+              Animated.sequence([
+                Animated.delay(embers[index].delay * 1000),
+                Animated.timing(anim, {
+                  toValue: 1,
+                  duration: embers[index].duration * 1000,
+                  useNativeDriver: true,
+                }),
+              ])
+            ).start();
+          }
+        });
+      }
+      
+      embersInitialized.current = true;
+    } catch (error) {
+      console.error('Error initializing ember particles:', error);
+    }
+  }, []);
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = useMemo(() => {
@@ -934,7 +1429,7 @@ const ChapterScreen = () => {
                 style={styles.navButton}
                 onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
               >
-                <Icon name="chevron-left" size={16} color="#ffffff" style={styles.buttonIcon} />
+                <FontAwesome5 name="chevron-left" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
                 <Text style={styles.navButtonText}>Previous</Text>
               </TouchableOpacity>
             ) : (
@@ -944,7 +1439,7 @@ const ChapterScreen = () => {
               style={styles.navButton}
               onPress={() => navigation.navigate('NovelDetail', { id: novelId })}
             >
-              <Icon name="book-open" size={16} color="#ffffff" style={styles.buttonIcon} />
+              <FontAwesome5 name="book-open" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
               <Text style={styles.navButtonText}>Back to Novel</Text>
             </TouchableOpacity>
             {nextChapter && (
@@ -953,7 +1448,7 @@ const ChapterScreen = () => {
                 onPress={() => handleNextChapter(nextChapter)}
               >
                 <Text style={styles.navButtonText}>Next</Text>
-                <Icon name="chevron-right" size={16} color="#ffffff" style={styles.buttonIcon} />
+                <FontAwesome5 name="chevron-right" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
               </TouchableOpacity>
             )}
           </View>
@@ -976,7 +1471,7 @@ const ChapterScreen = () => {
   if (useInput || (error && (!isWalletConnected && parseInt(chapterId, 10) < 2))) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <Animated.View entering={SlideInDown} exiting={SlideOutDown}>
+        <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>{error || 'Missing Parameters'}</Text>
           <TextInput
             style={styles.input}
@@ -1002,7 +1497,7 @@ const ChapterScreen = () => {
             <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
             <Text style={styles.secondaryButtonText}>Back to Home</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -1010,7 +1505,7 @@ const ChapterScreen = () => {
   if (!novel || !novel.chaptercontents?.[chapterId]) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <Animated.View entering={SlideInDown} exiting={SlideOutDown}>
+        <View>
           <Text style={styles.errorTitle}>Chapter Not Found</Text>
           <TouchableOpacity
             style={styles.actionButton}
@@ -1025,7 +1520,7 @@ const ChapterScreen = () => {
             <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
             <Text style={styles.secondaryButtonText}>Back to Home</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       </SafeAreaView>
     );
   }
@@ -1050,63 +1545,88 @@ const ChapterScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+      <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgPrimary} />
+      <View style={styles.backgroundGradient} />
+      <View style={styles.emberContainer}>
+        {embersInitialized.current && emberAnims.current && emberAnims.current.length > 0 && embersData.current && embersData.current.map((ember, index) => {
+          const anim = emberAnims.current[index];
+          if (!anim) return null;
+          return (
+            <Animated.View
+              key={ember.id}
+              style={[
+                styles.ember,
+                {
+                  left: `${ember.left}%`,
+                  opacity: anim,
+                  transform: [
+                    {
+                      translateY: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [height, -50],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          );
+        })}
+      </View>
       {isWalletConnected && (
-        <Animated.View entering={FadeIn} style={styles.balanceContainer}>
+        <View style={styles.balanceContainer}>
           <View style={styles.balanceItem}>
-            <Icon name="wallet" size={16} color="#E67E22" style={styles.balanceIcon} />
+            <FontAwesome5 name="wallet" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
             <Text style={styles.balanceText}>SMP: {smpBalance.toLocaleString()}</Text>
           </View>
           <View style={styles.balanceItem}>
-            <Icon name="star" size={16} color="#E67E22" style={styles.balanceIcon} />
+            <FontAwesome5 name="star" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
             <Text style={styles.balanceText}>Points: {weeklyPoints.toLocaleString()}</Text>
           </View>
           <View style={styles.balanceItem}>
-            <Icon name="gem" size={16} color="#E67E22" style={styles.balanceIcon} />
+            <FontAwesome5 name="gem" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
             <Text style={styles.balanceText}>Amethyst: {amethystBalance.toFixed(2)}</Text>
           </View>
-        </Animated.View>
+        </View>
       )}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
-          <Icon name="home" size={20} color="#ffffff" />
+          <FontAwesome5 name="home" size={20} color={KA_COLORS.ivory} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => navigation.navigate('NovelsPage', { novelId })}
         >
-          <Icon name="book" size={20} color="#ffffff" />
+          <FontAwesome5 name="book" size={20} color={KA_COLORS.ivory} />
         </TouchableOpacity>
       </View>
       {(successMessage || (error && isWalletConnected) || warningMessage) && (
-        <Animated.View
-          entering={SlideInDown}
-          exiting={SlideOutDown}
+        <View
           style={[
             styles.messageContainer,
             error ? styles.errorMessage : warningMessage ? styles.warningMessage : styles.successMessage,
           ]}
         >
           <Text style={styles.messageText}>{successMessage || error || warningMessage}</Text>
-        </Animated.View>
+        </View>
       )}
       {!isWalletConnected && parseInt(chapterId, 10) > 0 ? (
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="wallet" size={48} color="#E67E22" style={styles.lockIcon} />
+        <View style={styles.lockedContainer}>
+          <FontAwesome5 name="wallet" size={48} color={KA_COLORS.orangePrimary} style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
           <Text style={styles.lockedSubMessage}>Please connect your wallet to read chapters.</Text>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('WalletImport')}
           >
-            <Icon name="wallet" size={16} color="#ffffff" style={styles.buttonIcon} />
+            <FontAwesome5 name="wallet" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
             <Text style={styles.actionButtonText}>Connect Wallet</Text>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
       ) : isLocked && isAdvanceChapter ? (
-        <Animated.View style={styles.lockedContainer} entering={FadeIn}>
-          <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
+        <View>
+          <FontAwesome5 name="lock" size={48} color={KA_COLORS.error} style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>{releaseDateMessage}</Text>
           <Text style={styles.lockedSubMessage}>Unlock with a Subscription</Text>
           <View style={styles.paymentGrid}>
@@ -1133,10 +1653,10 @@ const ChapterScreen = () => {
                 }}
                 disabled={(type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && price === 'N/A')}
               >
-                <Icon
+                <FontAwesome5
                   name={type === 'FULL' ? 'crown' : 'rocket'}
                   size={20}
-                  color="#ffffff"
+                  color={KA_COLORS.ivory}
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.paymentButtonText}>
@@ -1148,10 +1668,10 @@ const ChapterScreen = () => {
               </TouchableOpacity>
             ))}
           </View>
-        </Animated.View>
+        </View>
       ) : isLocked ? (
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="gem" size={48} color="#E67E22" style={styles.lockIcon} />
+        <View style={styles.lockedContainer}>
+          <FontAwesome5 name="gem" size={48} color={KA_COLORS.orangePrimary} style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Read this Chapter</Text>
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
@@ -1159,7 +1679,7 @@ const ChapterScreen = () => {
               onPress={() => processChapterPayment(chapterId, 'SINGLE', 'SMP')}
               disabled={isProcessing}
             >
-              <Icon name="gem" size={16} color="#ffffff" style={styles.buttonIcon} />
+              <FontAwesome5 name="gem" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
               <Text style={styles.smpButtonText}>
                 Read with {(SMP_READ_COST / 10 ** SMP_DECIMALS).toLocaleString()} SMP (Earn Points)
               </Text>
@@ -1173,11 +1693,11 @@ const ChapterScreen = () => {
                 })
               }
             >
-              <Icon name="shopping-cart" size={16} color="#ffffff" style={styles.buttonIcon} />
+              <FontAwesome5 name="shopping-cart" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
               <Text style={styles.getSmpButtonText}>Get SMP Tokens</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       ) : (
         <FlatList
           ref={flatListRef}
@@ -1207,12 +1727,12 @@ const ChapterScreen = () => {
         onRequestClose={() => setShowTransactionPopup(false)}
       >
         <View style={styles.modalOverlay}>
-          <Animated.View entering={SlideInDown} exiting={SlideOutDown} style={styles.modalContent}>
+          <View style={styles.modalContent}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowTransactionPopup(false)}
             >
-              <Icon name="times" size={20} color="#ffffff" />
+              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Confirm Transaction</Text>
             <Text style={styles.modalSubtitle}>
@@ -1249,7 +1769,7 @@ const ChapterScreen = () => {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalNote}>This transaction will be processed securely.</Text>
-          </Animated.View>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>

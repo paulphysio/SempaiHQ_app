@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import { fetchSmpTokenBalance } from '../utils/solana';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -52,7 +52,8 @@ const MIN_WITHDRAWAL = 2500;
 const MangaPageScreen = () => {
   const [onChainBalance, setOnChainBalance] = useState(0);
   const navigation = useNavigation();
-  const { wallet } = React.useContext(EmbeddedWalletContext);
+  const walletContext = React.useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -393,32 +394,7 @@ const MangaPageScreen = () => {
       >
         {/* Navbar */}
         <Animated.View entering={FadeIn} style={styles.navbar}>
-          <View style={styles.navContainer}>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('Home')}
-              style={styles.navLink}
-              accessible
-              accessibilityLabel="Navigate to home"
-            >
-              <Image
-                source={require('../assets/logo.jpeg')} // Adjust path as needed
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.logoText}>SempaiHQ Manga</Text>
-            </TouchableOpacity>
-            <View style={styles.navRight}>
-              <ConnectButton />
-              <TouchableOpacity
-                onPress={toggleMenu}
-                style={styles.menuToggle}
-                accessible
-                accessibilityLabel="Toggle menu"
-              >
-                <Icon name={menuOpen ? 'times' : 'bars'} size={20} color="#fff" />
-              </TouchableOpacity>
-            </View>
-          </View>
+          
           {menuOpen && (
             <Animated.View entering={FadeIn} style={styles.navMenu}>
               <TouchableOpacity
@@ -448,52 +424,6 @@ const MangaPageScreen = () => {
             <Text style={styles.rewardItem}>
               👑 Top Reader: <Text style={styles.bold}>100 Pts Daily</Text> 🏆
             </Text>
-          </View>
-        </Animated.View>
-
-        {/* Header with Search */}
-        <Animated.View entering={FadeIn} style={styles.header}>
-          <Text style={styles.headerTitle}>SempaiHQ Manga</Text>
-          <Text style={styles.headerTagline}>Journey Through Infinite Panels</Text>
-          <View style={styles.searchBar}>
-            <Icon name="search" size={20} color="#888" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search by title or artist..."
-              placeholderTextColor="#888"
-              accessible
-              accessibilityLabel="Search manga"
-            />
-          </View>
-          <View style={styles.tagSelectContainer}>
-            <Text style={styles.tagSelectLabel}>Filter by Tag:</Text>
-            <FlatList
-              data={[{ value: '', label: 'All Tags' }, ...TAG_OPTIONS]}
-              keyExtractor={(item) => item.value}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => setSelectedTag(item.value)}
-                  style={[
-                    styles.tagOption,
-                    selectedTag === item.value && styles.tagOptionSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.tagOptionText,
-                      selectedTag === item.value && styles.tagOptionTextSelected,
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              )}
-              style={styles.tagList}
-            />
           </View>
         </Animated.View>
 

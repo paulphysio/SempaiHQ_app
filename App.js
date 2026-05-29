@@ -11,6 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import * as Font from 'expo-font';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { supabase } from './services/supabaseClient';
 import { NavigationProvider, useNavigationHandler } from './context/NavigationContext';
 import HomeScreen from './screens/HomeScreen';
@@ -39,6 +40,23 @@ import { GoogleAuthProvider } from './components/GoogleAuthProvider';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SystemUiContext } from './context/SystemUiContext';
 import WalletScreen from './screens/WalletScreen';
+import GlobalNavbar from './components/GlobalNavbar';
+import GlobalBottomNav from './components/GlobalBottomNav';
+import GlobalSidebar from './components/GlobalSidebar';
+import FeedScreen from './screens/FeedScreen';
+import MarketplaceScreen from './screens/MarketplaceScreen';
+import WalletMigrationScreen from './screens/WalletMigrationScreen';
+import MintScreen from './screens/MintScreen';
+import LeaderboardScreen from './screens/LeaderboardScreen';
+import AdminScreen from './screens/AdminScreen';
+import AnnouncementsScreen from './screens/AnnouncementsScreen';
+import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
+import TermsScreen from './screens/TermsScreen';
+import SupportScreen from './screens/SupportScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import DownloadScreen from './screens/DownloadScreen';
+import KaitoLeaderboardScreen from './screens/KaitoLeaderboardScreen';
+import AddGifScreen from './screens/AddGifScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -102,6 +120,19 @@ const MainApp = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
   const [isStatusBarHidden, setIsStatusBarHidden] = useState(true); // State for StatusBar visibility
 
+  // Lock to portrait by default for all screens
+  useEffect(() => {
+    const lockPortrait = async () => {
+      try {
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
+      } catch (error) {
+        console.error('Error locking to portrait:', error);
+      }
+    };
+
+    lockPortrait();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
@@ -126,6 +157,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   const { user, isLoading } = useAuth();
   const [showWelcome, setShowWelcome] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigationRef = useNavigationContainerRef();
 
   useNavigationHandler(() => {
@@ -173,7 +205,11 @@ const AppContent = ({ setIsStatusBarHidden }) => {
         const cleanupSystemUi = async () => {
           try {
             await NavigationBar.setVisibilityAsync('visible');
-            await NavigationBar.setBehaviorAsync('overlay');
+            try {
+              await NavigationBar.setBehaviorAsync('overlay');
+            } catch (behaviorError) {
+              console.warn('System UI behavior cleanup warning:', behaviorError);
+            }
             setIsStatusBarHidden(false); // Show StatusBar
           } catch (error) {
             console.error('System UI cleanup error:', error);
@@ -190,12 +226,14 @@ const AppContent = ({ setIsStatusBarHidden }) => {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          cardStyle: { backgroundColor: '#0A0A18' },
-        }}
-      >
+      <View style={{ flex: 1, backgroundColor: '#0A0A18' }}>
+        <GlobalNavbar />
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            cardStyle: { backgroundColor: '#0A0A18' },
+          }}
+        >
         {showWelcome ? (
           <Stack.Screen
             name="Welcome"
@@ -239,9 +277,32 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
             <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
+            <Stack.Screen name="Feed" component={FeedScreen} />
+            <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
+            <Stack.Screen name="WalletMigration" component={WalletMigrationScreen} />
+            <Stack.Screen name="Mint" component={MintScreen} />
+            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+            <Stack.Screen name="Admin" component={AdminScreen} />
+            <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="Terms" component={TermsScreen} />
+            <Stack.Screen name="Support" component={SupportScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Download" component={DownloadScreen} />
+            <Stack.Screen name="KaitoLeaderboard" component={KaitoLeaderboardScreen} />
+            <Stack.Screen name="AddGif" component={AddGifScreen} />
           </>
         )}
       </Stack.Navigator>
+        <GlobalBottomNav 
+          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          menuOpen={sidebarOpen}
+        />
+        <GlobalSidebar 
+          isVisible={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
+      </View>
     </NavigationContainer>
   );
 };

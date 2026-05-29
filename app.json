@@ -1,6 +1,14 @@
 {
   "expo": {
     "name": "sempaihq",
-    "displayName": "Sempai HQ"
+    "slug": "sempaihq",
+    "runtimeVersion": "1.0.0",
+    "version": "1.0.0",
+    "android": {
+      "package": "com.sempaihq.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.sempaihq.app"
+    }
   }
 }

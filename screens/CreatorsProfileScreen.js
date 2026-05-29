@@ -14,7 +14,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Changed to MaterialCommunityIcons
 import { supabase } from '../services/supabaseClient';
-import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButton';
+import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { styles } from '../styles/CreatorsProfileStyles';
 
 const { width } = Dimensions.get('window');
@@ -223,12 +223,6 @@ const CreatorsProfileScreen = () => {
 
       {/* Main Content */}
       <ScrollView contentContainerStyle={styles.main}>
-        <View style={[styles.header, userRole === 'artist' && styles.headerArtist, (userRole === 'both' || userRole === 'superuser') && styles.headerBoth]}>
-          <Text style={styles.title}>
-            <Icon name="rocket" size={24} color="#fff" /> Creator’s Nexus
-          </Text>
-        </View>
-
         {error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.error}>{error}</Text>
@@ -399,3 +393,6 @@ const CreatorsProfileScreen = () => {
 };
 
 export default CreatorsProfileScreen;
+
+
+

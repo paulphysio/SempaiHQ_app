@@ -23,7 +23,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as Notifications from 'expo-notifications';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import { styles } from '../styles/MangaDashboardStyles';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
@@ -70,7 +70,8 @@ const schedulePushNotification = async (title, body, data = {}) => {
 
 const MangaDashboardScreen = () => {
   const navigation = useNavigation();
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey;
   const [title, setTitle] = useState('');
@@ -1069,16 +1070,6 @@ const MangaDashboardScreen = () => {
               )}
             </Animated.View>
 
-            {/* Header */}
-            <Animated.View entering={FadeIn} style={styles.header}>
-              <Text style={styles.headerTitle}>
-                <Icon name="paint-brush" size={24} color="#fff" /> Artist’s Studio
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                Craft and showcase your manga masterpieces.
-              </Text>
-            </Animated.View>
-
             {/* Main Content */}
             <FlatList
               data={renderMainContent()}
@@ -1147,3 +1138,6 @@ const MangaDashboardScreen = () => {
 };
 
 export default MangaDashboardScreen;
+
+
+

@@ -217,6 +217,32 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
+  chaptersSection: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  summaryLinkContainer: {
+    padding: 16,
+    backgroundColor: '#1A1A2E',
+    borderBottomWidth: 1,
+    borderBottomColor: '#D94F04',
+  },
+  summaryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D94F04',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  summaryLinkText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    fontFamily: 'Poppins-SemiBold',
+  },
   sectionTitle: {
     color: '#D94F04',
     fontSize: 24,
@@ -342,5 +368,130 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Poppins-Regular',
+  },
+  // Summary page styles
+  summaryHeader: {
+    backgroundColor: '#1A1A2E',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D94F04',
+  },
+  summaryHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  summaryPageTitle: {
+    color: '#D94F04',
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  searchSection: {
+    padding: 16,
+    backgroundColor: '#0F0F1F',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A2E',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#D94F04',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Poppins-Regular',
+  },
+  summaryMain: {
+    flex: 1,
+    padding: 16,
+  },
+  summaryNovelsGrid: {
+    paddingBottom: 16,
+  },
+  summaryNovelCard: {
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  summaryCardGradient: {
+    padding: 16,
+  },
+  summaryCardContent: {
+    gap: 8,
+  },
+  summaryNovelTitle: {
+    color: '#D94F04',
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontFamily: 'Poppins-SemiBold',
+  },
+  summaryPreview: {
+    color: '#ccc',
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    lineHeight: 20,
+  },
+  readMore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  readMoreText: {
+    color: '#D94F04',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginRight: 8,
+    fontFamily: 'Poppins-SemiBold',
+  },
+  noResults: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 48,
+  },
+  noResultsIcon: {
+    marginBottom: 16,
+  },
+  noResultsTitle: {
+    color: '#D94F04',
+    fontSize: 20,
+    fontWeight: 'bold',
+    fontFamily: 'Poppins-SemiBold',
+    marginBottom: 8,
+  },
+  noResultsText: {
+    color: '#888',
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+  },
+  // Single summary view styles
+  singleSummaryContainer: {
+    padding: 20,
+    backgroundColor: '#1A1A2E',
+    borderRadius: 12,
+    margin: 16,
+  },
+  singleSummaryTitle: {
+    color: '#D94F04',
+    fontSize: 24,
+    fontWeight: 'bold',
+    fontFamily: 'Poppins-SemiBold',
+    marginBottom: 16,
+  },
+  singleSummaryText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Poppins-Regular',
+    lineHeight: 24,
   },
 });

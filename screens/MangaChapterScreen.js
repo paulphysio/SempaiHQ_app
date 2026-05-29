@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import {
   Connection,
   PublicKey,
@@ -73,7 +73,8 @@ const MangaChapterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { mangaId, chapterId } = route.params || {};
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
 
   const [manga, setManga] = useState(null);
   const [chapter, setChapter] = useState(null);
@@ -1279,21 +1280,6 @@ const MangaChapterScreen = () => {
           </Text>
         </View>
       </Animated.View>
-
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
-          <Icon name="home" size={20} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {chapterTitle}
-        </Text>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => navigation.navigate('Manga', { mangaId })}
-        >
-          <Icon name="book" size={20} color="#ffffff" style={styles.buttonIcon} />
-        </TouchableOpacity>
-      </View>
 
       {(successMessage || error) && (
         <Animated.View

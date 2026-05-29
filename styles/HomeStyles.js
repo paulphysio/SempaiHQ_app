@@ -687,6 +687,59 @@ export const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
 
+  navGroup: {
+    marginBottom: 4,
+  },
+
+  navGroupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(255, 87, 51, 0.1)',
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+
+  navGroupText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+    fontFamily: 'AnimeAce',
+    marginLeft: 12,
+  },
+
+  dropdownIcon: {
+    marginLeft: 8,
+  },
+
+  dropdown: {
+    backgroundColor: 'rgba(15, 15, 24, 0.9)',
+    borderRadius: 8,
+    marginHorizontal: 8,
+    marginTop: 4,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 87, 51, 0.1)',
+  },
+
+  dropdownItemText: {
+    color: '#FF5733',
+    fontSize: 13,
+    fontWeight: '500',
+    fontFamily: 'AnimeAce',
+    marginLeft: 12,
+  },
+
   overlay: {
     position: 'absolute',
     top: 0,

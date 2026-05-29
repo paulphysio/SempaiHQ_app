@@ -914,6 +914,87 @@ const Home = () => {
 
   // In the Home component, replace the sidebar rendering with this
   const renderSidebarContent = () => {
+    const [activeDropdown, setActiveDropdown] = useState(null);
+
+    const navGroups = [
+      {
+        title: 'Main',
+        icon: 'home',
+        items: [
+          { name: 'Home', screen: 'Home', icon: 'home' },
+          { name: 'Feed', screen: 'Feed', icon: 'newspaper' },
+          { name: 'Profile', screen: 'Profile', icon: 'user' },
+        ],
+      },
+      {
+        title: 'Content',
+        icon: 'book',
+        condition: isWriter || isArtist || isSuperuser,
+        items: [
+          { name: 'Novel Dashboard', screen: 'NovelDashboard', icon: 'book-open', condition: isWriter || isSuperuser },
+          { name: 'Manga Dashboard', screen: 'MangaDashboard', icon: 'images', condition: isArtist || isSuperuser },
+          { name: 'Novels', screen: 'NovelsPage', icon: 'book' },
+          { name: 'Manga', screen: 'MangaPage', icon: 'images' },
+        ],
+      },
+      {
+        title: 'Wallet',
+        icon: 'wallet',
+        items: [
+          { name: 'Wallet', screen: 'Wallet', icon: 'wallet' },
+          { name: 'Swap', screen: 'Swap', icon: 'exchange-alt' },
+          { name: 'Mint', screen: 'Mint', icon: 'coins' },
+          { name: 'Marketplace', screen: 'Marketplace', icon: 'shopping-cart' },
+          { name: 'Wallet Migration', screen: 'WalletMigration', icon: 'exchange-alt' },
+        ],
+      },
+      {
+        title: 'Community',
+        icon: 'users',
+        items: [
+          { name: 'Chat', screen: 'Chat', icon: 'comments' },
+          { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
+          { name: 'Kaito Leaderboard', screen: 'KaitoLeaderboard', icon: 'crown' },
+        ],
+      },
+      {
+        title: 'Admin',
+        icon: 'cog',
+        condition: isSuperuser,
+        items: [
+          { name: 'Admin', screen: 'Admin', icon: 'user-shield' },
+          { name: 'Announcements', screen: 'Announcements', icon: 'bullhorn' },
+        ],
+      },
+      {
+        title: 'Info',
+        icon: 'info-circle',
+        items: [
+          { name: 'Support', screen: 'Support', icon: 'life-ring' },
+          { name: 'Terms', screen: 'Terms', icon: 'file-contract' },
+          { name: 'Privacy Policy', screen: 'PrivacyPolicy', icon: 'shield-alt' },
+        ],
+      },
+      {
+        title: 'Other',
+        icon: 'ellipsis-h',
+        items: [
+          { name: 'Apply', screen: 'Apply', icon: 'user-plus', condition: !isWriter && !isArtist && !isSuperuser },
+          { name: 'Download', screen: 'Download', icon: 'download' },
+          { name: 'Add Gif', screen: 'AddGif', icon: 'image', condition: isSuperuser },
+        ],
+      },
+    ];
+
+    const toggleDropdown = (index) => {
+      setActiveDropdown(activeDropdown === index ? null : index);
+    };
+
+    const navigateToScreen = (screenName) => {
+      handleNavigation(screenName);
+      setActiveDropdown(null);
+    };
+
     return (
       <View style={styles.sidebarContent}>
         {/* Profile Section at Top */}
@@ -931,48 +1012,39 @@ const Home = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.navLinksContainer}
         >
-          {[
-            {
-              label: 'Edit Profile',
-              icon: 'user-edit',
-              onPress: () => handleNavigation('EditProfile', { id: userId }),
-            },
-            { path: 'Wallet', icon: 'wallet', label: 'Wallet' },
-            { path: 'Swap', icon: 'exchange-alt', label: 'Swap' },
-            { path: 'Stats', icon: 'chart-bar', label: 'Stats' },
-            {
-              path: '',
-              icon: 'user',
-              label: isWriter || isArtist || isSuperuser ? 'Profile' : 'Edit Profile',
-              onPress: handleProfileNavigation,
-            },
-            { path: 'Chat', icon: 'comments', label: 'Chat' },
-            { path: 'KaitoAdventure', icon: 'gamepad', label: "Kaito's Adventure" },
-            {
-              path: '',
-              icon: 'bullhorn',
-              label: isWriter && !isArtist ? "Writer's Dashboard" : isArtist && !isWriter ? "Artist's Dashboard" : 'Creator Dashboard',
-              onPress: handleDashboardNavigation,
-            },
-            // Conditionally add the 'Become a Creator' link
-            ...(!isWriter && !isArtist ? [{
-              path: 'Apply',
-              icon: 'user-plus',
-              label: 'Become a Creator',
-              onPress: () => handleNavigation('Apply'),
-            }] : []),
-          ].map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              activeOpacity={0.7}
-              style={styles.navLink}
-              onPress={item.onPress || (() => handleNavigation(item.path))}
-              accessible={true}
-              accessibilityLabel={item.label}
-            >
-              <FontAwesome5 name={item.icon} size={16} color="#FF5733" style={styles.navIcon} />
-              <Text style={styles.navLinkText}>{item.label}</Text>
-            </TouchableOpacity>
+          {navGroups.filter(group => !group.condition || group.condition).map((group, groupIndex) => (
+            <View key={groupIndex} style={styles.navGroup}>
+              <TouchableOpacity
+                style={styles.navGroupButton}
+                onPress={() => toggleDropdown(groupIndex)}
+                activeOpacity={0.7}
+              >
+                <FontAwesome5 name={group.icon} size={16} color="#FF5733" style={styles.navIcon} />
+                <Text style={styles.navGroupText}>{group.title}</Text>
+                <FontAwesome5 
+                  name={activeDropdown === groupIndex ? 'chevron-up' : 'chevron-down'} 
+                  size={12} 
+                  color="#FF5733" 
+                  style={styles.dropdownIcon} 
+                />
+              </TouchableOpacity>
+              
+              {activeDropdown === groupIndex && (
+                <View style={styles.dropdown}>
+                  {group.items.filter(item => !item.condition || item.condition).map((item, itemIndex) => (
+                    <TouchableOpacity
+                      key={itemIndex}
+                      style={styles.dropdownItem}
+                      onPress={() => navigateToScreen(item.screen)}
+                      activeOpacity={0.7}
+                    >
+                      <FontAwesome5 name={item.icon} size={14} color="#FF5733" style={styles.navIcon} />
+                      <Text style={styles.dropdownItemText}>{item.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
           ))}
           {/* Add some bottom padding for better scrolling */}
           <View style={{ height: 10 }} />
@@ -983,62 +1055,6 @@ const Home = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.brand}>
-          <Image
-            source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
-            style={styles.brandLogo}
-            defaultSource={{ uri: 'https://via.placeholder.com/28x28' }}
-          />
-          <Text style={styles.brandText}>SempaiHQ</Text>
-        </View>
-        <View style={styles.headerAuthRow}>
-          {!session ? (
-            <TouchableOpacity
-              onPress={signIn}
-              activeOpacity={0.85}
-              style={styles.headerSignInBtn}
-              accessible
-              accessibilityLabel="Sign in with Google"
-            >
-              <Image
-                source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png' }}
-                style={styles.headerSignInIcon}
-              />
-              <Text style={styles.headerSignInText}>Sign in</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              <Animated.View style={{ transform: [{ scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }] }}>
-                <TouchableOpacity
-                  onPress={toggleWalletMenu}
-                  activeOpacity={0.85}
-                  style={styles.headerWalletBtn}
-                  accessible
-                  accessibilityLabel="Wallet menu"
-                >
-                  <FontAwesome5 name="wallet" size={14} color="#fff" />
-                  <Text style={styles.headerWalletText}>
-                    {wallet?.publicKey ? `${wallet.publicKey.toString().slice(0,3)}...${wallet.publicKey.toString().slice(-3)}` : 'Wallet'}
-                  </Text>
-                </TouchableOpacity>
-              </Animated.View>
-              <TouchableOpacity
-                onPress={signOut}
-                activeOpacity={0.85}
-                style={styles.signOutBtn}
-                accessible
-                accessibilityLabel="Sign out"
-              >
-                <FontAwesome5 name="sign-out-alt" size={14} color="#FF5733" />
-                <Text style={styles.signOutText}>Sign out</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-
       {/* Background animations */}
       <View style={[styles.backgroundAnimation, { zIndex: -1, pointerEvents: 'none' }]}>
         <LinearGradient
@@ -1079,8 +1095,6 @@ const Home = () => {
         <View style={styles.circle2} />
         <View style={styles.circle3} />
       </View>
-
-      {/* Logo is now integrated into the header brand; removed floating logo container to avoid obstruction */}
 
       {/* Main content */}
       <ScrollView
@@ -1477,51 +1491,6 @@ const Home = () => {
           )}
         </View>
       </Modal>
-
-      {/* Bottom navbar */}
-      <View style={styles.bottomNavbar}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={styles.bottomNavButton}
-          onPress={toggleMenu}
-          accessible={true}
-          accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
-        >
-          <FontAwesome5 name={menuOpen ? 'times' : 'bars'} size={width < 480 ? 24 : 28} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.notificationWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.bottomNavButton}
-            onPress={toggleNotifications}
-            accessible={true}
-            accessibilityLabel="View notifications"
-          >
-            <FontAwesome5 name="envelope" size={width < 480 ? 24 : 28} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-        <View style={styles.announcementToggleWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.bottomNavButton}
-            onPress={toggleAnnouncements}
-            accessible={true}
-            accessibilityLabel="View announcements"
-          >
-            <FontAwesome5 name="bell" size={width < 480 ? 24 : 28} color="#fff" />
-            {announcements.length > 0 && (
-              <View style={styles.announcementBadge}>
-                <Text style={styles.badgeText}>{announcements.length}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
     </View>
   );
 };

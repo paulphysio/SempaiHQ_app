@@ -904,18 +904,36 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded, onSelectSe
 
 // Compact, header-friendly wallet button
 const ConnectButton = ({ compact = false, label }) => {
-  const {
-    wallet,
-    walletType,
-    isLoading,
-    isSeekerConnected,
-    disconnectWallet,
-  } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
+  const walletType = walletContext?.walletType;
+  const isLoading = walletContext?.isLoading;
+  const isSeekerConnected = walletContext?.isSeekerConnected;
+  const disconnectWallet = walletContext?.disconnectWallet;
   const { user } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showReferralPrompt, setShowReferralPrompt] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+
+  // If context is not available, show a simple connect button
+  if (!walletContext) {
+    return (
+      <TouchableOpacity
+        onPress={() => setShowModal(true)}
+        style={[styles.connectButtonWrapper, compact && styles.connectButtonWrapperCompact]}
+      >
+        <LinearGradient
+          colors={['#FF5733', '#F36316']}
+          style={styles.connectButtonGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+        >
+          <Text style={styles.connectButtonText}>Connect Wallet</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    );
+  }
 
   const handleReferralPrompt = () => setShowReferralPrompt(false);
 
@@ -1079,17 +1097,31 @@ const ConnectButton = ({ compact = false, label }) => {
 };
 
 const WalletConnectionModal = ({ isVisible, onClose }) => {
-  const { 
-    createEmbeddedWallet, 
-    retrieveEmbeddedWallet, 
-    connectSeekerWallet,
-    walletType,
-    setWalletType 
-  } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const createEmbeddedWallet = walletContext?.createEmbeddedWallet;
+  const retrieveEmbeddedWallet = walletContext?.retrieveEmbeddedWallet;
+  const connectSeekerWallet = walletContext?.connectSeekerWallet;
+  const walletType = walletContext?.walletType;
+  const setWalletType = walletContext?.setWalletType;
   const { user } = useAuth();
   const [mode, setMode] = useState('menu'); // menu, create, retrieve, seeker
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // If context is not available, show a simple message
+  if (!walletContext) {
+    return (
+      <Modal isVisible={isVisible} onBackdropPress={onClose}>
+        <View style={styles.container}>
+          <Text style={styles.modalTitle}>Wallet Context Not Available</Text>
+          <Text style={styles.modalText}>Please restart the app and try again.</Text>
+          <TouchableOpacity onPress={onClose} style={styles.modalButton}>
+            <Text style={styles.modalButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
   const [loading, setLoading] = useState(false);
   const [showSeekerOption, setShowSeekerOption] = useState(false);
 

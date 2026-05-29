@@ -14,18 +14,44 @@ import {
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
   Keyboard,
+  StyleSheet,
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';
-import Icon from 'react-native-vector-icons/FontAwesome5';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
-import { styles } from '../styles/NovelDashboardStyles';
 import * as Notifications from 'expo-notifications';
+
+const { width, height } = Dimensions.get('window');
+
+// Kaito Adventure Design System - Japanese Dark-Orange
+const KA_COLORS = {
+  bgPrimary: '#0c0c0c',
+  bgCard: '#141210',
+  bgElevated: '#1a1714',
+  orangePrimary: '#cc5500',
+  orangeBright: '#ff6b35',
+  orangeSoft: '#e67e22',
+  orangeDim: '#8b4513',
+  gold: '#c9a84c',
+  goldBright: '#ffd700',
+  ivory: '#f5e6d3',
+  ivoryDim: '#c4b5a0',
+  border: '#2d2418',
+  textPrimary: '#f5e6d3',
+  textSecondary: '#a09080',
+  textMuted: '#6b5d4f',
+  success: '#4a7c59',
+  error: '#c41e3a',
+  warning: '#c9a84c',
+};
 
 // Predefined tag options
 const TAG_OPTIONS = [
@@ -114,7 +140,8 @@ const schedulePushNotification = async (title, body, data = {}) => {
 
 const NovelDashboardScreen = () => {
   const navigation = useNavigation();
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey;
   const [novelTitle, setNovelTitle] = useState('');
@@ -159,6 +186,31 @@ const NovelDashboardScreen = () => {
   const [showNovelDeleteConfirm, setShowNovelDeleteConfirm] = useState(false);
   const [novelToDelete, setNovelToDelete] = useState(null);
   const chapterTitleRef = useRef(null);
+  const emberAnims = useRef([]);
+
+  // Initialize ember particles
+  useEffect(() => {
+    const embers = Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 8,
+      duration: 6 + Math.random() * 4,
+    }));
+    emberAnims.current = embers.map(() => new Animated.Value(0));
+    
+    emberAnims.current.forEach((anim, index) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(embers[index].delay * 1000),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: embers[index].duration * 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  }, []);
 
   // Debug state changes for chapter title and content
   useEffect(() => {
@@ -774,7 +826,7 @@ const NovelDashboardScreen = () => {
             accessibilityLabel="Edit chapter"
             accessibilityRole="button"
           >
-            <Icon name="edit" size={16} color="#fff" />
+            <FontAwesome5 name="edit" size={16} color={KA_COLORS.ivory} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleRemoveChapter(item.id)}
@@ -784,7 +836,7 @@ const NovelDashboardScreen = () => {
             accessibilityLabel="Delete chapter"
             accessibilityRole="button"
           >
-            <Icon name="trash" size={16} color="#fff" />
+            <FontAwesome5 name="trash" size={16} color={KA_COLORS.ivory} />
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -817,7 +869,7 @@ const NovelDashboardScreen = () => {
               accessibilityLabel={`Edit novel ${item.title}`}
               accessibilityRole="button"
             >
-              <Icon name="edit" size={16} color="#fff" />
+              <FontAwesome5 name="edit" size={16} color={KA_COLORS.ivory} />
               <Text style={styles.editNovelButtonText}>Edit</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -828,7 +880,7 @@ const NovelDashboardScreen = () => {
               accessibilityLabel={`Delete novel ${item.title}`}
               accessibilityRole="button"
             >
-              <Icon name="trash" size={16} color="#fff" />
+              <FontAwesome5 name="trash" size={16} color={KA_COLORS.ivory} />
             </TouchableOpacity>
           </View>
         )}
@@ -858,7 +910,7 @@ const NovelDashboardScreen = () => {
           accessibilityLabel={`${type} year picker`}
           accessibilityRole="combobox"
         >
-          <Picker.Item label="Year" value="" color="#888" />
+          <Picker.Item label="Year" value="" color={KA_COLORS.textMuted} />
           {years.map((year) => (
             <Picker.Item key={year} label={year.toString()} value={year.toString()} />
           ))}
@@ -873,7 +925,7 @@ const NovelDashboardScreen = () => {
           accessibilityLabel={`${type} month picker`}
           accessibilityRole="combobox"
         >
-          <Picker.Item label="Month" value="" color="#888" />
+          <Picker.Item label="Month" value="" color={KA_COLORS.textMuted} />
           {months.map((month) => (
             <Picker.Item key={month.value} label={month.label} value={month.value} />
           ))}
@@ -888,7 +940,7 @@ const NovelDashboardScreen = () => {
           accessibilityLabel={`${type} day picker`}
           accessibilityRole="combobox"
         >
-          <Picker.Item label="Day" value="" color="#888" />
+          <Picker.Item label="Day" value="" color={KA_COLORS.textMuted} />
           {days.map((day) => (
             <Picker.Item key={day} label={day} value={day} />
           ))}
@@ -903,7 +955,7 @@ const NovelDashboardScreen = () => {
           accessibilityLabel={`${type} hour picker`}
           accessibilityRole="combobox"
         >
-          <Picker.Item label="Hour" value="" color="#888" />
+          <Picker.Item label="Hour" value="" color={KA_COLORS.textMuted} />
           {hours.map((hour) => (
             <Picker.Item key={hour} label={hour} value={hour} />
           ))}
@@ -918,7 +970,7 @@ const NovelDashboardScreen = () => {
           accessibilityLabel={`${type} minute picker`}
           accessibilityRole="combobox"
         >
-          <Picker.Item label="Min" value="" color="#888" />
+          <Picker.Item label="Min" value="" color={KA_COLORS.textMuted} />
           {minutes.map((minute) => (
             <Picker.Item key={minute} label={minute} value={minute} />
           ))}
@@ -934,7 +986,7 @@ const NovelDashboardScreen = () => {
           key: 'connectPrompt',
           render: () => (
             <View style={styles.connectPrompt}>
-              <Icon name="gem" size={48} color="#E67E22" style={styles.connectIcon} />
+              <FontAwesome5 name="gem" size={48} color={KA_COLORS.orangePrimary} style={styles.connectFontAwesome5} />
               <Text style={[styles.connectText, styles.darkText]}>
                 Connect your wallet to access the Writer’s Vault.
               </Text>
@@ -951,7 +1003,7 @@ const NovelDashboardScreen = () => {
           key: 'accessDenied',
           render: () => (
             <View style={styles.accessDenied}>
-              <Icon name="times" size={48} color="#ff4444" style={styles.deniedIcon} />
+              <FontAwesome5 name="times" size={48} color={KA_COLORS.error} style={styles.deniedFontAwesome5} />
               <Text style={[styles.accessDeniedText, styles.darkText]}>
                 Access Denied. Only writers and superusers may enter.
               </Text>
@@ -963,7 +1015,7 @@ const NovelDashboardScreen = () => {
                 accessibilityLabel="Return to home"
                 accessibilityRole="button"
               >
-                <Icon name="home" size={16} color="#fff" />
+                <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
                 <Text style={styles.backButtonText}>Return Home</Text>
               </TouchableOpacity>
             </View>
@@ -988,7 +1040,7 @@ const NovelDashboardScreen = () => {
         render: () => (
           <View style={styles.formSection}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Icon name="book-open" size={20} color="#fff" />
+              <FontAwesome5 name="book-open" size={20} color={KA_COLORS.ivory} />
               <Text style={[styles.sectionTitle, styles.darkText]}>
                 {selectedNovel ? 'Edit Manuscript' : 'New Manuscript'}
               </Text>
@@ -1001,7 +1053,7 @@ const NovelDashboardScreen = () => {
                   value={novelTitle}
                   onChangeText={setNovelTitle}
                   placeholder="Enter novel title"
-                  placeholderTextColor="#888"
+                  placeholderTextColor={KA_COLORS.textMuted}
                   accessible
                   accessibilityLabel="Novel title input"
                   accessibilityRole="text"
@@ -1010,7 +1062,7 @@ const NovelDashboardScreen = () => {
               </View>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, styles.darkText]}>
-                  <Icon name="image" size={16} color="#fff" /> Cover Image
+                  <FontAwesome5 name="image" size={16} color={KA_COLORS.ivory} /> Cover Image
                 </Text>
                 {novelImageUrl ? (
                   <Image source={{ uri: novelImageUrl }} style={styles.imagePreview} />
@@ -1037,7 +1089,7 @@ const NovelDashboardScreen = () => {
                   value={novelSummary}
                   onChangeText={setNovelSummary}
                   placeholder="Write a brief summary"
-                  placeholderTextColor="#888"
+                  placeholderTextColor={KA_COLORS.textMuted}
                   multiline
                   numberOfLines={3}
                   accessible
@@ -1063,7 +1115,7 @@ const NovelDashboardScreen = () => {
               </View>
               <View style={styles.chapterSection}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Icon name="plus" size={16} color="#fff" />
+                  <FontAwesome5 name="plus" size={16} color={KA_COLORS.ivory} />
                   <Text style={[styles.chapterTitle, styles.darkText]}>Chapters</Text>
                 </View>
                 <View style={styles.inputGroup}>
@@ -1074,7 +1126,7 @@ const NovelDashboardScreen = () => {
                     value={newChapterTitle}
                     onChangeText={setNewChapterTitle}
                     placeholder="Enter chapter title"
-                    placeholderTextColor="#888"
+                    placeholderTextColor={KA_COLORS.textMuted}
                     accessible
                     accessibilityLabel="Chapter title input"
                     accessibilityRole="text"
@@ -1088,7 +1140,7 @@ const NovelDashboardScreen = () => {
                     value={newChapterContent}
                     onChangeText={setNewChapterContent}
                     placeholder="Write chapter content"
-                    placeholderTextColor="#888"
+                    placeholderTextColor={KA_COLORS.textMuted}
                     multiline
                     numberOfLines={4}
                     accessible
@@ -1106,10 +1158,10 @@ const NovelDashboardScreen = () => {
                     accessibilityLabel="Mark as advance chapter"
                     accessibilityRole="checkbox"
                   >
-                    <Icon
+                    <FontAwesome5
                       name={newChapterIsAdvance ? 'check-square' : 'square'}
                       size={20}
-                      color="#fff"
+                      color={KA_COLORS.ivory}
                     />
                     <Text style={[styles.checkboxLabel, styles.darkText]}>
                       Mark as Advance Chapter
@@ -1133,10 +1185,10 @@ const NovelDashboardScreen = () => {
                     accessibilityRole="button"
                   >
                     {loading ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={KA_COLORS.ivory} />
                     ) : (
                       <>
-                        <Icon name="plus" size={16} color="#fff" />
+                        <FontAwesome5 name="plus" size={16} color={KA_COLORS.ivory} />
                         <Text style={styles.addChapterButtonText}>
                           {editChapterIndex !== null ? 'Update Chapter' : 'Add Chapter'}
                         </Text>
@@ -1151,7 +1203,7 @@ const NovelDashboardScreen = () => {
                     accessibilityLabel="Reset form"
                     accessibilityRole="button"
                   >
-                    <Icon name="undo" size={16} color="#fff" />
+                    <FontAwesome5 name="undo" size={16} color={KA_COLORS.ivory} />
                     <Text style={styles.resetButtonText}>Reset</Text>
                   </TouchableOpacity>
                 </View>
@@ -1175,10 +1227,10 @@ const NovelDashboardScreen = () => {
                 accessibilityRole="button"
               >
                 {loading ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={KA_COLORS.ivory} />
                 ) : (
                   <>
-                    <Icon name="upload" size={16} color="#fff" />
+                    <FontAwesome5 name="upload" size={16} color={KA_COLORS.ivory} />
                     <Text style={styles.submitButtonText}>{selectedNovel ? 'Update Novel' : 'Publish Novel'}</Text>
                   </>
                 )}
@@ -1187,7 +1239,7 @@ const NovelDashboardScreen = () => {
             {selectedNovel && (
               <View style={styles.announcementSection}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Icon name="bullhorn" size={20} color="#fff" />
+                  <FontAwesome5 name="bullhorn" size={20} color={KA_COLORS.ivory} />
                   <Text style={[styles.sectionTitle, styles.darkText]}>Announce to Readers</Text>
                 </View>
                 <View style={styles.announcementForm}>
@@ -1198,7 +1250,7 @@ const NovelDashboardScreen = () => {
                       value={announcementTitle}
                       onChangeText={setAnnouncementTitle}
                       placeholder="e.g., New Chapter Coming Soon!"
-                      placeholderTextColor="#888"
+                      placeholderTextColor={KA_COLORS.textMuted}
                       accessible
                       accessibilityLabel="Announcement title input"
                       accessibilityRole="text"
@@ -1212,7 +1264,7 @@ const NovelDashboardScreen = () => {
                       value={announcementMessage}
                       onChangeText={setAnnouncementMessage}
                       placeholder="Write your announcement here"
-                      placeholderTextColor="#888"
+                      placeholderTextColor={KA_COLORS.textMuted}
                       multiline
                       numberOfLines={3}
                       accessible
@@ -1235,10 +1287,10 @@ const NovelDashboardScreen = () => {
                     accessibilityRole="button"
                   >
                     {loading ? (
-                      <ActivityIndicator size="small" color="#fff" />
+                      <ActivityIndicator size="small" color={KA_COLORS.ivory} />
                     ) : (
                       <>
-                        <Icon name="bullhorn" size={16} color="#fff" />
+                        <FontAwesome5 name="bullhorn" size={16} color={KA_COLORS.ivory} />
                         <Text style={styles.announcementButtonText}>Send Announcement</Text>
                       </>
                     )}
@@ -1254,7 +1306,7 @@ const NovelDashboardScreen = () => {
         render: () => (
           <View style={styles.novelsSection}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <Icon name="book-open" size={20} color="#fff" />
+              <FontAwesome5 name="book-open" size={20} color={KA_COLORS.ivory} />
               <Text style={[styles.sectionTitle, styles.darkText]}>Your Manuscripts</Text>
             </View>
             {novelsList.length === 0 ? (
@@ -1281,7 +1333,7 @@ const NovelDashboardScreen = () => {
               render: () => (
                 <View style={styles.writersSection}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <Icon name="user-shield" size={20} color="#fff" />
+                    <FontAwesome5 name="user-shield" size={20} color={KA_COLORS.ivory} />
                     <Text style={[styles.sectionTitle, styles.darkText]}>Writers</Text>
                   </View>
                   {writers.length === 0 ? (
@@ -1308,7 +1360,30 @@ const NovelDashboardScreen = () => {
 
   return (
     <SafeAreaView style={[styles.container, styles.darkContainer]}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+      <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
+      <View style={styles.backgroundGradient} />
+      <View style={styles.emberContainer}>
+        {emberAnims.current.map((anim, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.ember,
+              {
+                left: `${Math.random() * 100}%`,
+                opacity: anim,
+                transform: [
+                  {
+                    translateY: anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [height, -50],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ))}
+      </View>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
@@ -1325,7 +1400,7 @@ const NovelDashboardScreen = () => {
                   accessibilityLabel="Navigate to home"
                   accessibilityRole="button"
                 >
-                  <Icon name="home" size={20} color="#fff" />
+                  <FontAwesome5 name="home" size={20} color={KA_COLORS.ivory} />
                   <Text style={[styles.navText, styles.darkText]}>Home</Text>
                 </TouchableOpacity>
                 <View style={styles.navRight}>
@@ -1338,7 +1413,7 @@ const NovelDashboardScreen = () => {
                     accessibilityLabel="Toggle menu"
                     accessibilityRole="button"
                   >
-                    <Icon name={menuOpen ? 'times' : 'bars'} size={20} color="#fff" />
+                    <FontAwesome5 name={menuOpen ? 'times' : 'bars'} size={20} color={KA_COLORS.ivory} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1352,23 +1427,14 @@ const NovelDashboardScreen = () => {
                     accessibilityLabel="Navigate to home"
                     accessibilityRole="button"
                   >
-                    <Icon name="home" size={20} color="#fff" />
+                    <FontAwesome5 name="home" size={20} color={KA_COLORS.ivory} />
                     <Text style={[styles.navMenuText, styles.darkText]}>Home</Text>
                   </TouchableOpacity>
                 </View>
               )}
             </View>
-
-            <View style={styles.header}>
-              <Text style={[styles.headerTitle, styles.darkText]}>
-                <Icon name="user-shield" size={24} color="#fff" /> Writer’s Vault
-              </Text>
-              <Text style={[styles.headerSubtitle, styles.darkText]}>
-                Craft and curate your literary masterpieces.
-              </Text>
-            </View>
-
-            <FlatList
+            
+<FlatList
               data={renderMainContent()}
               keyExtractor={(item) => item.key}
               renderItem={({ item }) => item.render()}
@@ -1396,10 +1462,10 @@ const NovelDashboardScreen = () => {
                       accessibilityLabel={`Select tag ${item.label}`}
                       accessibilityRole="checkbox"
                     >
-                      <Icon
+                      <FontAwesome5
                         name={tags.find((t) => t.value === item.value) ? 'check-square' : 'square'}
                         size={20}
-                        color="#fff"
+                        color={KA_COLORS.ivory}
                       />
                       <Text style={[styles.tagOptionText, styles.darkText]}>
                         {item.label}
@@ -1510,5 +1576,614 @@ const NovelDashboardScreen = () => {
     </SafeAreaView>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  darkContainer: {
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  emberContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+  ember: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: KA_COLORS.orangePrimary,
+    shadowColor: KA_COLORS.orangeBright,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  navbar: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderBottomWidth: 1,
+    borderBottomColor: KA_COLORS.border,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  darkNavbar: {
+    backgroundColor: KA_COLORS.bgCard,
+  },
+  navContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  navLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  navText: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  darkText: {
+    color: KA_COLORS.ivory,
+  },
+  navRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuToggle: {
+    padding: 8,
+  },
+  navMenu: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 8,
+    zIndex: 10,
+  },
+  darkNavMenu: {
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  navMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  navMenuText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  main: {
+    padding: 16,
+    paddingBottom: 100,
+  },
+  connectPrompt: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  connectIcon: {
+    marginBottom: 16,
+  },
+  connectFontAwesome5: {
+    marginBottom: 16,
+  },
+  connectText: {
+    color: KA_COLORS.ivory,
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: 1,
+  },
+  accessDenied: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  deniedIcon: {
+    marginBottom: 16,
+  },
+  deniedFontAwesome5: {
+    marginBottom: 16,
+  },
+  accessDeniedText: {
+    color: KA_COLORS.ivory,
+    fontSize: 18,
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: 1,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  backButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  formSection: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    color: KA_COLORS.gold,
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  novelForm: {
+    gap: 16,
+  },
+  inputGroup: {
+    gap: 8,
+  },
+  label: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  input: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+  },
+  darkInput: {
+    backgroundColor: KA_COLORS.bgElevated,
+    color: KA_COLORS.ivory,
+  },
+  textarea: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    minHeight: 80,
+  },
+  imagePreview: {
+    width: 200,
+    height: 280,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  placeholderText: {
+    color: KA_COLORS.textMuted,
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  fileButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  fileButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  tagButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  tagButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+  },
+  chapterSection: {
+    marginTop: 16,
+  },
+  chapterTitle: {
+    color: KA_COLORS.gold,
+    fontSize: 18,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  checkboxLabel: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+  },
+  formActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 16,
+  },
+  addChapterButton: {
+    flex: 1,
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  addChapterButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  resetButton: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  resetButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  chapterList: {
+    marginTop: 16,
+  },
+  chapterItem: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    marginBottom: 12,
+    padding: 16,
+  },
+  darkChapterItem: {
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  chapterText: {
+    flex: 1,
+  },
+  chapterTitleText: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  chapterPreview: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  advanceInfo: {
+    color: KA_COLORS.gold,
+    fontSize: 12,
+  },
+  chapterActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  submitButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  submitButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  announcementSection: {
+    marginTop: 32,
+  },
+  announcementForm: {
+    gap: 16,
+  },
+  announcementButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  announcementButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  novelsSection: {
+    marginTop: 32,
+  },
+  novelsGrid: {
+    gap: 16,
+  },
+  novelCard: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    marginBottom: 16,
+    padding: 16,
+  },
+  darkNovelCard: {
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  novelImage: {
+    width: 100,
+    height: 140,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  novelInfo: {
+    flex: 1,
+  },
+  novelTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  novelSummary: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  novelTags: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  novelViewers: {
+    color: KA_COLORS.gold,
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  novelActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editNovelButton: {
+    flex: 1,
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  editNovelButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  deleteButton: {
+    backgroundColor: KA_COLORS.error,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  writersSection: {
+    marginTop: 32,
+  },
+  writersList: {
+    gap: 12,
+  },
+  writerItem: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 16,
+  },
+  darkWriterItem: {
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  writerText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  writerId: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+  },
+  noNovels: {
+    color: KA_COLORS.textMuted,
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 32,
+  },
+  noWriters: {
+    color: KA_COLORS.textMuted,
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 32,
+  },
+  modalContainer: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 24,
+  },
+  darkModal: {
+    backgroundColor: KA_COLORS.bgCard,
+  },
+  modalTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    letterSpacing: 2,
+  },
+  modalText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: KA_COLORS.error,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  tagOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: KA_COLORS.border,
+  },
+  tagOptionText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+  },
+  tagList: {
+    maxHeight: 300,
+  },
+  modalCloseButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 4,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  modalCloseButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  datePickerContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  datePickerGroup: {
+    flex: 1,
+    minWidth: 60,
+  },
+  datePicker: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+  },
+  pickerItem: {
+    color: KA_COLORS.ivory,
+  },
+  footer: {
+    padding: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: KA_COLORS.border,
+  },
+  darkFooter: {
+    backgroundColor: KA_COLORS.bgCard,
+  },
+  footerText: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+});
 
 export default NovelDashboardScreen;

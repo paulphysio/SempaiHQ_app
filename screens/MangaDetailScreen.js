@@ -23,7 +23,8 @@ const MangaDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params || {};
-  const { wallet } = React.useContext(EmbeddedWalletContext);
+  const walletContext = React.useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
   const [manga, setManga] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -132,7 +133,6 @@ const MangaDetailScreen = () => {
   const data = [
     { type: 'navbar', key: 'navbar' },
     { type: 'error', key: 'error' },
-    { type: 'header', key: 'header' },
     { type: 'chapters', key: 'chapters' },
     { type: 'comments', key: 'comments' },
     { type: 'wallet', key: 'wallet' },
@@ -201,33 +201,6 @@ const MangaDetailScreen = () => {
         return error ? (
           <Animated.View entering={FadeIn} style={styles.error}>
             <Text style={styles.errorText}>{error}</Text>
-          </Animated.View>
-        ) : null;
-      case 'header':
-        return manga ? (
-          <Animated.View entering={FadeIn} style={styles.header}>
-            <Image
-              source={{ uri: manga.cover_image || 'https://via.placeholder.com/300x400' }}
-              style={styles.coverImage}
-              resizeMode="cover"
-            />
-            <View style={styles.info}>
-              <Text style={styles.title}>
-                <Icon name="star" size={20} color="#FFD700" style={styles.titleIcon} /> {manga.title}
-              </Text>
-              <TouchableOpacity
-                style={styles.artistContainer}
-                onPress={() => navigation.navigate('CreatorsProfile', { id: manga.user_id })}
-              >
-                <Icon name="user" size={16} color="#FFFFFF" />
-                <Text style={styles.artistText}>{manga.users?.name || 'Unknown Artist'}</Text>
-              </TouchableOpacity>
-              <Text style={styles.genres}>{manga.tags?.join(', ') || 'No tags'}</Text>
-              <View style={styles.summary}>
-                <Text style={styles.summaryTitle}>Summary</Text>
-                <Text style={styles.summaryText}>{manga.summary || 'No summary available.'}</Text>
-              </View>
-            </View>
           </Animated.View>
         ) : null;
       case 'chapters':

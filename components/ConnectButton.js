@@ -521,10 +521,9 @@ const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
 
 // Compact, header-friendly wallet button
 const ConnectButton = ({ compact = false, label }) => {
-  const {
-    wallet,
-    isLoading,
-  } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
+  const isLoading = walletContext?.isLoading;
   const { user } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showModal, setShowModal] = useState(false);

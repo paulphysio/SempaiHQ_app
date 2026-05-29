@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { SMP_MINT_ADDRESS, TREASURY_PUBLIC_KEY, RPC_URL, SMP_DECIMALS } from '../constants';
 import { styles } from '../styles/StatStyles';
 
@@ -26,7 +26,8 @@ const connection = new Connection(RPC_URL, 'confirmed');
 
 const StatPageScreen = () => {
   const navigation = useNavigation();
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const activePublicKey = wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
   const activeWalletAddress = activePublicKey?.toString();
   const isWalletConnected = !!activeWalletAddress;
@@ -426,13 +427,6 @@ const StatPageScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
-          <Icon name="home" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Platform Stats</Text>
-        
-      </View>
 
       {errorMessage && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.errorContainer}>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../services/supabaseClient'; // Adjust path if needed
-import { EmbeddedWalletContext } from '../components/ConnectButton'; // Adjust path if needed
+import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced'; // Adjust path if needed
 import Popup from '../components/Popup';
 
 const ApplyScreen = () => {

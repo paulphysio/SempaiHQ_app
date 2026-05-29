@@ -7,8 +7,10 @@ import {
   FlatList,
   Image,
   ActivityIndicator,
-  TouchableWithoutFeedback,
   Animated,
+  StyleSheet,
+  Dimensions,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -16,11 +18,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
 import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import WalletPanel from '../components/WalletPanel';
-import { styles } from '../styles/NovelsStyles';
-import { LinearGradient } from 'expo-linear-gradient';
 import { PublicKey } from '@solana/web3.js';
 import { TREASURY_PUBLIC_KEY, SMP_MINT_ADDRESS } from '../constants';
 import { fetchSmpTokenBalance } from '../utils/solana';
+
+const { width, height } = Dimensions.get('window');
+const isTablet = width >= 768;
+const isDesktop = width >= 1024;
+
+// Kaito Adventure Design System - Japanese Dark-Orange
+const KA_COLORS = {
+  bgPrimary: '#0c0c0c',
+  bgCard: '#141210',
+  bgElevated: '#1a1714',
+  orangePrimary: '#cc5500',
+  orangeBright: '#ff6b35',
+  orangeSoft: '#e67e22',
+  orangeDim: '#8b4513',
+  gold: '#c9a84c',
+  goldBright: '#ffd700',
+  ivory: '#f5e6d3',
+  ivoryDim: '#c4b5a0',
+  border: '#2d2418',
+  textPrimary: '#f5e6d3',
+  textSecondary: '#a09080',
+  textMuted: '#6b5d4f',
+  success: '#4a7c59',
+  error: '#c41e3a',
+  warning: '#c9a84c',
+};
 
 const API_BASE_URL = 'https://sempaihq.com';
 
@@ -50,12 +76,389 @@ const TAG_OPTIONS = [
 const MIN_WITHDRAWAL = 2500;
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 
-const NovelsPageScreen = () => {
-  // ...
-  const [onChainBalance, setOnChainBalance] = useState(0);
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  emberContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+  ember: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: KA_COLORS.orangePrimary,
+    shadowColor: KA_COLORS.orangeBright,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  scrollContent: {
+    paddingBottom: 240,
+  },
+  // Hero Section
+  heroSection: {
+    padding: isTablet ? 32 : 24,
+    backgroundColor: KA_COLORS.bgCard,
+    borderBottomWidth: 1,
+    borderBottomColor: KA_COLORS.border,
+  },
+  heroContent: {
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  heroTitle: {
+    color: KA_COLORS.gold,
+    fontSize: isTablet ? 36 : 28,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  heroSubtitle: {
+    color: KA_COLORS.textSecondary,
+    fontSize: isTablet ? 16 : 14,
+    letterSpacing: 1,
+    marginBottom: 24,
+  },
+  // Search Bar
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 20,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    letterSpacing: 0.5,
+  },
+  searchPlaceholder: {
+    color: KA_COLORS.textMuted,
+  },
+  clearButton: {
+    padding: 8,
+  },
+  // Tag Filters
+  tagFiltersContainer: {
+    marginBottom: 8,
+  },
+  tagFiltersLabel: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    marginBottom: 12,
+    letterSpacing: 1,
+  },
+  tagFiltersScroll: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  tagChipActive: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    borderColor: KA_COLORS.orangePrimary,
+  },
+  tagChipText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 13,
+    letterSpacing: 0.5,
+  },
+  tagChipTextActive: {
+    color: KA_COLORS.ivory,
+    fontWeight: 'bold',
+  },
+  clearTagsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.error,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  clearTagsText: {
+    color: KA_COLORS.ivory,
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  // Results Header
+  resultsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: isTablet ? 32 : 24,
+    paddingVertical: 16,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  resultsCount: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  resultsCountHighlight: {
+    color: KA_COLORS.gold,
+    fontWeight: 'bold',
+  },
+  // Grid Container
+  gridContainer: {
+    paddingHorizontal: isTablet ? 32 : 24,
+    paddingTop: 16,
+  },
+  gridContent: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  // Novel Card
+  novelCard: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 12,
+    marginBottom: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  novelCardTouchable: {
+    width: '100%',
+  },
+  novelCoverContainer: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 2 / 3,
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  novelCover: {
+    width: '100%',
+    height: '100%',
+  },
+  novelCoverPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  novelCoverPlaceholderText: {
+    color: KA_COLORS.textMuted,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  adultBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: KA_COLORS.error,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  adultBadgeText: {
+    color: KA_COLORS.ivory,
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  novelInfo: {
+    padding: 16,
+    minHeight: 100,
+  },
+  novelTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: isTablet ? 16 : 15,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+    lineHeight: 22,
+    height: 44,
+  },
+  novelMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 'auto',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: KA_COLORS.border,
+  },
+  novelAuthor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  novelAuthorIcon: {
+    marginRight: 6,
+  },
+  novelAuthorText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  novelViewers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  novelViewersIcon: {
+    marginRight: 4,
+  },
+  novelViewersText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  // Loading States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgPrimary,
+    minHeight: 400,
+  },
+  loadingText: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    marginTop: 16,
+    letterSpacing: 1,
+  },
+  // Skeleton Loading
+  skeletonContainer: {
+    paddingHorizontal: isTablet ? 32 : 24,
+    paddingTop: 16,
+  },
+  skeletonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  skeletonCard: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 12,
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  skeletonCover: {
+    width: '100%',
+    aspectRatio: 2 / 3,
+    backgroundColor: KA_COLORS.bgElevated,
+  },
+  skeletonInfo: {
+    padding: 16,
+  },
+  skeletonTitle: {
+    height: 20,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  skeletonMeta: {
+    height: 14,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderRadius: 4,
+    width: '60%',
+  },
+  // Empty State
+  emptyContainer: {
+    padding: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyIcon: {
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    letterSpacing: 1,
+  },
+  emptyText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    letterSpacing: 0.5,
+    maxWidth: 400,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 24,
+  },
+  emptyButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    letterSpacing: 1,
+  },
+  // Footer
+  footer: {
+    padding: 24,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: KA_COLORS.border,
+    backgroundColor: KA_COLORS.bgCard,
+  },
+  footerText: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+});
 
+const NovelsPageScreen = () => {
   const navigation = useNavigation();
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const [publicKey, setPublicKey] = useState(null);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [balance, setBalance] = useState(0);
@@ -69,11 +472,44 @@ const NovelsPageScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(null);
-  const menuAnim = useRef(new Animated.Value(280)).current;
+  const [onChainBalance, setOnChainBalance] = useState(0);
   const isMounted = useRef(true);
+  const emberAnims = useRef([]);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const cardWidth = isDesktop ? (width - 96) / 4 : isTablet ? (width - 64) / 3 : (width - 56) / 2;
+
+  // Initialize ember particles
+  useEffect(() => {
+    const embers = Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 8,
+      duration: 6 + Math.random() * 4,
+    }));
+    emberAnims.current = embers.map(() => new Animated.Value(0));
+    
+    emberAnims.current.forEach((anim, index) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(embers[index].delay * 1000),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: embers[index].duration * 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+
+    // Fade in content
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   // Sync wallet state
   useEffect(() => {
@@ -109,27 +545,6 @@ const NovelsPageScreen = () => {
     };
     syncWallet();
   }, [wallet]);
-
-  const toggleMenu = () => {
-    const toValue = menuOpen ? 280 : 0;
-    Animated.timing(menuAnim, {
-      toValue,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-    setMenuOpen(!menuOpen);
-  };
-
-  const closeMenu = () => {
-    if (menuOpen) {
-      toggleMenu();
-    }
-  };
-
-  const handleNavigation = (path) => {
-    toggleMenu();
-    navigation.navigate(path);
-  };
 
   const checkBalance = async () => {
     if (!isWalletConnected || !publicKey) {
@@ -485,198 +900,268 @@ const NovelsPageScreen = () => {
     };
   }, []);
 
-  const renderHeader = () => (
-    <View>
-      <View style={styles.libraryHeader}>
-        <Text style={styles.headerTitle}>SempaiHQ Library</Text>
-        <Text style={styles.headerTagline}>Unlock the Nexus of Imagination</Text>
-        <View style={styles.searchBar}>
-          <FontAwesome5 name="search" size={18} color="#F36316" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search by title or author..."
-            placeholderTextColor="rgba(255, 255, 255, 0.5)"
-          />
-        </View>
-        <View style={styles.tagSelectContainer}>
-          {TAG_OPTIONS.map((tag) => (
-            <TouchableOpacity
-              key={tag.value}
-              style={[
-                styles.tagButton,
-                selectedTags.includes(tag.value) && styles.tagButtonSelected,
-              ]}
-              onPress={() => toggleTag(tag.value)}
-              accessible={true}
-              accessibilityLabel={`Filter by ${tag.label}`}
-            >
-              <Text
-                style={[
-                  styles.tagButtonText,
-                  selectedTags.includes(tag.value) && styles.tagButtonTextSelected,
-                ]}
-              >
-                {tag.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-
   const renderNovelItem = ({ item }) => (
-    <View style={styles.bookCard}>
+    <View style={[styles.novelCard, { width: cardWidth }]}>
       <TouchableOpacity
-        style={styles.bookLink}
+        style={styles.novelCardTouchable}
         onPress={() => navigation.navigate('NovelDetail', { id: item.id })}
         accessible={true}
         accessibilityLabel={`View novel ${item.title}`}
+        activeOpacity={0.8}
       >
-        <Image
-          source={{ uri: item.image || FALLBACK_IMAGE }}
-          style={styles.bookCover}
-          resizeMode="cover"
-          defaultSource={{ uri: FALLBACK_IMAGE }}
-        />
-        <View style={styles.bookInfo}>
-          <Text style={styles.bookTitle} numberOfLines={2}>
+        <View style={styles.novelCoverContainer}>
+          {item.image ? (
+            <Image
+              source={{ uri: item.image }}
+              style={styles.novelCover}
+              resizeMode="cover"
+              defaultSource={{ uri: FALLBACK_IMAGE }}
+            />
+          ) : (
+            <View style={styles.novelCoverPlaceholder}>
+              <FontAwesome5 name="book" size={32} color={KA_COLORS.textMuted} />
+              <Text style={styles.novelCoverPlaceholderText}>No Cover</Text>
+            </View>
+          )}
+          {item.tags?.includes('Adult(18+)') && (
+            <View style={styles.adultBadge}>
+              <Text style={styles.adultBadgeText}>18+</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.novelInfo}>
+          <Text style={styles.novelTitle} numberOfLines={2}>
             {item.title}
           </Text>
-          <Text style={styles.bookSummary} numberOfLines={3}>
-            {item.summary?.substring(0, 100) || 'No summary available'}...
-          </Text>
+          <View style={styles.novelMeta}>
+            <TouchableOpacity
+              style={styles.novelAuthor}
+              onPress={() => navigation.navigate('WritersProfile', { id: item.user_id })}
+              accessible={true}
+              accessibilityLabel={`View profile of ${item.users?.name || 'Unknown'}`}
+            >
+              <FontAwesome5 name="feather-alt" size={12} color={KA_COLORS.ivory} style={styles.novelAuthorIcon} />
+              <Text style={styles.novelAuthorText} numberOfLines={1}>
+                {item.users?.name || 'Unknown'}
+              </Text>
+            </TouchableOpacity>
+            <View style={styles.novelViewers}>
+              <FontAwesome5 name="eye" size={12} color={KA_COLORS.ivory} style={styles.novelViewersIcon} />
+              <Text style={styles.novelViewersText}>
+                {item.viewers_count >= 1000 
+                  ? `${(item.viewers_count / 1000).toFixed(1)}k` 
+                  : item.viewers_count.toLocaleString()}
+              </Text>
+            </View>
+          </View>
         </View>
       </TouchableOpacity>
-      <View style={styles.bookMeta}>
-        <TouchableOpacity
-          style={styles.authorLink}
-          onPress={() => navigation.navigate('WritersProfile', { id: item.user_id })}
-          accessible={true}
-          accessibilityLabel={`View profile of ${item.users?.name || 'Unknown'}`}
-        >
-          <FontAwesome5 name="feather-alt" size={14} color="#fff" />
-          <Text style={styles.authorText}>{item.users?.name || 'Unknown'}</Text>
-        </TouchableOpacity>
-        <View style={styles.viewersContainer}>
-          <FontAwesome5 name="eye" size={14} color="#fff" />
-          <Text style={styles.viewersText}>{item.viewers_count.toLocaleString()}</Text>
-        </View>
-        {item.tags?.includes('Adult(18+)') && (
-          <Text style={styles.adultTag}>18+ Adult</Text>
-        )}
+    </View>
+  );
+
+  const renderSkeletonCard = () => (
+    <View style={[styles.skeletonCard, { width: cardWidth }]}>
+      <View style={styles.skeletonCover} />
+      <View style={styles.skeletonInfo}>
+        <View style={styles.skeletonTitle} />
+        <View style={styles.skeletonMeta} />
       </View>
     </View>
   );
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F36316" />
-        <Text style={styles.loadingText}>Loading...</Text>
+      <View style={styles.container}>
+        <View style={styles.backgroundGradient} />
+        <View style={styles.emberContainer}>
+          {emberAnims.current.map((anim, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.ember,
+                {
+                  left: `${Math.random() * 100}%`,
+                  opacity: anim,
+                  transform: [
+                    {
+                      translateY: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [height, -50],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ))}
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={KA_COLORS.orangePrimary} />
+          <Text style={styles.loadingText}>Loading novels...</Text>
+        </View>
       </View>
     );
   }
 
-  return (
-    <View style={styles.libraryContainer}>
-      {/* Navbar */}
-      <View style={styles.libraryNavbar}>
-        <View style={styles.navbarContent}>
-          <TouchableOpacity
-            style={styles.libraryLogo}
-            onPress={() => navigation.navigate('Home')}
-            accessible={true}
-            accessibilityLabel="Go to home"
-          >
-            <Image
-              source={{
-                uri:
-                  'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' ||
-                  'https://placehold.co/50x50/png?text=Logo',
-              }}
-              style={styles.logoImage}
-              resizeMode="cover"
-              defaultSource={{ uri: 'https://placehold.co/50x50/png?text=Logo' }}
-            />
-            <Text style={styles.logoText}>SempaiHQ Library</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={toggleMenu}
-            accessible={true}
-            accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
-          >
-            <FontAwesome5 name={menuOpen ? 'times' : 'bars'} size={24} color="#F36316" />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Sidebar with Backdrop */}
-      {menuOpen && (
-        <TouchableWithoutFeedback onPress={closeMenu}>
-          <View style={[styles.backdrop, { pointerEvents: 'auto' }]} />
-        </TouchableWithoutFeedback>
+  const renderEmptyState = () => (
+    <View style={styles.emptyContainer}>
+      <FontAwesome5 name="book-open" size={64} color={KA_COLORS.textMuted} style={styles.emptyIcon} />
+      <Text style={styles.emptyTitle}>No Novels Found</Text>
+      <Text style={styles.emptyText}>
+        {searchQuery || selectedTags.length > 0
+          ? 'Try adjusting your search or filters to find what you\'re looking for.'
+          : 'There are no novels in the library yet.'}
+      </Text>
+      {(searchQuery || selectedTags.length > 0) && (
+        <TouchableOpacity
+          style={styles.emptyButton}
+          onPress={() => {
+            setSearchQuery('');
+            setSelectedTags([]);
+          }}
+        >
+          <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
+          <Text style={styles.emptyButtonText}>Clear Filters</Text>
+        </TouchableOpacity>
       )}
-      <Animated.View style={[styles.navItems, { transform: [{ translateX: menuAnim }] }]}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleNavigation('Home')}
-          accessible={true}
-          accessibilityLabel="Go to home"
-        >
-          <FontAwesome5 name="home" size={16} color="#fff" />
-          <Text style={styles.navItemText}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => handleNavigation('Swap')}
-          accessible={true}
-          accessibilityLabel="Go to swap"
-        >
-          <FontAwesome5 name="exchange-alt" size={16} color="#fff" />
-          <Text style={styles.navItemText}>Swap</Text>
-        </TouchableOpacity>
-        <ConnectButton style={styles.connectBtn} />
-      </Animated.View>
+    </View>
+  );
 
-      {/* Novels Grid with Header */}
-      <FlatList
-        data={filteredNovels}
-        renderItem={renderNovelItem}
-        keyExtractor={(item) => `novel-${item.id}`}
-        numColumns={2}
-        ListHeaderComponent={renderHeader}
-        contentContainerStyle={styles.gridContainer}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <Text style={styles.noBooks}>No novels found in the library...</Text>
-        }
-      />
-
-      {/* Wallet Panel */}
-      <WalletPanel
-        isWalletConnected={isWalletConnected}
-        balance={balance}
-        offChainBalance={offChainBalance}
-        onChainBalance={onChainBalance}
-        weeklyPoints={weeklyPoints}
-        pendingWithdrawal={pendingWithdrawal}
-        withdrawAmount={withdrawAmount}
-        setWithdrawAmount={setWithdrawAmount}
-        isWithdrawing={isWithdrawing}
-        handleWithdraw={handleWithdraw}
-        checkBalance={checkBalance}
-        errorMessage={errorMessage}
-        timeLeft={timeLeft}
-      />
-
-      {/* Footer Text */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
+  return (
+    <View style={styles.container}>
+      <View style={styles.backgroundGradient} />
+      <View style={styles.emberContainer}>
+        {emberAnims.current.map((anim, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.ember,
+              {
+                left: `${Math.random() * 100}%`,
+                opacity: anim,
+                transform: [
+                  {
+                    translateY: anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [height, -50],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ))}
       </View>
+
+      <Animated.ScrollView
+        style={{ opacity: fadeAnim }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTitle}>Novel Library</Text>
+            <Text style={styles.heroSubtitle}>Discover amazing stories and adventures</Text>
+            
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+              <FontAwesome5 name="search" size={16} color={KA_COLORS.textMuted} style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search novels by title or author..."
+                placeholderTextColor={KA_COLORS.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}>
+                  <FontAwesome5 name="times" size={16} color={KA_COLORS.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Tag Filters */}
+            <View style={styles.tagFiltersContainer}>
+              <Text style={styles.tagFiltersLabel}>Filter by Genre:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagFiltersScroll}>
+                {selectedTags.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.clearTagsButton}
+                    onPress={() => setSelectedTags([])}
+                  >
+                    <FontAwesome5 name="times" size={12} color={KA_COLORS.ivory} />
+                    <Text style={styles.clearTagsText}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                {TAG_OPTIONS.map((tag) => (
+                  <TouchableOpacity
+                    key={tag.value}
+                    style={[
+                      styles.tagChip,
+                      selectedTags.includes(tag.value) && styles.tagChipActive,
+                    ]}
+                    onPress={() => toggleTag(tag.value)}
+                  >
+                    <Text
+                      style={[
+                        styles.tagChipText,
+                        selectedTags.includes(tag.value) && styles.tagChipTextActive,
+                      ]}
+                    >
+                      {tag.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+
+        {/* Results Header */}
+        <View style={styles.resultsHeader}>
+          <Text style={styles.resultsCount}>
+            Showing <Text style={styles.resultsCountHighlight}>{filteredNovels.length}</Text> novel{filteredNovels.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+
+        {/* Novels Grid */}
+        <View style={styles.gridContainer}>
+          {filteredNovels.length === 0 ? (
+            renderEmptyState()
+          ) : (
+            <View style={styles.gridContent}>
+              {filteredNovels.map((item) => (
+                <View key={`novel-${item.id}`}>
+                  {renderNovelItem({ item })}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Wallet Panel */}
+        <WalletPanel
+          isWalletConnected={isWalletConnected}
+          balance={balance}
+          offChainBalance={offChainBalance}
+          onChainBalance={onChainBalance}
+          weeklyPoints={weeklyPoints}
+          pendingWithdrawal={pendingWithdrawal}
+          withdrawAmount={withdrawAmount}
+          setWithdrawAmount={setWithdrawAmount}
+          isWithdrawing={isWithdrawing}
+          handleWithdraw={handleWithdraw}
+          checkBalance={checkBalance}
+          errorMessage={errorMessage}
+          timeLeft={timeLeft}
+        />
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
+        </View>
+      </Animated.ScrollView>
     </View>
   );
 };

@@ -255,7 +255,9 @@ const GifPicker = ({ onSelect, onClose }) => {
 };
 
 const ChatScreen = () => {
-  const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
+  const isWalletConnected = walletContext?.isWalletConnected || !!wallet?.publicKey;
   const navigation = useNavigation();
   const route = useRoute(); // Added to access route params
   const [messages, setMessages] = useState([]);

@@ -1,4 +1,3 @@
-// ./screens/NovelDetailScreen.js
 import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
 import {
   View,
@@ -9,6 +8,8 @@ import {
   ActivityIndicator,
   Animated,
   SafeAreaView,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -16,28 +17,391 @@ import { supabase } from '../services/supabaseClient';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
-import { LinearGradient } from 'expo-linear-gradient';
-import { styles } from '../styles/NovelPageStyles';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 
+const { width, height } = Dimensions.get('window');
+
+// Kaito Adventure Design System - Japanese Dark-Orange
+const KA_COLORS = {
+  bgPrimary: '#0c0c0c',
+  bgCard: '#141210',
+  bgElevated: '#1a1714',
+  orangePrimary: '#cc5500',
+  orangeBright: '#ff6b35',
+  orangeSoft: '#e67e22',
+  orangeDim: '#8b4513',
+  gold: '#c9a84c',
+  goldBright: '#ffd700',
+  ivory: '#f5e6d3',
+  ivoryDim: '#c4b5a0',
+  border: '#2d2418',
+  textPrimary: '#f5e6d3',
+  textSecondary: '#a09080',
+  textMuted: '#6b5d4f',
+  success: '#4a7c59',
+  error: '#c41e3a',
+  warning: '#c9a84c',
+};
+
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
+
+const styles = StyleSheet.create({
+  page: {
+    flex: 1,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: KA_COLORS.bgPrimary,
+  },
+  emberContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: 'none',
+  },
+  ember: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: KA_COLORS.orangePrimary,
+    shadowColor: KA_COLORS.orangeBright,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 6,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    marginTop: 16,
+    letterSpacing: 1,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    color: KA_COLORS.ivory,
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    letterSpacing: 2,
+  },
+  backHomeLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  backHomeText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 1,
+  },
+  navItems: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: 280,
+    backgroundColor: KA_COLORS.bgCard,
+    borderRightWidth: 1,
+    borderRightColor: KA_COLORS.border,
+    zIndex: 2,
+    paddingTop: 60,
+    paddingHorizontal: 16,
+  },
+  navItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 12,
+  },
+  navItemText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 200,
+  },
+  novelContainer: {
+    marginBottom: 24,
+  },
+  errorMessage: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.error,
+    borderRadius: 4,
+    padding: 16,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  errorMessageText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    flex: 1,
+    letterSpacing: 1,
+  },
+  clearErrorButton: {
+    padding: 8,
+  },
+  novelHeaderGradient: {
+    backgroundColor: KA_COLORS.bgCard,
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: KA_COLORS.border,
+  },
+  novelHeader: {
+    alignItems: 'center',
+  },
+  novelTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  novelImageWrapper: {
+    position: 'relative',
+    marginBottom: 16,
+  },
+  novelImage: {
+    width: 200,
+    height: 280,
+    borderRadius: 8,
+  },
+  imageGlow: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderWidth: 2,
+    borderColor: KA_COLORS.orangePrimary,
+    borderRadius: 12,
+  },
+  novelViews: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  novelViewsText: {
+    color: KA_COLORS.gold,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  novelIntro: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 22,
+    letterSpacing: 0.5,
+  },
+  highlight: {
+    color: KA_COLORS.orangePrimary,
+    fontWeight: 'bold',
+  },
+  summaryLinkContainer: {
+    padding: 16,
+  },
+  summaryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  summaryLinkText: {
+    color: KA_COLORS.orangePrimary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  chaptersSection: {
+    padding: 16,
+    paddingTop: 8,
+  },
+  sectionTitle: {
+    color: KA_COLORS.gold,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    letterSpacing: 2,
+  },
+  chapterCard: {
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  chapterContent: {
+    backgroundColor: KA_COLORS.bgCard,
+    padding: 16,
+  },
+  chapterGradient: {
+    backgroundColor: KA_COLORS.bgCard,
+  },
+  chapterTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  chapterNumber: {
+    color: KA_COLORS.gold,
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    letterSpacing: 1,
+  },
+  chapterAccent: {
+    height: 2,
+    backgroundColor: KA_COLORS.orangePrimary,
+    width: '100%',
+  },
+  noChapters: {
+    color: KA_COLORS.textMuted,
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 32,
+    letterSpacing: 1,
+  },
+  footer: {
+    padding: 16,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: KA_COLORS.border,
+  },
+  footerText: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+  connectPopupOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+  },
+  connectPopup: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 32,
+    width: '80%',
+    maxWidth: 400,
+  },
+  closePopupButton: {
+    alignSelf: 'flex-end',
+    marginBottom: 16,
+  },
+  popupTitle: {
+    color: KA_COLORS.ivory,
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    letterSpacing: 2,
+  },
+  popupMessage: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    marginBottom: 24,
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  connectWalletButton: {
+    marginBottom: 16,
+  },
+});
 
 const NovelDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params;
-  const { wallet } = useContext(EmbeddedWalletContext);
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showConnectPopup, setShowConnectPopup] = useState(false);
   const [viewCountError, setViewCountError] = useState(null);
-  const [showComments, setShowComments] = useState(false);
   const menuAnim = useRef(new Animated.Value(280)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const contentFade = useRef(new Animated.Value(0)).current;
+  const emberAnims = useRef([]);
   const { session } = useGoogleAuth();
+
+  // Initialize ember particles
+  useEffect(() => {
+    const embers = Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 8,
+      duration: 6 + Math.random() * 4,
+    }));
+    emberAnims.current = embers.map(() => new Animated.Value(0));
+    
+    emberAnims.current.forEach((anim, index) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(embers[index].delay * 1000),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: embers[index].duration * 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  }, []);
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey || null;
@@ -71,12 +435,9 @@ const NovelDetailScreen = () => {
     if (menuOpen) toggleMenu();
   };
 
-  const toggleComments = () => {
-    setShowComments(!showComments);
-  };
-
   const fetchNovel = useCallback(async () => {
     try {
+      console.log('[NovelDetailScreen] Fetching novel with id:', id);
       const { data, error } = await supabase
         .from('novels')
         .select('*')
@@ -84,7 +445,12 @@ const NovelDetailScreen = () => {
         .eq('is_visible', true)
         .single();
 
-      if (error) throw new Error('Novel not found');
+      if (error) {
+        console.error('[NovelDetailScreen] Novel fetch error:', error);
+        throw new Error('Novel not found');
+      }
+      
+      console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
       Animated.timing(contentFade, {
         toValue: 1,
@@ -92,7 +458,7 @@ const NovelDetailScreen = () => {
         useNativeDriver: true,
       }).start();
     } catch (error) {
-      console.error('Unexpected error:', error.message);
+      console.error('[NovelDetailScreen] Unexpected error:', error.message);
       setError(error.message);
     } finally {
       setLoading(false);
@@ -119,6 +485,21 @@ const NovelDetailScreen = () => {
       }
 
       const userId = user.id;
+
+      // Check if user has already viewed this novel
+      const { data: existingInteraction, error: interactionError } = await supabase
+        .from('novel_interactions')
+        .select('id')
+        .eq('novel_id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (existingInteraction) {
+        console.log('User has already viewed this novel, skipping view count increment');
+        return;
+      }
+
+      // Call RPC function to increment viewers_count and add interaction
       const { error: rpcError } = await supabase.rpc('increment_novel_view', {
         novel_id: id,
         user_id: userId,
@@ -128,7 +509,7 @@ const NovelDetailScreen = () => {
         console.error('Error in increment_novel_view:', rpcError.message);
         setViewCountError('Failed to update view count. Please try again later.');
       } else {
-        console.log('Viewers count incremented for user:', userId);
+        console.log('Viewers count incremented and interaction recorded for user:', userId);
       }
     } catch (error) {
       console.error('Error in updateViewCount:', error.message);
@@ -185,13 +566,11 @@ const NovelDetailScreen = () => {
         activeOpacity={0.7}
       >
         <Animated.View style={[styles.chapterContent, { transform: [{ scale: scaleAnim }] }]}>
-          <LinearGradient
-            colors={['#1A1A2E', '#0F0F1F']}
-            style={styles.chapterGradient}
-          >
+          <View style={styles.chapterGradient}>
+            <Text style={styles.chapterNumber}>Chapter {parseInt(chapterId) + 1}</Text>
             <Text style={styles.chapterTitle}>{sanitizeText(title)}</Text>
             <View style={styles.chapterAccent} />
-          </LinearGradient>
+          </View>
         </Animated.View>
       </TouchableOpacity>
     );
@@ -208,15 +587,12 @@ const NovelDetailScreen = () => {
             accessible={true}
             accessibilityLabel="Clear error"
           >
-            <FontAwesome5 name="times" size={16} color="#fff" />
+            <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
           </TouchableOpacity>
         </View>
       )}
       <View style={styles.novelContainer}>
-        <LinearGradient
-          colors={['#1A1A2E', '#0F0F1F']}
-          style={styles.novelHeaderGradient}
-        >
+        <View style={styles.novelHeaderGradient}>
           <View style={styles.novelHeader}>
             <Text style={styles.novelTitle}>{sanitizeText(novel.title)}</Text>
             <View style={styles.novelImageWrapper}>
@@ -229,7 +605,7 @@ const NovelDetailScreen = () => {
               <View style={styles.imageGlow} />
             </View>
             <View style={styles.novelViews}>
-              <FontAwesome5 name="eye" size={16} color="#D94F04" />
+              <FontAwesome5 name="eye" size={16} color={KA_COLORS.orangePrimary} />
               <Text style={styles.novelViewsText}>
                 {(novel.viewers_count || 0).toLocaleString()} Views
               </Text>
@@ -239,7 +615,21 @@ const NovelDetailScreen = () => {
               <Text style={styles.highlight}>{sanitizeText(novel.title)}</Text>:
             </Text>
           </View>
-        </LinearGradient>
+        </View>
+        
+        {/* Summary Link */}
+        <View style={styles.summaryLinkContainer}>
+          <TouchableOpacity
+            style={styles.summaryLink}
+            onPress={() => navigation.navigate('NovelSummary', { id })}
+            accessible={true}
+            accessibilityLabel="View novel summary"
+          >
+            <FontAwesome5 name="book-open" size={16} color={KA_COLORS.orangePrimary} />
+            <Text style={styles.summaryLinkText}>View Novel Summary</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.chaptersSection}>
           <Text style={styles.sectionTitle}>Chapters</Text>
         </View>
@@ -249,24 +639,13 @@ const NovelDetailScreen = () => {
 
   const renderFooter = () => (
     <View style={styles.novelContainer}>
-      <View style={styles.commentsSection}>
-        <TouchableOpacity
-          style={styles.commentsToggle}
-          onPress={toggleComments}
-          accessible={true}
-          accessibilityLabel={showComments ? 'Hide comments' : 'Show comments'}
-        >
-          <Text style={styles.sectionTitle}>
-            Comments {showComments ? '▲' : '▼'}
-          </Text>
-        </TouchableOpacity>
-        {showComments && novel.id && novel.title && (
-          <NovelCommentSection
-            novelId={novel.id}
-            novelTitle={sanitizeText(novel.title)}
-          />
-        )}
-      </View>
+      {/* Comments Section - Always visible like web version */}
+      {novel.id && novel.title && (
+        <NovelCommentSection
+          novelId={novel.id}
+          novelTitle={sanitizeText(novel.title)}
+        />
+      )}
       <View style={styles.footer}>
         <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
       </View>
@@ -276,8 +655,31 @@ const NovelDetailScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.page}>
+        <View style={styles.backgroundGradient} />
+        <View style={styles.emberContainer}>
+          {emberAnims.current.map((anim, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.ember,
+                {
+                  left: `${Math.random() * 100}%`,
+                  opacity: anim,
+                  transform: [
+                    {
+                      translateY: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [height, -50],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#D94F04" />
+          <ActivityIndicator size="large" color={KA_COLORS.orangePrimary} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
@@ -287,6 +689,29 @@ const NovelDetailScreen = () => {
   if (!novel || error) {
     return (
       <SafeAreaView style={styles.page}>
+        <View style={styles.backgroundGradient} />
+        <View style={styles.emberContainer}>
+          {emberAnims.current.map((anim, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.ember,
+                {
+                  left: `${Math.random() * 100}%`,
+                  opacity: anim,
+                  transform: [
+                    {
+                      translateY: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [height, -50],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </View>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error || 'Novel not found'}</Text>
           <TouchableOpacity
@@ -295,7 +720,7 @@ const NovelDetailScreen = () => {
             accessible={true}
             accessibilityLabel="Go to home"
           >
-            <FontAwesome5 name="home" size={16} color="#fff" />
+            <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
             <Text style={styles.backHomeText}>Back to Home</Text>
           </TouchableOpacity>
         </View>
@@ -307,17 +732,14 @@ const NovelDetailScreen = () => {
     return (
       <SafeAreaView style={styles.page}>
         <View style={styles.connectPopupOverlay}>
-          <LinearGradient
-            colors={['#1A1A2E', '#0F0F1F']}
-            style={styles.connectPopup}
-          >
+          <View style={styles.connectPopup}>
             <TouchableOpacity
               style={styles.closePopupButton}
               onPress={() => setShowConnectPopup(false)}
               accessible={true}
               accessibilityLabel="Close popup"
             >
-              <FontAwesome5 name="times" size={24} color="#D94F04" />
+              <FontAwesome5 name="times" size={24} color={KA_COLORS.orangePrimary} />
             </TouchableOpacity>
             <Text style={styles.popupTitle}>Connect Wallet</Text>
             <Text style={styles.popupMessage}>
@@ -330,10 +752,10 @@ const NovelDetailScreen = () => {
               accessible={true}
               accessibilityLabel="Go to home"
             >
-              <FontAwesome5 name="home" size={16} color="#fff" />
+              <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
               <Text style={styles.backHomeText}>Back to Home</Text>
             </TouchableOpacity>
-          </LinearGradient>
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -341,35 +763,28 @@ const NovelDetailScreen = () => {
 
   return (
     <SafeAreaView style={styles.page}>
-      <View style={styles.navbar}>
-        <View style={styles.navContainer}>
-          <TouchableOpacity
-            style={styles.logoLink}
-            onPress={() => navigation.navigate('Home')}
-            accessible={true}
-            accessibilityLabel="Go to home"
-          >
-            <Image
-              source={{
-                uri:
-                  'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' ||
-                  'https://placehold.co/50x50/png?text=Logo',
-              }}
-              style={styles.logo}
-              resizeMode="cover"
-              defaultSource={{ uri: 'https://placehold.co/50x50/png?text=Logo' }}
-            />
-            <Text style={styles.logoText}>SempaiHQ</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.menuToggle}
-            onPress={toggleMenu}
-            accessible={true}
-            accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
-          >
-            <FontAwesome5 name={menuOpen ? 'times' : 'bars'} size={24} color="#D94F04" />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.backgroundGradient} />
+      <View style={styles.emberContainer}>
+        {emberAnims.current.map((anim, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.ember,
+              {
+                left: `${Math.random() * 100}%`,
+                opacity: anim,
+                transform: [
+                  {
+                    translateY: anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [height, -50],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ))}
       </View>
 
       {menuOpen && (
@@ -385,7 +800,7 @@ const NovelDetailScreen = () => {
               accessible={true}
               accessibilityLabel="Go to home"
             >
-              <FontAwesome5 name="home" size={16} color="#fff" />
+              <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
               <Text style={styles.navItemText}>Home</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -397,24 +812,18 @@ const NovelDetailScreen = () => {
               accessible={true}
               accessibilityLabel="Go to novel summary"
             >
-              <FontAwesome5 name="book-open" size={16} color="#fff" />
+              <FontAwesome5 name="book-open" size={16} color={KA_COLORS.ivory} />
               <Text style={styles.navItemText}>Summary</Text>
             </TouchableOpacity>
-            {!session && (
-              <View style={styles.connectContainer}>
-                <Text style={styles.connectText}>Sign in to read this novel</Text>
-                <GoogleSignInButton style={styles.connectWalletButton} />
-              </View>
-            )}
           </Animated.View>
         </>
       )}
 
       <FlatList
-        data={novel.chaptertitles ? Object.entries(novel.chaptertitles) : []}
+        data={novel.chaptertitles ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0]) - parseInt(b[0])) : []}
         renderItem={renderChapterItem}
         keyExtractor={([chapterId]) => `chapter-${chapterId}`}
-        numColumns={2}
+        numColumns={1}
         contentContainerStyle={styles.contentContainer}
         ListHeaderComponent={renderHeader}
         ListFooterComponent={renderFooter}
@@ -423,13 +832,6 @@ const NovelDetailScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       />
-
-      {!session && (
-        <View style={styles.bottomConnectContainer}>
-          <Text style={styles.connectPrompt}>Sign in to continue reading</Text>
-          <GoogleSignInButton style={styles.connectBtn} />
-        </View>
-      )}
     </SafeAreaView>
   );
 };

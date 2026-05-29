@@ -104,22 +104,6 @@ const UserDetailsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Icon name="arrow-left" size={20} color="#E67E22" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>User Details</Text>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={loadUserData}
-        >
-          <Icon name="sync" size={20} color="#E67E22" />
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.content}>
         {/* Profile Section */}
         <View style={styles.section}>

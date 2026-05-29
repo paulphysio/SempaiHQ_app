@@ -251,17 +251,6 @@ const SwapScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
-          <Icon name="home" size={20} color="#ffffff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Coin Swap</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Menu')}>
-          <Icon name="bars" size={20} color="#ffffff" />
-        </TouchableOpacity>
-      </View>
-
       {/* Messages */}
       {(successMessage || error) && (
         <Animated.View

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,206 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  Animated,
+  StyleSheet,
 } from 'react-native';
 import { supabase } from '../services/supabaseClient';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import Animated, { FadeIn } from 'react-native-reanimated';
-import { styles } from '../styles/MangaCommentSectionStyles';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 
 const connection = new Connection(RPC_URL, 'confirmed');
+
+// Kaito Adventure Design System
+const KA_COLORS = {
+  bgPrimary: '#0c0c0c',
+  bgCard: '#141210',
+  bgElevated: '#1a1714',
+  orangePrimary: '#cc5500',
+  orangeBright: '#ff6b35',
+  orangeSoft: '#e67e22',
+  orangeDim: '#8b4513',
+  gold: '#c9a84c',
+  goldBright: '#ffd700',
+  ivory: '#f5e6d3',
+  ivoryDim: '#c4b5a0',
+  border: '#2d2418',
+  textPrimary: '#f5e6d3',
+  textSecondary: '#a09080',
+  textMuted: '#6b5d4f',
+  success: '#4a7c59',
+  error: '#c41e3a',
+  warning: '#c9a84c',
+};
+
+const styles = StyleSheet.create({
+  commentSection: {
+    padding: 16,
+  },
+  commentSectionContainer: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 8,
+    padding: 16,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    color: KA_COLORS.gold,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 8,
+    letterSpacing: 1,
+  },
+  error: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.error,
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 16,
+  },
+  errorText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+  },
+  connectPrompt: {
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 16,
+    marginBottom: 16,
+  },
+  connectPromptText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  textarea: {
+    backgroundColor: KA_COLORS.bgElevated,
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    padding: 12,
+    borderRadius: 4,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+  },
+  textareaDisabled: {
+    opacity: 0.5,
+  },
+  postButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  postButtonDisabled: {
+    backgroundColor: KA_COLORS.orangeDim,
+    opacity: 0.5,
+  },
+  postButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    marginLeft: 8,
+  },
+  commentsContainer: {
+    paddingBottom: 16,
+  },
+  comment: {
+    marginBottom: 12,
+  },
+  commentCard: {
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 12,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  commentUsername: {
+    color: KA_COLORS.orangePrimary,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  commentTimestamp: {
+    color: KA_COLORS.textMuted,
+    fontSize: 12,
+  },
+  commentContent: {
+    marginBottom: 8,
+  },
+  commentText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  commentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    padding: 8,
+    borderRadius: 4,
+    marginRight: 8,
+    marginBottom: 4,
+  },
+  activeButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    borderColor: KA_COLORS.orangePrimary,
+  },
+  cancelButton: {
+    backgroundColor: KA_COLORS.orangeDim,
+    borderColor: KA_COLORS.orangeDim,
+  },
+  deleteButton: {
+    backgroundColor: KA_COLORS.error,
+    borderColor: KA_COLORS.error,
+  },
+  actionText: {
+    color: KA_COLORS.ivory,
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  actionIcon: {
+    marginRight: 4,
+  },
+  replies: {
+    marginLeft: 16,
+    marginTop: 8,
+  },
+  noComments: {
+    color: KA_COLORS.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+});
 
 const Comment = ({
   comment,
@@ -29,66 +219,77 @@ const Comment = ({
   currentUserId,
 }) => {
   const isOwner = comment.user_id === currentUserId;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   return (
-    <Animated.View entering={FadeIn} style={styles.comment}>
-      <View style={styles.commentHeader}>
-        <Text style={styles.commentUsername}>
-          {comment.username.length > 15
-            ? `${comment.username.slice(0, 2)}**${comment.username.slice(-2)}`
-            : comment.username}
-        </Text>
-        <Text style={styles.commentTimestamp}>
-          {new Date(comment.created_at).toLocaleString([], {
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })}
-        </Text>
-      </View>
-      <View style={styles.commentContent}>
-        <Text style={styles.commentText}>{comment.content}</Text>
-      </View>
-      <View style={styles.commentActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, replyingTo === comment.id ? styles.activeButton : null]}
-          onPress={() => addReply(comment.id)}
-        >
-          <Icon name="reply" size={14} color="#FFFFFF" style={styles.actionIcon} />
-          <Text style={styles.actionText}>
-            {replyingTo === comment.id ? 'Replying' : 'Reply'}
+    <Animated.View style={[styles.comment, { opacity: fadeAnim }]}>
+      <View style={styles.commentCard}>
+        <View style={styles.commentHeader}>
+          <Text style={styles.commentUsername}>
+            {comment.username.length > 15
+              ? `${comment.username.slice(0, 2)}**${comment.username.slice(-2)}`
+              : comment.username}
           </Text>
-        </TouchableOpacity>
-        {replyingTo === comment.id && (
-          <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={cancelReply}>
-            <Icon name="times" size={14} color="#FFFFFF" style={styles.actionIcon} />
-            <Text style={styles.actionText}>Cancel</Text>
-          </TouchableOpacity>
-        )}
-        {replies.length > 0 && (
+          <Text style={styles.commentTimestamp}>
+            {new Date(comment.created_at).toLocaleString([], {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
+          </Text>
+        </View>
+        <View style={styles.commentContent}>
+          <Text style={styles.commentText}>{comment.content}</Text>
+        </View>
+        <View style={styles.commentActions}>
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => toggleReplies(comment.id)}
+            style={[styles.actionButton, replyingTo === comment.id ? styles.activeButton : null]}
+            onPress={() => addReply(comment.id)}
           >
-            <Icon
-              name={showReplies[comment.id] ? 'eye-slash' : 'eye'}
-              size={14}
-              color="#FFFFFF"
-              style={styles.actionIcon}
-            />
+            <FontAwesome5 name="reply" size={14} color={KA_COLORS.ivory} style={styles.actionIcon} />
             <Text style={styles.actionText}>
-              {showReplies[comment.id] ? 'Hide' : 'Show'} ({replies.length})
+              {replyingTo === comment.id ? 'Replying' : 'Reply'}
             </Text>
           </TouchableOpacity>
-        )}
-        {isOwner && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => deleteComment(comment.id)}
-          >
-            <Icon name="trash" size={14} color="#FFFFFF" style={styles.actionIcon} />
-            <Text style={styles.actionText}>Delete</Text>
-          </TouchableOpacity>
-        )}
+          {replyingTo === comment.id && (
+            <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={cancelReply}>
+              <FontAwesome5 name="times" size={14} color={KA_COLORS.ivory} style={styles.actionIcon} />
+              <Text style={styles.actionText}>Cancel</Text>
+            </TouchableOpacity>
+          )}
+          {replies.length > 0 && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => toggleReplies(comment.id)}
+            >
+              <FontAwesome5
+                name={showReplies[comment.id] ? 'eye-slash' : 'eye'}
+                size={14}
+                color={KA_COLORS.ivory}
+                style={styles.actionIcon}
+              />
+              <Text style={styles.actionText}>
+                {showReplies[comment.id] ? 'Hide' : 'Show'} ({replies.length})
+              </Text>
+            </TouchableOpacity>
+          )}
+          {isOwner && (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.deleteButton]}
+              onPress={() => deleteComment(comment.id)}
+            >
+              <FontAwesome5 name="trash" size={14} color={KA_COLORS.ivory} style={styles.actionIcon} />
+              <Text style={styles.actionText}>Delete</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       {showReplies[comment.id] && replies.length > 0 && (
         <View style={styles.replies}>
@@ -378,57 +579,67 @@ const MangaDetailCommentSection = ({ mangaId, mangaTitle = 'Unknown Manga', isWa
 
   return (
     <View style={styles.commentSection}>
-      <Text style={styles.title}>
-        <Icon name="comment" size={18} color="#F36316" style={styles.titleIcon} /> Comments
-      </Text>
-      {error && (
-        <Animated.View entering={FadeIn} style={styles.error}>
-          <Text style={styles.errorText}>{error}</Text>
-        </Animated.View>
-      )}
-      {!isWalletConnected ? (
-        <Text style={styles.connectPrompt}>Please connect your wallet to comment.</Text>
-      ) : (
-        <>
-          <TextInput
-            style={styles.textarea}
-            value={newComment}
-            onChangeText={setNewComment}
-            placeholder={replyingTo ? 'Type your reply...' : 'Add your comment...'}
-            placeholderTextColor="#888"
-            multiline
-            disabled={!isWalletConnected}
-          />
-          <TouchableOpacity
-            style={[styles.postButton, !newComment.trim() || !isWalletConnected ? styles.disabledButton : null]}
-            onPress={handleCommentSubmit}
-            disabled={!isWalletConnected || !newComment.trim()}
-          >
-            <Icon name="comment" size={14} color="#FFFFFF" style={styles.buttonIcon} />
-            <Text style={styles.postButtonText}>
-              {replyingTo ? 'Post Reply' : 'Post Comment'}
-            </Text>
-          </TouchableOpacity>
-        </>
-      )}
-      <FlatList
-        data={buildThread(comments)}
-        renderItem={({ item }) => (
-          <Comment
-            comment={item}
-            replies={item.replies}
-            addReply={addReply}
-            replyingTo={replyingTo}
-            cancelReply={cancelReply}
-            toggleReplies={toggleReplies}
-            showReplies={showReplies}
-            deleteComment={deleteComment}
-            currentUserId={currentUserId}
-          />
+      <View style={styles.commentSectionContainer}>
+        <View style={styles.titleContainer}>
+          <FontAwesome5 name="comment" size={20} color={KA_COLORS.gold} />
+          <Text style={styles.title}>Comments</Text>
+        </View>
+        {error && (
+          <View style={styles.error}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
         )}
-        keyExtractor={(item) => item.id.toString()}
-        style={styles.commentsContainer}
-      />
+        {!isWalletConnected ? (
+          <View style={styles.connectPrompt}>
+            <Text style={styles.connectPromptText}>Please connect your wallet to comment.</Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textarea}
+                value={newComment}
+                onChangeText={setNewComment}
+                placeholder={replyingTo ? 'Type your reply...' : 'Add your comment...'}
+                placeholderTextColor={KA_COLORS.textMuted}
+                multiline
+                disabled={!isWalletConnected}
+              />
+              <TouchableOpacity
+                style={[styles.postButton, !newComment.trim() || !isWalletConnected ? styles.postButtonDisabled : null]}
+                onPress={handleCommentSubmit}
+                disabled={!isWalletConnected || !newComment.trim()}
+              >
+                <FontAwesome5 name="comment" size={14} color={KA_COLORS.ivory} style={styles.actionIcon} />
+                <Text style={styles.postButtonText}>
+                  {replyingTo ? 'Post Reply' : 'Post Comment'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+        <FlatList
+          data={buildThread(comments)}
+          renderItem={({ item }) => (
+            <Comment
+              comment={item}
+              replies={item.replies}
+              addReply={addReply}
+              replyingTo={replyingTo}
+              cancelReply={cancelReply}
+              toggleReplies={toggleReplies}
+              showReplies={showReplies}
+              deleteComment={deleteComment}
+              currentUserId={currentUserId}
+            />
+          )}
+          keyExtractor={(item) => item.id.toString()}
+          contentContainerStyle={styles.commentsContainer}
+          ListEmptyComponent={
+            <Text style={styles.noComments}>No comments yet. Be the first!</Text>
+          }
+        />
+      </View>
     </View>
   );
 };
