@@ -105,7 +105,7 @@ const CraftModal = ({ player, selectedIngredients, setSelectedIngredients, toggl
 
 const craftModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 16,
@@ -117,6 +117,7 @@ const craftModalStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 8,
+    paddingHorizontal: 16,
     gap: 8,
   },
   checkbox: {

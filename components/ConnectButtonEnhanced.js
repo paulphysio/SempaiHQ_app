@@ -632,6 +632,103 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [user, useBiometrics, disconnectWallet]);
 
+  const importWalletFromPrivateKey = useCallback(async (privateKeyInput, password) => {
+    if (!user || user.isGuest) throw new Error('Sign in with an account to import a wallet');
+    if (!password || typeof password !== 'string' || password.length < 8) throw new Error('Password must be a string and at least 8 characters long');
+    if (!privateKeyInput || typeof privateKeyInput !== 'string') throw new Error('Private key is required');
+    
+    try {
+      setIsLoading(true);
+      console.log('[importWalletFromPrivateKey] Importing wallet for:', user.email);
+
+      const { data: authUser, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser.user || authUser.user.id !== user.id) throw new Error('Authenticated user mismatch');
+
+      await disconnectWallet();
+
+      // Validate and decode private key
+      let privateKeyBytes;
+      try {
+        privateKeyBytes = bs58.decode(privateKeyInput.trim());
+      } catch (decodeError) {
+        throw new Error('Invalid private key format. Please enter a valid Base58 private key.');
+      }
+
+      if (privateKeyBytes.length !== 64) {
+        throw new Error(`Invalid private key length: expected 64 bytes, got ${privateKeyBytes.length}`);
+      }
+
+      const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
+      const publicKey = keypair.publicKey;
+      const publicKeyStr = publicKey.toString();
+      const privateKeyBase58 = bs58.encode(privateKeyBytes);
+
+      // Check if user already has a wallet
+      const { data: userData, error: userError } = await supabase.from('users').select('id, wallet_address').eq('email', user.email).single();
+      if (userError || !userData) throw new Error('User not found. Please ensure your account is registered.');
+
+      // If user already has a wallet, update it; otherwise, insert new wallet
+      if (userData.wallet_address) {
+        // Update existing wallet
+        const encryptedPrivateKey = await invokeEncryptionFunction('encrypt', privateKeyBase58);
+        const { error: updateError } = await supabase
+          .from('user_wallets')
+          .update({ address: publicKeyStr, private_key: encryptedPrivateKey })
+          .eq('user_id', userData.id)
+          .eq('address', userData.wallet_address);
+        
+        if (updateError) throw new Error(`Failed to update wallet: ${updateError.message}`);
+
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({ wallet_address: publicKeyStr })
+          .eq('id', userData.id);
+        
+        if (userUpdateError) throw new Error(`Failed to update user wallet address: ${userUpdateError.message}`);
+      } else {
+        // Insert new wallet
+        const encryptedPrivateKey = await invokeEncryptionFunction('encrypt', privateKeyBase58);
+        const { error: walletError } = await supabase
+          .from('user_wallets')
+          .insert({ user_id: userData.id, address: publicKeyStr, private_key: encryptedPrivateKey });
+        
+        if (walletError) throw new Error(`Failed to insert wallet: ${walletError.message}`);
+
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update({ wallet_address: publicKeyStr })
+          .eq('id', userData.id);
+        
+        if (userUpdateError) throw new Error(`Failed to update user wallet address: ${userUpdateError.message}`);
+      }
+
+      const hashedPassword = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+      const encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', privateKeyBase58);
+
+      const walletDataObj = { publicKey: publicKeyStr, encryptedPrivateKey: encryptedPrivateKeyForStore, storedPassword: hashedPassword };
+      const walletDataStr = JSON.stringify(walletDataObj);
+
+      await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
+      await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
+      await AsyncStorage.setItem('walletAddress', publicKeyStr);
+      await AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
+
+      setWallet({ publicKey });
+      setSecretKey(privateKeyBytes);
+      setTransactionPassword(hashedPassword);
+      setIsWalletConnected(true);
+      setWalletType(WALLET_TYPES.EMBEDDED);
+      console.log('[importWalletFromPrivateKey] Wallet imported successfully:', publicKeyStr);
+      return { publicKey: publicKeyStr, privateKey: privateKeyBase58 };
+    } catch (err) {
+      console.error('[importWalletFromPrivateKey] Error:', err.message);
+      setError(`Failed to import wallet: ${err.message}`);
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, useBiometrics, disconnectWallet]);
+
   const verifyPassword = useCallback(async (password) => {
     if (!transactionPassword) return false;
     const hashedInput = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
@@ -699,20 +796,44 @@ export const EmbeddedWalletProvider = ({ children }) => {
         transaction.feePayer = keypair.publicKey;
       }
 
-      // Sign and send transaction
-      const signature = await connection.sendTransaction(transaction, [keypair]);
-      
-      console.log('[signAndSendTransaction] Embedded wallet transaction sent:', signature);
-      
-      // Wait for confirmation
-      const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-      
-      if (confirmation.value.err) {
-        throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+      // Check if this is a VersionedTransaction (new Solana transaction format)
+      if (transaction instanceof solanaWeb3.VersionedTransaction) {
+        console.log('[signAndSendTransaction] Handling VersionedTransaction');
+        transaction.sign([keypair]);
+        const serializedTx = transaction.serialize();
+        const signature = await connection.sendRawTransaction(serializedTx, {
+          skipPreflight: false,
+          maxRetries: 3
+        });
+        
+        console.log('[signAndSendTransaction] VersionedTransaction sent:', signature);
+        
+        // Wait for confirmation
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        
+        if (confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+        
+        console.log('[signAndSendTransaction] VersionedTransaction confirmed:', signature);
+        return signature;
+      } else {
+        // Legacy transaction handling
+        console.log('[signAndSendTransaction] Handling legacy transaction');
+        const signature = await connection.sendTransaction(transaction, [keypair]);
+        
+        console.log('[signAndSendTransaction] Legacy transaction sent:', signature);
+        
+        // Wait for confirmation
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        
+        if (confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+        
+        console.log('[signAndSendTransaction] Legacy transaction confirmed:', signature);
+        return signature;
       }
-      
-      console.log('[signAndSendTransaction] Embedded wallet transaction confirmed:', signature);
-      return signature;
       
     } catch (err) {
       console.error('[signAndSendTransaction] Error:', err.message);
@@ -744,6 +865,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         walletType,
         createEmbeddedWallet,
         retrieveEmbeddedWallet,
+        importWalletFromPrivateKey,
         connectSeekerWallet,
         disconnectWallet,
         signAndSendTransaction,

@@ -12,13 +12,15 @@ const ModalWrapper = ({ show, onHide, title, children, centered, fullscreen }) =
   >
     <View style={[modalWrapperStyles.overlay, fullscreen ? modalWrapperStyles.fullscreen : null]}>
       <View style={[modalWrapperStyles.modalContent, fullscreen ? modalWrapperStyles.modalContentFullscreen : null]}>
-        <View style={modalWrapperStyles.modalHeader}>
-          <Text style={modalWrapperStyles.modalTitle}>{title}</Text>
-          <TouchableOpacity onPress={onHide} style={modalWrapperStyles.closeButton}>
-            <Icon name="times" size={20} color={KA_COLORS.textSecondary} />
-          </TouchableOpacity>
-        </View>
-        <ScrollView style={modalWrapperStyles.modalBody} contentContainerStyle={modalWrapperStyles.modalBodyContent}>
+        {fullscreen ? null : (
+          <View style={modalWrapperStyles.modalHeader}>
+            <Text style={modalWrapperStyles.modalTitle}>{title}</Text>
+            <TouchableOpacity onPress={onHide} style={modalWrapperStyles.closeButton}>
+              <Icon name="times" size={20} color={KA_COLORS.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        )}
+        <ScrollView style={[modalWrapperStyles.modalBody, fullscreen ? modalWrapperStyles.modalBodyFullscreen : null]} contentContainerStyle={fullscreen ? modalWrapperStyles.modalBodyContentFullscreen : modalWrapperStyles.modalBodyContent}>
           {children}
         </ScrollView>
       </View>
@@ -36,6 +38,10 @@ const modalWrapperStyles = StyleSheet.create({
   },
   fullscreen: {
     backgroundColor: KA_COLORS.bgPrimary,
+    padding: 0,
+    margin: 0,
+    justifyContent: 'flex-start',
+    alignItems: 'stretch',
   },
   modalContent: {
     backgroundColor: KA_COLORS.bgCard,
@@ -56,6 +62,7 @@ const modalWrapperStyles = StyleSheet.create({
     borderRadius: 0,
     maxHeight: '100%',
     width: '100%',
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -80,6 +87,13 @@ const modalWrapperStyles = StyleSheet.create({
   },
   modalBodyContent: {
     padding: 20,
+  },
+  modalBodyFullscreen: {
+    flex: 1,
+    maxHeight: '100%',
+  },
+  modalBodyContentFullscreen: {
+    padding: 16,
   },
 });
 

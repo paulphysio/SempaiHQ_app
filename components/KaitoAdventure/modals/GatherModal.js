@@ -49,7 +49,7 @@ const GatherModal = ({ currentTown, towns, player, gatherSingle, queueGathers, w
 
 const gatherModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   card: {
     backgroundColor: KA_COLORS.bgElevated,

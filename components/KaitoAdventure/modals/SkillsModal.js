@@ -73,7 +73,7 @@ const SkillsModal = ({ player, skillTrees, unlockSkill, toggleModal }) => {
 
 const skillsModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -99,7 +99,7 @@ const skillsModalStyles = StyleSheet.create({
     color: KA_COLORS.orangeBright,
   },
   skillsList: {
-    maxHeight: 400,
+    flex: 1,
     marginBottom: 16,
   },
   skillItem: {

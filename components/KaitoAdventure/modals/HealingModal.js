@@ -15,7 +15,7 @@ const HealingModal = ({ toggleModal }) => (
 
 const healingModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   text: {
     fontSize: 14,

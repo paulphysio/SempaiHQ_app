@@ -43,7 +43,7 @@ const DailyModal = ({ player, formatCountdown, toggleModal }) => (
 
 const dailyModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   bonusText: {
     fontSize: 14,

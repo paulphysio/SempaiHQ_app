@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { styles, KA_COLORS } from '../../styles/KaitoAdventureStyles';
 
@@ -24,7 +24,7 @@ const InventoryList = ({ player, setPlayer, equipItem, useGatherPotion, sortInve
       </View>
     </View>
 
-    <ScrollView style={inventoryListStyles.inventoryGrid} contentContainerStyle={inventoryListStyles.inventoryGridContent}>
+    <View style={inventoryListStyles.inventoryGrid}>
       {player.inventory.map((item) => {
         const isRare = rareItems?.includes(item.name);
         const isEquippable = Boolean(player.recipes.find((r) => r.name === item.name && (r.type === "equip" || r.type === "armor")));
@@ -60,7 +60,7 @@ const InventoryList = ({ player, setPlayer, equipItem, useGatherPotion, sortInve
           </View>
         );
       })}
-    </ScrollView>
+    </View>
 
     <View style={inventoryListStyles.sectionDivider}>
       <View style={inventoryListStyles.sectionDividerLine} />
@@ -143,12 +143,10 @@ const inventoryListStyles = StyleSheet.create({
     color: KA_COLORS.textMuted,
   },
   inventoryGrid: {
-    maxHeight: 200,
-  },
-  inventoryGridContent: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    maxHeight: 200,
   },
   inventoryItem: {
     backgroundColor: KA_COLORS.bgCard,

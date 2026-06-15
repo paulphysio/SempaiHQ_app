@@ -18,15 +18,14 @@ import {
 import Modal from 'react-native-modal';
 import { Picker } from '@react-native-picker/picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { debounce } from 'lodash';
 import _ from 'lodash';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import GoogleSignInButton from '../components/GoogleSignInButton';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { styles } from '../styles/KaitoStyles';
-import * as ScreenOrientation from 'expo-screen-orientation';
+import Orientation from 'react-native-orientation-locker';
 // Import new React Native components
 import Navbar from '../components/KaitoAdventure/Navbar';
 import PlayerStats from '../components/KaitoAdventure/PlayerStats';
@@ -479,29 +478,15 @@ const KaitoAdventureScreen = () => {
   }, [syncPlayerToSupabase, saveToLocalStorage, player, connected, wallet]);
 
   // ---- Screen Orientation (Landscape for Kaito Adventure) ----
-  useEffect(() => {
-    const lockOrientation = async () => {
-      try {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
-      } catch (error) {
-        console.error('Error locking orientation:', error);
-      }
-    };
+  useFocusEffect(
+    useCallback(() => {
+      Orientation.lockToLandscape();
 
-    const unlockOrientation = async () => {
-      try {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-      } catch (error) {
-        console.error('Error unlocking orientation:', error);
-      }
-    };
-
-    lockOrientation();
-
-    return () => {
-      unlockOrientation();
-    };
-  }, []);
+      return () => {
+        Orientation.lockToPortrait();
+      };
+    }, [])
+  );
 
   // ---- Weather System ----
   useEffect(() => {
@@ -945,7 +930,7 @@ const KaitoAdventureScreen = () => {
   const attackEnemy = useCallback(
     (skillName = "Basic Attack") => {
       if (!combatState || combatState.isAttacking) return;
-      setCombatState((prev) => ({ ...prev, isAttacking: true }));
+      setCombatState((prev) => prev ? { ...prev, isAttacking: true } : prev);
       setTimeout(() => {
         setCombatState((prev) => {
           if (!prev) return null;
@@ -955,10 +940,10 @@ const KaitoAdventureScreen = () => {
               effect: { damage: 10 },
               level: 1,
             };
-          const weaponDamage = player.equipment.weapon
+          const weaponDamage = player.equipment?.weapon
             ? player.recipes.find((r) => r.name === player.equipment.weapon)?.bonus.damage || 0
             : 0;
-          const armorDefense = player.equipment.armor
+          const armorDefense = player.equipment?.armor
             ? player.recipes.find((r) => r.name === player.equipment.armor)?.bonus.defense || 0
             : 0;
           const traitBonus = player.trait === "warrior" ? 5 : 0;
@@ -1083,13 +1068,13 @@ const KaitoAdventureScreen = () => {
   const craftPotionInCombat = useCallback(
     (potionName) => {
       if (!combatState || combatState.isAttacking) return;
-      setCombatState((prev) => ({ ...prev, isAttacking: true }));
+      setCombatState((prev) => prev ? { ...prev, isAttacking: true } : prev);
       setTimeout(() => {
         setPlayer((prev) => {
           const recipe = prev.recipes.find((r) => r.name === potionName && r.type === "heal");
           if (!recipe) {
             setGameMessage("No such healing potion recipe!");
-            setCombatState((prevState) => ({ ...prevState, isAttacking: false }));
+            setCombatState((prevState) => prevState ? { ...prevState, isAttacking: false } : prevState);
             return prev;
           }
           const available = getAvailableIngredients;
@@ -1099,7 +1084,7 @@ const KaitoAdventureScreen = () => {
           });
           if (!hasEnough) {
             setGameMessage("Not enough ingredients to craft this potion!");
-            setCombatState((prevState) => ({ ...prevState, isAttacking: false }));
+            setCombatState((prevState) => prevState ? { ...prevState, isAttacking: false } : prevState);
             return prev;
           }
           const costReduction = prev.skills.some((s) => s.name === "Efficient Brewing")
@@ -1118,12 +1103,12 @@ const KaitoAdventureScreen = () => {
           const healAmount = Math.round(prev.max_health * recipe.healPercent) + healBonus;
           const newHealth = Math.min(prev.health + healAmount, prev.max_health);
           setGameMessage(`Crafted and used ${potionName} to heal ${healAmount} HP!`);
-          setCombatState((prevState) => ({
+          setCombatState((prevState) => prevState ? {
             ...prevState,
             playerHealth: newHealth,
             log: [...prevState.log, `Kaito crafts and uses ${potionName} to heal ${healAmount} HP`],
             isAttacking: false,
-          }));
+          } : prevState);
           return { ...prev, health: newHealth, inventory: newInventory };
         });
       }, 1000);
@@ -1155,7 +1140,7 @@ const KaitoAdventureScreen = () => {
       return {
         ...prev,
         equipment: {
-          ...prev.equipment,
+          ...(prev.equipment || { weapon: null, armor: null }),
           [item.type === "equip" ? "weapon" : "armor"]: itemName,
         },
       };
@@ -1615,28 +1600,24 @@ const KaitoAdventureScreen = () => {
   const fetchLeaderboardRankings = useCallback(async () => {
     try {
       const fetchTime = Date.now();
-      console.log('🔍 Fetching leaderboard data at:', new Date(fetchTime).toLocaleTimeString());
+      console.log('🔍 Fetching leaderboard data from API at:', new Date(fetchTime).toLocaleTimeString());
       
-      const { data: players, error } = await supabase
-        .from('players')
-        .select('wallet_address, name, level, gold, xp')
-        .not('wallet_address', 'is', null)
-        .order('level', { ascending: false })
-        .limit(50); // Get top 50 players for comprehensive data
+      const res = await fetch('https://sempaihq.com/api/porp/leaderboard?limit=50', {
+        method: 'GET',
+      });
 
-      if (error) {
-        console.error('❌ Error fetching leaderboard data:', error);
-        return;
-      }
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch leaderboard');
 
-      if (players && players.length > 0) {
-        // Clean and validate the data to prevent null/undefined issues
-        const cleanedPlayers = players.map(player => ({
-          ...player,
-          level: Number(player.level) || 0,
-          gold: Number(player.gold) || 0,
-          xp: Number(player.xp) || 0,
-          name: player.name || `Player ${player.wallet_address?.slice(0, 6)}...`
+      if (data && data.length > 0) {
+        // Transform data to match expected format
+        const cleanedPlayers = data.map(player => ({
+          wallet_address: player.walletAddress,
+          name: player.name,
+          level: player.level || 0,
+          gold: player.score || 0,
+          xp: 0,
+          tier: player.tier || 'player',
         }));
         
         console.log('✅ Leaderboard data fetched:', cleanedPlayers.length, 'players');
@@ -1690,7 +1671,6 @@ const KaitoAdventureScreen = () => {
   // ---- Render Data for FlatList ----
   const renderData = [
     { type: 'navbar' },
-    { type: 'connectButton' },
     { type: 'leaderboardButton' },
     { type: 'playerInfo' },
     { type: 'inventoryHeader' },
@@ -1746,12 +1726,6 @@ const KaitoAdventureScreen = () => {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
-        );
-      case 'connectButton':
-        return (
-          <View style={styles.connectButtonContainer}>
-            <GoogleSignInButton />
           </View>
         );
       case 'leaderboardButton':
@@ -1930,7 +1904,7 @@ const KaitoAdventureScreen = () => {
             <View style={styles.equipmentContainer}>
               <View style={styles.equipmentSlot}>
                 <Text style={styles.equipmentLabel}>Weapon:</Text>
-                {player.equipment.weapon ? (
+                {player.equipment?.weapon ? (
                   <View style={styles.equipmentItem}>
                     <Image
                       source={{ uri: itemImages[player.equipment.weapon.toLowerCase()] || itemImages.default }}
@@ -1945,7 +1919,7 @@ const KaitoAdventureScreen = () => {
               </View>
               <View style={styles.equipmentSlot}>
                 <Text style={styles.equipmentLabel}>Armor:</Text>
-                {player.equipment.armor ? (
+                {player.equipment?.armor ? (
                   <View style={styles.equipmentItem}>
                     <Image
                       source={{ uri: itemImages[player.equipment.armor.toLowerCase()] || itemImages.default }}
@@ -2085,6 +2059,7 @@ const KaitoAdventureScreen = () => {
       show={modals.craft}
       onHide={() => toggleModal('craft')}
       title="Craft Item"
+      fullscreen
     >
       <CraftModal
         player={player}
@@ -2104,6 +2079,7 @@ const KaitoAdventureScreen = () => {
       show={modals.healing}
       onHide={() => toggleModal('healing')}
       title="Use Healing Potion"
+      fullscreen
     >
       <HealingModal toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2113,6 +2089,7 @@ const KaitoAdventureScreen = () => {
       show={modals.market}
       onHide={() => toggleModal('market')}
       title="Market"
+      fullscreen
     >
       <MarketModal
         currentTown={currentTown}
@@ -2133,6 +2110,7 @@ const KaitoAdventureScreen = () => {
       show={modals.gather}
       onHide={() => toggleModal('gather')}
       title="Gather"
+      fullscreen
     >
       <GatherModal
         currentTown={currentTown}
@@ -2174,6 +2152,7 @@ const KaitoAdventureScreen = () => {
       show={modals.leaderboard}
       onHide={() => toggleModal('leaderboard')}
       title="Leaderboard"
+      fullscreen
     >
       <LeaderboardModal
         connected={connected}
@@ -2187,6 +2166,7 @@ const KaitoAdventureScreen = () => {
       show={modals.quests}
       onHide={() => toggleModal('quests')}
       title="Quests"
+      fullscreen
     >
       <QuestsModal
         player={player}
@@ -2202,6 +2182,7 @@ const KaitoAdventureScreen = () => {
       show={modals.daily}
       onHide={() => toggleModal('daily')}
       title="Daily Tasks"
+      fullscreen
     >
       <DailyModal
         player={player}
@@ -2215,6 +2196,7 @@ const KaitoAdventureScreen = () => {
       show={modals.stats}
       onHide={() => toggleModal('stats')}
       title="Player Stats"
+      fullscreen
     >
       <StatsModal player={player} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2224,6 +2206,7 @@ const KaitoAdventureScreen = () => {
       show={modals.community}
       onHide={() => toggleModal('community')}
       title="Community"
+      fullscreen
     >
       <CommunityModal mockCommunityEvent={mockCommunityEvent} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2233,6 +2216,7 @@ const KaitoAdventureScreen = () => {
       show={modals.customize}
       onHide={() => toggleModal('customize')}
       title="Customize Character"
+      fullscreen
     >
       <CustomizeModal player={player} customizeCharacter={customizeCharacter} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2245,6 +2229,7 @@ const KaitoAdventureScreen = () => {
         toggleModal('npc');
       }}
       title="Talk to NPC"
+      fullscreen
     >
       <NpcModal selectedNPC={selectedNPC} player={player} addQuest={addQuest} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2257,6 +2242,7 @@ const KaitoAdventureScreen = () => {
       show={modals.skills}
       onHide={() => toggleModal('skills')}
       title="Skills"
+      fullscreen
     >
       <SkillsModal player={player} skillTrees={skillTrees} unlockSkill={unlockSkill} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2266,6 +2252,7 @@ const KaitoAdventureScreen = () => {
       show={modals.events}
       onHide={() => toggleModal('events')}
       title="Events"
+      fullscreen
     >
       <EventsModal currentEvent={currentEvent} eventTimer={eventTimer} formatCountdown={formatCountdown} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2275,6 +2262,7 @@ const KaitoAdventureScreen = () => {
       show={modals.guild}
       onHide={() => toggleModal('guild')}
       title="Guild"
+      fullscreen
     >
       <GuildModal player={player} joinGuild={joinGuild} contributeToGuild={contributeToGuild} toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2284,6 +2272,7 @@ const KaitoAdventureScreen = () => {
       show={modals.guide}
       onHide={() => toggleModal('guide')}
       title="Welcome to Kaito's Adventure!"
+      fullscreen
     >
       <GuideModal toggleModal={toggleModal} />
     </ModalWrapper>
@@ -2292,9 +2281,7 @@ const KaitoAdventureScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-      <Navbar menuOpen={menuOpen} toggleMenu={toggleMenu} onNavigate={(screen) => navigation.navigate(screen)} />
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollViewContent}>
-        <GoogleSignInButton />
+      <ScrollView style={styles.scrollView} contentContainerStyle={[styles.scrollViewContent, { paddingBottom: 50 }]}>
         <TouchableOpacity
           style={styles.leaderboardButton}
           onPress={() => toggleModal('leaderboard')}

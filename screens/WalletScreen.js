@@ -1,4 +1,4 @@
-// ./screens/WalletScreen.js
+// ./screens/NexusScreen.js
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import {
   View,
@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  Linking,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
@@ -30,7 +31,7 @@ const TOKEN_MINTS = {
   SMP: SMP_MINT_ADDRESS,
 };
 
-const WalletScreen = () => {
+const NexusScreen = () => {
   const navigation = useNavigation();
   const { wallet, signAndSendTransaction } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
@@ -429,6 +430,14 @@ const WalletScreen = () => {
                   </>
                 )}
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.swapButton, { marginTop: 10, backgroundColor: '#D94F04' }]}
+                onPress={() => Linking.openURL('https://ramp.network')}
+              >
+                <Icon name="credit-card" size={16} color="#ffffff" style={styles.buttonIcon} />
+                <Text style={styles.swapButtonText}>Buy Crypto (Ramp)</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -442,4 +451,4 @@ const WalletScreen = () => {
   );
 };
 
-export default WalletScreen;
+export default NexusScreen;

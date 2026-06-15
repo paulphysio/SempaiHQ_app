@@ -7,7 +7,7 @@ import { Platform } from 'react-native';
 const AUTH_STORAGE_KEY = 'authSession';
 const USER_STORAGE_KEY = 'user';
 const SKIP_STORAGE_KEY = 'skippedSignIn';
-const SESSION_EXPIRY_BUFFER = 60 * 60 * 1000; // 1 hour buffer before session expiry
+const SESSION_EXPIRY_BUFFER = 5 * 60 * 1000; // 5 minutes buffer before session expiry
 
 const AuthContext = createContext();
 
@@ -225,9 +225,25 @@ export const AuthProvider = ({ children }) => {
                 setSkippedSignIn(false);
               }
             } else {
-              // No Supabase session but we have stored user, keep as guest
-              setUser(parsedUser);
-              setSkippedSignIn(skipped === 'true');
+              // No Supabase session but we have stored user, try to refresh
+              console.log('[restoreSession] No current session, attempting to refresh...');
+              const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+              
+              if (refreshedSession && !refreshError) {
+                console.log('[restoreSession] Session refreshed successfully');
+                const syncedUser = await syncUserWithDatabase(refreshedSession.user);
+                if (syncedUser) {
+                  setUser(syncedUser);
+                  await AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(syncedUser));
+                  await persistSession(refreshedSession);
+                  setSkippedSignIn(false);
+                }
+              } else {
+                // Refresh failed, keep user data but they'll need to sign in again
+                console.log('[restoreSession] Session refresh failed, user will need to sign in again');
+                setUser(parsedUser);
+                setSkippedSignIn(false);
+              }
             }
           } else {
             // Guest user, just use stored data

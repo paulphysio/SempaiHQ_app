@@ -26,7 +26,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       icon: 'home',
       items: [
         { name: 'Home', screen: 'Home', icon: 'home' },
-        { name: 'Feed', screen: 'Feed', icon: 'newspaper' },
+        { name: 'Crazy Corner', screen: 'Feed', icon: 'newspaper' },
         { name: 'Profile', screen: 'Profile', icon: 'user' },
       ],
     },
@@ -41,11 +41,12 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       ],
     },
     {
-      title: 'Wallet',
+      title: 'Nexus',
       icon: 'wallet',
       items: [
-        { name: 'Wallet', screen: 'Wallet', icon: 'wallet' },
         { name: 'Swap', screen: 'Swap', icon: 'exchange-alt' },
+        { name: 'Ramp', screen: 'Ramp', icon: 'credit-card' },
+        { name: 'Import Wallet', screen: 'WalletImport', icon: 'wallet' },
         { name: 'Mint', screen: 'Mint', icon: 'coins' },
         { name: 'Marketplace', screen: 'Marketplace', icon: 'shopping-cart' },
         { name: 'Wallet Migration', screen: 'WalletMigration', icon: 'exchange-alt' },
@@ -93,7 +94,13 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
   };
 
   const navigateToScreen = (screenName) => {
-    navigation.navigate(screenName);
+    // Map display names to actual screen names
+    const screenMap = {
+      'Crazy Corner': 'Feed',
+      'Nexus': 'Wallet',
+    };
+    const actualScreenName = screenMap[screenName] || screenName;
+    navigation.navigate(actualScreenName);
     setActiveDropdown(null);
     onClose();
   };
@@ -115,7 +122,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
           <View style={GlobalSidebarStyles.sidebarProfileSection}>
             <View style={GlobalSidebarStyles.sidebarButtons}>
               <ConnectButton />
-              {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />}
+              {/* {session && <ConnectButton email={session?.user?.email} userId={session?.user?.id} />} */}
             </View>
           </View>
           

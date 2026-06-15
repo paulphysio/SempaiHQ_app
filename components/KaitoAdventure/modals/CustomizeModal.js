@@ -71,7 +71,7 @@ const CustomizeModal = ({ player, customizeCharacter, toggleModal }) => {
 
 const customizeModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   formGroup: {
     marginBottom: 16,

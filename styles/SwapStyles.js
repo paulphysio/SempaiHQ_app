@@ -1,5 +1,5 @@
 // ./screens/SwapStyles.js
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 
 export const styles = StyleSheet.create({
   container: {
@@ -117,20 +117,6 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E94560',
   },
-  pickerContainer: {
-    backgroundColor: '#0F3460',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E94560',
-  },
-  picker: {
-    color: '#ffffff',
-    height: Platform.OS === 'ios' ? 150 : 50,
-  },
-  pickerItem: {
-    fontSize: 16,
-    color: '#ffffff',
-  },
   swapButton: {
     flexDirection: 'row',
     backgroundColor: '#E67E22',
@@ -235,5 +221,63 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  tokenList: {
+    maxHeight: 300,
+  },
+  tokenItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  tokenLogo: {
+    width: 32,
+    height: 32,
+    marginRight: 12,
+  },
+  tokenName: {
+    fontSize: 16,
+    color: '#333',
+  },
+  selectedToken: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0F3460',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E94560',
+  },
+  dropdownArrow: {
+    marginLeft: 'auto',
+  },
+  portfolioSection: {
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  portfolioTitle: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 10,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  portfolioButton: {
+    flex: 1,
+    backgroundColor: '#0F3460',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  portfolioButtonText: {
+    color: '#ffffff',
+    fontSize: 12,
+    marginTop: 4,
   },
 });

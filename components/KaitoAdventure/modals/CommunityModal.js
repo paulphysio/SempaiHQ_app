@@ -22,7 +22,7 @@ const CommunityModal = ({ mockCommunityEvent, toggleModal }) => {
 
 const communityModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   eventText: {
     fontSize: 14,

@@ -19,7 +19,7 @@ const EventsModal = ({ currentEvent, eventTimer, formatCountdown, toggleModal })
 
 const eventsModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   eventText: {
     fontSize: 14,

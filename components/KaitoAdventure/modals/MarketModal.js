@@ -62,7 +62,7 @@ const MarketModal = ({ currentTown, towns, player, sellDrink, buyIngredient, tow
 
 const marketModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 16,

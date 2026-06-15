@@ -342,6 +342,48 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     letterSpacing: 1,
   },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    padding: 16,
+  },
+  toggleLabel: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
+    letterSpacing: 1,
+    flex: 1,
+  },
+  toggleSwitch: {
+    width: 50,
+    height: 28,
+    backgroundColor: KA_COLORS.textMuted,
+    borderRadius: 14,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleSwitchOn: {
+    backgroundColor: KA_COLORS.orangePrimary,
+  },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    backgroundColor: KA_COLORS.ivory,
+    borderRadius: 12,
+  },
+  toggleKnobOn: {
+    transform: [{ translateX: 22 }],
+  },
+  toggleDescription: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 12,
+    marginTop: 8,
+    letterSpacing: 1,
+  },
 });
 
 const connection = new Connection(RPC_URL, 'confirmed');
@@ -371,6 +413,7 @@ const EditProfileScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [balance, setBalance] = useState(0);
   const [walletReady, setWalletReady] = useState(false);
+  const [autopayEnabled, setAutopayEnabled] = useState(false);
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -480,7 +523,7 @@ const EditProfileScreen = () => {
       try {
         const { data: user, error: userError } = await supabase
           .from('users')
-          .select('id, email, name, x_account, x_verified_at, image, isWriter, isArtist, isSuperuser, referred_by, has_updated_profile, weekly_points')
+          .select('id, email, name, x_account, x_verified_at, image, isWriter, isArtist, isSuperuser, referred_by, has_updated_profile, weekly_points, autopay_enabled')
           .eq('wallet_address', walletAddress.toString())
           .single();
 
@@ -497,6 +540,7 @@ const EditProfileScreen = () => {
         setName(user.name || '');
         setXAccount(user.x_account || '');
         setImageUrl(user.image || '');
+        setAutopayEnabled(user.autopay_enabled || false);
         setIsCreator(user.isWriter || user.isArtist);
 
         if (user.x_account && user.x_verified_at) {
@@ -693,6 +737,7 @@ const EditProfileScreen = () => {
           x_verified_at: new Date().toISOString(),
           image: imageUrl,
           has_updated_profile: true,
+          autopay_enabled: autopayEnabled,
         })
         .eq('wallet_address', walletAddress);
 
@@ -944,6 +989,25 @@ const EditProfileScreen = () => {
                   <Image source={{ uri: imageUrl }} style={styles.previewImage} />
                 )}
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>
+                <FontAwesome5 name="credit-card" size={16} color={KA_COLORS.orangePrimary} /> AUTOPAY
+              </Text>
+              <View style={styles.toggleContainer}>
+                <Text style={styles.toggleLabel}>Enable automatic chapter payments</Text>
+                <TouchableOpacity
+                  style={[styles.toggleSwitch, autopayEnabled && styles.toggleSwitchOn]}
+                  onPress={() => setAutopayEnabled(!autopayEnabled)}
+                  disabled={!walletReady || isSaving}
+                >
+                  <View style={[styles.toggleKnob, autopayEnabled && styles.toggleKnobOn]} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.toggleDescription}>
+                When enabled, chapters will be automatically unlocked without confirmation prompts
+              </Text>
             </View>
           </View>
 

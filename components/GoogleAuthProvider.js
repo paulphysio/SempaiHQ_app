@@ -63,9 +63,9 @@ export const GoogleAuthProvider = ({ children }) => {
   useEffect(() => {
     const trySilentSignIn = async () => {
       try {
-        const isSignedIn = await GoogleSignin.isSignedIn();
-        if (isSignedIn) {
-          const userInfo = await GoogleSignin.signInSilently();
+        // Try to get current user silently
+        const userInfo = await GoogleSignin.signInSilently();
+        if (userInfo) {
           const idToken = userInfo.idToken;
           if (idToken) {
             setLoading(true);

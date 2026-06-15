@@ -18,7 +18,7 @@ const NpcModal = ({ selectedNPC, player, addQuest, toggleModal }) => (
 
 const npcModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   dialogue: {
     fontSize: 14,

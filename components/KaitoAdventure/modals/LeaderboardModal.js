@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { styles, KA_COLORS } from '../../../styles/KaitoAdventureStyles';
 
 const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [timeFrame, setTimeFrame] = useState('week');
 
   const handleShare = (entry) => {
     setSelectedEntry(entry);
@@ -17,107 +17,179 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
     
     const username = selectedEntry.name || 'Anonymous';
     const rank = leaderboardData.findIndex(e => e.wallet_address === selectedEntry.wallet_address) + 1;
-    const shareText = `⚔️ I'm ranked #${rank} on the Kaito Brewmaster League with ${selectedEntry.gold.toLocaleString()} Gold! Join the military campaign:`;
+    const shareText = `⚔️ I'm ranked #${rank} on the Kaito Brewmaster League with ${selectedEntry.gold?.toLocaleString() || 0} points! Join the military campaign:`;
     const shareUrl = 'https://www.sempaihq.com/kaito-adventure';
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
     
-    // In React Native, you would use Linking.openURL
-    // Linking.openURL(twitterUrl);
+    Linking.openURL(twitterUrl);
     setShowShareModal(false);
   };
 
-  const renderLeaderboardItem = ({ item, index }) => (
-    <View style={leaderboardModalStyles.entry}>
-      <View style={leaderboardModalStyles.rank}>
+  const getTierColor = (tier) => {
+    const tierColors = {
+      'Seed': '#888',
+      'Sprout': '#90ee90',
+      'Sapling': '#00ced1',
+      'Tree': '#32cd32',
+      'Forest': '#228b22',
+      'Ancient': '#ffd700',
+    };
+    return tierColors[tier] || '#888';
+  };
+
+  const renderLeaderboardItem = (item, index) => (
+    <View style={militaryStyles.entry}>
+      <View style={militaryStyles.rank}>
         {index < 3 ? (
-          <View style={[leaderboardModalStyles.rankBadge, leaderboardModalStyles[`rank${index + 1}`]]}>
-            {index === 0 && <Icon name="crown" size={16} color={KA_COLORS.gold} />}
-            {index === 1 && <Icon name="medal" size={16} color={KA_COLORS.gold} />}
-            {index === 2 && <Icon name="id-badge" size={16} color={KA_COLORS.gold} />}
-            <Text style={leaderboardModalStyles.rankNumber}>{index + 1}</Text>
+          <View style={[militaryStyles.rankBadge, militaryStyles[`rank${index + 1}`]]}>
+            {index === 0 && <Icon name="crown" size={14} color="#ffd700" />}
+            {index === 1 && <Icon name="medal" size={14} color="#c0c0c0" />}
+            {index === 2 && <Icon name="id-badge" size={14} color="#cd7f32" />}
+            <Text style={militaryStyles.rankNumber}>{index + 1}</Text>
           </View>
         ) : (
-          <Text style={leaderboardModalStyles.rankNumber}>{index + 1}</Text>
+          <Text style={militaryStyles.rankNumber}>{index + 1}</Text>
         )}
       </View>
-      <View style={leaderboardModalStyles.player}>
-        <View style={leaderboardModalStyles.avatar}>
-          <Text style={leaderboardModalStyles.avatarText}>{item.name?.charAt(0)?.toUpperCase() || '?'}</Text>
+      <View style={militaryStyles.player}>
+        <View style={militaryStyles.avatar}>
+          <Text style={militaryStyles.avatarText}>{item.name?.charAt(0)?.toUpperCase() || '?'}</Text>
         </View>
-        <View style={leaderboardModalStyles.playerInfo}>
-          <Text style={leaderboardModalStyles.name}>{item.name}</Text>
-          <Text style={leaderboardModalStyles.address}>
-            {item.wallet_address.slice(0, 6)}...{item.wallet_address.slice(-4)}
+        <View style={militaryStyles.playerInfo}>
+          <Text style={militaryStyles.name}>{item.name || 'Anonymous'}</Text>
+          <Text style={militaryStyles.address}>
+            {item.wallet_address?.slice(0, 6)}...{item.wallet_address?.slice(-4)}
           </Text>
         </View>
       </View>
-      <View style={leaderboardModalStyles.stats}>
-        <View style={leaderboardModalStyles.stat}>
-          <Icon name="crosshairs" size={14} color={KA_COLORS.ivoryDim} />
-          <Text style={leaderboardModalStyles.statText}>Lv. {item.level}</Text>
-        </View>
-        <View style={leaderboardModalStyles.stat}>
-          <Icon name="star" size={14} color={KA_COLORS.ivoryDim} />
-          <Text style={leaderboardModalStyles.statText}>{item.gold.toLocaleString()} Gold</Text>
+      <View style={militaryStyles.score}>
+        <Text style={militaryStyles.scoreValue}>{item.gold?.toLocaleString() || 0}</Text>
+      </View>
+      <View style={militaryStyles.level}>
+        <Text style={militaryStyles.levelValue}>Lv. {item.level || 0}</Text>
+      </View>
+      <View style={militaryStyles.tier}>
+        <View style={[militaryStyles.tierBadge, { borderColor: getTierColor(item.tier) }]}>
+          <Text style={[militaryStyles.tierText, { color: getTierColor(item.tier) }]}>
+            {item.tier || 'Seed'}
+          </Text>
         </View>
       </View>
       <TouchableOpacity
-        style={leaderboardModalStyles.shareButton}
+        style={militaryStyles.shareButton}
         onPress={() => handleShare(item)}
       >
-        <Icon name="share-alt" size={14} color={KA_COLORS.textSecondary} />
+        <Icon name="share-alt" size={14} color="#ffd700" />
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <View style={leaderboardModalStyles.container}>
-      <View style={leaderboardModalStyles.header}>
-        <Icon name="shield-alt" size={24} color={KA_COLORS.orangeSoft} style={leaderboardModalStyles.headerIcon} />
-        <Text style={leaderboardModalStyles.headerTitle}>Military Campaign Leaderboard</Text>
-        <Icon name="flag" size={24} color={KA_COLORS.orangeSoft} style={leaderboardModalStyles.headerIcon} />
+    <View style={militaryStyles.container}>
+      {/* Campaign Header */}
+      <View style={militaryStyles.campaignHeader}>
+        <View style={militaryStyles.campaignBanner}>
+          <View style={militaryStyles.campaignTitle}>
+            <Icon name="shield-alt" size={20} color="#ffd700" />
+            <Text style={militaryStyles.campaignTitleText}>Kaito Military Campaign</Text>
+            <Icon name="flag" size={20} color="#ffd700" />
+          </View>
+          <Text style={militaryStyles.campaignSubtitle}>
+            ⚔️ Rise Through the Ranks - Conquer the Leaderboard ⚔️
+          </Text>
+          <View style={militaryStyles.campaignBadges}>
+            <View style={militaryStyles.campaignBadge}>
+              <Icon name="crosshairs" size={12} color="#90ee90" />
+              <Text style={militaryStyles.badgeText}>Tactical</Text>
+            </View>
+            <View style={militaryStyles.campaignBadge}>
+              <Icon name="fire" size={12} color="#ff6b6b" />
+              <Text style={militaryStyles.badgeText}>Elite</Text>
+            </View>
+            <View style={militaryStyles.campaignBadge}>
+              <Icon name="dragon" size={12} color="#ffd700" />
+              <Text style={militaryStyles.badgeText}>Legendary</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      {/* Time Frame Selector */}
+      <View style={militaryStyles.timeFrameSelector}>
+        <TouchableOpacity
+          style={[militaryStyles.timeFrameButton, timeFrame === 'week' && militaryStyles.timeFrameActive]}
+          onPress={() => setTimeFrame('week')}
+        >
+          <Text style={[militaryStyles.timeFrameText, timeFrame === 'week' && militaryStyles.timeFrameTextActive]}>This Week</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[militaryStyles.timeFrameButton, timeFrame === 'month' && militaryStyles.timeFrameActive]}
+          onPress={() => setTimeFrame('month')}
+        >
+          <Text style={[militaryStyles.timeFrameText, timeFrame === 'month' && militaryStyles.timeFrameTextActive]}>This Month</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[militaryStyles.timeFrameButton, timeFrame === 'all' && militaryStyles.timeFrameActive]}
+          onPress={() => setTimeFrame('all')}
+        >
+          <Text style={[militaryStyles.timeFrameText, timeFrame === 'all' && militaryStyles.timeFrameTextActive]}>All Time</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Leaderboard Header */}
+      <View style={militaryStyles.leaderboardHeader}>
+        <Text style={militaryStyles.headerCell}>Rank</Text>
+        <Text style={militaryStyles.headerCell}>Player</Text>
+        <Text style={militaryStyles.headerCell}>Score</Text>
+        <Text style={militaryStyles.headerCell}>Level</Text>
+        <Text style={militaryStyles.headerCell}>Tier</Text>
+        <Text style={militaryStyles.headerCell}>Share</Text>
       </View>
       
-      {!connected ? (
-        <Text style={leaderboardModalStyles.message}>Please connect your wallet to view the leaderboard.</Text>
-      ) : leaderboardData.length === 0 ? (
-        <Text style={leaderboardModalStyles.message}>Loading leaderboard...</Text>
+      {leaderboardData.length === 0 ? (
+        <Text style={militaryStyles.message}>Loading leaderboard...</Text>
       ) : (
-        <FlatList
-          data={leaderboardData}
-          renderItem={renderLeaderboardItem}
-          keyExtractor={(item) => item.wallet_address}
-          style={leaderboardModalStyles.list}
-        />
+        <ScrollView style={militaryStyles.list} nestedScrollEnabled={false}>
+          {leaderboardData.map((item, index) => (
+            <View key={item.walletAddress || index}>
+              {renderLeaderboardItem(item, index)}
+            </View>
+          ))}
+        </ScrollView>
       )}
 
-      <TouchableOpacity style={leaderboardModalStyles.closeButton} onPress={() => toggleModal('leaderboard')}>
-        <Text style={leaderboardModalStyles.closeButtonText}>Close</Text>
+      <TouchableOpacity style={militaryStyles.closeButton} onPress={() => toggleModal('leaderboard')}>
+        <Text style={militaryStyles.closeButtonText}>CLOSE</Text>
       </TouchableOpacity>
 
       {/* Share Modal */}
       {showShareModal && selectedEntry && (
-        <View style={leaderboardModalStyles.shareModalOverlay}>
-          <View style={leaderboardModalStyles.shareModalContent}>
-            <View style={leaderboardModalStyles.shareModalHeader}>
-              <Text style={leaderboardModalStyles.shareModalTitle}>Share Your Achievement</Text>
-              <TouchableOpacity onPress={() => setShowShareModal(false)}>
-                <Icon name="times" size={20} color={KA_COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
+        <View style={militaryStyles.shareModalOverlay}>
+          <View style={militaryStyles.shareModalContent}>
+            <TouchableOpacity style={militaryStyles.closeModalButton} onPress={() => setShowShareModal(false)}>
+              <Icon name="times" size={20} color="#90ee90" />
+            </TouchableOpacity>
+            <Text style={militaryStyles.shareModalTitle}>Share Your Achievement</Text>
             
-            <View style={leaderboardModalStyles.shareModalBody}>
-              <Text style={leaderboardModalStyles.shareCardText}>
-                Rank: {leaderboardData.findIndex(e => e.wallet_address === selectedEntry.wallet_address) + 1}
-              </Text>
-              <Text style={leaderboardModalStyles.shareCardText}>
-                Gold: {selectedEntry.gold.toLocaleString()}
-              </Text>
+            <View style={militaryStyles.shareCard}>
+              <Text style={militaryStyles.shareCardTitle}>Kaito Brewmaster League</Text>
+              <View style={militaryStyles.shareCardRow}>
+                <Text style={militaryStyles.shareCardLabel}>Rank:</Text>
+                <Text style={militaryStyles.shareCardValue}>#{leaderboardData.findIndex(e => e.wallet_address === selectedEntry.wallet_address) + 1}</Text>
+              </View>
+              <View style={militaryStyles.shareCardRow}>
+                <Text style={militaryStyles.shareCardLabel}>Score:</Text>
+                <Text style={militaryStyles.shareCardValue}>{selectedEntry.gold?.toLocaleString() || 0}</Text>
+              </View>
+              <View style={militaryStyles.shareCardRow}>
+                <Text style={militaryStyles.shareCardLabel}>Player:</Text>
+                <Text style={militaryStyles.shareCardValue}>{selectedEntry.name || 'Anonymous'}</Text>
+              </View>
             </View>
 
-            <TouchableOpacity style={leaderboardModalStyles.shareButtonX} onPress={shareToX}>
-              <Icon name="share-alt" size={16} color={KA_COLORS.ivory} style={leaderboardModalStyles.shareButtonIcon} />
-              <Text style={leaderboardModalStyles.shareButtonText}>Share on X</Text>
+            <TouchableOpacity style={militaryStyles.shareButtonX} onPress={shareToX}>
+              <Icon name="share-alt" size={16} color="#ffd700" style={militaryStyles.shareButtonIcon} />
+              <Text style={militaryStyles.shareButtonText}>Share on X</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -126,141 +198,235 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
   );
 };
 
-const leaderboardModalStyles = StyleSheet.create({
+const militaryStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
+    backgroundColor: '#1a1a1a',
   },
-  header: {
+  campaignHeader: {
+    marginBottom: 12,
+  },
+  campaignBanner: {
+    backgroundColor: '#2a2a2a',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffd700',
+  },
+  campaignTitle: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 8,
   },
-  headerIcon: {
-    color: KA_COLORS.orangeSoft,
-  },
-  headerTitle: {
-    fontSize: 18,
+  campaignTitleText: {
+    fontSize: 16,
     fontWeight: '700',
-    color: KA_COLORS.gold,
-    letterSpacing: 2,
+    color: '#ffd700',
+  },
+  campaignSubtitle: {
+    fontSize: 12,
+    color: '#aaa',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  campaignBadges: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  campaignBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#1a1a1a',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#444',
+  },
+  badgeText: {
+    fontSize: 10,
+    color: '#fff',
+  },
+  timeFrameSelector: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    padding: 4,
+  },
+  timeFrameButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  timeFrameActive: {
+    backgroundColor: '#ff6200',
+  },
+  timeFrameText: {
+    fontSize: 12,
+    color: '#aaa',
+  },
+  timeFrameTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  leaderboardHeader: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  headerCell: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#ffd700',
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
   message: {
     fontSize: 14,
-    color: KA_COLORS.textSecondary,
+    color: '#90ee90',
     textAlign: 'center',
-    paddingVertical: 32,
+    paddingVertical: 24,
   },
   list: {
-    maxHeight: 400,
+    flex: 1,
   },
   entry: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: KA_COLORS.bgElevated,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#2a2a2a',
+    borderRadius: 8,
+    marginBottom: 6,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 3,
-    marginBottom: 8,
+    borderColor: '#444',
   },
   rank: {
-    width: 40,
+    width: 45,
     alignItems: 'center',
   },
   rankBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   rank1: {
-    backgroundColor: 'rgba(201, 168, 76, 0.2)',
-    borderWidth: 1,
-    borderColor: KA_COLORS.gold,
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderWidth: 2,
+    borderColor: '#ffd700',
   },
   rank2: {
     backgroundColor: 'rgba(192, 192, 192, 0.2)',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#c0c0c0',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
   },
   rank3: {
     backgroundColor: 'rgba(205, 127, 50, 0.2)',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#cd7f32',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
   },
   rankNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#fff',
   },
   player: {
+    flex: 2,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
+    gap: 8,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: KA_COLORS.orangePrimary,
+    width: 28,
+    height: 28,
+    backgroundColor: '#ff6200',
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '700',
-    color: KA_COLORS.ivory,
+    color: '#fff',
   },
   playerInfo: {
     flex: 1,
   },
   name: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '600',
-    color: KA_COLORS.ivory,
+    color: '#fff',
   },
   address: {
-    fontSize: 12,
-    color: KA_COLORS.textSecondary,
+    fontSize: 9,
+    color: '#aaa',
   },
-  stats: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  stat: {
-    flexDirection: 'row',
+  score: {
+    flex: 1,
     alignItems: 'center',
-    gap: 4,
   },
-  statText: {
+  scoreValue: {
     fontSize: 12,
-    color: KA_COLORS.ivoryDim,
+    fontWeight: '600',
+    color: '#ffd700',
+  },
+  level: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  levelValue: {
+    fontSize: 11,
+    color: '#fff',
+  },
+  tier: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  tierBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  tierText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   shareButton: {
-    padding: 8,
+    width: 32,
+    height: 32,
+    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    borderWidth: 1,
+    borderColor: '#ffd700',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   closeButton: {
-    marginTop: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 2,
+    marginTop: 12,
+    paddingVertical: 10,
+    backgroundColor: '#ff6200',
+    borderRadius: 8,
     alignItems: 'center',
   },
   closeButtonText: {
     fontSize: 14,
-    color: KA_COLORS.textSecondary,
+    fontWeight: '700',
+    color: '#fff',
   },
   shareModalOverlay: {
     position: 'absolute',
@@ -274,32 +440,53 @@ const leaderboardModalStyles = StyleSheet.create({
     padding: 20,
   },
   shareModalContent: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 20,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 2,
+    borderColor: '#ff6200',
+    borderRadius: 12,
+    padding: 16,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 350,
   },
-  shareModalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+  closeModalButton: {
+    alignSelf: 'flex-end',
+    padding: 5,
   },
   shareModalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: KA_COLORS.gold,
+    color: '#ffd700',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  shareModalBody: {
-    marginBottom: 16,
+  shareCard: {
+    backgroundColor: '#1a1a1a',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#ffd700',
   },
-  shareCardText: {
+  shareCardTitle: {
     fontSize: 14,
-    color: KA_COLORS.ivoryDim,
+    fontWeight: '700',
+    color: '#ff6200',
     marginBottom: 8,
+    textAlign: 'center',
+  },
+  shareCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  shareCardLabel: {
+    fontSize: 12,
+    color: '#aaa',
+  },
+  shareCardValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
   },
   shareButtonX: {
     flexDirection: 'row',
@@ -307,8 +494,8 @@ const leaderboardModalStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderRadius: 2,
+    backgroundColor: '#ff6200',
+    borderRadius: 8,
   },
   shareButtonIcon: {
     fontSize: 16,
@@ -316,7 +503,7 @@ const leaderboardModalStyles = StyleSheet.create({
   shareButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: KA_COLORS.ivory,
+    color: '#fff',
   },
 });
 

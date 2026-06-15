@@ -35,6 +35,14 @@ export const styles = StyleSheet.create({
     marginTop: 20,
     fontFamily: 'AnimeAce',
   },
+  lockedSubMessage: {
+    fontSize: 14,
+    color: '#888888',
+    marginTop: 10,
+    textAlign: 'center',
+    fontFamily: 'AnimeAce',
+    paddingHorizontal: 20,
+  },
   connectButton: {
     flexDirection: 'row',
     alignItems: 'center',

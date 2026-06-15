@@ -31,7 +31,7 @@ const StatsModal = ({ player, toggleModal }) => (
 
 const statsModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   statItem: {
     flexDirection: 'row',

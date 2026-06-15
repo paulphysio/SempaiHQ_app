@@ -355,6 +355,7 @@ export const styles = StyleSheet.create({
   },
   postsContainer: {
     flex: 1,
+    minHeight: 200,
   },
   noPosts: {
     flex: 1,

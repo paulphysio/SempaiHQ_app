@@ -1390,49 +1390,7 @@ const NovelDashboardScreen = () => {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
-            <View style={[styles.navbar, styles.darkNavbar]}>
-              <View style={styles.navContainer}>
-                <TouchableOpacity
-                  onPress={() => navigation.navigate('Home')}
-                  style={styles.navLink}
-                  activeOpacity={0.7}
-                  accessible
-                  accessibilityLabel="Navigate to home"
-                  accessibilityRole="button"
-                >
-                  <FontAwesome5 name="home" size={20} color={KA_COLORS.ivory} />
-                  <Text style={[styles.navText, styles.darkText]}>Home</Text>
-                </TouchableOpacity>
-                <View style={styles.navRight}>
-                  <ConnectButton />
-                  <TouchableOpacity
-                    onPress={toggleMenu}
-                    style={styles.menuToggle}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Toggle menu"
-                    accessibilityRole="button"
-                  >
-                    <FontAwesome5 name={menuOpen ? 'times' : 'bars'} size={20} color={KA_COLORS.ivory} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              {menuOpen && (
-                <View style={[styles.navMenu, styles.darkNavMenu]}>
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('Home')}
-                    style={styles.navMenuItem}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Navigate to home"
-                    accessibilityRole="button"
-                  >
-                    <FontAwesome5 name="home" size={20} color={KA_COLORS.ivory} />
-                    <Text style={[styles.navMenuText, styles.darkText]}>Home</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+            
             
 <FlatList
               data={renderMainContent()}

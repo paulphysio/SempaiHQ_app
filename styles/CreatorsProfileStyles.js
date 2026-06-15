@@ -148,6 +148,14 @@ export const styles = StyleSheet.create({
     borderRadius: 40,
     marginRight: 12,
   },
+  nameContainer: {
+    flex: 1,
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
   editProfileIcon: {
     width: 40,
     height: 40,

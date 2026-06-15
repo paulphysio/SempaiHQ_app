@@ -16,6 +16,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'; // Changed 
 import { supabase } from '../services/supabaseClient';
 import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { styles } from '../styles/CreatorsProfileStyles';
+import UBBadge from '../components/UBBadge';
 
 const { width } = Dimensions.get('window');
 
@@ -244,9 +245,15 @@ const CreatorsProfileScreen = () => {
                   source={{ uri: creatorData?.image || 'https://via.placeholder.com/80' }}
                   style={styles.profileIcon}
                 />
-                <Text style={styles.sectionTitle}>
-                  {creatorData?.name || creatorData?.wallet_address?.slice(0, 8) || 'Unknown'}
-                </Text>
+                <View style={styles.nameContainer}>
+                  <Text style={styles.sectionTitle}>
+                    {creatorData?.name || creatorData?.wallet_address?.slice(0, 8) || 'Unknown'}
+                  </Text>
+                  <View style={styles.badgeContainer}>
+                    {isWriter && <UBBadge type="writer" size="small" />}
+                    {isArtist && <UBBadge type="artist" size="small" />}
+                  </View>
+                </View>
               </View>
               <Text style={styles.bio}>{creatorData?.bio || 'No bio provided.'}</Text>
               <View style={styles.socials}>

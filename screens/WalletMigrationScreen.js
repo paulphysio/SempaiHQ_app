@@ -114,12 +114,15 @@ const WalletMigrationScreen = () => {
         <View style={styles.lockedContainer}>
           <FontAwesome5 name="wallet" size={48} color="#E74C3C" />
           <Text style={styles.lockedMessage}>Connect Wallet to Migrate</Text>
+          <Text style={styles.lockedSubMessage}>
+            You need to connect or import a wallet before you can migrate it
+          </Text>
           <TouchableOpacity 
             style={styles.connectButton}
             onPress={() => navigation.navigate('WalletImport')}
           >
             <FontAwesome5 name="wallet" size={16} color="#FFFFFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Connect Wallet</Text>
+            <Text style={styles.buttonText}>Connect / Import Wallet</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

@@ -35,7 +35,7 @@ const GuildModal = ({ player, joinGuild, contributeToGuild, toggleModal }) => (
 
 const guildModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   guildInfo: {
     marginBottom: 16,

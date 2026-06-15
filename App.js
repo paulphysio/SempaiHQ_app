@@ -2,7 +2,7 @@ import 'react-native-get-random-values';
 import React, { useState, useEffect } from 'react';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef, useRoute } from '@react-navigation/native';
 import { Platform, Alert, View, Text, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { EmbeddedWalletProvider } from './components/ConnectButtonEnhanced';
@@ -11,7 +11,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import * as Font from 'expo-font';
-import * as ScreenOrientation from 'expo-screen-orientation';
+import Orientation from 'react-native-orientation-locker';
 import { supabase } from './services/supabaseClient';
 import { NavigationProvider, useNavigationHandler } from './context/NavigationContext';
 import HomeScreen from './screens/HomeScreen';
@@ -44,6 +44,7 @@ import GlobalNavbar from './components/GlobalNavbar';
 import GlobalBottomNav from './components/GlobalBottomNav';
 import GlobalSidebar from './components/GlobalSidebar';
 import FeedScreen from './screens/FeedScreen';
+import RampScreen from './screens/RampScreen';
 import MarketplaceScreen from './screens/MarketplaceScreen';
 import WalletMigrationScreen from './screens/WalletMigrationScreen';
 import MintScreen from './screens/MintScreen';
@@ -122,15 +123,7 @@ const MainApp = () => {
 
   // Lock to portrait by default for all screens
   useEffect(() => {
-    const lockPortrait = async () => {
-      try {
-        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT);
-      } catch (error) {
-        console.error('Error locking to portrait:', error);
-      }
-    };
-
-    lockPortrait();
+    Orientation.lockToPortrait();
   }, []);
 
   return (
@@ -158,11 +151,21 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   const [showWelcome, setShowWelcome] = useState(true);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentRoute, setCurrentRoute] = useState(null);
   const navigationRef = useNavigationContainerRef();
 
   useNavigationHandler(() => {
     setShowWelcome(false);
   });
+
+  // Track current route to hide bottom nav on KaitoAdventure
+  useEffect(() => {
+    const unsubscribe = navigationRef?.addListener('state', (e) => {
+      const route = e.data.state?.routes[e.data.state.index];
+      setCurrentRoute(route?.name);
+    });
+    return unsubscribe;
+  }, [navigationRef]);
 
   useEffect(() => {
     const loadFonts = async () => {
@@ -267,7 +270,6 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="KaitoAdventure" component={KaitoAdventureScreen} />
             <Stack.Screen name="DAOGovernance" component={DAOGovernanceScreen} />
             <Stack.Screen name="KeepItSimple" component={KeepItSimpleScreen} />
-            <Stack.Screen name="WalletImport" component={WalletImportScreen} />
             <Stack.Screen name="Apply" component={ApplyScreen} />
             <Stack.Screen name="Chapter" component={ChapterScreen} />
             <Stack.Screen name="NovelSummary" component={NovelSummaryScreen} />
@@ -278,8 +280,12 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
             <Stack.Screen name="Wallet" component={WalletScreen} />
             <Stack.Screen name="Feed" component={FeedScreen} />
+            <Stack.Screen name="Crazy Corner" component={FeedScreen} />
+            <Stack.Screen name="FeedScreen" component={FeedScreen} />
+            <Stack.Screen name="Ramp" component={RampScreen} />
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
             <Stack.Screen name="WalletMigration" component={WalletMigrationScreen} />
+            <Stack.Screen name="WalletImport" component={WalletImportScreen} />
             <Stack.Screen name="Mint" component={MintScreen} />
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
             <Stack.Screen name="Admin" component={AdminScreen} />
@@ -294,10 +300,12 @@ const AppContent = ({ setIsStatusBarHidden }) => {
           </>
         )}
       </Stack.Navigator>
-        <GlobalBottomNav 
-          onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-          menuOpen={sidebarOpen}
-        />
+        {currentRoute !== 'KaitoAdventure' && (
+          <GlobalBottomNav 
+            onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+            menuOpen={sidebarOpen}
+          />
+        )}
         <GlobalSidebar 
           isVisible={sidebarOpen}
           onClose={() => setSidebarOpen(false)}

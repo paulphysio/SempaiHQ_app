@@ -44,7 +44,7 @@ const GuideModal = ({ toggleModal }) => (
 
 const guideModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   sectionTitle: {
     fontSize: 16,

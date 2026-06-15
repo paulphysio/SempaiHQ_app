@@ -8,8 +8,8 @@ const QuestsModal = ({ player, currentTown, towns, addQuest, toggleModal }) => {
 
   return (
     <ScrollView style={questsModalStyles.container}>
-      {player.quests.map(quest => (
-        <View key={quest.id} style={questsModalStyles.questItem}>
+      {player.quests.map((quest, index) => (
+        <View key={`${quest.id}-${index}`} style={questsModalStyles.questItem}>
           <Text style={questsModalStyles.questText}>{quest.description} - {quest.progress}/{quest.target}</Text>
           <Text style={questsModalStyles.questReward}>
             Reward: {quest.reward.gold ? `${quest.reward.gold} Gold` : ''} {quest.reward.xp ? `${quest.reward.xp} XP` : ''}
@@ -35,7 +35,7 @@ const QuestsModal = ({ player, currentTown, towns, addQuest, toggleModal }) => {
 
 const questsModalStyles = StyleSheet.create({
   container: {
-    padding: 16,
+    flex: 1,
   },
   questItem: {
     paddingVertical: 10,
