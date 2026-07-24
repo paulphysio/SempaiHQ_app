@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 9,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   announcementToggleWrapper: {
     position: 'relative',
@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   modalBody: {
     padding: 20,
@@ -137,7 +137,7 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     fontSize: 16,
     lineHeight: 24,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   notificationItem: {
     backgroundColor: 'rgba(255, 87, 51, 0.1)',
@@ -152,25 +152,25 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   announcementTitle: {
     color: '#FF5733',
     fontSize: 14,
     fontWeight: 'bold',
     marginBottom: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   notificationMessage: {
     color: '#FFFFFF',
     fontSize: 14,
     marginBottom: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   notificationDate: {
     color: '#888888',
     fontSize: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });
 

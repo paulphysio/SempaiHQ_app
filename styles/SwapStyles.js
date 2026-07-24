@@ -23,6 +23,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     color: '#ffffff',
     flex: 1,
@@ -55,6 +56,7 @@ export const styles = StyleSheet.create({
   connectPromptText: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -68,6 +70,7 @@ export const styles = StyleSheet.create({
   connectButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   swapForm: {
@@ -75,6 +78,7 @@ export const styles = StyleSheet.create({
   },
   formTitle: {
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 20,
@@ -90,6 +94,7 @@ export const styles = StyleSheet.create({
   balanceText: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
     flex: 1,
   },
@@ -105,6 +110,7 @@ export const styles = StyleSheet.create({
   label: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -114,6 +120,7 @@ export const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     borderWidth: 1,
     borderColor: '#E94560',
   },
@@ -130,6 +137,7 @@ export const styles = StyleSheet.create({
   swapButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     marginLeft: 10,
   },
@@ -156,6 +164,7 @@ export const styles = StyleSheet.create({
   messageText: {
     color: '#ffffff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   footer: {
@@ -168,6 +177,7 @@ export const styles = StyleSheet.create({
   footerText: {
     color: '#888',
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   modalContainer: {
     backgroundColor: '#ffffff',
@@ -183,10 +193,12 @@ export const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 18,
+    fontFamily: 'Yoruka',
     color: '#333',
   },
   modalTitle: {
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
@@ -198,6 +210,7 @@ export const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   submitButton: {
     backgroundColor: '#007bff',
@@ -209,6 +222,7 @@ export const styles = StyleSheet.create({
   submitButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   cancelButton: {
@@ -220,6 +234,7 @@ export const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   tokenList: {
@@ -239,6 +254,7 @@ export const styles = StyleSheet.create({
   },
   tokenName: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#333',
   },
   selectedToken: {
@@ -260,6 +276,7 @@ export const styles = StyleSheet.create({
   portfolioTitle: {
     color: '#ffffff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     marginBottom: 10,
   },
@@ -278,6 +295,7 @@ export const styles = StyleSheet.create({
   portfolioButtonText: {
     color: '#ffffff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginTop: 4,
   },
 });

@@ -38,6 +38,7 @@ export const styles = StyleSheet.create({
   logoText: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   navRight: {
@@ -62,6 +63,7 @@ export const styles = StyleSheet.create({
   navMenuText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   rewardsBelt: {
@@ -76,6 +78,7 @@ export const styles = StyleSheet.create({
   rewardItem: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginVertical: 5,
     textAlign: 'center',
   },
@@ -89,11 +92,13 @@ export const styles = StyleSheet.create({
   headerTitle: {
     color: '#fff',
     fontSize: 28,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   headerTagline: {
     color: '#ccc',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginVertical: 10,
   },
   searchBar: {
@@ -112,6 +117,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     paddingVertical: 10,
   },
   tagSelectContainer: {
@@ -121,6 +127,7 @@ export const styles = StyleSheet.create({
   tagSelectLabel: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   tagList: {
@@ -139,6 +146,7 @@ export const styles = StyleSheet.create({
   tagOptionText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   tagOptionTextSelected: {
     fontWeight: 'bold',
@@ -168,11 +176,13 @@ export const styles = StyleSheet.create({
   mangaTitle: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   mangaSummary: {
     color: '#ccc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginVertical: 5,
   },
   mangaMeta: {
@@ -190,6 +200,7 @@ export const styles = StyleSheet.create({
   artistText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginLeft: 5,
   },
   viewers: {
@@ -199,16 +210,19 @@ export const styles = StyleSheet.create({
   viewersText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginLeft: 5,
   },
   adultTag: {
     color: '#ff4444',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   noManga: {
     color: '#ccc',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginTop: 20,
   },
@@ -236,6 +250,7 @@ export const styles = StyleSheet.create({
   walletSummary: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   walletCountdown: {
@@ -246,6 +261,7 @@ export const styles = StyleSheet.create({
   countdownText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginLeft: 5,
   },
   walletContent: {
@@ -257,6 +273,7 @@ export const styles = StyleSheet.create({
   walletInfoText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginVertical: 3,
   },
   withdrawSection: {
@@ -271,6 +288,7 @@ export const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   withdrawActions: {
     flexDirection: 'row',
@@ -300,11 +318,13 @@ export const styles = StyleSheet.create({
   withdrawButtonText: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   refreshButtonText: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   disabledButton: {
@@ -313,6 +333,7 @@ export const styles = StyleSheet.create({
   errorText: {
     color: '#ff4444',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginTop: 10,
     textAlign: 'center',
   },

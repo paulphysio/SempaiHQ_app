@@ -23,6 +23,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#ff6200',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   scrollView: {
@@ -50,12 +51,14 @@ const styles = StyleSheet.create({
   campaignTitleText: {
     color: '#ffd700',
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginHorizontal: 12,
   },
   campaignSubtitle: {
     color: '#aaa',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -75,6 +78,7 @@ const styles = StyleSheet.create({
   campaignBadgeText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   timeFrameSelector: {
@@ -96,6 +100,7 @@ const styles = StyleSheet.create({
   timeFrameButtonText: {
     color: '#aaa',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   timeFrameButtonTextActive: {
     color: '#fff',
@@ -111,6 +116,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 16,
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   errorContainer: {
     flex: 1,
@@ -121,6 +127,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ff4444',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -133,6 +140,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   leaderboardContainer: {
     backgroundColor: '#2a2a2a',
@@ -153,6 +161,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#ffd700',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     textAlign: 'center',
   },
@@ -180,6 +189,7 @@ const styles = StyleSheet.create({
   rankNumber: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginLeft: 4,
   },
@@ -200,6 +210,7 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   playerDetails: {
@@ -208,11 +219,13 @@ const styles = StyleSheet.create({
   playerName: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   playerAddress: {
     color: '#aaa',
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   scoreCell: {
     width: 70,
@@ -221,6 +234,7 @@ const styles = StyleSheet.create({
   scoreValue: {
     color: '#ffd700',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   levelCell: {
@@ -230,6 +244,7 @@ const styles = StyleSheet.create({
   levelValue: {
     color: '#ccc',
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   tierCell: {
     width: 60,
@@ -244,6 +259,7 @@ const styles = StyleSheet.create({
   tierText: {
     color: '#ffd700',
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   shareCell: {
     width: 50,
@@ -275,6 +291,7 @@ const styles = StyleSheet.create({
   shareModalTitle: {
     color: '#ffd700',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 20,
@@ -291,28 +308,33 @@ const styles = StyleSheet.create({
   shareCardTitle: {
     color: '#ff6200',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   shareCardName: {
     color: '#fff',
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 4,
   },
   shareCardRank: {
     color: '#ffd700',
     fontSize: 32,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 4,
   },
   shareCardPoints: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   shareCardTimeFrame: {
     color: '#ccc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   shareToXButton: {
     flexDirection: 'row',
@@ -325,6 +347,7 @@ const styles = StyleSheet.create({
   shareToXButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginLeft: 8,
   },

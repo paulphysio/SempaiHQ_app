@@ -24,13 +24,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   scrollView: {
     flex: 1,
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontStyle: 'italic',
     marginBottom: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   termsContent: {
     gap: 20,
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     color: '#CCC',
     fontSize: 16,
     lineHeight: 24,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   heading: {
     color: '#9B59B6',
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 10,
     marginBottom: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   list: {
     gap: 8,
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     color: '#CCC',
     fontSize: 16,
     lineHeight: 22,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   bold: {
     fontWeight: 'bold',
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     color: '#9B59B6',
     fontSize: 16,
     marginBottom: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });
 

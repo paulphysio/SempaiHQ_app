@@ -23,6 +23,7 @@ export const styles = StyleSheet.create({
   navText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
     fontWeight: '600',
   },
@@ -47,6 +48,7 @@ export const styles = StyleSheet.create({
   navMenuText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   header: {
@@ -58,11 +60,13 @@ export const styles = StyleSheet.create({
   headerTitle: {
     color: '#fff',
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   headerSubtitle: {
     color: '#ccc',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginTop: 5,
   },
   main: {
@@ -86,6 +90,7 @@ export const styles = StyleSheet.create({
   connectText: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -101,6 +106,7 @@ export const styles = StyleSheet.create({
   accessDeniedText: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -114,6 +120,7 @@ export const styles = StyleSheet.create({
   backButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   formSection: {
@@ -122,6 +129,7 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     color: '#fff',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 15,
   },
@@ -138,6 +146,7 @@ export const styles = StyleSheet.create({
   label: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   input: {
@@ -146,6 +155,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     borderWidth: 1,
     borderColor: 'rgba(243, 99, 22, 0.2)',
   },
@@ -155,6 +165,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     height: 100,
     textAlignVertical: 'top',
     borderWidth: 1,
@@ -170,6 +181,7 @@ export const styles = StyleSheet.create({
   fileButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   imagePreview: {
@@ -190,6 +202,7 @@ export const styles = StyleSheet.create({
   placeholderText: {
     color: '#888',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   tagButton: {
     backgroundColor: '#3A3A4E',
@@ -201,6 +214,7 @@ export const styles = StyleSheet.create({
   tagButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -210,6 +224,7 @@ export const styles = StyleSheet.create({
   checkboxLabel: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   chapterSection: {
@@ -218,6 +233,7 @@ export const styles = StyleSheet.create({
   chapterTitle: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 15,
   },
@@ -231,6 +247,7 @@ export const styles = StyleSheet.create({
   addChapterButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   chapterList: {
@@ -248,6 +265,7 @@ export const styles = StyleSheet.create({
   chapterTitleText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   chapterActions: {
     flexDirection: 'row',
@@ -266,6 +284,7 @@ export const styles = StyleSheet.create({
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   announcementSection: {
@@ -288,6 +307,7 @@ export const styles = StyleSheet.create({
   dateButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   announcementButton: {
     flexDirection: 'row',
@@ -300,6 +320,7 @@ export const styles = StyleSheet.create({
   announcementButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   mangaSection: {
@@ -329,21 +350,25 @@ export const styles = StyleSheet.create({
   mangaTitle: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   mangaSummary: {
     color: '#ccc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginTop: 5,
   },
   mangaTags: {
     color: '#ccc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginTop: 5,
   },
   mangaViewers: {
     color: '#ccc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginTop: 5,
   },
   editMangaButton: {
@@ -357,11 +382,13 @@ export const styles = StyleSheet.create({
   editMangaButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   noManga: {
     color: '#ccc',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   artistsSection: {
@@ -384,10 +411,12 @@ export const styles = StyleSheet.create({
   artistText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   noArtists: {
     color: '#ccc',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   modalContainer: {
@@ -404,6 +433,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     color: '#fff',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 15,
   },
@@ -418,6 +448,7 @@ export const styles = StyleSheet.create({
   tagOptionText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   modalCloseButton: {
@@ -429,6 +460,7 @@ export const styles = StyleSheet.create({
   modalCloseButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   footer: {
@@ -439,6 +471,7 @@ export const styles = StyleSheet.create({
   footerText: {
     color: '#ccc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   disabledButton: {
     opacity: 0.5,

@@ -61,10 +61,12 @@ export const styles = StyleSheet.create({
   connectButtonText: {
     color: '#fff',
     fontSize: 13, // Reduced from 14
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   connectButtonTextCompact: {
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
 
   dropdownIcon: {
@@ -88,7 +90,7 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 5,
-    zIndex: 1000,
+    zIndex: 1002,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.05)',
   },
@@ -100,6 +102,7 @@ export const styles = StyleSheet.create({
   },
   dropdownText: {
     fontSize: 13,
+    fontFamily: 'Yoruka',
     color: '#333',
     marginLeft: 8,
     fontWeight: '500',
@@ -143,12 +146,14 @@ export const styles = StyleSheet.create({
   },
   disconnectModalTitle: {
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 12,
   },
   disconnectModalText: {
     fontSize: 15,
+    fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
@@ -173,6 +178,7 @@ export const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
   confirmButton: {
     paddingVertical: 12,
@@ -187,6 +193,7 @@ export const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
 
   // Connect wallet modal styles
@@ -205,12 +212,14 @@ export const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 16,
     color: '#333',
   },
   modalText: {
     fontSize: 15,
+    fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
@@ -222,6 +231,7 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
     width: '100%',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#333',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
@@ -251,6 +261,7 @@ export const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#666',
   },
   actionButton: {
@@ -265,6 +276,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     color: 'white',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   secondaryButton: {
@@ -275,6 +287,7 @@ export const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#FF5733',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   errorText: {
@@ -287,39 +300,131 @@ export const styles = StyleSheet.create({
   modalScrollView: {
     maxHeight: '80%',
   },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
+  },
   walletOption: {
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
     marginBottom: 12,
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderColor: 'rgba(0, 0, 0, 0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    overflow: 'hidden',
+  },
+  walletOptionGradient: {
+    padding: 16,
   },
   walletOptionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+  },
+  walletIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 87, 51, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  walletOptionTextContainer: {
+    flex: 1,
   },
   walletOptionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginLeft: 12,
+    fontFamily: 'Yoruka',
+    fontWeight: '700',
+    color: '#FF5733',
+    marginBottom: 4,
   },
   walletOptionDescription: {
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: 'Yoruka',
     color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 18,
   },
   walletOptionFeatures: {
     gap: 4,
   },
   walletOptionFeature: {
     fontSize: 12,
+    fontFamily: 'Yoruka',
     color: '#28a745',
     fontWeight: '500',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontFamily: 'Yoruka',
+    fontWeight: '600',
+    color: '#FF5733',
+    marginLeft: 8,
+  },
+  formHeader: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  formIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 87, 51, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+    width: '100%',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  actionButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    width: '100%',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    width: '100%',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 16,
+    fontFamily: 'Yoruka',
   },
 
   // Enhanced dropdown styles
@@ -334,11 +439,13 @@ export const styles = StyleSheet.create({
   },
   dropdownTitle: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     color: '#333',
   },
   dropdownItemText: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#666',
     flex: 1,
   },
@@ -350,6 +457,7 @@ export const styles = StyleSheet.create({
   },
   dropdownActionText: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#333',
     fontWeight: '500',
   },

@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   placeholder: {
     width: 24,
@@ -48,7 +48,7 @@ export const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   activeTabText: {
     color: '#FFFFFF',
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   loadingContainer: {
     flex: 1,
@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   listContent: {
     padding: 10,
@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   userInfo: {
     flex: 1,
@@ -145,13 +145,13 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 3,
   },
   userScore: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   youBadge: {
     backgroundColor: '#4CAF50',
@@ -163,7 +163,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   emptyContainer: {
     flex: 1,
@@ -175,6 +175,6 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });

@@ -40,6 +40,7 @@ export const styles = StyleSheet.create({
   logoText: {
     marginLeft: 15,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#F36316',
     fontWeight: 'bold',
     ...(Platform.OS === 'web' && {
@@ -78,6 +79,7 @@ export const styles = StyleSheet.create({
   navItemText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   connectBtn: {
@@ -93,6 +95,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 32,
+    fontFamily: 'Yoruka',
     color: '#F36316',
     fontWeight: 'bold',
     ...(Platform.OS === 'web' && {
@@ -101,6 +104,7 @@ export const styles = StyleSheet.create({
   },
   headerTagline: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: 'rgba(255, 255, 255, 0.7)',
     marginVertical: 10,
   },
@@ -123,6 +127,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     padding: 5,
   },
   tagSelectContainer: {
@@ -148,6 +153,7 @@ export const styles = StyleSheet.create({
   tagButtonText: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   tagButtonTextSelected: {
     color: '#000',
@@ -179,6 +185,7 @@ export const styles = StyleSheet.create({
   },
   bookTitle: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#F36316',
     fontWeight: 'bold',
     marginBottom: 5,
@@ -188,6 +195,7 @@ export const styles = StyleSheet.create({
   },
   bookSummary: {
     fontSize: 12,
+    fontFamily: 'Yoruka',
     color: 'rgba(255, 255, 255, 0.7)',
     marginBottom: 5,
   },
@@ -206,6 +214,7 @@ export const styles = StyleSheet.create({
   authorText: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginLeft: 5,
   },
   viewersContainer: {
@@ -215,12 +224,14 @@ export const styles = StyleSheet.create({
   viewersText: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginLeft: 5,
   },
   adultTag: {
     backgroundColor: '#FFD700',
     color: '#000',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     paddingVertical: 2,
     paddingHorizontal: 6,
@@ -230,6 +241,7 @@ export const styles = StyleSheet.create({
   noBooks: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     padding: 20,
   },
@@ -248,6 +260,7 @@ export const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#F36316',
     fontWeight: 'bold',
     ...(Platform.OS === 'web' && {
@@ -264,6 +277,7 @@ export const styles = StyleSheet.create({
   loadingText: {
     color: '#F36316',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginTop: 10,
   },
 });

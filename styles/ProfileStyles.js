@@ -16,7 +16,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   header: {
     flexDirection: 'row',
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   scrollView: {
     flex: 1,
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   errorContainer: {
     flex: 1,
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     color: '#E74C3C',
     fontSize: 16,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   content: {
     gap: 20,
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 24,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   bio: {
     color: '#CCC',
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 24,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   socials: {
     flexDirection: 'row',
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   walletInfo: {
     flexDirection: 'row',
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     color: '#9B59B6',
     fontSize: 14,
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   novelsSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   novelGrid: {
     flexDirection: 'row',
@@ -182,20 +182,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     padding: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   novelSummary: {
     color: '#CCC',
     fontSize: 14,
     paddingHorizontal: 12,
     paddingBottom: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   placeholder: {
     color: '#AAA',
     fontSize: 16,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   profileActions: {
     flexDirection: 'row',
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });
 

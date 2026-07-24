@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   placeholder: {
     width: 24,
@@ -33,7 +33,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   connectButton: {
     flexDirection: 'row',
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   tabs: {
     flexDirection: 'row',
@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   activeTabText: {
     color: '#FFFFFF',
@@ -96,7 +96,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   grid: {
     padding: 10,
@@ -140,30 +140,30 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   itemPrice: {
     fontSize: 14,
     color: '#F39C12',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 3,
   },
   itemSeller: {
     fontSize: 12,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   itemRarity: {
     fontSize: 12,
     color: '#9B59B6',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 3,
   },
   listedText: {
     fontSize: 12,
     color: '#4CAF50',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   emptyContainer: {
     flex: 1,
@@ -175,7 +175,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   modalOverlay: {
     flex: 1,
@@ -223,13 +223,13 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   modalSubtitle: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 20,
   },
   modalInfo: {
@@ -244,13 +244,13 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: '#CCCCCC',
     marginLeft: 10,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   infoValue: {
     fontSize: 14,
     color: '#FFFFFF',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   purchaseButton: {
     flexDirection: 'row',
@@ -278,7 +278,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   input: {
@@ -289,6 +289,6 @@ export const styles = StyleSheet.create({
     padding: 15,
     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });

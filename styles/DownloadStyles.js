@@ -22,7 +22,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   scrollView: {
     flex: 1,
@@ -40,14 +40,14 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   errorText: {
     color: '#E74C3C',
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   downloadList: {
     gap: 16,
@@ -72,13 +72,13 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   releaseDate: {
     color: '#AAA',
     fontSize: 14,
     marginTop: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   downloadButton: {
     flexDirection: 'row',
@@ -93,20 +93,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   installNote: {
     color: '#AAA',
     fontSize: 14,
     textAlign: 'center',
     marginTop: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   noDownloads: {
     color: '#AAA',
     fontSize: 16,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });
 

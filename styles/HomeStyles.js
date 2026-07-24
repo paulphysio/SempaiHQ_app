@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.6,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   headerActions: {
     flexDirection: 'row',
@@ -75,7 +75,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '900',
     letterSpacing: 0.3,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   headerAction: {
     padding: 8,
@@ -98,7 +98,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 10,
     fontWeight: '800',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   authLauncher: {
     backgroundColor: '#FF5733',
@@ -150,7 +150,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.3,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   // Compact header wallet chip
@@ -170,7 +170,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.3,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   // Header wallet dropdown
@@ -204,7 +204,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 0.3,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   headerWalletDivider: {
     height: 1,
@@ -324,12 +324,13 @@ export const styles = StyleSheet.create({
   logoText: {
     color: '#FF5733',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: '800',
     marginLeft: 8,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   scrollContainer: {
@@ -355,6 +356,7 @@ export const styles = StyleSheet.create({
   heroTitle: {
     color: '#FFFFFF',
     fontSize: width < 380 ? 22 : width < 480 ? 24 : 28,
+    fontFamily: 'Yoruka',
     fontWeight: '900',
     textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -362,7 +364,7 @@ export const styles = StyleSheet.create({
     textShadowRadius: 6,
     marginBottom: 12,
     letterSpacing: 0.5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   heroButtons: {
@@ -388,7 +390,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 380 ? 12 : width < 480 ? 13 : 14,
     fontWeight: '800',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     letterSpacing: 0.4,
   },
 
@@ -450,7 +452,7 @@ export const styles = StyleSheet.create({
     color: '#FF5733',
     fontSize: 12,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementToggleWrapper: {
@@ -502,14 +504,14 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: '500',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   notificationDetails: {
     fontSize: 14,
     color: '#aaa',
     marginTop: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   markReadButton: {
@@ -524,7 +526,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   noNotifications: {
@@ -532,7 +534,7 @@ export const styles = StyleSheet.create({
     color: '#aaa',
     textAlign: 'center',
     padding: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementDropdown: {
@@ -575,38 +577,38 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FF5733',
     marginBottom: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementMessage: {
     fontSize: 16,
     color: '#fff',
     marginBottom: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementDetails: {
     fontSize: 14,
     color: '#aaa',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementLink: {
     color: '#FF5733',
     textDecorationLine: 'underline',
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementAuthor: {
     color: '#FF5733',
     marginRight: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   announcementDate: {
     marginTop: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   noAnnouncements: {
@@ -614,7 +616,7 @@ export const styles = StyleSheet.create({
     color: '#aaa',
     textAlign: 'center',
     padding: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   navLink: {
@@ -632,7 +634,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   navIcon: {
@@ -706,7 +708,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginLeft: 12,
   },
 
@@ -736,7 +738,7 @@ export const styles = StyleSheet.create({
     color: '#FF5733',
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginLeft: 12,
   },
 
@@ -758,13 +760,14 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     color: '#FFFFFF',
     fontSize: width < 380 ? 16 : width < 480 ? 18 : 20,
+    fontFamily: 'Yoruka',
     fontWeight: '900',
     marginBottom: 8,
     textAlign: 'left',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 3,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     letterSpacing: 0.5,
   },
 
@@ -803,7 +806,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 380 ? 13 : 14,
     fontWeight: '800',
     marginBottom: 2,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     letterSpacing: 0.3,
   },
 
@@ -813,7 +816,7 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
     lineHeight: 16,
     opacity: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   adultWarning: {
@@ -821,7 +824,7 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     marginBottom: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     letterSpacing: 0.6,
   },
 
@@ -837,7 +840,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   rating: {
@@ -846,7 +849,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 
   writerName: {
@@ -866,7 +869,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontWeight: '800',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     letterSpacing: 0.4,
   },
 
@@ -930,7 +933,7 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     letterSpacing: 0.4,
   },
 
@@ -946,7 +949,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   footer: {
     paddingVertical: 20,
@@ -957,7 +960,7 @@ export const styles = StyleSheet.create({
     color: '#aaa',
     fontSize: 14,
     fontWeight: '500',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   loadingContainer: {
     flex: 1,
@@ -970,7 +973,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     marginTop: 12,
     fontWeight: '600',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   errorContainer: {
     flex: 1,
@@ -983,14 +986,14 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     fontWeight: '600',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   noContent: {
     color: '#aaa',
     fontSize: 16,
     textAlign: 'center',
     padding: 16,
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   // Popup Modal Styles
   popupModal: {
@@ -1015,7 +1018,7 @@ export const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 20,
     textAlign: 'center',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   popupButton: {
     backgroundColor: '#F36316',
@@ -1028,7 +1031,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   popupCancelButton: {
     backgroundColor: 'rgba(255, 87, 51, 0.2)',
@@ -1042,7 +1045,7 @@ export const styles = StyleSheet.create({
     color: '#F36316',
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'AnimeAce', // Added
+    fontFamily: 'Yoruka', // Added
   },
   // Header wallet connect modal inputs/errors
   headerInput: {
@@ -1052,6 +1055,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     width: '100%',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#333',
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.1)',
@@ -1062,7 +1066,7 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 10,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   googleSignInImage: {
     backgroundColor: '#ffffff',

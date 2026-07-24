@@ -20,12 +20,14 @@ export const styles = StyleSheet.create({
   headerText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     textAlign: 'center',
   },
   weatherText: {
     color: '#aaa',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginTop: 5,
   },
   // Navbar Styles
@@ -50,6 +52,7 @@ export const styles = StyleSheet.create({
   logoText: {
     color: '#ff6200',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
   },
   menuToggle: {
@@ -84,6 +87,7 @@ export const styles = StyleSheet.create({
   navLinkText: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
   // Connect Button
   connectButtonContainer: {
@@ -109,6 +113,7 @@ export const styles = StyleSheet.create({
   buttonText: {
     color: '#ffd700',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   // Player Info Card
@@ -144,11 +149,13 @@ export const styles = StyleSheet.create({
   cardTitle: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
   },
   cardSubtitle: {
     color: '#aaa',
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -162,6 +169,7 @@ export const styles = StyleSheet.create({
   statText: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginLeft: 4,
   },
   progressBarContainer: {
@@ -178,6 +186,7 @@ export const styles = StyleSheet.create({
   traitText: {
     color: '#ff6200',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     fontStyle: 'italic',
   },
   // Inventory Section
@@ -189,6 +198,7 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     color: '#fff',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   buttonGroup: {
@@ -231,11 +241,13 @@ export const styles = StyleSheet.create({
   itemName: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     flex: 1,
   },
   itemQuantity: {
     color: '#aaa',
     fontSize: 11,
+    fontFamily: 'Yoruka',
     marginHorizontal: 6,
   },
   actionButton: {
@@ -247,10 +259,12 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     color: '#fff',
     fontSize: 10,
+    fontFamily: 'Yoruka',
   },
   emptyText: {
     color: '#aaa',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     padding: 6,
   },
@@ -273,6 +287,7 @@ export const styles = StyleSheet.create({
   rareItemText: {
     color: '#ff6200',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   // Equipment
@@ -288,6 +303,7 @@ export const styles = StyleSheet.create({
   equipmentLabel: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     width: 60,
   },
   equipmentItem: {
@@ -302,6 +318,7 @@ export const styles = StyleSheet.create({
   equipmentText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   // Ingredients
   ingredientsContainer: {
@@ -322,6 +339,7 @@ export const styles = StyleSheet.create({
   ingredientText: {
     color: '#fff',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   // Countdown
@@ -332,6 +350,7 @@ export const styles = StyleSheet.create({
   countdownText: {
     color: '#ff6200',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginVertical: 3,
   },
   // Modal Styles
@@ -349,6 +368,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     marginBottom: 10,
     textAlign: 'center',
@@ -356,6 +376,7 @@ export const styles = StyleSheet.create({
   modalSubtitle: {
     color: '#aaa',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginBottom: 6,
     textAlign: 'center',
   },
@@ -375,6 +396,7 @@ export const styles = StyleSheet.create({
   modalButtonText: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   modalItemImage: {
@@ -402,6 +424,7 @@ export const styles = StyleSheet.create({
   tabText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   ingredientSelection: {
     maxHeight: 200, // Limit height to enable scrolling
@@ -431,6 +454,7 @@ export const styles = StyleSheet.create({
   ingredientButtonText: {
     color: '#fff',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginTop: 3,
   },
@@ -453,11 +477,13 @@ export const styles = StyleSheet.create({
   combatantText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   versusText: {
     color: '#ff6200',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
   },
   combatLog: {
@@ -470,6 +496,7 @@ export const styles = StyleSheet.create({
   combatLogText: {
     color: '#fff',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     marginVertical: 1,
   },
   combatLoading: {
@@ -487,6 +514,7 @@ export const styles = StyleSheet.create({
   combatResultText: {
     color: '#ff6200',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     marginBottom: 10,
   },
@@ -501,20 +529,24 @@ export const styles = StyleSheet.create({
   leaderboardRank: {
     color: '#ff6200',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     width: 40,
   },
   leaderboardName: {
     color: '#fff',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     flex: 1,
   },
   leaderboardStats: {
     color: '#aaa',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   leaderboardDescription: {
     color: '#ccc',
     fontSize: 11,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 6,
   },
@@ -550,6 +582,7 @@ export const styles = StyleSheet.create({
   medalText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
   },
   playerInfoContainer: {
@@ -586,6 +619,7 @@ export const styles = StyleSheet.create({
   rewardText: {
     color: '#ffd700',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -608,6 +642,7 @@ export const styles = StyleSheet.create({
   refreshButtonText: {
     color: '#ff6200',
     fontSize: 11,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     marginLeft: 4,
   },
@@ -618,6 +653,7 @@ export const styles = StyleSheet.create({
   emptySubtext: {
     color: '#888',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     marginTop: 3,
   },
   activeTabText: {
@@ -634,10 +670,12 @@ export const styles = StyleSheet.create({
   questText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   questReward: {
     color: '#ff6200',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     marginTop: 3,
   },
   taskItem: {
@@ -649,10 +687,12 @@ export const styles = StyleSheet.create({
   taskText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   taskReward: {
     color: '#ff6200',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     marginTop: 3,
   },
   // NPC Dialogue
@@ -665,10 +705,12 @@ export const styles = StyleSheet.create({
   npcDialogueText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   npcQuestText: {
     color: '#ff6200',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     marginTop: 3,
   },
   // Skills
@@ -678,6 +720,7 @@ export const styles = StyleSheet.create({
   skillTreeTitle: {
     color: '#ff6200',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     marginBottom: 3,
   },
@@ -693,6 +736,7 @@ export const styles = StyleSheet.create({
   skillText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   // Events
   eventItem: {
@@ -704,16 +748,19 @@ export const styles = StyleSheet.create({
   eventText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
   },
   eventTimer: {
     color: '#ff6200',
     fontSize: 10,
+    fontFamily: 'Yoruka',
     marginTop: 3,
   },
   // Guide
   guideText: {
     color: '#fff',
     fontSize: 11,
+    fontFamily: 'Yoruka',
     lineHeight: 18,
     marginBottom: 8,
   },

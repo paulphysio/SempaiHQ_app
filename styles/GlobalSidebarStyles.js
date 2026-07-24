@@ -49,6 +49,7 @@ export const styles = StyleSheet.create({
     zIndex: 1000,
   },
   navLinksContainer: {
+    paddingTop: 16,
     paddingBottom: 20,
   },
   navGroup: {
@@ -68,11 +69,26 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginLeft: 12,
   },
   dropdownIcon: {
     marginLeft: 8,
+  },
+  walletAddressText: {
+    color: '#FF5733',
+    fontSize: 11,
+    fontWeight: '500',
+    fontFamily: 'Yoruka',
+    marginLeft: 8,
+  },
+  walletButtonConnected: {
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+  },
+  walletConnectedText: {
+    color: '#4CAF50',
   },
   dropdown: {
     backgroundColor: 'rgba(15, 15, 24, 0.9)',
@@ -94,7 +110,7 @@ export const styles = StyleSheet.create({
     color: '#FF5733',
     fontSize: 13,
     fontWeight: '500',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginLeft: 12,
   },
   navIcon: {

@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   placeholder: {
     width: 24,
@@ -33,14 +33,14 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   lockedSubMessage: {
     fontSize: 14,
     color: '#888888',
     marginTop: 10,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     paddingHorizontal: 20,
   },
   connectButton: {
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   content: {
     flex: 1,
@@ -83,13 +83,13 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   infoDescription: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   migrationTypeSelector: {
@@ -117,7 +117,7 @@ export const styles = StyleSheet.create({
   typeButtonText: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   activeTypeButtonText: {
     color: '#FFFFFF',
@@ -135,13 +135,13 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   formDescription: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -151,7 +151,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   input: {
@@ -162,7 +162,7 @@ export const styles = StyleSheet.create({
     padding: 15,
     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   migrateButton: {
     flexDirection: 'row',
@@ -188,7 +188,7 @@ export const styles = StyleSheet.create({
     color: '#F39C12',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   infoBox: {
@@ -205,7 +205,7 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   resultCard: {
@@ -223,6 +223,6 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });

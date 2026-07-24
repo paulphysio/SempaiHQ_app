@@ -39,6 +39,7 @@ export const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     color: ACCENT,
     textAlign: 'center',
@@ -79,6 +80,7 @@ export const styles = StyleSheet.create({
     color: ACCENT,
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
     letterSpacing: 0.2,
   },
   // Chapter content
@@ -91,6 +93,7 @@ export const styles = StyleSheet.create({
   paragraph: {
     color: TEXT,
     fontSize: 20,
+    fontFamily: 'Yoruka',
     lineHeight: 32,
     marginBottom: 18,
     letterSpacing: 0.1,
@@ -143,6 +146,7 @@ export const styles = StyleSheet.create({
     color: WHITE,
     fontWeight: 'bold',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginHorizontal: 4,
     letterSpacing: 0.2,
   },
@@ -181,6 +185,7 @@ export const styles = StyleSheet.create({
   messageText: {
     color: TEXT,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     fontWeight: '500',
   },
@@ -205,6 +210,7 @@ export const styles = StyleSheet.create({
   lockedMessage: {
     color: ACCENT,
     fontSize: 22,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
@@ -212,6 +218,7 @@ export const styles = StyleSheet.create({
   lockedSubMessage: {
     color: SUBTEXT,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginBottom: 18,
     textAlign: 'center',
   },
@@ -241,11 +248,13 @@ export const styles = StyleSheet.create({
     color: WHITE,
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
     marginBottom: 2,
   },
   paymentPrice: {
     color: ACCENT_LIGHT,
     fontSize: 13,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   fullChaptersButton: {
@@ -282,6 +291,7 @@ export const styles = StyleSheet.create({
     color: WHITE,
     fontWeight: 'bold',
     fontSize: 17,
+    fontFamily: 'Yoruka',
     letterSpacing: 0.2,
   },
   getSmpButton: {
@@ -296,6 +306,7 @@ export const styles = StyleSheet.create({
     color: ACCENT,
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
   // Reading options (after unlock)
   readingOptions: {
@@ -309,6 +320,7 @@ export const styles = StyleSheet.create({
     color: ACCENT,
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
   // Loading
   loadingContainer: {
@@ -320,6 +332,7 @@ export const styles = StyleSheet.create({
   loadingText: {
     color: ACCENT,
     fontSize: 18,
+    fontFamily: 'Yoruka',
     marginTop: 18,
     fontWeight: 'bold',
   },
@@ -334,6 +347,7 @@ export const styles = StyleSheet.create({
   errorTitle: {
     color: 'rgba(255,0,0,0.8)',
     fontSize: 22,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 10,
     textAlign: 'center',
@@ -345,6 +359,7 @@ export const styles = StyleSheet.create({
     padding: 12,
     marginVertical: 8,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     width: width * 0.8,
     alignSelf: 'center',
   },
@@ -365,6 +380,7 @@ export const styles = StyleSheet.create({
     color: WHITE,
     fontWeight: 'bold',
     fontSize: 17,
+    fontFamily: 'Yoruka',
   },
   secondaryButton: {
     backgroundColor: ACCENT_SOFT,
@@ -378,5 +394,6 @@ export const styles = StyleSheet.create({
     color: ACCENT,
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
 });

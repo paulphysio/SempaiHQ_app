@@ -24,6 +24,7 @@ export const styles = StyleSheet.create({
   floatingButtonText: {
     color: '#FFF',
     fontSize: 10, // Small text
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     marginLeft: 6,
   },
@@ -75,6 +76,7 @@ export const styles = StyleSheet.create({
   infoLabel: {
     color: '#F36316',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '500',
     marginLeft: 8,
     flex: 1,
@@ -82,6 +84,7 @@ export const styles = StyleSheet.create({
   infoValue: {
     color: '#FFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   actionSection: {
@@ -95,6 +98,7 @@ export const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 10,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginBottom: 12,
   },
   actionButtons: {
@@ -126,11 +130,13 @@ export const styles = StyleSheet.create({
   buttonText: {
     color: '#FFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   errorText: {
     color: '#FF4D4D',
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginTop: 8,
     textAlign: 'center',
   },

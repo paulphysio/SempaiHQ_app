@@ -25,7 +25,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 20,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   content: {
     flex: 1,
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     color: '#9B59B6',
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   fileButton: {
     flexDirection: 'row',
@@ -66,7 +66,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   previewContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -91,12 +91,12 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   message: {
     fontSize: 14,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   messageSuccess: {
     color: '#2ECC71',

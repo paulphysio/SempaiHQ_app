@@ -47,6 +47,7 @@ export const styles = StyleSheet.create({
   },
   logoText: {
     fontSize: width <= 480 ? 20 : width <= 768 ? 22 : 26,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: '#ff6200',
     marginLeft: 12,
@@ -101,6 +102,7 @@ export const styles = StyleSheet.create({
   navLinkText: {
     color: '#ffffff',
     fontSize: width <= 768 ? 18 : 18,
+    fontFamily: 'Yoruka',
     fontWeight: '500',
   },
   main: {
@@ -122,6 +124,7 @@ export const styles = StyleSheet.create({
   },
   howToTitle: {
     fontSize: width <= 480 ? 26 : width <= 768 ? 28 : 32,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: '#ff6200',
     textAlign: 'center',
@@ -157,9 +160,11 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '500',
     fontSize: width <= 480 ? 12 : width <= 768 ? 13 : 14,
+    fontFamily: 'Yoruka',
   },
   howToListText: {
     fontSize: width <= 480 ? 14 : width <= 768 ? 15 : 16,
+    fontFamily: 'Yoruka',
     lineHeight: 24,
     color: '#dcdcdc',
     flex: 1,
@@ -171,6 +176,7 @@ export const styles = StyleSheet.create({
   },
   heroTitle: {
     fontSize: width <= 480 ? 28 : width <= 768 ? 32 : 40,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: '#ff6200',
     marginBottom: 15,
@@ -180,6 +186,7 @@ export const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: width <= 480 ? 16 : width <= 768 ? 18 : 20,
+    fontFamily: 'Yoruka',
     color: '#dcdcdc',
     textAlign: 'center',
     maxWidth: width <= 768 ? '90%' : 600,
@@ -189,6 +196,7 @@ export const styles = StyleSheet.create({
   },
   contentHeading: {
     fontSize: width <= 480 ? 22 : width <= 768 ? 24 : 28,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     color: '#ff6200',
     marginVertical: 35,
@@ -200,6 +208,7 @@ export const styles = StyleSheet.create({
   },
   contentText: {
     fontSize: width <= 480 ? 14 : width <= 768 ? 15 : 16,
+    fontFamily: 'Yoruka',
     lineHeight: 26,
     color: '#dcdcdc',
     marginBottom: 20,
@@ -222,6 +231,7 @@ export const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: width <= 480 ? 14 : 15,
+    fontFamily: 'Yoruka',
     color: '#dcdcdc',
   },
 });

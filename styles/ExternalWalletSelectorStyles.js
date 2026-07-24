@@ -34,7 +34,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   placeholder: {
     width: 35,
@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     textAlign: 'center',
     marginBottom: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   loadingContainer: {
@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   walletList: {
     gap: 12,
@@ -87,12 +87,12 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   walletStatus: {
     fontSize: 12,
     marginTop: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   installed: {
     color: '#4CAF50',
@@ -115,7 +115,7 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
 });

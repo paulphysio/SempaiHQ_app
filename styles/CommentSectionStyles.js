@@ -41,6 +41,7 @@ export const styles = StyleSheet.create({
   title: {
     color: KA_COLORS.gold,
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginLeft: 8,
     letterSpacing: 1,
@@ -59,6 +60,7 @@ export const styles = StyleSheet.create({
   errorMessageText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     flex: 1,
   },
   clearErrorButton: {
@@ -76,6 +78,7 @@ export const styles = StyleSheet.create({
   connectPromptText: {
     color: KA_COLORS.textSecondary,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -88,6 +91,7 @@ export const styles = StyleSheet.create({
   connectButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   inputContainer: {
     marginBottom: 16,
@@ -96,6 +100,7 @@ export const styles = StyleSheet.create({
     backgroundColor: KA_COLORS.bgElevated,
     color: KA_COLORS.ivory,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     padding: 12,
     borderRadius: 4,
     minHeight: 80,
@@ -115,6 +120,7 @@ export const styles = StyleSheet.create({
   charCounter: {
     color: KA_COLORS.textMuted,
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   postButton: {
     flexDirection: 'row',
@@ -131,6 +137,7 @@ export const styles = StyleSheet.create({
   postButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   commentsContainer: {
@@ -155,11 +162,13 @@ export const styles = StyleSheet.create({
   commentUsername: {
     color: KA_COLORS.orangePrimary,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   commentTimestamp: {
     color: KA_COLORS.textMuted,
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
   commentContent: {
     marginBottom: 8,
@@ -167,6 +176,7 @@ export const styles = StyleSheet.create({
   commentText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   commentActions: {
@@ -198,6 +208,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 12,
+    fontFamily: 'Yoruka',
     marginLeft: 4,
   },
   actionIcon: {
@@ -214,6 +225,7 @@ export const styles = StyleSheet.create({
     backgroundColor: KA_COLORS.bgElevated,
     color: KA_COLORS.ivory,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     padding: 10,
     borderRadius: 4,
     minHeight: 60,
@@ -260,6 +272,7 @@ export const styles = StyleSheet.create({
   noComments: {
     color: KA_COLORS.textMuted,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginVertical: 16,
   },

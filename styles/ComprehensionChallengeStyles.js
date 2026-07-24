@@ -48,7 +48,7 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -57,7 +57,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   content: {
     padding: 25,
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   questionContainer: {
     flexDirection: 'row',
@@ -87,7 +87,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 15,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 24,
   },
   optionsContainer: {
@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   selectedIndicatorText: {
     color: '#FFFFFF',
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginLeft: 15,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   selectedOptionText: {
     fontWeight: 'bold',
@@ -162,13 +162,13 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginLeft: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   resultSubtext: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     marginLeft: 10,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   nextButton: {
     flexDirection: 'row',
@@ -185,7 +185,7 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginRight: 10,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   nextButtonIcon: {
     color: '#FFFFFF',

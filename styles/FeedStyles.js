@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   lockedContainer: {
     flex: 1,
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   connectButton: {
     flexDirection: 'row',
@@ -50,7 +50,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   loadingContainer: {
     flex: 1,
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   feedList: {
     padding: 15,
@@ -104,20 +104,20 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   postTime: {
     fontSize: 12,
     color: '#CCCCCC',
     marginTop: 2,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   postContent: {
     fontSize: 15,
     color: '#FFFFFF',
     lineHeight: 22,
     marginBottom: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   postImage: {
     width: '100%',
@@ -141,7 +141,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: '#CCCCCC',
     marginLeft: 6,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   likedText: {
     color: '#E74C3C',
@@ -156,13 +156,13 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   emptySubtext: {
     fontSize: 14,
     color: '#888',
     marginTop: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   modalContainer: {
     flex: 1,
@@ -187,7 +187,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   modalBody: {
     padding: 20,
@@ -205,7 +205,7 @@ export const styles = StyleSheet.create({
     padding: 15,
     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     minHeight: 120,
     textAlignVertical: 'top',
   },
@@ -248,7 +248,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4A90E2',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   // New styles to match web version
   page: {
@@ -280,7 +280,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   menuButton: {
     padding: 8,
@@ -300,7 +300,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   feedContent: {
     flex: 1,
@@ -318,13 +318,13 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   feedSubtitle: {
     color: '#888',
     fontSize: 14,
     marginBottom: 24,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   postCreatorContainer: {
     marginBottom: 24,
@@ -351,7 +351,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   postsContainer: {
     flex: 1,
@@ -367,6 +367,6 @@ export const styles = StyleSheet.create({
     color: '#888',
     fontSize: 16,
     marginTop: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });

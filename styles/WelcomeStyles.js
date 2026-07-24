@@ -35,6 +35,7 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: width <= 480 ? 28 : 32,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: '#F36316',
     textAlign: 'center',
@@ -44,6 +45,7 @@ export const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: width <= 480 ? 16 : 18,
+    fontFamily: 'Yoruka',
     color: '#E0E0E0', // Light gray for contrast on dark background
     textAlign: 'center',
     marginTop: 10,

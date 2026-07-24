@@ -19,6 +19,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#E67E22', // Orange accent color
     fontSize: 32,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 30,
     textAlign: 'center',
@@ -36,6 +37,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#E0E0E0',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginBottom: 12,
     textAlign: 'center',
     fontWeight: '500',
@@ -59,6 +61,7 @@ const styles = StyleSheet.create({
     color: '#888888',
     marginHorizontal: 10,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: '500',
   },
   
@@ -66,6 +69,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: '#E0E0E0',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     marginBottom: 30,
     textAlign: 'center',
   },
@@ -86,6 +90,7 @@ const styles = StyleSheet.create({
     color: '#81C784', // Light green text
     textAlign: 'center',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   
   // Wallet connection container
@@ -118,6 +123,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     marginLeft: 12,
   },
@@ -128,6 +134,7 @@ const styles = StyleSheet.create({
   skipButtonText: {
     color: '#999999',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '500',
     textDecorationLine: 'underline',
   },
@@ -142,6 +149,7 @@ const styles = StyleSheet.create({
   termsText: {
     color: '#BBBBBB',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -171,6 +179,7 @@ const styles = StyleSheet.create({
     color: '#E0E0E0',
     marginTop: 15,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '500',
   },
   
@@ -197,12 +206,14 @@ const styles = StyleSheet.create({
   profileInitial: {
     color: '#FFFFFF',
     fontSize: 40,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   
   userName: {
     color: '#FFFFFF',
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 5,
     textAlign: 'center',
@@ -211,6 +222,7 @@ const styles = StyleSheet.create({
   userEmail: {
     color: '#BBBBBB',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -227,6 +239,7 @@ const styles = StyleSheet.create({
   signOutButtonText: {
     color: '#FF6B6B',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     textAlign: 'center',
   },
@@ -244,6 +257,7 @@ const styles = StyleSheet.create({
   skipButtonText: {
     color: '#BBBBBB',
     fontSize: 15,
+    fontFamily: 'Yoruka',
     fontWeight: '500',
   },
   
@@ -263,6 +277,7 @@ const styles = StyleSheet.create({
   // User greeting
   userGreeting: {
     fontSize: 20,
+    fontFamily: 'Yoruka',
     color: '#E0E0E0',
     marginBottom: 10,
     fontWeight: '600',

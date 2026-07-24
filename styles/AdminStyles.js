@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   placeholder: {
     width: 24,
@@ -33,13 +33,13 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   lockedSubtext: {
     fontSize: 14,
     color: '#888',
     marginTop: 10,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   connectButton: {
     flexDirection: 'row',
@@ -59,7 +59,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   tabs: {
     flexDirection: 'row',
@@ -86,7 +86,7 @@ export const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   activeTabText: {
     color: '#FFFFFF',
@@ -102,7 +102,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   content: {
     flex: 1,
@@ -127,13 +127,13 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginTop: 10,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   statLabel: {
     fontSize: 12,
     color: '#CCCCCC',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   writersContainer: {
     padding: 20,
@@ -143,13 +143,13 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 20,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   emptyText: {
     fontSize: 16,
     color: '#CCCCCC',
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   writerCard: {
     backgroundColor: '#1A1A2E',
@@ -166,19 +166,19 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   writerEmail: {
     fontSize: 14,
     color: '#CCCCCC',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   writerDate: {
     fontSize: 12,
     color: '#888',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   writerActions: {
     flexDirection: 'row',
@@ -212,7 +212,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   rewardsContainer: {
     padding: 20,
@@ -235,18 +235,18 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   rewardAmount: {
     fontSize: 18,
     color: '#F39C12',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   rewardDate: {
     fontSize: 12,
     color: '#888',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });

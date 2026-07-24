@@ -33,6 +33,7 @@ export const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: '#fff',
     marginRight: 8,
@@ -75,6 +76,7 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#f7f9fc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e8ecef',
@@ -122,6 +124,7 @@ export const styles = StyleSheet.create({
   },
   chatItemText: {
     fontSize: 15,
+    fontFamily: 'Yoruka',
     color: '#333',
     fontWeight: '600',
     flex: 1,
@@ -137,6 +140,7 @@ export const styles = StyleSheet.create({
   },
   sectionHeader: {
     fontSize: 13,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     color: '#666',
     paddingVertical: 6,
@@ -209,6 +213,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     flex: 1,
   },
   selectionBarEdit: {
@@ -252,6 +257,7 @@ export const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 12,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     color: '#F28C38',
     flexShrink: 1,
@@ -266,11 +272,13 @@ export const styles = StyleSheet.create({
   },
   messageStatus: {
     fontSize: 8,
+    fontFamily: 'Yoruka',
     color: '#666',
     marginRight: 4,
   },
   messageText: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#333',
     lineHeight: 18,
     flexShrink: 1,
@@ -291,12 +299,14 @@ export const styles = StyleSheet.create({
   },
   replyName: {
     fontSize: 11,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     color: '#F28C38',
     marginBottom: 1,
   },
   replyContent: {
     fontSize: 11,
+    fontFamily: 'Yoruka',
     color: '#555',
   },
   replyButton: {
@@ -315,6 +325,7 @@ export const styles = StyleSheet.create({
   replyText: {
     flex: 1,
     fontSize: 12,
+    fontFamily: 'Yoruka',
     color: '#333',
   },
   replyName: {
@@ -348,6 +359,7 @@ export const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#f7f9fc',
     fontSize: 15,
+    fontFamily: 'Yoruka',
     maxHeight: 100,
     marginHorizontal: 6,
     borderWidth: 1,
@@ -415,6 +427,7 @@ export const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#f7f9fc',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     borderWidth: 1,
     borderColor: '#e8ecef',
   },
@@ -437,6 +450,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#666',
     fontSize: 13,
+    fontFamily: 'Yoruka',
     marginVertical: 8,
   },
   typingIndicator: {
@@ -449,6 +463,7 @@ export const styles = StyleSheet.create({
   },
   typingText: {
     fontSize: 11,
+    fontFamily: 'Yoruka',
     color: '#666',
   },
   errorBanner: {
@@ -464,6 +479,7 @@ export const styles = StyleSheet.create({
   errorText: {
     color: '#fff',
     fontSize: 13,
+    fontFamily: 'Yoruka',
     flex: 1,
   },
   loadingIndicator: {
@@ -475,6 +491,7 @@ export const styles = StyleSheet.create({
   loadingText: {
     color: '#666',
     fontSize: 13,
+    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   emojiPicker: {
@@ -504,6 +521,7 @@ export const styles = StyleSheet.create({
   scrollToBottomIcon: {
     color: '#fff',
     fontSize: 24,
+    fontFamily: 'Yoruka',
   },
   editModal: {
     backgroundColor: '#fff',
@@ -517,6 +535,7 @@ export const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     fontSize: 15,
+    fontFamily: 'Yoruka',
     marginBottom: 16,
     backgroundColor: '#f7f9fc',
     color: '#333',
@@ -532,10 +551,12 @@ export const styles = StyleSheet.create({
     color: '#EF5350',
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
   editModalSave: {
     color: '#F28C38',
     fontWeight: 'bold',
     fontSize: 15,
+    fontFamily: 'Yoruka',
   },
 });

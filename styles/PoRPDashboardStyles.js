@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   tabs: {
     flexDirection: 'row',
@@ -81,7 +81,7 @@ export const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   activeTabText: {
     color: '#FFFFFF',
@@ -95,7 +95,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     padding: 40,
   },
   statCard: {
@@ -115,14 +115,14 @@ export const styles = StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   statValue: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   progressCard: {
     backgroundColor: 'rgba(155, 89, 182, 0.1)',
@@ -135,7 +135,7 @@ export const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   progressBar: {
@@ -154,7 +154,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     textAlign: 'right',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   challengesCard: {
     flexDirection: 'row',
@@ -172,14 +172,14 @@ export const styles = StyleSheet.create({
   challengesLabel: {
     fontSize: 12,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   challengesValue: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   infoCard: {
     flexDirection: 'row',
@@ -195,7 +195,7 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   inputCard: {
@@ -209,7 +209,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   input: {
@@ -220,7 +220,7 @@ export const styles = StyleSheet.create({
     padding: 15,
     color: '#FFFFFF',
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 15,
   },
   actionButton: {
@@ -240,7 +240,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   multiplierCard: {
     backgroundColor: 'rgba(243, 156, 18, 0.1)',
@@ -253,7 +253,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 15,
   },
   multiplierRow: {
@@ -266,13 +266,13 @@ export const styles = StyleSheet.create({
   multiplierLabel: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   multiplierValue: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#F39C12',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   cooldownCard: {
     backgroundColor: 'rgba(231, 76, 60, 0.1)',
@@ -287,7 +287,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#E74C3C',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   tierCard: {
@@ -301,7 +301,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 15,
   },
   tierRow: {
@@ -313,6 +313,6 @@ export const styles = StyleSheet.create({
   tierText: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });

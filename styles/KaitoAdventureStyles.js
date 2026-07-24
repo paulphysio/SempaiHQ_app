@@ -103,17 +103,20 @@ const styles = StyleSheet.create({
   statIcon: {
     color: KA_COLORS.orangeSoft,
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
 
   statLabel: {
     color: KA_COLORS.textMuted,
     fontSize: 12,
+    fontFamily: 'Yoruka',
   },
 
   statValue: {
     color: KA_COLORS.ivory,
     fontWeight: '600',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
 
   // XP Bar
@@ -132,6 +135,7 @@ const styles = StyleSheet.create({
 
   xpText: {
     fontSize: 12,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.textMuted,
     textAlign: 'right',
     marginTop: 2,
@@ -149,6 +153,7 @@ const styles = StyleSheet.create({
 
   townName: {
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: KA_COLORS.gold,
     letterSpacing: 2,
@@ -156,6 +161,7 @@ const styles = StyleSheet.create({
 
   townLevel: {
     fontSize: 12,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.textMuted,
     backgroundColor: KA_COLORS.ink,
     paddingHorizontal: 8,
@@ -195,6 +201,7 @@ const styles = StyleSheet.create({
     borderLeftColor: KA_COLORS.gold,
     padding: 12,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.ivoryDim,
     lineHeight: 22,
     fontStyle: 'italic',
@@ -210,6 +217,7 @@ const styles = StyleSheet.create({
 
   inventoryTitle: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.textSecondary,
     letterSpacing: 2,
     textTransform: 'uppercase',
@@ -225,6 +233,7 @@ const styles = StyleSheet.create({
 
   inventoryActionBtn: {
     fontSize: 12,
+    fontFamily: 'Yoruka',
     paddingHorizontal: 8,
     paddingVertical: 3,
     backgroundColor: KA_COLORS.ink,
@@ -264,12 +273,14 @@ const styles = StyleSheet.create({
 
   itemName: {
     fontSize: 11,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.ivoryDim,
     textAlign: 'center',
   },
 
   itemQty: {
     fontSize: 11,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.orangeSoft,
     fontWeight: '600',
     backgroundColor: KA_COLORS.ink,
@@ -280,6 +291,7 @@ const styles = StyleSheet.create({
 
   itemEquipBtn: {
     fontSize: 10,
+    fontFamily: 'Yoruka',
     paddingHorizontal: 6,
     paddingVertical: 2,
     backgroundColor: 'transparent',
@@ -321,6 +333,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     fontSize: 11,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.gold,
     backgroundColor: 'rgba(201, 168, 76, 0.1)',
     borderWidth: 1,
@@ -338,6 +351,7 @@ const styles = StyleSheet.create({
     marginVertical: 16,
     color: KA_COLORS.textMuted,
     fontSize: 12,
+    fontFamily: 'Yoruka',
     letterSpacing: 3,
     textTransform: 'uppercase',
   },
@@ -351,6 +365,7 @@ const styles = StyleSheet.create({
   // Typography
   title: {
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: KA_COLORS.ivory,
     letterSpacing: 2,
@@ -359,6 +374,7 @@ const styles = StyleSheet.create({
   subtitle: {
     color: KA_COLORS.textSecondary,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     letterSpacing: 1,
   },
 
@@ -387,6 +403,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 18,
     fontSize: 13,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -420,6 +437,7 @@ const styles = StyleSheet.create({
 
   btnIcon: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
   },
 
   // Dropdown
@@ -436,6 +454,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     fontSize: 13,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.ivoryDim,
     flexDirection: 'row',
     alignItems: 'center',
@@ -446,6 +465,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     fontSize: 11,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 2,
@@ -474,6 +494,7 @@ const styles = StyleSheet.create({
 
   modalTitle: {
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: KA_COLORS.gold,
     letterSpacing: 2,
@@ -505,6 +526,7 @@ const styles = StyleSheet.create({
 
   panelTitle: {
     fontSize: 15,
+    fontFamily: 'Yoruka',
     fontWeight: '700',
     color: KA_COLORS.ivory,
     letterSpacing: 1,
@@ -516,6 +538,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     fontSize: 12,
+    fontFamily: 'Yoruka',
     color: KA_COLORS.orangeSoft,
   },
 
@@ -554,6 +577,7 @@ const styles = StyleSheet.create({
     borderBottomColor: KA_COLORS.border,
     color: KA_COLORS.ivoryDim,
     fontSize: 14,
+    fontFamily: 'Yoruka',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -569,6 +593,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
 
   // Progress Bar
@@ -607,6 +632,7 @@ const styles = StyleSheet.create({
     color: KA_COLORS.ivory,
     fontWeight: '700',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     letterSpacing: 2,
   },
 
@@ -628,6 +654,7 @@ const styles = StyleSheet.create({
 
   navLinkText: {
     fontSize: 13,
+    fontFamily: 'Yoruka',
     letterSpacing: 1,
   },
 

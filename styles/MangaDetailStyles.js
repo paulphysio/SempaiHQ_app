@@ -20,6 +20,7 @@ export const styles = StyleSheet.create({
   loadingText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginTop: 10,
   },
   errorContainer: {
@@ -32,6 +33,7 @@ export const styles = StyleSheet.create({
   errorTitle: {
     color: '#FF5252',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
@@ -45,6 +47,7 @@ export const styles = StyleSheet.create({
   errorText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   navbar: {
@@ -70,6 +73,7 @@ export const styles = StyleSheet.create({
   logoText: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   navRight: {
@@ -93,6 +97,7 @@ export const styles = StyleSheet.create({
   navMenuText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   header: {
@@ -113,6 +118,7 @@ export const styles = StyleSheet.create({
   title: {
     color: '#FFFFFF',
     fontSize: 24,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 10,
     flexDirection: 'row',
@@ -129,11 +135,13 @@ export const styles = StyleSheet.create({
   artistText: {
     color: '#F36316',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     marginLeft: 5,
   },
   genres: {
     color: '#B0B0B0',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   summary: {
@@ -142,12 +150,14 @@ export const styles = StyleSheet.create({
   summaryTitle: {
     color: '#FFFFFF',
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 5,
   },
   summaryText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   chapters: {
@@ -157,6 +167,7 @@ export const styles = StyleSheet.create({
   chapterTitle: {
     color: '#FFFFFF',
     fontSize: 20,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginBottom: 15,
   },
@@ -177,6 +188,7 @@ export const styles = StyleSheet.create({
   chapterText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     flex: 1,
   },
   premiumIcon: {
@@ -185,6 +197,7 @@ export const styles = StyleSheet.create({
   noChapters: {
     color: '#B0B0B0',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginTop: 20,
   },
@@ -216,6 +229,7 @@ export const styles = StyleSheet.create({
   walletSummary: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginLeft: 10,
   },
   walletContent: {
@@ -227,6 +241,7 @@ export const styles = StyleSheet.create({
   walletInfoText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   bold: {
@@ -241,6 +256,7 @@ export const styles = StyleSheet.create({
   withdrawButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
   footer: {
@@ -251,6 +267,7 @@ export const styles = StyleSheet.create({
   footerText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
   },
   actionButton: {
     backgroundColor: '#F36316',
@@ -262,6 +279,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
   },
 });

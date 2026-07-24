@@ -36,6 +36,7 @@ export default StyleSheet.create({
   },
   logoText: {
     fontSize: width < 360 ? 16 : 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     marginLeft: 15,
   },
@@ -65,6 +66,7 @@ export default StyleSheet.create({
   },
   navLinkText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     marginLeft: 10,
     fontWeight: '600',
@@ -89,6 +91,7 @@ export default StyleSheet.create({
   },
   title: {
     fontSize: width < 360 ? 24 : 28,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
     fontWeight: 'bold',
@@ -107,6 +110,7 @@ export default StyleSheet.create({
   },
   balanceText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     marginLeft: 12,
     fontWeight: '500',
@@ -117,12 +121,14 @@ export default StyleSheet.create({
   },
   connectText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     marginBottom: 15,
     textAlign: 'center',
   },
   walletText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     marginBottom: 20,
     textAlign: 'center',
@@ -140,6 +146,7 @@ export default StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     fontWeight: '600',
   },
   input: {
@@ -148,6 +155,7 @@ export default StyleSheet.create({
     borderWidth: 1,
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     minHeight: 48, // Touch-friendly height
   },
   textarea: {
@@ -156,6 +164,7 @@ export default StyleSheet.create({
     borderWidth: 1,
     color: '#fff',
     fontSize: 16,
+    fontFamily: 'Yoruka',
     minHeight: 100,
   },
   inputWithButton: {
@@ -173,12 +182,14 @@ export default StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     fontWeight: '600',
     marginLeft: 8,
   },
   verifiedText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     fontWeight: '500',
   },
@@ -228,6 +239,7 @@ export default StyleSheet.create({
   },
   alertText: {
     fontSize: 14,
+    fontFamily: 'Yoruka',
     color: '#fff',
     textAlign: 'center',
     fontWeight: '500',
@@ -257,6 +269,7 @@ export default StyleSheet.create({
   },
   modalText: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#fff',
     textAlign: 'center',
     fontWeight: '500',

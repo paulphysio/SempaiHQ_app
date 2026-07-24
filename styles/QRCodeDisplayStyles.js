@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     marginTop: 5,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   content: {
     padding: 25,
@@ -66,7 +66,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   qrContainer: {
     backgroundColor: '#FFFFFF',
@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
     color: '#888',
     marginTop: 10,
     textAlign: 'center',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   addressContainer: {
     backgroundColor: 'rgba(74, 144, 226, 0.1)',
@@ -98,13 +98,13 @@ export const styles = StyleSheet.create({
   addressLabel: {
     fontSize: 12,
     color: '#CCCCCC',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   addressText: {
     fontSize: 14,
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   actions: {
     flexDirection: 'row',
@@ -129,7 +129,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   infoBox: {
     flexDirection: 'row',
@@ -144,7 +144,7 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
 });

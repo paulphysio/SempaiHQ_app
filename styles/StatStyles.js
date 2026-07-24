@@ -42,6 +42,7 @@ export const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#FFFFFF',
   },
   errorContainer: {
@@ -59,6 +60,7 @@ export const styles = StyleSheet.create({
   errorText: {
     color: '#FFFFFF',
     fontSize: 14,
+    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   scrollContent: {
@@ -67,6 +69,7 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 24,
@@ -99,6 +102,7 @@ export const styles = StyleSheet.create({
   },
   statTitle: {
     fontSize: 16,
+    fontFamily: 'Yoruka',
     color: '#F28C38',
     marginBottom: 5,
     textAlign: 'center',
@@ -142,6 +146,7 @@ export const styles = StyleSheet.create({
   },
   chartTitle: {
     fontSize: 18,
+    fontFamily: 'Yoruka',
     fontWeight: 'bold',
     color: '#F28C38',
     marginBottom: 10,

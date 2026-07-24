@@ -81,6 +81,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: scale(19.2), // 1.2rem * 16
+    fontFamily: 'Yoruka',
     fontWeight: '300',
     color: 'rgba(243, 99, 22, 0.8)',
     textTransform: 'uppercase',

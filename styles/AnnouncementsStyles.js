@@ -16,7 +16,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   keyboardContainer: {
     flex: 1,
@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   scrollView: {
     flex: 1,
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   accessDenied: {
     flex: 1,
@@ -76,14 +76,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     marginTop: 16,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   deniedSubtext: {
     color: '#AAA',
     fontSize: 16,
     textAlign: 'center',
     marginTop: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   dashboard: {
     flex: 1,
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   form: {
     gap: 16,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     color: '#9B59B6',
     fontSize: 14,
     fontWeight: '600',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   input: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   textarea: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(155, 89, 182, 0.3)',
     minHeight: 120,
     textAlignVertical: 'top',
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   dateButton: {
     flexDirection: 'row',
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   pickerContainer: {
     flexDirection: 'row',
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   pickerOptionText: {
     color: '#AAA',
     fontSize: 14,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
   pickerOptionTextActive: {
     color: '#FFF',
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
   },
 });
 
