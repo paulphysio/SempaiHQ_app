@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
     color: '#ff6200',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   scrollView: {
     flex: 1,
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     color: '#ffd700',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginHorizontal: 12,
   },
   campaignSubtitle: {
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   timeFrameButtonTextActive: {
     color: '#fff',
-    fontWeight: 'bold',
+    
   },
   centerContainer: {
     flex: 1,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     color: '#ffd700',
     fontSize: 12,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     textAlign: 'center',
   },
   readerRow: {
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginLeft: 4,
   },
   playerCell: {
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   playerDetails: {
     flex: 1,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   playerAddress: {
     color: '#aaa',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     color: '#ffd700',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   levelCell: {
     width: 60,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     color: '#ffd700',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -315,14 +315,14 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 4,
   },
   shareCardRank: {
     color: '#ffd700',
     fontSize: 32,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 4,
   },
   shareCardPoints: {
@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginLeft: 8,
   },
 });

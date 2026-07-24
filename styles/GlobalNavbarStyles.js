@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
   brandText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '900',
+    
     letterSpacing: 0.4,
     fontFamily: 'Yoruka',
     textShadowColor: 'rgba(243, 99, 22, 0.5)',
@@ -95,7 +95,7 @@ export const styles = StyleSheet.create({
   headerSignInText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '700',
+    
     letterSpacing: 0.2,
     fontFamily: 'Yoruka',
   },
@@ -115,7 +115,7 @@ export const styles = StyleSheet.create({
   headerWalletText: {
     color: '#FFFFFF',
     fontSize: 11,
-    fontWeight: '600',
+    
     fontFamily: 'Yoruka',
   },
   signOutBtn: {
@@ -132,7 +132,7 @@ export const styles = StyleSheet.create({
   signOutText: {
     color: '#FF5733',
     fontSize: 11,
-    fontWeight: '600',
+    
     fontFamily: 'Yoruka',
   },
   walletDropdown: {
@@ -164,7 +164,7 @@ export const styles = StyleSheet.create({
   walletDropdownText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '500',
+    
     fontFamily: 'Yoruka',
   },
 });

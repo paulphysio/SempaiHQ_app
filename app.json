@@ -2,10 +2,20 @@
   "expo": {
     "name": "sempaihq",
     "slug": "sempaihq",
-    "runtimeVersion": "1.0.0",
-    "version": "1.0.0",
+    "runtimeVersion": "1.1.0",
+    "version": "1.1.0",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#141414"
+    },
     "android": {
-      "package": "com.sempaihq.app"
+      "package": "com.sempaihq.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#141414"
+      }
     },
     "ios": {
       "bundleIdentifier": "com.sempaihq.app"

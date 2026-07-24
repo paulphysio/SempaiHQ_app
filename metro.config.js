@@ -6,6 +6,23 @@ const config = getDefaultConfig(__dirname);
 config.resolver.sourceExts.push('mjs');
 config.resolver.assetExts.push('lottie');
 
+// Add support for common image and font asset types
+config.resolver.assetExts.push(
+  'png',
+  'jpg',
+  'jpeg',
+  'svg',
+  'gif',
+  'webp',
+  'ico',
+  'bmp',
+  'ttf',
+  'otf',
+  'woff',
+  'woff2',
+  'eot'
+);
+
 // Add any additional node_modules folders
 config.resolver.nodeModulesPaths = [
   'node_modules',

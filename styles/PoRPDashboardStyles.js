@@ -46,7 +46,7 @@ export const styles = StyleSheet.create({
   },
   tierTitle: {
     fontSize: 32,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginTop: 15,
     fontFamily: 'Yoruka',
@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    
   },
   content: {
     flex: 1,
@@ -120,7 +120,7 @@ export const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 22,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -177,7 +177,7 @@ export const styles = StyleSheet.create({
   },
   challengesValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -238,7 +238,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -251,7 +251,7 @@ export const styles = StyleSheet.create({
   },
   multiplierTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
     marginBottom: 15,
@@ -270,7 +270,7 @@ export const styles = StyleSheet.create({
   },
   multiplierValue: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#F39C12',
     fontFamily: 'Yoruka',
   },
@@ -285,7 +285,7 @@ export const styles = StyleSheet.create({
   },
   cooldownTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    
     color: '#E74C3C',
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -299,7 +299,7 @@ export const styles = StyleSheet.create({
   },
   tierCardTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
     marginBottom: 15,

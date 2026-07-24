@@ -37,7 +37,7 @@ export default StyleSheet.create({
   logoText: {
     fontSize: width < 360 ? 16 : 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginLeft: 15,
   },
   menuToggle: {
@@ -69,7 +69,7 @@ export default StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#fff',
     marginLeft: 10,
-    fontWeight: '600',
+    
   },
   main: {
     padding: width < 360 ? 20 : 30,
@@ -94,7 +94,7 @@ export default StyleSheet.create({
     fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
-    fontWeight: 'bold',
+    
   },
   balanceCard: {
     borderRadius: 15,
@@ -113,7 +113,7 @@ export default StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#fff',
     marginLeft: 12,
-    fontWeight: '500',
+    
   },
   connectWrapper: {
     alignItems: 'center',
@@ -147,7 +147,7 @@ export default StyleSheet.create({
     gap: 8,
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   input: {
     padding: 12,
@@ -184,14 +184,14 @@ export default StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#fff',
-    fontWeight: '600',
+    
     marginLeft: 8,
   },
   verifiedText: {
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#fff',
-    fontWeight: '500',
+    
   },
   imageGroup: {
     flexDirection: 'column',
@@ -242,7 +242,7 @@ export default StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#fff',
     textAlign: 'center',
-    fontWeight: '500',
+    
   },
   submitButton: {
     flexDirection: 'row',
@@ -272,6 +272,6 @@ export default StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#fff',
     textAlign: 'center',
-    fontWeight: '500',
+    
   },
 });

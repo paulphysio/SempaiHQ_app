@@ -11,7 +11,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 20,
   },
   novelIntro: {
@@ -158,7 +158,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   price: {
     color: '#ffffff',
@@ -205,7 +205,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 10,
     textAlign: 'center',
   },

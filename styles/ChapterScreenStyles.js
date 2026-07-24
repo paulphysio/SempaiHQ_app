@@ -40,7 +40,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     color: ACCENT,
     textAlign: 'center',
     letterSpacing: 0.5,
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
   },
   balanceText: {
     color: ACCENT,
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
     letterSpacing: 0.2,
@@ -144,7 +144,7 @@ export const styles = StyleSheet.create({
   },
   navButtonText: {
     color: WHITE,
-    fontWeight: 'bold',
+    
     fontSize: 16,
     fontFamily: 'Yoruka',
     marginHorizontal: 4,
@@ -187,7 +187,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     textAlign: 'center',
-    fontWeight: '500',
+    
   },
   // Locked/paid overlays
   lockedContainer: {
@@ -211,7 +211,7 @@ export const styles = StyleSheet.create({
     color: ACCENT,
     fontSize: 22,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -246,7 +246,7 @@ export const styles = StyleSheet.create({
   },
   paymentButtonText: {
     color: WHITE,
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
     marginBottom: 2,
@@ -255,7 +255,7 @@ export const styles = StyleSheet.create({
     color: ACCENT_LIGHT,
     fontSize: 13,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   fullChaptersButton: {
     backgroundColor: 'rgba(243,99,22,0.85)',
@@ -289,7 +289,7 @@ export const styles = StyleSheet.create({
   },
   smpButtonText: {
     color: WHITE,
-    fontWeight: 'bold',
+    
     fontSize: 17,
     fontFamily: 'Yoruka',
     letterSpacing: 0.2,
@@ -304,7 +304,7 @@ export const styles = StyleSheet.create({
   },
   getSmpButtonText: {
     color: ACCENT,
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },
@@ -318,7 +318,7 @@ export const styles = StyleSheet.create({
   },
   readingModeText: {
     color: ACCENT,
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },
@@ -334,7 +334,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Yoruka',
     marginTop: 18,
-    fontWeight: 'bold',
+    
   },
   // Error
   errorContainer: {
@@ -348,7 +348,7 @@ export const styles = StyleSheet.create({
     color: 'rgba(255,0,0,0.8)',
     fontSize: 22,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -378,7 +378,7 @@ export const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: WHITE,
-    fontWeight: 'bold',
+    
     fontSize: 17,
     fontFamily: 'Yoruka',
   },
@@ -392,7 +392,7 @@ export const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: ACCENT,
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },

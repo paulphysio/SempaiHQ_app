@@ -52,7 +52,7 @@ const dailyModalStyles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
     marginBottom: 12,
   },

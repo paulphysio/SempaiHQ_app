@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
     color: '#E67E22', // Orange accent color
     fontSize: 32,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 30,
     textAlign: 'center',
     textShadowColor: 'rgba(230, 126, 34, 0.3)',
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     marginBottom: 12,
     textAlign: 'center',
-    fontWeight: '500',
+    
   },
   
   // Divider styles
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '500',
+    
   },
   
   // Subtitle style
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     marginLeft: 12,
   },
   skipButton: {
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     color: '#999999',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '500',
+    
     textDecorationLine: 'underline',
   },
   termsContainer: {
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   termsLink: {
     color: '#FF9900',
     textDecorationLine: 'underline',
-    fontWeight: '500',
+    
   },
   icon: {
     width: 24,
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     marginTop: 15,
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '500',
+    
   },
   
   // Profile section
@@ -207,14 +207,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 40,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   
   userName: {
     color: '#FFFFFF',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 5,
     textAlign: 'center',
   },
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     textAlign: 'center',
   },
   
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     color: '#BBBBBB',
     fontSize: 15,
     fontFamily: 'Yoruka',
-    fontWeight: '500',
+    
   },
   
   // Auth button container
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#E0E0E0',
     marginBottom: 10,
-    fontWeight: '600',
+    
   },
 });
 

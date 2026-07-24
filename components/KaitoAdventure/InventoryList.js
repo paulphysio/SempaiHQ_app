@@ -174,7 +174,7 @@ const inventoryListStyles = StyleSheet.create({
   itemQty: {
     fontSize: 11,
     color: KA_COLORS.orangeSoft,
-    fontWeight: '600',
+    
     backgroundColor: KA_COLORS.ink,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -236,7 +236,7 @@ const inventoryListStyles = StyleSheet.create({
   },
   equipSlotValueFilled: {
     color: KA_COLORS.gold,
-    fontWeight: '600',
+    
   },
   equipSlotValueEmpty: {
     color: KA_COLORS.textMuted,

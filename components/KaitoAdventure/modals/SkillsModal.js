@@ -120,7 +120,7 @@ const skillsModalStyles = StyleSheet.create({
   },
   skillName: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
     marginBottom: 4,
   },

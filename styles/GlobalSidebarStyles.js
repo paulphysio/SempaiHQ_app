@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
   navGroupText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    
     fontFamily: 'Yoruka',
     marginLeft: 12,
   },
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
   walletAddressText: {
     color: '#FF5733',
     fontSize: 11,
-    fontWeight: '500',
+    
     fontFamily: 'Yoruka',
     marginLeft: 8,
   },
@@ -109,7 +109,7 @@ export const styles = StyleSheet.create({
   dropdownItemText: {
     color: '#FF5733',
     fontSize: 13,
-    fontWeight: '500',
+    
     fontFamily: 'Yoruka',
     marginLeft: 12,
   },

@@ -19,7 +19,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
+import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 import { styles } from '../styles/SwapStyles';
 
 const connection = new Connection(RPC_URL, 'confirmed');
@@ -29,6 +29,7 @@ const TOKEN_MINTS = {
   SOL: new PublicKey('So11111111111111111111111111111111111111112'),
   USDC: USDC_MINT_ADDRESS,
   SMP: SMP_MINT_ADDRESS,
+  SKR: SKR_MINT_ADDRESS,
 };
 
 const NexusScreen = () => {

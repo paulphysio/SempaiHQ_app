@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
   errorTitle: {
     color: '#FF5252',
     fontSize: 22,
-    fontWeight: 'bold',
+    
     marginBottom: 20,
     textAlign: 'center',
     fontFamily: 'Roboto-Bold',
@@ -55,7 +55,7 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     fontFamily: 'Roboto-Bold',
   },
   secondaryButton: {
@@ -110,7 +110,7 @@ export const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     flex: 1,
     textAlign: 'center',
     fontFamily: 'Roboto-Bold',
@@ -144,7 +144,7 @@ export const styles = StyleSheet.create({
   lockedMessage: {
     color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: 'bold',
+    
     marginBottom: 10,
     textAlign: 'center',
     fontFamily: 'Roboto-Bold',
@@ -176,7 +176,7 @@ export const styles = StyleSheet.create({
   paymentButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     marginVertical: 5,
     fontFamily: 'Roboto-Bold',
   },
@@ -213,7 +213,7 @@ export const styles = StyleSheet.create({
   smpButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     fontFamily: 'Roboto-Bold',
   },
   readingModeText: {
@@ -245,7 +245,7 @@ export const styles = StyleSheet.create({
   navButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     fontFamily: 'Roboto-Bold',
   },
   navPlaceholder: {
@@ -274,7 +274,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     marginBottom: 10,
     textAlign: 'center',
     fontFamily: 'Roboto-Bold',
@@ -321,7 +321,7 @@ export const styles = StyleSheet.create({
   modalButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     fontFamily: 'Roboto-Bold',
   },
   modalNote: {
@@ -353,7 +353,7 @@ export const styles = StyleSheet.create({
   passwordModalTitle: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     marginBottom: 15,
     textAlign: 'center',
     fontFamily: 'Roboto-Bold',
@@ -403,7 +403,7 @@ export const styles = StyleSheet.create({
   passwordModalButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     fontFamily: 'Roboto-Bold',
   },
 });

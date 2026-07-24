@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     letterSpacing: 1,
     fontFamily: 'System', // Use a modern font if available
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginBottom: 24,
     textAlign: 'center',
@@ -106,13 +106,13 @@ export const styles = StyleSheet.create({
     color: '#F28C38',
     marginBottom: 5,
     textAlign: 'center',
-    fontWeight: '600',
+    
     letterSpacing: 0.5,
     fontFamily: 'System',
   },
   statValue: {
     fontSize: 28,
-    fontWeight: 'bold',
+    
     color: '#FFF',
     textAlign: 'center',
     marginTop: 2,
@@ -147,7 +147,7 @@ export const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     color: '#F28C38',
     marginBottom: 10,
     textAlign: 'center',

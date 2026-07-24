@@ -58,13 +58,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalView: {
-    margin: 20,
-    backgroundColor: '#1a1a1a',
-    borderRadius: 20,
-    padding: 35,
-    alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
@@ -73,10 +66,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
     width: '90%',
-  },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#fff',
     marginBottom: 15,
   },
@@ -110,7 +102,7 @@ const styles = StyleSheet.create({
   },
   textStyle: {
     color: 'white',
-    fontWeight: 'bold',
+    
     textAlign: 'center',
   },
 });

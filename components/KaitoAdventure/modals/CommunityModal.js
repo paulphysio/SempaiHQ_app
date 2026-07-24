@@ -45,7 +45,7 @@ const communityModalStyles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
   },
   closeButton: {

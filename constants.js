@@ -64,10 +64,13 @@ export const SMP_MINT_ADDRESS = new PublicKey('SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat
 export const USDC_MINT_ADDRESS = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
 export const SKR_MINT_ADDRESS = new PublicKey('SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3');
 export const DEVNET_RPC_URL = 'https://api.devnet.solana.com';
-export const RPC_URL = 'https://api.mainnet-beta.solana.com';
+export const RPC_URL = 'https://mainnet.helius-rpc.com/?api-key=10569fbb-6306-4fd1-868d-ae082d32204a';
 export const TARGET_WALLET = TREASURY_PUBLIC_KEY;
 export const SMP_DECIMALS = 6;
 export const AMETHYST_DECIMALS = 6;
 export const USDC_DECIMALS = 6;
 export const SKR_DECIMALS = 6;
 export const LAMPORTS_PER_SOL = 1_000_000_000;
+
+// Web API URL for fetching fallback SMP price
+export const WEB_API_BASE_URL = 'https://www.sempaihq.com';

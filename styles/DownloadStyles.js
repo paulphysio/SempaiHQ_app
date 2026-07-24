@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   scrollView: {
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   versionTitle: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   releaseDate: {
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   downloadButtonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     fontFamily: 'Yoruka',
   },

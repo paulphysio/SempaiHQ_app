@@ -1181,7 +1181,7 @@ const S = StyleSheet.create({
   },
   jpHeaderKanji: {
     fontSize: 12,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 2,
   },
@@ -1207,7 +1207,7 @@ const S = StyleSheet.create({
   },
   realtimeText: {
     fontSize: 6,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 1,
   },
@@ -1251,7 +1251,7 @@ const S = StyleSheet.create({
   },
   jpNameTag: {
     fontSize: 8,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     letterSpacing: 1,
   },
@@ -1291,13 +1291,13 @@ const S = StyleSheet.create({
   },
   statusBadge: {
     fontSize: 6,
-    fontWeight: '700',
+    
     marginTop: 2,
     letterSpacing: 0.5,
   },
   jpVsDivider: {
     fontSize: 12,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     marginHorizontal: 8,
   },
@@ -1342,7 +1342,7 @@ const S = StyleSheet.create({
   },
   announcementText: {
     fontSize: 16,
-    fontWeight: '700',
+    
     textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 5,
@@ -1409,7 +1409,7 @@ const S = StyleSheet.create({
     left: 5,
     top: 5,
     fontSize: 24,
-    fontWeight: '700',
+    
     color: 'rgba(218,165,32,0.2)',
   },
   jpBannerRight: {
@@ -1417,12 +1417,12 @@ const S = StyleSheet.create({
     right: 5,
     top: 5,
     fontSize: 24,
-    fontWeight: '700',
+    
     color: 'rgba(218,165,32,0.2)',
   },
   jpSigil: {
     fontSize: 12,
-    fontWeight: '700',
+    
     color: 'rgba(218,165,32,0.15)',
     letterSpacing: 4,
   },
@@ -1462,27 +1462,27 @@ const S = StyleSheet.create({
   },
   damageNumber: {
     fontSize: 10,
-    fontWeight: '700',
+    
     color: KA_COLORS.redAccent,
   },
   critNumber: {
     fontSize: 14,
-    fontWeight: '700',
+    
     color: '#f43f5e',
   },
   healNumber: {
     fontSize: 10,
-    fontWeight: '700',
+    
     color: KA_COLORS.successBright,
   },
   blockNumber: {
     fontSize: 10,
-    fontWeight: '700',
+    
     color: '#4169e1',
   },
   dodgeNumber: {
     fontSize: 10,
-    fontWeight: '700',
+    
     color: '#32cd32',
   },
 
@@ -1508,7 +1508,7 @@ const S = StyleSheet.create({
   },
   jpLogFloatTitle: {
     fontSize: 6,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 1,
   },
@@ -1603,7 +1603,7 @@ const S = StyleSheet.create({
   },
   jpActionLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
   },
   jpActionSub: {
@@ -1658,13 +1658,13 @@ const S = StyleSheet.create({
   },
   jpResultKanji: {
     fontSize: 32,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     marginBottom: 8,
   },
   jpResultTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     marginBottom: 4,
   },
@@ -1700,7 +1700,7 @@ const S = StyleSheet.create({
   },
   jpResultBtnText: {
     fontSize: 8,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
   },
 
@@ -1711,7 +1711,7 @@ const S = StyleSheet.create({
   },
   jpLoadingKanji: {
     fontSize: 24,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     marginBottom: 8,
   },

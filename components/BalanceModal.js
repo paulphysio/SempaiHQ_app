@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    
     color: '#ffffff',
     marginBottom: 24,
   },
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   },
   walletAddressLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    
     textTransform: 'uppercase',
     letterSpacing: 0.12,
     color: 'rgba(255, 255, 255, 0.35)',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
     letterSpacing: 0.12,
     marginBottom: 12,
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   },
   tokenSymbol: {
     color: '#ffffff',
-    fontWeight: '600',
+    
     fontSize: 14,
   },
   tokenMint: {
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     color: '#ffffff',
-    fontWeight: '700',
+    
     fontSize: 16,
   },
   balanceSymbol: {
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   },
   actionButtonText: {
     color: '#ffffff',
-    fontWeight: '600',
+    
     fontSize: 14,
   },
 });

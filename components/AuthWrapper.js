@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 34,
-    fontWeight: 'bold',
+    
     color: '#fff',
     marginBottom: 10,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#E8E8FF',
     textAlign: 'center',
-    fontWeight: '400',
+    
   },
   buttonContainer: {
     width: '100%',
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   comingSoonText: {
     color: '#AAAACC',
     fontSize: 14,
-    fontWeight: '500',
+    
     textAlign: 'center',
   },
   skipButton: {
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   skipButtonText: {
     color: '#FF5733',
     fontSize: 16,
-    fontWeight: '600',
+    
   },
 });
 

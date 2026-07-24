@@ -34,7 +34,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: '#fff',
     marginRight: 8,
   },
@@ -126,7 +126,7 @@ export const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Yoruka',
     color: '#333',
-    fontWeight: '600',
+    
     flex: 1,
   },
   divider: {
@@ -141,7 +141,7 @@ export const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 13,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#666',
     paddingVertical: 6,
     marginBottom: 4,
@@ -211,7 +211,7 @@ export const styles = StyleSheet.create({
   },
   selectionBarText: {
     color: '#fff',
-    fontWeight: '700',
+    
     fontSize: 16,
     fontFamily: 'Yoruka',
     flex: 1,
@@ -258,7 +258,7 @@ export const styles = StyleSheet.create({
   userName: {
     fontSize: 12,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#F28C38',
     flexShrink: 1,
   },
@@ -300,7 +300,7 @@ export const styles = StyleSheet.create({
   replyName: {
     fontSize: 11,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#F28C38',
     marginBottom: 1,
   },
@@ -329,7 +329,7 @@ export const styles = StyleSheet.create({
     color: '#333',
   },
   replyName: {
-    fontWeight: '600',
+    
     color: '#F28C38',
   },
   cancelReply: {
@@ -549,13 +549,13 @@ export const styles = StyleSheet.create({
   },
   editModalCancel: {
     color: '#EF5350',
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },
   editModalSave: {
     color: '#F28C38',
-    fontWeight: 'bold',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },

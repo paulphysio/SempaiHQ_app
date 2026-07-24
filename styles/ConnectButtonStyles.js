@@ -62,7 +62,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13, // Reduced from 14
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   connectButtonTextCompact: {
     fontSize: 11,
@@ -105,7 +105,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#333',
     marginLeft: 8,
-    fontWeight: '500',
+    
   },
   dropdownDivider: {
     height: 1,
@@ -147,7 +147,7 @@ export const styles = StyleSheet.create({
   disconnectModalTitle: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     color: '#333',
     marginBottom: 12,
   },
@@ -176,7 +176,7 @@ export const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#333',
-    fontWeight: '600',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },
@@ -191,7 +191,7 @@ export const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: 'white',
-    fontWeight: '600',
+    
     fontSize: 15,
     fontFamily: 'Yoruka',
   },
@@ -213,7 +213,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 16,
     color: '#333',
   },
@@ -257,7 +257,7 @@ export const styles = StyleSheet.create({
   },
   checkboxText: {
     color: 'white',
-    fontWeight: 'bold',
+    
   },
   checkboxLabel: {
     fontSize: 14,
@@ -277,7 +277,7 @@ export const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   secondaryButton: {
     paddingVertical: 14,
@@ -288,7 +288,7 @@ export const styles = StyleSheet.create({
     color: '#FF5733',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   errorText: {
     color: '#f44336',
@@ -349,7 +349,7 @@ export const styles = StyleSheet.create({
   walletOptionTitle: {
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: '#FF5733',
     marginBottom: 4,
   },
@@ -366,7 +366,7 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Yoruka',
     color: '#28a745',
-    fontWeight: '500',
+    
   },
   backButton: {
     flexDirection: 'row',
@@ -376,7 +376,7 @@ export const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#FF5733',
     marginLeft: 8,
   },
@@ -400,7 +400,7 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#333',
     marginBottom: 8,
   },
@@ -422,7 +422,7 @@ export const styles = StyleSheet.create({
   },
   cancelButtonText: {
     color: '#666',
-    fontWeight: '600',
+    
     fontSize: 16,
     fontFamily: 'Yoruka',
   },
@@ -440,7 +440,7 @@ export const styles = StyleSheet.create({
   dropdownTitle: {
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#333',
   },
   dropdownItemText: {
@@ -459,7 +459,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Yoruka',
     color: '#333',
-    fontWeight: '500',
+    
   },
   disconnectAction: {
     backgroundColor: '#fff5f5',

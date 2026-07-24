@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     marginLeft: 10,
-    fontWeight: '600',
+    
   },
   navRight: {
     flexDirection: 'row',
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   headerSubtitle: {
     color: '#ccc',
@@ -130,7 +130,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 15,
   },
   mangaForm: {
@@ -182,7 +182,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   imagePreview: {
     width: '100%',
@@ -234,7 +234,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 15,
   },
   addChapterButton: {
@@ -351,7 +351,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   mangaSummary: {
     color: '#ccc',
@@ -434,7 +434,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 15,
   },
   tagList: {
@@ -461,7 +461,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   footer: {
     padding: 20,

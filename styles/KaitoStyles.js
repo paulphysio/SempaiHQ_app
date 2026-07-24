@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     textAlign: 'center',
   },
   weatherText: {
@@ -53,7 +53,7 @@ export const styles = StyleSheet.create({
     color: '#ff6200',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
   },
   menuToggle: {
     padding: 10,
@@ -114,7 +114,7 @@ export const styles = StyleSheet.create({
     color: '#ffd700',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   // Player Info Card
   card: {
@@ -150,7 +150,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
   },
   cardSubtitle: {
     color: '#aaa',
@@ -199,7 +199,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   buttonGroup: {
     flexDirection: 'row',
@@ -369,7 +369,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -397,7 +397,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   modalItemImage: {
     width: 24,
@@ -484,7 +484,7 @@ export const styles = StyleSheet.create({
     color: '#ff6200',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
   },
   combatLog: {
     backgroundColor: '#333',
@@ -515,7 +515,7 @@ export const styles = StyleSheet.create({
     color: '#ff6200',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     marginBottom: 10,
   },
   // Leaderboard
@@ -583,7 +583,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 11,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
   },
   playerInfoContainer: {
     flex: 1,
@@ -620,7 +620,7 @@ export const styles = StyleSheet.create({
     color: '#ffd700',
     fontSize: 10,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     letterSpacing: 0.5,
   },
   leaderboardActions: {
@@ -643,7 +643,7 @@ export const styles = StyleSheet.create({
     color: '#ff6200',
     fontSize: 11,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginLeft: 4,
   },
   emptyLeaderboard: {
@@ -657,7 +657,7 @@ export const styles = StyleSheet.create({
     marginTop: 3,
   },
   activeTabText: {
-    fontWeight: '700',
+    
     color: '#fff',
   },
   // Quests & Tasks
@@ -721,7 +721,7 @@ export const styles = StyleSheet.create({
     color: '#ff6200',
     fontSize: 12,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginBottom: 3,
   },
   skillItem: {

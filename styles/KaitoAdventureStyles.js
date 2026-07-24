@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
 
   statValue: {
     color: KA_COLORS.ivory,
-    fontWeight: '600',
+    
     fontSize: 14,
     fontFamily: 'Yoruka',
   },
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   townName: {
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 2,
   },
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'Yoruka',
     color: KA_COLORS.orangeSoft,
-    fontWeight: '600',
+    
     backgroundColor: KA_COLORS.ink,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
 
   equipSlotValue: {
     color: KA_COLORS.gold,
-    fontWeight: '600',
+    
   },
 
   equipSlotEmpty: {
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     letterSpacing: 2,
   },
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     fontSize: 13,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     borderWidth: 1,
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 2,
   },
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   panelTitle: {
     fontSize: 15,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     letterSpacing: 1,
   },
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
 
   navbarBrandText: {
     color: KA_COLORS.ivory,
-    fontWeight: '700',
+    
     fontSize: 16,
     fontFamily: 'Yoruka',
     letterSpacing: 2,

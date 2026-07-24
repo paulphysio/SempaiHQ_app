@@ -78,7 +78,7 @@ const actionBarStyles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 8,
     fontSize: 10,
-    fontWeight: '600',
+    
     letterSpacing: 1,
     textTransform: 'uppercase',
     borderWidth: 1,
@@ -103,7 +103,7 @@ const actionBarStyles = StyleSheet.create({
   },
   btnText: {
     fontSize: 10,
-    fontWeight: '600',
+    
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: KA_COLORS.ivoryDim,

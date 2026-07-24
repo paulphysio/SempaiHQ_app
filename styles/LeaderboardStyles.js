@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    
   },
   userRankBanner: {
     marginHorizontal: 20,
@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
   },
   userRankText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -114,7 +114,7 @@ export const styles = StyleSheet.create({
   },
   rankNumber: {
     fontSize: 14,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -143,7 +143,7 @@ export const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
     marginBottom: 3,
@@ -161,7 +161,7 @@ export const styles = StyleSheet.create({
   },
   youBadgeText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },

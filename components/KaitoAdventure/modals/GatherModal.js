@@ -61,7 +61,7 @@ const gatherModalStyles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     marginBottom: 8,
   },
@@ -88,7 +88,7 @@ const gatherModalStyles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
   },
   queueButtons: {

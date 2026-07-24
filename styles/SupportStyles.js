@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'Yoruka',
   },
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     color: '#9B59B6',
     fontSize: 14,
-    fontWeight: '600',
+    
     fontFamily: 'Yoruka',
   },
   input: {
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'Yoruka',
   },

@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#F36316',
-    fontWeight: 'bold',
+    
     ...(Platform.OS === 'web' && {
       textShadow: '2px 2px 4px rgba(243, 99, 22, 0.3)',
     }),
@@ -97,7 +97,7 @@ export const styles = StyleSheet.create({
     fontSize: 32,
     fontFamily: 'Yoruka',
     color: '#F36316',
-    fontWeight: 'bold',
+    
     ...(Platform.OS === 'web' && {
       textShadow: '2px 2px 4px rgba(243, 99, 22, 0.3)',
     }),
@@ -157,7 +157,7 @@ export const styles = StyleSheet.create({
   },
   tagButtonTextSelected: {
     color: '#000',
-    fontWeight: 'bold',
+    
   },
   // Novels Grid
   gridContainer: {
@@ -187,7 +187,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#F36316',
-    fontWeight: 'bold',
+    
     marginBottom: 5,
     ...(Platform.OS === 'web' && {
       textShadow: '1px 1px 2px rgba(243, 99, 22, 0.3)',
@@ -232,7 +232,7 @@ export const styles = StyleSheet.create({
     color: '#000',
     fontSize: 10,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 3,
@@ -262,7 +262,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Yoruka',
     color: '#F36316',
-    fontWeight: 'bold',
+    
     ...(Platform.OS === 'web' && {
       textShadow: '1px 1px 2px rgba(243, 99, 22, 0.3)',
     }),

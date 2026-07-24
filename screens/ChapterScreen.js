@@ -3,21 +3,18 @@ import {
   View,
   Text,
   ActivityIndicator,
-  FlatList,
   TextInput,
   TouchableOpacity,
   Modal,
-  KeyboardAvoidingView,
-  Platform,
   StatusBar,
   SafeAreaView,
   StyleSheet,
   ScrollView,
   Dimensions,
   Animated,
-  Picker,
+  Image,
 } from 'react-native';
-import { Video, AVPlaybackStatus } from 'expo-av';
+import { Video } from 'expo-av';
 import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
@@ -30,15 +27,18 @@ import {
   RPC_URL,
   SMP_MINT_ADDRESS,
   USDC_MINT_ADDRESS,
+  SKR_MINT_ADDRESS,
   SMP_DECIMALS,
   AMETHYST_MINT_ADDRESS,
   AMETHYST_DECIMALS,
+  WEB_API_BASE_URL,
 } from '../constants';
-import { Buffer } from 'buffer';
 import CommentSection from '../components/Comments/CommentSection';
+import UBBadge from '../components/UBBadge';
 import { CardStyleInterpolators } from '@react-navigation/stack';
+import { formatNumber } from '../utils/formatNumber';
 
-const { width, height } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 
 // Kaito Adventure Design System - Japanese Dark-Orange
 const KA_COLORS = {
@@ -81,7 +81,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    pointerEvents: 'none',
   },
   ember: {
     position: 'absolute',
@@ -221,6 +220,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   messageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     margin: 16,
     padding: 16,
     borderRadius: 4,
@@ -241,8 +243,8 @@ const styles = StyleSheet.create({
   messageText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    textAlign: 'center',
     letterSpacing: 1,
+    flex: 1,
   },
   lockedContainer: {
     flex: 1,
@@ -358,37 +360,6 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     marginBottom: 16,
     letterSpacing: 0.5,
-  },
-  navigation: {
-    marginTop: 32,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: KA_COLORS.border,
-  },
-  navRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
-  navButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  navButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  navPlaceholder: {
-    width: 100,
   },
   readingOptions: {
     padding: 16,
@@ -620,14 +591,58 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 16,
   },
+  // Fixed 2-column grid for the plan cards. Width is a percentage of the
+  // slot (not the card itself, and not mixed with a competing minWidth),
+  // so two always fit per row no matter the device width.
+  benefactorPlansGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 6, // clearance for the "RECOMMENDED" badge that overhangs the top-right corner
+  },
+  benefactorPlanSlot: {
+    width: '48%',
+    marginBottom: 14,
+  },
+  benefactorModalContent: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 8,
+    padding: 20,
+    width: '92%',
+    maxWidth: 440,
+    maxHeight: '85%',
+  },
+  benefactorScrollBody: {
+    paddingBottom: 4,
+  },
+  tokenSelectorRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  tokenOptionFlex: {
+    flex: 1,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    gap: 4,
+  },
   benefactorPlan: {
     backgroundColor: KA_COLORS.bgElevated,
     borderWidth: 2,
     borderRadius: 8,
     padding: 16,
     alignItems: 'center',
-    width: '45%',
-    minWidth: 120,
+    width: '100%',
   },
   benefactorPlanIcon: {
     marginBottom: 8,
@@ -655,6 +670,140 @@ const styles = StyleSheet.create({
     color: KA_COLORS.textSecondary,
     fontSize: 10,
     letterSpacing: 1,
+  },
+  benefactorPlanBadge: {
+    width: 60,
+    height: 60,
+    marginBottom: 8,
+  },
+  featuredBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: KA_COLORS.gold,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    zIndex: 1,
+    elevation: 2,
+  },
+  featuredBadgeText: {
+    color: KA_COLORS.bgPrimary,
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  benefactorPlanDisabled: {
+    opacity: 0.5,
+  },
+  insufficientBalanceText: {
+    color: KA_COLORS.error,
+    fontSize: 10,
+    marginTop: 4,
+    fontWeight: 'bold',
+  },
+  tokenSelector: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  tokenOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 8,
+    padding: 12,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  tokenOptionSelected: {
+    borderColor: KA_COLORS.gold,
+    backgroundColor: 'rgba(201, 168, 76, 0.1)',
+  },
+  tokenOptionText: {
+    color: KA_COLORS.textSecondary,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  tokenOptionTextSelected: {
+    color: KA_COLORS.gold,
+  },
+  tokenBalance: {
+    color: KA_COLORS.ivoryDim,
+    fontSize: 12,
+  },
+  planDetailsModal: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 12,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    position: 'relative',
+  },
+  planDetailsBadge: {
+    width: 80,
+    height: 80,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  planDetailsName: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: 2,
+  },
+  planDetailsPrice: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: KA_COLORS.gold,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  planDetailsDuration: {
+    fontSize: 14,
+    color: KA_COLORS.textSecondary,
+    textAlign: 'center',
+    marginBottom: 24,
+    letterSpacing: 1,
+  },
+  planFeaturesList: {
+    marginBottom: 24,
+  },
+  planFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  featureCheckIcon: {
+    marginRight: 12,
+  },
+  planFeatureText: {
+    fontSize: 14,
+    color: KA_COLORS.ivory,
+    flex: 1,
+  },
+  planDetailsSubscribeButton: {
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planDetailsSubscribeButtonDisabled: {
+    opacity: 0.6,
+  },
+  planDetailsSubscribeButtonText: {
+    color: KA_COLORS.bgPrimary,
+    fontSize: 16,
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
   chapterList: {
     maxHeight: 400,
@@ -762,23 +911,118 @@ const styles = StyleSheet.create({
     color: KA_COLORS.ivory,
     fontSize: 14,
   },
+  chapterNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  navButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.gold,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  navButtonText: {
+    color: KA_COLORS.gold,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  navSpacer: {
+    flex: 1,
+  },
+  priceStaleNote: {
+    color: KA_COLORS.textMuted,
+    fontSize: 10,
+    textAlign: 'center',
+    letterSpacing: 1,
+    marginTop: -16,
+    marginBottom: 16,
+  },
 });
+
 const connection = new Connection(RPC_URL, 'confirmed');
 const MIN_ATA_SOL = 0.00103928;
 const MIN_USER_SOL = 0.001;
-const poolAddress = "3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33";
-const meteoraApiUrl = `https://amm-v2.meteora.ag/pools?address=${poolAddress}`;
-const USDC_AMOUNT = 0.0025;
 
-const SQUADS_WALLET = new PublicKey("4EeY4iDCp36yvLFvwhFhBrurKGJwNqLDzvM3PVsxrPdR");
+const SQUADS_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
 const TREASURY_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
 const FOUNDER_FUND_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
 const SEMPAI_HQ_WALLET = new PublicKey("4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H");
 
-// Ad video configuration - fetch from web version
-// Update this URL to your web version's domain
-const WEB_BASE_URL = 'https://your-web-domain.com'; // Replace with your actual web domain
-const AD_VIDEO_URI = `${WEB_BASE_URL}/ad_video.mp4`;
+// Ad video configuration - use local asset
+const AD_VIDEO_URI = require('../assets/ad_video.mp4');
+
+// USD cost of unlocking a single chapter. Centralized here so the displayed
+// SMP cost (SMP_READ_COST) and the amount actually charged on-chain
+// (processChapterPayment) can never drift apart.
+const CHAPTER_READ_USD_COST = 0.0025;
+
+// ---------------------------------------------------------------------------
+// Live pricing (Jupiter)
+// ---------------------------------------------------------------------------
+// Previously this screen derived SOL and SMP prices from a raw Meteora pool
+// reserve ratio, with SOL hardcoded to a flat $100 regardless of its real
+// market price. That meant every SMP price (and therefore SMP_READ_COST)
+// inherited whatever error existed between $100 and SOL's actual price, and
+// silently assumed the Meteora API always returned [SMP, SOL] in that exact
+// order with human-readable (not raw base-unit) amounts.
+//
+// Both SOL and SMP prices now come from Jupiter's Price API v3, the same
+// source used on the Swap screen, so pricing is accurate and consistent
+// app-wide. Jupiter's v3 endpoint silently omits mints it doesn't consider
+// reliably priced (thin liquidity, single-pool tokens — which is exactly
+// SMP's situation on its lone Meteora pool), so for any mint it drops we
+// fall back to a live Swap API /quote for 1 whole token -> USDC and derive
+// the price from that, matching the Swap screen's fallback exactly.
+const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
+const PRICE_CACHE_KEY = 'kaito_live_price_cache_v2';
+const PRICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+const priceV3Endpoint = (ids) => `https://lite-api.jup.ag/price/v3?ids=${ids.join(',')}`;
+const quoteEndpoint = (inputMint, amountBaseUnits) =>
+  `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amountBaseUnits}&slippageBps=50`;
+
+async function fetchQuoteDerivedUsdcPrice(mint, decimals) {
+  try {
+    const amount = Math.round(10 ** decimals); // 1 whole token, in base units
+    const res = await fetch(quoteEndpoint(mint, amount));
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.outAmount) return null;
+    return Number(data.outAmount) / 10 ** 6; // USDC has 6 decimals
+  } catch (err) {
+    console.error('[fetchQuoteDerivedUsdcPrice] Error:', err.message);
+    return null;
+  }
+}
+
+// Fetch fallback SMP price from web API (when Jupiter fails)
+async function fetchSmpFallbackPrice() {
+  try {
+    const res = await fetch(`${WEB_API_BASE_URL}/api/smp-fallback-price`);
+    if (!res.ok) {
+      console.warn('[fetchSmpFallbackPrice] Web API unavailable');
+      return null;
+    }
+    const data = await res.json();
+    if (data?.fallbackPrice) {
+      // Convert from SMP per USDC to USDC per SMP
+      return 1 / data.fallbackPrice;
+    }
+    return null;
+  } catch (err) {
+    console.error('[fetchSmpFallbackPrice] Error:', err.message);
+    return null;
+  }
+}
 
 // Helper: Split payment amounts
 function splitAmountWithResidual(amount, ratios) {
@@ -793,15 +1037,112 @@ function splitAmountWithResidual(amount, ratios) {
   return r;
 }
 
+// Helper: Create benefactor payment transaction with 80/20 split (author/treasury)
+async function createBenefactorPaymentTransaction({ paymentMint, paymentAmount, userPublicKey, authorPublicKey }) {
+  const [authorAmount, treasuryAmount] = splitAmountWithResidual(
+    paymentAmount,
+    [80, 20]
+  );
+
+  const instructions = [];
+
+  if (!paymentMint) {
+    // SOL transfer - 80% to author, 20% to treasury
+    instructions.push(
+      SystemProgram.transfer({
+        fromPubkey: userPublicKey,
+        toPubkey: authorPublicKey,
+        lamports: authorAmount,
+      }),
+      SystemProgram.transfer({
+        fromPubkey: userPublicKey,
+        toPubkey: TREASURY_WALLET,
+        lamports: treasuryAmount,
+      })
+    );
+  } else {
+    // Token transfer - 80% to author, 20% to treasury
+    const userAta = getAssociatedTokenAddressSync(paymentMint, userPublicKey);
+    const authorAta = getAssociatedTokenAddressSync(paymentMint, authorPublicKey);
+    const treasuryAta = getAssociatedTokenAddressSync(paymentMint, TREASURY_WALLET, true);
+
+    let reroutedToTreasury = 0;
+
+    // Check if ATAs exist and route accordingly
+    const [authorAtaInfo, treasuryAtaInfo] = await connection.getMultipleAccountsInfo([
+      authorAta,
+      treasuryAta,
+    ]);
+
+    // Check user's SOL balance for ATA creation costs
+    const userBalance = await connection.getBalance(userPublicKey);
+    const ataRentExemption = 0.00203928 * 1000000000; // Approximate rent exemption in lamports
+
+    // Author - Create ATA if missing and user has enough SOL
+    let authorDestAta = authorAta;
+    let authorDestAmount = authorAmount;
+    if (!authorAtaInfo) {
+      if (userBalance >= ataRentExemption) {
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            userPublicKey,
+            authorAta,
+            authorPublicKey,
+            paymentMint
+          )
+        );
+      } else {
+        reroutedToTreasury += authorAmount;
+        authorDestAta = null;
+        authorDestAmount = 0;
+      }
+    }
+
+    // Treasury - Create ATA if missing and user has enough SOL
+    let treasuryDestAta = treasuryAta;
+    let treasuryDestAmount = treasuryAmount;
+    if (!treasuryAtaInfo) {
+      if (userBalance >= ataRentExemption) {
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            userPublicKey,
+            treasuryAta,
+            TREASURY_WALLET,
+            paymentMint
+          )
+        );
+      } else {
+        treasuryDestAta = null;
+        treasuryDestAmount = 0;
+      }
+    }
+
+    // Build transfer instructions
+    if (authorDestAta && authorDestAmount > 0) {
+      instructions.push(createTransferInstruction(userAta, authorDestAta, userPublicKey, authorDestAmount));
+    }
+
+    // Treasury gets its share + any rerouted shares
+    const totalTreasuryAmount = treasuryDestAmount + reroutedToTreasury;
+    if (totalTreasuryAmount > 0 && treasuryDestAta) {
+      instructions.push(createTransferInstruction(userAta, treasuryDestAta, userPublicKey, totalTreasuryAmount));
+    }
+  }
+
+  const tx = new Transaction();
+  tx.add(...instructions);
+  return tx;
+}
+
 // Helper: Create payment transaction on client side (updated to match web version 50/30/20 split)
 async function createPaymentTransactionClient({ paymentMint, paymentAmount, userPublicKey, authorPublicKey, smpMintAddress }) {
   const [creatorAmount, sempaiHqAmount, founderFundAmount] = splitAmountWithResidual(
     paymentAmount,
     [50, 30, 20]
   );
-  
+
   const instructions = [];
-  
+
   if (!paymentMint) {
     // SOL transfer - 50% to creator, 30% to Sempai HQ, 20% to Founder Fund
     instructions.push(
@@ -829,7 +1170,7 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
     const founderFundAta = getAssociatedTokenAddressSync(paymentMint, FOUNDER_FUND_WALLET, true);
 
     let reroutedToFounderFund = 0;
-    
+
     // Check if ATAs exist and route accordingly
     const [creatorAtaInfo, sempaiHqAtaInfo, founderFundAtaInfo] = await connection.getMultipleAccountsInfo([
       creatorAta,
@@ -861,7 +1202,7 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
         creatorDestAmount = 0;
       }
     }
-    
+
     // Sempai HQ - Create ATA if missing and user has enough SOL
     let sempaiHqDestAta = sempaiHqAta;
     let sempaiHqDestAmount = sempaiHqAmount;
@@ -881,7 +1222,7 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
         sempaiHqDestAmount = 0;
       }
     }
-    
+
     // Founder Fund - Create ATA if missing and user has enough SOL
     let founderFundDestAta = founderFundAta;
     let founderFundDestAmount = founderFundAmount;
@@ -914,7 +1255,7 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
     if (totalFounderFundAmount > 0 && founderFundDestAta) {
       instructions.push(createTransferInstruction(userAta, founderFundDestAta, userPublicKey, totalFounderFundAmount));
     }
-    
+
     // Burn SMP tokens if applicable
     if (smpMintAddress && paymentMint.equals(smpMintAddress)) {
       instructions.push(createBurnInstruction(userAta, paymentMint, userPublicKey, founderFundAmount));
@@ -951,41 +1292,54 @@ const ChapterScreen = () => {
   const [amethystBalance, setAmethystBalance] = useState(0);
   const [showTransactionPopup, setShowTransactionPopup] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
-  const [solPrice, setSolPrice] = useState(100); // Default SOL price
-  const [smpPrice, setSmpPrice] = useState(0.01); // Default SMP price in USD
+  const [solPrice, setSolPrice] = useState(100); // Live SOL price in USD (fallback until first fetch resolves)
+  const [smpPrice, setSmpPrice] = useState(0.01); // Live SMP price in USD (fallback until first fetch resolves)
+  const [pricesAreLive, setPricesAreLive] = useState(false); // false = showing fallback, not confirmed live data
   const [recentlyUnlocked, setRecentlyUnlocked] = useState(false);
   const [hasReadChapter, setHasReadChapter] = useState(false);
   const usdcPrice = 1; // USDC is pegged to $1
   const [isAdvanceChapter, setIsAdvanceChapter] = useState(false);
   const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const flatListRef = useRef(null);
   const emberAnims = useRef([]);
   const embersData = useRef([]);
   const embersInitialized = useRef(false);
-  
+
   // Ad unlock system
   const [hasUsedAdUnlockToday, setHasUsedAdUnlockToday] = useState(false);
   const [showAdOption, setShowAdOption] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
   const videoRef = useRef(null);
-  
+
   // Benefactor subscription system
   const [benefactorAccess, setBenefactorAccess] = useState(null);
   const [showBenefactorOption, setShowBenefactorOption] = useState(false);
   const [showBenefactorModal, setShowBenefactorModal] = useState(false);
-  
+  const [selectedBenefactorToken, setSelectedBenefactorToken] = useState('USDC');
+  const [solBalance, setSolBalance] = useState(0);
+  const [usdcBalance, setUsdcBalance] = useState(0);
+  const [skrBalance, setSkrBalance] = useState(0);
+  const [showPlanDetailsModal, setShowPlanDetailsModal] = useState(false);
+  const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
+  const planAnimations = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
+  const planDetailsAnimation = useRef(new Animated.Value(0)).current;
+
   // Rating system
   const [userRating, setUserRating] = useState(null);
   const [averageRating, setAverageRating] = useState(null);
-  
+
   // Text-to-speech
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  
+
   // Chapter selector
   const [showChapterSelector, setShowChapterSelector] = useState(false);
-  
+
   // Author's note system
   const [authorNote, setAuthorNote] = useState('');
   const [isEditingAuthorNote, setIsEditingAuthorNote] = useState(false);
@@ -994,7 +1348,7 @@ const ChapterScreen = () => {
   // Initialize ember particles
   useEffect(() => {
     if (embersInitialized.current) return;
-    
+
     try {
       const embers = Array.from({ length: 12 }, (_, i) => ({
         id: i,
@@ -1003,11 +1357,11 @@ const ChapterScreen = () => {
         duration: 6 + Math.random() * 4,
       }));
       embersData.current = embers;
-      
+
       // Only initialize Animated.Value if Animated is available
       if (Animated && Animated.Value) {
         emberAnims.current = embers.map(() => new Animated.Value(0));
-        
+
         emberAnims.current.forEach((anim, index) => {
           if (Animated.loop && Animated.sequence && Animated.delay && Animated.timing) {
             Animated.loop(
@@ -1023,7 +1377,7 @@ const ChapterScreen = () => {
           }
         });
       }
-      
+
       embersInitialized.current = true;
     } catch (error) {
       console.error('Error initializing ember particles:', error);
@@ -1043,173 +1397,92 @@ const ChapterScreen = () => {
 
   const activeWalletAddress = activePublicKey?.toString();
 
-  // Dynamic SMP cost for $0.025
+  // Dynamic SMP cost for CHAPTER_READ_USD_COST, using the live SMP price
   const SMP_READ_COST = useMemo(() => {
     if (!smpPrice || smpPrice <= 0) {
       console.warn('[SMP_READ_COST] Invalid SMP price, using default value');
-      return 50000000000; // Fallback: 0.025 USD / 0.000001 USD per SMP = 2,500,000 lamports (6 decimals)
+      return 250000000; // Fallback: 0.0025 USD / 0.00000001 USD per SMP = 250,000,000 (6 decimals)
     }
-    const costInSmp = Math.ceil((0.0025 / smpPrice) * 10 ** SMP_DECIMALS);
-    console.log('[SMP_READ_COST] Calculated SMP cost for $0.025:', costInSmp, 'SMP price:', smpPrice);
+    const costInSmp = Math.ceil((CHAPTER_READ_USD_COST / smpPrice) * 10 ** SMP_DECIMALS);
+    console.log('[SMP_READ_COST] Calculated SMP cost for $' + CHAPTER_READ_USD_COST + ':', costInSmp, 'SMP price:', smpPrice);
     return costInSmp;
   }, [smpPrice]);
 
-  // Enhanced fetch pool data with better error handling and fallback
-  const fetchPoolData = useCallback(async () => {
-    try {
-      console.log('[fetchPoolData] Fetching pool data from Meteora API...');
-      
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(meteoraApiUrl, {
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'SempaiHQ/1.0'
-        }
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!Array.isArray(data) || data.length === 0) {
-        throw new Error('No pool data returned from API');
-      }
-      
-      const poolData = data[0];
-      console.log('[fetchPoolData] Successfully fetched pool data');
-      return poolData;
-      
-    } catch (error) {
-      console.error('[fetchPoolData] Error:', error.message);
-      
-      // Provide more specific error messages
-      if (error.name === 'AbortError') {
-        throw new Error('Network request timed out. Please check your connection and try again.');
-      } else if (error.message.includes('Network request failed')) {
-        throw new Error('Network connection failed. Please check your internet connection.');
-      } else if (error.message.includes('HTTP 429')) {
-        throw new Error('Too many requests. Please try again in a moment.');
-      } else if (error.message.includes('HTTP 5')) {
-        throw new Error('Server error. Please try again later.');
-      } else {
-        throw new Error(`Failed to fetch pool data: ${error.message}`);
-      }
-    }
-  }, []);
-
-  // Calculate SOL price in USD (fixed version)
-  const calculateSolPriceInUsd = useCallback((pool) => {
-    // Since Meteora API returns 0 for USD values, use fallback price
-    const fallbackSolPrice = 100; // $100 per SOL
-    console.log('[calculateSolPriceInUsd] Using fallback SOL price:', fallbackSolPrice, 'USD');
-    return fallbackSolPrice;
-  }, []);
-
-  // Calculate SMP per SOL
-  const calculateSmpPerSol = useCallback((pool) => {
-    const smpAmount = parseFloat(pool.pool_token_amounts[0]); // SMP amount in pool
-    const solAmount = parseFloat(pool.pool_token_amounts[1]); // SOL amount in pool
-
-    if (smpAmount <= 0 || solAmount <= 0) {
-      throw new Error("Invalid pool amounts: SMP and SOL amounts must be positive");
-    }
-
-    if (solAmount < 0.01) {
-      console.warn('[calculateSmpPerSol] Warning: Low SOL liquidity in pool. Price may be unreliable.');
-    }
-
-    const smpPerSol = smpAmount / solAmount;
-    console.log('[calculateSmpPerSol] SMP per SOL:', smpPerSol.toFixed(2));
-    return smpPerSol;
-  }, []);
-
-  // Enhanced convert USDC to SMP with better error handling
-  const convertUsdcToSmp = useCallback(async (usdcAmount) => {
-    try {
-      console.log(`[convertUsdcToSmp] Converting ${usdcAmount} USDC to SMP...`);
-      const poolData = await fetchPoolData();
-      const solPriceInUsd = calculateSolPriceInUsd(poolData);
-      const solAmount = usdcAmount / solPriceInUsd;
-      const smpPerSol = calculateSmpPerSol(poolData);
-      const smpAmount = solAmount * smpPerSol;
-      console.log(`[convertUsdcToSmp] ${usdcAmount} USDC = ${smpAmount.toFixed(2)} SMP`);
-      return smpAmount;
-    } catch (error) {
-      console.error('[convertUsdcToSmp] Error:', error.message);
-      
-      // Provide fallback calculation if API fails
-      console.warn('[convertUsdcToSmp] Using fallback calculation');
-      
-      // Fallback rates (these should be updated periodically)
-      const fallbackSolPrice = 100; // $100 per SOL
-      const fallbackSmpPerSol = 328861621.646602; // SMP per SOL from reference rate
-      
-      const solAmount = usdcAmount / fallbackSolPrice;
-      const smpAmount = solAmount * fallbackSmpPerSol;
-      
-      console.log(`[convertUsdcToSmp] Fallback: ${usdcAmount} USDC = ${smpAmount.toFixed(2)} SMP`);
-      return smpAmount;
-    }
-  }, [fetchPoolData, calculateSolPriceInUsd, calculateSmpPerSol]);
-
-  // Fetch prices (SOL and SMP)
+  // Fetch live SOL + SMP prices from Jupiter, with a short-lived cache and a
+  // /quote-based fallback for any mint Jupiter's price index omits.
   const fetchPrices = useCallback(async () => {
     try {
-      const cacheKey = 'priceCache';
-      const cacheExpiry = 5 * 60 * 1000; // 5 minutes
-      const cachedData = await SecureStore.getItemAsync(cacheKey);
-      if (cachedData) {
+      const cachedRaw = await SecureStore.getItemAsync(PRICE_CACHE_KEY);
+      if (cachedRaw) {
         try {
-          const { timestamp, solPrice, smpPrice } = JSON.parse(cachedData);
-          console.log('[fetchPrices] Raw cached data:', { timestamp, solPrice, smpPrice });
-          if (Date.now() - timestamp < cacheExpiry && solPrice > 0 && smpPrice > 0) {
-            console.log('[fetchPrices] Using cached prices:', { solPrice, smpPrice });
-            setSolPrice(solPrice);
-            setSmpPrice(smpPrice);
+          const { timestamp, solPrice: cachedSol, smpPrice: cachedSmp } = JSON.parse(cachedRaw);
+          if (Date.now() - timestamp < PRICE_CACHE_TTL_MS && cachedSol > 0 && cachedSmp > 0) {
+            console.log('[fetchPrices] Using cached prices:', { solPrice: cachedSol, smpPrice: cachedSmp });
+            setSolPrice(cachedSol);
+            setSmpPrice(cachedSmp);
+            setPricesAreLive(true);
             return;
-          } else {
-            console.warn('[fetchPrices] Cache expired or invalid, fetching new prices');
           }
-        } catch (error) {
-          console.error('[fetchPrices] Cache parse error:', error.message);
-          await SecureStore.deleteItemAsync(cacheKey);
+          console.warn('[fetchPrices] Cache expired or invalid, fetching new prices');
+        } catch (err) {
+          console.error('[fetchPrices] Cache parse error:', err.message);
+          await SecureStore.deleteItemAsync(PRICE_CACHE_KEY);
         }
       }
 
-      let solPrice = 100; // Default fallback
-      let smpPrice = 0.01; // Default fallback
+      let liveSolPrice = null;
+      let liveSmpPrice = null;
 
-      const smpAmount = await convertUsdcToSmp(USDC_AMOUNT);
-      if (smpAmount !== null && smpAmount > 0) {
-        smpPrice = USDC_AMOUNT / smpAmount; // SMP price in USD
-        const poolData = await fetchPoolData();
-        solPrice = calculateSolPriceInUsd(poolData);
-      } else {
-        console.warn('[fetchPrices] Failed to fetch SMP amount, using fallback prices');
+      try {
+        const ids = [SOL_MINT_ADDRESS, SMP_MINT_ADDRESS.toString(), USDC_MINT_ADDRESS.toString()];
+        const res = await fetch(priceV3Endpoint(ids));
+        if (!res.ok) throw new Error(`Price API error: ${res.status}`);
+        const json = await res.json();
+
+        liveSolPrice = json?.[SOL_MINT_ADDRESS]?.usdPrice || null;
+        liveSmpPrice = json?.[SMP_MINT_ADDRESS.toString()]?.usdPrice || null;
+
+        // v3 silently drops low-liquidity / single-pool tokens (SMP's lone
+        // Meteora pool is exactly that profile) — fall back to a live quote.
+        if (!liveSmpPrice) {
+          liveSmpPrice = await fetchQuoteDerivedUsdcPrice(SMP_MINT_ADDRESS.toString(), SMP_DECIMALS);
+          // If Jupiter quote also fails, try web API fallback
+          if (!liveSmpPrice) {
+            liveSmpPrice = await fetchSmpFallbackPrice();
+            if (liveSmpPrice) {
+              console.log('[fetchPrices] Using web API fallback for SMP price');
+            }
+          }
+        }
+        if (!liveSolPrice) {
+          liveSolPrice = await fetchQuoteDerivedUsdcPrice(SOL_MINT_ADDRESS, 9);
+        }
+      } catch (err) {
+        console.error('[fetchPrices] Live price fetch failed:', err.message);
       }
 
-      setSolPrice(solPrice);
-      setSmpPrice(smpPrice);
-
-      await SecureStore.setItemAsync(
-        cacheKey,
-        JSON.stringify({ timestamp: Date.now(), solPrice, smpPrice })
-      );
-      console.log('[fetchPrices] Prices saved to cache:', { solPrice, smpPrice });
-    } catch (error) {
-      console.error('[fetchPrices] Error:', error.message);
-      setSolPrice(100);
-      setSmpPrice(0.01);
+      if (liveSolPrice && liveSmpPrice) {
+        setSolPrice(liveSolPrice);
+        setSmpPrice(liveSmpPrice);
+        setPricesAreLive(true);
+        await SecureStore.setItemAsync(
+          PRICE_CACHE_KEY,
+          JSON.stringify({ timestamp: Date.now(), solPrice: liveSolPrice, smpPrice: liveSmpPrice })
+        );
+        console.log('[fetchPrices] Live prices cached:', { solPrice: liveSolPrice, smpPrice: liveSmpPrice });
+      } else {
+        // Total failure (no network, both API paths down): keep whatever
+        // was already in state (last good value) rather than silently
+        // resetting to a made-up number, and flag prices as non-live so the
+        // UI can warn the user costs shown may be stale.
+        console.warn('[fetchPrices] Live pricing unavailable — keeping last known values.');
+        setPricesAreLive(false);
+      }
+    } catch (err) {
+      console.error('[fetchPrices] Error:', err.message);
+      setPricesAreLive(false);
     }
-  }, [fetchPoolData, convertUsdcToSmp, calculateSolPriceInUsd]);
+  }, []);
 
   const fetchSmpBalanceOnChain = useCallback(async (retryCount = 3, retryDelay = 1000) => {
     if (!activeWalletAddress || !activePublicKey) return 0;
@@ -1229,14 +1502,14 @@ const ChapterScreen = () => {
         return balance;
       } catch (error) {
         console.error(`[fetchSmpBalanceOnChain] Attempt ${attempt} error:`, error.message);
-        
+
         // Handle RPC authorization issues gracefully
         if (error.message.includes('401') || error.message.includes('Unauthorized')) {
           console.warn('[fetchSmpBalanceOnChain] RPC authorization issue, using fallback balance 0');
           setSmpBalance(0);
           return 0;
         }
-        
+
         if (attempt === retryCount) {
           setError('Unable to fetch SMP balance.');
           setTimeout(() => setError(null), 5000);
@@ -1246,6 +1519,48 @@ const ChapterScreen = () => {
       }
     }
     return 0;
+  }, [activeWalletAddress, activePublicKey]);
+
+  const fetchTokenBalances = useCallback(async () => {
+    if (!activeWalletAddress || !activePublicKey) {
+      setSolBalance(0);
+      setUsdcBalance(0);
+      setSkrBalance(0);
+      return;
+    }
+
+    try {
+      // Fetch SOL balance
+      const solBal = await connection.getBalance(activePublicKey);
+      setSolBalance(solBal / 1e9);
+
+      // Fetch USDC balance
+      const usdcMint = new PublicKey(USDC_MINT_ADDRESS);
+      const usdcAta = await getAssociatedTokenAddress(usdcMint, activePublicKey);
+      const usdcAtaInfo = await connection.getAccountInfo(usdcAta);
+      if (usdcAtaInfo) {
+        const usdcBal = Number(usdcAtaInfo.data.readBigUInt64LE(64)) / 1e6;
+        setUsdcBalance(usdcBal);
+      } else {
+        setUsdcBalance(0);
+      }
+
+      // Fetch SKR balance
+      const skrMint = new PublicKey(SKR_MINT_ADDRESS);
+      const skrAta = await getAssociatedTokenAddress(skrMint, activePublicKey);
+      const skrAtaInfo = await connection.getAccountInfo(skrAta);
+      if (skrAtaInfo) {
+        const skrBal = Number(skrAtaInfo.data.readBigUInt64LE(64)) / 1e6;
+        setSkrBalance(skrBal);
+      } else {
+        setSkrBalance(0);
+      }
+    } catch (error) {
+      console.error('[fetchTokenBalances] Error:', error.message);
+      setSolBalance(0);
+      setUsdcBalance(0);
+      setSkrBalance(0);
+    }
   }, [activeWalletAddress, activePublicKey]);
 
   const fetchAmethystBalance = useCallback(async () => {
@@ -1260,7 +1575,7 @@ const ChapterScreen = () => {
       return balance;
     } catch (error) {
       console.error('[fetchAmethystBalance] Error:', error.message);
-      
+
       // Don't show error to user for RPC issues, just log it
       if (error.message.includes('401') || error.message.includes('Unauthorized')) {
         console.warn('[fetchAmethystBalance] RPC authorization issue, using fallback balance 0');
@@ -1285,7 +1600,7 @@ const ChapterScreen = () => {
       setUserId(data.id);
       setWeeklyPoints(data.weekly_points || 0);
       await Promise.all([fetchSmpBalanceOnChain(), fetchAmethystBalance()]);
-      
+
       // Check ad unlock eligibility
       const chapterNum = parseInt(chapterId, 10);
       const today = new Date().toISOString().split('T')[0];
@@ -1295,10 +1610,10 @@ const ChapterScreen = () => {
         .eq('user_id', data.id)
         .gte('ad_watched_at', today)
         .limit(1);
-      
+
       const hasUsedToday = todayUnlock && todayUnlock.length > 0;
       setHasUsedAdUnlockToday(hasUsedToday);
-      
+
       const { data: chapterUnlock, error: chapterError } = await supabase
         .from('ad_based_unlocks')
         .select('id')
@@ -1306,17 +1621,17 @@ const ChapterScreen = () => {
         .eq('novel_id', novelId)
         .eq('chapter_number', chapterNum)
         .maybeSingle();
-      
+
       const isAdEligible = !hasUsedToday && !chapterUnlock;
       setShowAdOption(isAdEligible);
-      
+
       // Check benefactor access
       const { data: novelData } = await supabase
         .from('novels')
         .select('user_id')
         .eq('id', novelId)
         .single();
-      
+
       if (novelData) {
         const writerId = novelData.user_id;
         const { data: subscriptionData, error: subscriptionError } = await supabase
@@ -1326,7 +1641,7 @@ const ChapterScreen = () => {
           .eq('writer_id', writerId)
           .eq('is_active', true)
           .maybeSingle();
-        
+
         if (subscriptionData && !subscriptionError) {
           if (new Date(subscriptionData.expires_at) <= new Date()) {
             await supabase
@@ -1343,7 +1658,7 @@ const ChapterScreen = () => {
           setBenefactorAccess(null);
         }
       }
-      
+
       setShowBenefactorOption(!benefactorAccess);
     } catch (error) {
       console.error('[fetchUserData] Error:', error.message);
@@ -1373,12 +1688,12 @@ const ChapterScreen = () => {
           free_release_date: null,
         }
       );
-      
+
       // Check if current user is the author
       if (userId && data.user_id === userId) {
         setIsAuthor(true);
       }
-      
+
       // Fetch author's note for this chapter
       const chapterNum = parseInt(chapter, 10);
       const { data: chapterData, error: chapterError } = await supabase
@@ -1387,9 +1702,11 @@ const ChapterScreen = () => {
         .eq('novel_id', id)
         .eq('chapter_number', chapterNum)
         .maybeSingle();
-      
+
       if (!chapterError && chapterData) {
         setAuthorNote(chapterData.author_note || '');
+      } else {
+        setAuthorNote('');
       }
     } catch (error) {
       console.error('[fetchNovel] Error:', error.message);
@@ -1429,7 +1746,7 @@ const ChapterScreen = () => {
     if (!targetUserId || !novelId || !chapterId) return false;
     try {
       const chapterNum = parseInt(chapterId, 10);
-      
+
       // Check if user has already used ad unlock today
       const today = new Date().toISOString().split('T')[0];
       const { data: todayUnlock, error: todayError } = await supabase
@@ -1438,12 +1755,12 @@ const ChapterScreen = () => {
         .eq('user_id', targetUserId)
         .gte('ad_watched_at', today)
         .limit(1);
-      
+
       if (todayError && todayError.code !== 'PGRST116') throw new Error(todayError.message);
-      
+
       const hasUsedToday = todayUnlock && todayUnlock.length > 0;
       setHasUsedAdUnlockToday(hasUsedToday);
-      
+
       // Check if this specific chapter was already unlocked via ad
       const { data: chapterUnlock, error: chapterError } = await supabase
         .from('ad_based_unlocks')
@@ -1452,16 +1769,16 @@ const ChapterScreen = () => {
         .eq('novel_id', novelId)
         .eq('chapter_number', chapterNum)
         .maybeSingle();
-      
+
       if (chapterError && chapterError.code !== 'PGRST116') throw new Error(chapterError.message);
-      
+
       return !hasUsedToday && !chapterUnlock;
     } catch (error) {
       console.error('[checkAdUnlockEligibility] Error:', error.message);
       return false;
     }
   }, [userId, novelId, chapterId]);
-  
+
   // Handle ad-based unlock
   const handleAdBasedUnlock = useCallback(async () => {
     if (!userId || !novelId || !chapterId || isProcessing) {
@@ -1473,13 +1790,11 @@ const ChapterScreen = () => {
     setError(null);
 
     try {
-      const chapterNum = parseInt(chapterId, 10);
-      
       // Check eligibility again
       const isEligible = await checkAdUnlockEligibility();
       if (!isEligible) {
-        setError(hasUsedAdUnlockToday 
-          ? 'You have already used your free ad unlock for today. Come back tomorrow!' 
+        setError(hasUsedAdUnlockToday
+          ? 'You have already used your free ad unlock for today. Come back tomorrow!'
           : 'This chapter was already unlocked via ad.');
         setIsProcessing(false);
         return;
@@ -1495,12 +1810,12 @@ const ChapterScreen = () => {
       setIsProcessing(false);
     }
   }, [userId, novelId, chapterId, isProcessing, checkAdUnlockEligibility, hasUsedAdUnlockToday]);
-  
+
   // Handle video ad completion
   const handleVideoAdEnd = useCallback(async () => {
     try {
       const chapterNum = parseInt(chapterId, 10);
-      
+
       // Record ad unlock
       const { error: adUnlockError } = await supabase
         .from('ad_based_unlocks')
@@ -1536,10 +1851,10 @@ const ChapterScreen = () => {
       setIsLocked(false);
       setRecentlyUnlocked(true);
       setShowVideoAd(false);
-      
+
       setSuccessMessage('Chapter unlocked successfully! You can read it now.');
       setTimeout(() => setSuccessMessage(''), 5000);
-      
+
       await checkAdUnlockEligibility();
       setTimeout(() => setRecentlyUnlocked(false), 10000);
     } catch (error) {
@@ -1549,11 +1864,11 @@ const ChapterScreen = () => {
       setTimeout(() => setError(null), 5000);
     }
   }, [userId, novelId, chapterId, activeWalletAddress, checkAdUnlockEligibility]);
-  
+
   // Benefactor access check
   const checkBenefactorAccess = useCallback(async () => {
     if (!activeWalletAddress || !novelId) return null;
-    
+
     try {
       // First get the novel to find the writer (author)
       const { data: novelData, error: novelError } = await supabase
@@ -1561,7 +1876,7 @@ const ChapterScreen = () => {
         .select('user_id')
         .eq('id', novelId)
         .single();
-      
+
       if (novelError || !novelData) {
         console.error('[checkBenefactorAccess] Error fetching novel:', novelError?.message);
         return null;
@@ -1577,12 +1892,12 @@ const ChapterScreen = () => {
         .eq('writer_id', writerId)
         .eq('is_active', true)
         .single();
-      
+
       if (subscriptionError && subscriptionError.code !== 'PGRST116') {
         console.error('[checkBenefactorAccess] Error:', subscriptionError.message);
         return null;
       }
-      
+
       if (subscriptionData) {
         // Check if subscription has expired
         if (new Date(subscriptionData.expires_at) <= new Date()) {
@@ -1591,25 +1906,25 @@ const ChapterScreen = () => {
             .from('writer_subscriptions')
             .update({ is_active: false })
             .eq('id', subscriptionData.id);
-          
+
           return null;
         }
-        
+
         // Check remaining chapters (only applies to non-gold plans)
         if (subscriptionData.chapters_remaining <= 0 && subscriptionData.plan_type !== 'gold') {
           return null;
         }
-        
+
         return subscriptionData;
       }
-      
+
       return null;
     } catch (error) {
       console.error('[checkBenefactorAccess] Error:', error.message);
       return null;
     }
   }, [activeWalletAddress, novelId]);
-  
+
   // Process benefactor payment
   const processBenefactorPayment = useCallback(async (paymentAmount, novelIdParam, paymentMint) => {
     try {
@@ -1640,13 +1955,12 @@ const ChapterScreen = () => {
 
       const authorPublicKey = new PublicKey(authorData.wallet_address);
 
-      // Build transaction
-      const transaction = await createPaymentTransactionClient({
+      // Build transaction using benefactor payment function (80/20 split)
+      const transaction = await createBenefactorPaymentTransaction({
         paymentMint,
         paymentAmount,
         userPublicKey: activePublicKey,
         authorPublicKey,
-        smpMintAddress: paymentMint,
       });
 
       // Get fresh blockhash
@@ -1691,7 +2005,7 @@ const ChapterScreen = () => {
       return { success: false, error: error.message };
     }
   }, [activeWalletAddress, activePublicKey, signAndSendTransaction]);
-  
+
   // Handle benefactor unlock
   const handleBenefactorUnlock = useCallback(async (plan) => {
     if (!activeWalletAddress || !novelId || !chapterId || isProcessing) {
@@ -1705,7 +2019,7 @@ const ChapterScreen = () => {
 
     try {
       const pricingTiers = {
-        blue:  { price: 0.1,   chapters: 3,   name: 'Blue' },
+        blue:  { price: 1,   chapters: 3,   name: 'Blue' },
         iron:  { price: 2,   chapters: 6,   name: 'Iron' },
         silver: { price: 3,   chapters: 10,  name: 'Silver' },
         gold:  { price: 5,   chapters: 999, name: 'Gold' },
@@ -1722,8 +2036,24 @@ const ChapterScreen = () => {
 
       setSuccessMessage(`Processing ${tier.name} writer subscription...`);
 
-      // Get selected token from plan (USDC, SOL, or SKR - never SMP)
-      const currency = plan.selectedToken || 'USDC';
+      // Get selected token from plan (USDC or SOL)
+      const currency = plan.selectedToken || selectedBenefactorToken;
+
+      // Check balance before attempting transaction
+      if (currency === 'USDC') {
+        if (usdcBalance < tier.price) {
+          throw new Error(`Insufficient USDC balance. You need ${tier.price} USDC but have ${usdcBalance.toFixed(2)} USDC.`);
+        }
+      } else if (currency === 'SOL') {
+        const solNeeded = tier.price * (solPrice || 100);
+        if (solBalance < solNeeded) {
+          throw new Error(`Insufficient SOL balance. You need ${solNeeded.toFixed(4)} SOL (~$${tier.price}) but have ${solBalance.toFixed(4)} SOL.`);
+        }
+      } else if (currency === 'SKR') {
+        if (skrBalance < tier.price) {
+          throw new Error(`Insufficient SKR balance. You need ${tier.price} SKR but have ${skrBalance.toFixed(2)} SKR.`);
+        }
+      }
 
       let paymentAmount = 0;
       let paymentMint = null;
@@ -1733,8 +2063,11 @@ const ChapterScreen = () => {
         paymentAmount = Math.floor(tier.price * 1_000_000);
       } else if (currency === 'SOL') {
         paymentAmount = Math.floor(tier.price * (solPrice || 100) * 1_000_000_000);
+      } else if (currency === 'SKR') {
+        paymentMint = new PublicKey(SKR_MINT_ADDRESS);
+        paymentAmount = Math.floor(tier.price * 1_000_000); // Using same decimals as SMP
       } else {
-        throw new Error('Invalid token selected. Only USDC or SOL are allowed for benefactor plans.');
+        throw new Error('Invalid token selected. Only USDC, SOL, or SKR are allowed for benefactor plans.');
       }
 
       const paymentResult = await processBenefactorPayment(paymentAmount, novelId, paymentMint);
@@ -1749,11 +2082,11 @@ const ChapterScreen = () => {
         .select('user_id')
         .eq('id', novelId)
         .single();
-      
+
       const writerId = novelData.user_id;
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + (tier.chapters === 999 ? 30 : 14));
-      
+
       const { error: subError } = await supabase
         .from('writer_subscriptions')
         .insert({
@@ -1764,24 +2097,36 @@ const ChapterScreen = () => {
           chapters_remaining: tier.chapters,
           expires_at: expiresAt.toISOString(),
           is_active: true,
-          payment_signature: paymentResult.signature,
         });
-      
+
       if (subError) throw new Error(subError.message);
+
+      // Update user's benefactor status
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update({
+          is_benefactor: true,
+          benefactor_level: plan.id,
+        })
+        .eq('wallet_address', activeWalletAddress);
+
+      if (userUpdateError) {
+        console.warn('[handleBenefactorUnlock] Failed to update user benefactor status:', userUpdateError.message);
+      }
 
       // Success
       const benefactorData = await checkBenefactorAccess();
       setBenefactorAccess(benefactorData);
       setShowBenefactorOption(false);
       setShowBenefactorModal(false);
-      
+
       setIsLocked(false);
       setRecentlyUnlocked(true);
 
-      const accessMessage = tier.chapters === 999 
+      const accessMessage = tier.chapters === 999
         ? `${tier.name} writer subscription activated! Unlimited access for 30 days.`
         : `${tier.name} writer subscription activated! Early access to ${tier.chapters} chapters for 14 days.`;
-      
+
       setSuccessMessage(accessMessage);
       setTimeout(() => setSuccessMessage(''), 6000);
       setTimeout(() => setRecentlyUnlocked(false), 10000);
@@ -1794,7 +2139,7 @@ const ChapterScreen = () => {
       setIsProcessing(false);
     }
   }, [activeWalletAddress, novelId, chapterId, isProcessing, checkBenefactorAccess, processBenefactorPayment, solPrice]);
-  
+
   // Rating functions
   const fetchRatings = useCallback(async () => {
     if (!userId) return;
@@ -1831,7 +2176,7 @@ const ChapterScreen = () => {
       setAverageRating(avg);
     }
   }, [userId, novelId, chapterId, userRating]);
-  
+
   const handleRating = useCallback(async (rating) => {
     if (!userId || !isWalletConnected) return;
     setUserRating(rating);
@@ -1860,13 +2205,13 @@ const ChapterScreen = () => {
     }
     await fetchRatings();
   }, [userId, isWalletConnected, novelId, chapterId, fetchRatings]);
-  
+
   // Text-to-speech functions
   const readText = useCallback(async () => {
     try {
       const text = novel?.chaptercontents?.[chapterId] || '';
       if (!text) return;
-      
+
       await Tts.speak(text);
       setIsSpeaking(true);
       setIsPaused(false);
@@ -1876,7 +2221,7 @@ const ChapterScreen = () => {
       setTimeout(() => setError(null), 5000);
     }
   }, [novel, chapterId]);
-  
+
   const pauseText = useCallback(async () => {
     try {
       await Tts.pause();
@@ -1885,7 +2230,7 @@ const ChapterScreen = () => {
       console.error('[pauseText] Error:', error);
     }
   }, []);
-  
+
   const resumeText = useCallback(async () => {
     try {
       await Tts.resume();
@@ -1894,7 +2239,7 @@ const ChapterScreen = () => {
       console.error('[resumeText] Error:', error);
     }
   }, []);
-  
+
   const stopText = useCallback(async () => {
     try {
       await Tts.stop();
@@ -1904,7 +2249,7 @@ const ChapterScreen = () => {
       console.error('[stopText] Error:', error);
     }
   }, []);
-  
+
   // Check has read chapter
   const checkHasReadChapter = useCallback(async (targetChapterId) => {
     if (!activeWalletAddress || !novel || !targetChapterId) return false;
@@ -1933,19 +2278,10 @@ const ChapterScreen = () => {
   const checkChapterPayment = useCallback(async (chapterNum) => {
     if (!activeWalletAddress || !novelId) return false;
     try {
-      // Get the user's email from auth session (this matches what's stored in DB)
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userEmail = sessionData?.session?.user?.email;
-      
-      if (!userEmail) {
-        console.warn('[checkChapterPayment] No user email found');
-        return false;
-      }
-      
       const { data, error } = await supabase
         .from('chapter_payments')
         .select('id')
-        .eq('wallet_address', userEmail)
+        .eq('wallet_address', activeWalletAddress)
         .eq('novel_id', novelId)
         .eq('chapter_number', chapterNum)
         .single();
@@ -1958,13 +2294,17 @@ const ChapterScreen = () => {
   }, [activeWalletAddress, novelId]);
 
   const checkAccess = useCallback(async (walletAddress, novelData, chapterNum) => {
+    // Reset to locked state while checking access
+    setIsLocked(true);
+
     if (!walletAddress || !novelData?.id || chapterNum === undefined) {
       setIsLocked(true);
       setCanUnlockNextThree(true);
       return;
     }
     try {
-      if (chapterNum === 0) {
+      // First 3 chapters (0, 1, 2) are free for all users
+      if (chapterNum >= 0 && chapterNum <= 2) {
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setIsAdvanceChapter(false);
@@ -1987,7 +2327,7 @@ const ChapterScreen = () => {
         setCanUnlockNextThree(true);
         return;
       }
-      
+
       // Check for ad-based unlock
       if (userId) {
         const { data: adUnlock, error: adError } = await supabase
@@ -1997,13 +2337,13 @@ const ChapterScreen = () => {
           .eq('novel_id', novelData.id)
           .eq('chapter_number', chapterNum)
           .maybeSingle();
-        
+
         if (!adError && adUnlock) {
           setIsLocked(false);
           return;
         }
       }
-      
+
       // Check for writer subscription access
       const subscriptionData = await checkBenefactorAccess();
       if (subscriptionData) {
@@ -2100,11 +2440,15 @@ const ChapterScreen = () => {
   }, [userId, checkChapterPayment, checkBenefactorAccess]);
 
   const shouldShowContent = useMemo(() => {
+    const chapterNum = parseInt(chapterId, 10);
+    // First 3 chapters are free for all users
+    if (chapterNum >= 0 && chapterNum <= 2) return true;
     if (!isWalletConnected) return false;
     if (isUnlockedViaSubscription) return true;
-    if (parseInt(chapterId, 10) === 0) return true;
+    // Don't show content if still loading or locked
+    if (loading) return false;
     return !isLocked;
-  }, [isWalletConnected, isUnlockedViaSubscription, isLocked, chapterId]);
+  }, [isWalletConnected, isUnlockedViaSubscription, isLocked, chapterId, loading]);
 
   const processChapterPayment = useCallback(
     async (targetChapterId, paymentType = 'SINGLE', currency = 'SMP') => {
@@ -2134,7 +2478,7 @@ const ChapterScreen = () => {
           .select('user_id')
           .eq('id', novelId)
           .single();
-        
+
         if (novelError || !novelData) {
           throw new Error('Could not fetch novel data');
         }
@@ -2152,7 +2496,7 @@ const ChapterScreen = () => {
         const authorPublicKey = new PublicKey(authorData.wallet_address);
 
         // Calculate payment amount
-        const usdAmount = 0.0025;
+        const usdAmount = CHAPTER_READ_USD_COST;
         let paymentAmount = 0;
         let paymentMint = null;
 
@@ -2195,7 +2539,7 @@ const ChapterScreen = () => {
         let confirmation;
         let retryCount = 0;
         const maxRetries = 3;
-        
+
         while (retryCount < maxRetries) {
           try {
             confirmation = await connection.confirmTransaction(
@@ -2210,11 +2554,11 @@ const ChapterScreen = () => {
           } catch (confirmError) {
             retryCount++;
             console.warn(`[processChapterPayment] Confirmation attempt ${retryCount} failed:`, confirmError.message);
-            
+
             if (retryCount >= maxRetries) {
               throw new Error('Transaction confirmation failed after multiple attempts. Please check your wallet for the transaction status.');
             }
-            
+
             // Wait before retry
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
           }
@@ -2227,26 +2571,27 @@ const ChapterScreen = () => {
 
         // Record payment in database via edge function
         const requestBody = {
+          walletAddress: activeWalletAddress,
           novelId,
           chapterId: targetChapterId,
           paymentType,
           currency,
           signature,
         };
-        
+
         try {
           // Use fetch directly for better control
           const { data: sessionData } = await supabase.auth.getSession();
           const accessToken = sessionData?.session?.access_token;
-          
+
           if (!accessToken) {
             console.warn('[processChapterPayment] No access token available');
           } else {
             const supabaseUrl = 'https://xqeimsncmnqsiowftdmz.supabase.co';
             const functionUrl = `${supabaseUrl}/functions/v1/unlock-chapter`;
-            
+
             console.log('[processChapterPayment] Calling edge function at:', functionUrl);
-            
+
             const response = await fetch(functionUrl, {
               method: 'POST',
               headers: {
@@ -2255,12 +2600,12 @@ const ChapterScreen = () => {
               },
               body: JSON.stringify(requestBody),
             });
-            
+
             console.log('[processChapterPayment] Edge function response status:', response.status);
-            
+
             const data = await response.json();
             console.log('[processChapterPayment] Edge function response:', data);
-            
+
             if (!response.ok) {
               console.error('[processChapterPayment] Edge function error:', data.error || 'Unknown error');
               console.warn('[processChapterPayment] Payment succeeded but database recording failed');
@@ -2278,10 +2623,10 @@ const ChapterScreen = () => {
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setRecentlyUnlocked(true);
-        
-        // Keep chapter unlocked for 10 seconds to prevent re-locking during DB replication
-        setTimeout(() => setRecentlyUnlocked(false), 10000);
-        
+
+        // Keep chapter unlocked for 30 seconds to prevent re-locking during DB replication
+        setTimeout(() => setRecentlyUnlocked(false), 30000);
+
         setTimeout(() => setSuccessMessage(''), 5000);
         return true;
 
@@ -2338,6 +2683,10 @@ const ChapterScreen = () => {
       return;
     }
     const initialize = async () => {
+      // Reset loading state when chapter changes
+      setLoading(true);
+      setIsLocked(true);
+
       const chapterNum = parseInt(chapterId, 10);
       if (!isWalletConnected && chapterNum > 0) {
         setError('Connect your wallet to read Chapter 2 and beyond.');
@@ -2352,12 +2701,6 @@ const ChapterScreen = () => {
     };
     initialize();
   }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected]);
-
-  useEffect(() => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: false });
-    }
-  }, [chapterId]);
 
   useEffect(() => {
     if (novel && chapterId && isWalletConnected && activeWalletAddress && !recentlyUnlocked) {
@@ -2376,14 +2719,14 @@ const ChapterScreen = () => {
       processChapterPayment(chapterId);
     }
   }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter]);
-  
+
   // Fetch ratings when chapter is unlocked
   useEffect(() => {
     if (!isLocked && isWalletConnected && userId) {
       fetchRatings();
     }
   }, [isLocked, isWalletConnected, userId, fetchRatings]);
-  
+
   // Cleanup text-to-speech on unmount
   useEffect(() => {
     return () => {
@@ -2402,6 +2745,49 @@ const ChapterScreen = () => {
     fetchAndSchedule();
     return () => clearInterval(intervalId);
   }, [isWalletConnected, activeWalletAddress, fetchAmethystBalance]);
+
+  // Fetch token balances for benefactor payments
+  useEffect(() => {
+    if (isWalletConnected && activeWalletAddress) {
+      fetchTokenBalances();
+    }
+  }, [isWalletConnected, activeWalletAddress, fetchTokenBalances]);
+
+  // Refresh live prices periodically so long reading sessions don't drift
+  // too far from the market (cache TTL above already avoids redundant calls)
+  useEffect(() => {
+    const intervalId = setInterval(fetchPrices, PRICE_CACHE_TTL_MS);
+    return () => clearInterval(intervalId);
+  }, [fetchPrices]);
+
+  // Animate benefactor plans when modal opens
+  useEffect(() => {
+    if (showBenefactorModal) {
+      planAnimations.forEach((anim, index) => {
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 400,
+          delay: index * 100,
+          useNativeDriver: true,
+        }).start();
+      });
+    } else {
+      planAnimations.forEach(anim => anim.setValue(0));
+    }
+  }, [showBenefactorModal, planAnimations]);
+
+  // Animate plan details modal
+  useEffect(() => {
+    if (showPlanDetailsModal) {
+      Animated.timing(planDetailsAnimation, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      planDetailsAnimation.setValue(0);
+    }
+  }, [showPlanDetailsModal, planDetailsAnimation]);
 
   const handleManualFetch = useCallback(() => {
     if (!inputNovelId || !inputChapterId) {
@@ -2422,51 +2808,6 @@ const ChapterScreen = () => {
       .filter((line) => line.trim() !== '')
       .map((line) => line.trim());
   }, [chapterContent]);
-
-  const renderParagraph = useCallback(
-    ({ item }) => <Text style={styles.paragraph}>{item}</Text>,
-    []
-  );
-
-  const ListFooter = useCallback(
-    () => (
-      <View>
-        <View style={styles.navigation}>
-          <View style={styles.navRow}>
-            {prevChapter ? (
-              <TouchableOpacity
-                style={styles.navButton}
-                onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
-              >
-                <FontAwesome5 name="chevron-left" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-                <Text style={styles.navButtonText}>Previous</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.navPlaceholder} />
-            )}
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => navigation.navigate('NovelDetail', { id: novelId })}
-            >
-              <FontAwesome5 name="book-open" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.navButtonText}>Back to Novel</Text>
-            </TouchableOpacity>
-            {nextChapter && (
-              <TouchableOpacity
-                style={styles.navButton}
-                onPress={() => handleNextChapter(nextChapter)}
-              >
-                <Text style={styles.navButtonText}>Next</Text>
-                <FontAwesome5 name="chevron-right" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-        <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10) + 1} />
-      </View>
-    ),
-    [prevChapter, nextChapter, novelId, chapterId, handleNextChapter, navigation]
-  );
 
   if (loading) {
     return (
@@ -2540,7 +2881,6 @@ const ChapterScreen = () => {
   const currentIndex = chapterKeys.findIndex(key => String(key) === chapterIdStr);
   const prevChapter = currentIndex > 0 ? chapterKeys[currentIndex - 1] : null;
   const nextChapter = currentIndex >= 0 && currentIndex < chapterKeys.length - 1 ? chapterKeys[currentIndex + 1] : null;
-  console.log('chapterId:', chapterId, 'chapterKeys:', chapterKeys, 'currentIndex:', currentIndex, 'prevChapter:', prevChapter, 'nextChapter:', nextChapter);
   const releaseDateMessage =
     advanceInfo?.is_advance && advanceInfo?.free_release_date
       ? `Locked until ${new Date(advanceInfo.free_release_date).toLocaleString()}`
@@ -2556,7 +2896,7 @@ const ChapterScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgPrimary} />
       <View style={styles.backgroundGradient} />
-      <View style={styles.emberContainer}>
+      <View style={styles.emberContainer} pointerEvents="none">
         {embersInitialized.current && emberAnims.current && emberAnims.current.length > 0 && embersData.current && embersData.current.map((ember, index) => {
           const anim = emberAnims.current[index];
           if (!anim) return null;
@@ -2586,15 +2926,15 @@ const ChapterScreen = () => {
         <View style={styles.balanceContainer}>
           <View style={styles.balanceItem}>
             <FontAwesome5 name="wallet" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>SMP: {smpBalance.toLocaleString()}</Text>
+            <Text style={styles.balanceText}>SMP: {formatNumber(smpBalance)}</Text>
           </View>
           <View style={styles.balanceItem}>
             <FontAwesome5 name="star" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>Points: {weeklyPoints.toLocaleString()}</Text>
+            <Text style={styles.balanceText}>Points: {formatNumber(weeklyPoints)}</Text>
           </View>
           <View style={styles.balanceItem}>
             <FontAwesome5 name="gem" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>Amethyst: {amethystBalance.toFixed(2)}</Text>
+            <Text style={styles.balanceText}>Amethyst: {formatNumber(amethystBalance)}</Text>
           </View>
         </View>
       )}
@@ -2617,6 +2957,11 @@ const ChapterScreen = () => {
             error ? styles.errorMessage : warningMessage ? styles.warningMessage : styles.successMessage,
           ]}
         >
+          <FontAwesome5
+            name={error ? 'exclamation-circle' : warningMessage ? 'exclamation-triangle' : 'check-circle'}
+            size={14}
+            color={error ? KA_COLORS.error : warningMessage ? KA_COLORS.warning : KA_COLORS.success}
+          />
           <Text style={styles.messageText}>{successMessage || error || warningMessage}</Text>
         </View>
       )}
@@ -2633,11 +2978,19 @@ const ChapterScreen = () => {
             <Text style={styles.actionButtonText}>Connect Wallet</Text>
           </TouchableOpacity>
         </View>
+      ) : loading ? (
+        <View style={styles.lockedContainer}>
+          <ActivityIndicator size="large" color={KA_COLORS.orangePrimary} />
+          <Text style={styles.lockedMessage}>Loading chapter...</Text>
+        </View>
       ) : isLocked && isAdvanceChapter ? (
         <View>
-          <FontAwesome5 name="lock" size={48} color={KA_COLORS.error} style={styles.lockIcon} />
+          <UBBadge type="writer" size="large" showLabel={false} />
           <Text style={styles.lockedMessage}>{releaseDateMessage}</Text>
           <Text style={styles.lockedSubMessage}>Unlock with a Subscription</Text>
+          {!pricesAreLive && (
+            <Text style={styles.priceStaleNote}>Live pricing unavailable — SOL/SMP prices shown may be stale</Text>
+          )}
           <View style={styles.paymentGrid}>
             {[
               { type: '3CHAPTERS', currency: 'SOL', price: threeChaptersSol, usd: 3 },
@@ -2680,9 +3033,9 @@ const ChapterScreen = () => {
         </View>
       ) : isLocked ? (
         <View style={styles.lockedContainer}>
-          <FontAwesome5 name="gem" size={48} color={KA_COLORS.orangePrimary} style={styles.lockIcon} />
+          <UBBadge type="writer" size="large" showLabel={false} />
           <Text style={styles.lockedMessage}>Read this Chapter</Text>
-          
+
           {/* Ad unlock option */}
           {showAdOption && (
             <View style={styles.adUnlockContainer}>
@@ -2700,7 +3053,7 @@ const ChapterScreen = () => {
               <Text style={styles.lockedSubMessage}>One chapter per day</Text>
             </View>
           )}
-          
+
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
               style={styles.smpButton}
@@ -2725,7 +3078,7 @@ const ChapterScreen = () => {
               <Text style={styles.getSmpButtonText}>Get SMP Tokens</Text>
             </TouchableOpacity>
           </View>
-          
+
           {/* Benefactor subscription option */}
           {showBenefactorOption && !benefactorAccess && (
             <View style={styles.benefactorContainer}>
@@ -2739,7 +3092,7 @@ const ChapterScreen = () => {
               </TouchableOpacity>
             </View>
           )}
-          
+
           {/* Benefactor status */}
           {benefactorAccess && (
             <View style={styles.benefactorStatus}>
@@ -2760,149 +3113,168 @@ const ChapterScreen = () => {
         </View>
       ) : (
         <View style={styles.contentContainer}>
-          {/* Audio controls */}
-          <View style={styles.audioControls}>
-            <TouchableOpacity style={styles.audioButton} onPress={readText} disabled={isSpeaking}>
-              <FontAwesome5 name="volume-up" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.audioButtonText}>Read Aloud</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.audioButton} onPress={pauseText} disabled={!isSpeaking || isPaused}>
-              <FontAwesome5 name="pause" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.audioButtonText}>Pause</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.audioButton} onPress={resumeText} disabled={!isSpeaking || !isPaused}>
-              <FontAwesome5 name="play" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.audioButtonText}>Resume</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.audioButton} onPress={stopText} disabled={!isSpeaking}>
-              <FontAwesome5 name="stop" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.audioButtonText}>Stop</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Chapter selector */}
-          <View style={styles.chapterSelector}>
-            <TouchableOpacity style={styles.chapterSelectorButton} onPress={() => setShowChapterSelector(true)}>
-              <FontAwesome5 name="book-open" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.chapterSelectorText}>Jump to Chapter</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Rating section */}
-          {isWalletConnected && (
-            <View style={styles.ratingSection}>
-              <View style={styles.userRating}>
-                <Text style={styles.ratingLabel}>Your Rating:</Text>
-                <View style={styles.starsContainer}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity key={star} onPress={() => handleRating(star)}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            {/* Audio controls */}
+            <View style={styles.audioControls}>
+              <TouchableOpacity style={styles.audioButton} onPress={readText} disabled={isSpeaking}>
+                <FontAwesome5 name="volume-up" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <Text style={styles.audioButtonText}>Read Aloud</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.audioButton} onPress={pauseText} disabled={!isSpeaking || isPaused}>
+                <FontAwesome5 name="pause" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <Text style={styles.audioButtonText}>Pause</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.audioButton} onPress={resumeText} disabled={!isSpeaking || !isPaused}>
+                <FontAwesome5 name="play" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <Text style={styles.audioButtonText}>Resume</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.audioButton} onPress={stopText} disabled={!isSpeaking}>
+                <FontAwesome5 name="stop" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <Text style={styles.audioButtonText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Story content */}
+            {hasReadChapter && (
+              <View style={styles.readingOptions}>
+                <Text style={styles.readingModeText}>You've earned points from this chapter</Text>
+              </View>
+            )}
+            {paragraphs.map((paragraph, index) => (
+              <Text key={`paragraph-${index}`} style={styles.paragraph}>{paragraph}</Text>
+            ))}
+
+            {/* Chapter selector */}
+            <View style={styles.chapterSelector}>
+              <TouchableOpacity style={styles.chapterSelectorButton} onPress={() => setShowChapterSelector(true)}>
+                <FontAwesome5 name="book-open" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <Text style={styles.chapterSelectorText}>Jump to Chapter</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Rating section */}
+            {isWalletConnected && (
+              <View style={styles.ratingSection}>
+                <View style={styles.userRating}>
+                  <Text style={styles.ratingLabel}>Your Rating:</Text>
+                  <View style={styles.starsContainer}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <TouchableOpacity key={star} onPress={() => handleRating(star)}>
+                        <FontAwesome5
+                          name="star"
+                          size={20}
+                          color={star <= (userRating || 0) ? KA_COLORS.goldBright : KA_COLORS.textMuted}
+                          style={styles.star}
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.averageRating}>
+                  <Text style={styles.ratingLabel}>Average Rating:</Text>
+                  <View style={styles.starsContainer}>
+                    {[1, 2, 3, 4, 5].map((star) => (
                       <FontAwesome5
+                        key={star}
                         name="star"
                         size={20}
-                        color={star <= (userRating || 0) ? KA_COLORS.goldBright : KA_COLORS.textMuted}
+                        color={star <= Math.round(averageRating || 0) ? KA_COLORS.goldBright : KA_COLORS.textMuted}
                         style={styles.star}
                       />
-                    </TouchableOpacity>
-                  ))}
+                    ))}
+                  </View>
+                  <Text style={styles.ratingValue}>
+                    {averageRating ? ` (${averageRating.toFixed(1)} / 5)` : ' (No ratings yet)'}
+                  </Text>
                 </View>
               </View>
-              <View style={styles.averageRating}>
-                <Text style={styles.ratingLabel}>Average Rating:</Text>
-                <View style={styles.starsContainer}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <FontAwesome5
-                      key={star}
-                      name="star"
-                      size={20}
-                      color={star <= Math.round(averageRating || 0) ? KA_COLORS.goldBright : KA_COLORS.textMuted}
-                      style={styles.star}
-                    />
-                  ))}
-                </View>
-                <Text style={styles.ratingValue}>
-                  {averageRating ? ` (${averageRating.toFixed(1)} / 5)` : ' (No ratings yet)'}
-                </Text>
-              </View>
-            </View>
-          )}
-          
-          {/* Author's Note Section */}
-          {isWalletConnected && (
-            <View style={styles.authorNoteSection}>
-              <Text style={styles.authorNoteTitle}>Author's Note</Text>
-              {isAuthor ? (
-                <>
-                  {isEditingAuthorNote ? (
-                    <View style={styles.authorNoteEdit}>
-                      <TextInput
-                        value={authorNote}
-                        onChangeText={setAuthorNote}
-                        placeholder="Add a note for your readers..."
-                        placeholderTextColor="#888"
-                        multiline
-                        numberOfLines={4}
-                        style={styles.authorNoteTextarea}
-                      />
-                      <View style={styles.authorNoteActions}>
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveAuthorNote}>
-                          <Text style={styles.saveButtonText}>Save Note</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                          style={styles.cancelButton} 
-                          onPress={() => setIsEditingAuthorNote(false)}
+            )}
+
+            {/* Author's Note Section */}
+            {isWalletConnected && (
+              <View style={styles.authorNoteSection}>
+                <Text style={styles.authorNoteTitle}>Author's Note</Text>
+                {isAuthor ? (
+                  <>
+                    {isEditingAuthorNote ? (
+                      <View style={styles.authorNoteEdit}>
+                        <TextInput
+                          value={authorNote}
+                          onChangeText={setAuthorNote}
+                          placeholder="Add a note for your readers..."
+                          placeholderTextColor="#888"
+                          multiline
+                          numberOfLines={4}
+                          style={styles.authorNoteTextarea}
+                        />
+                        <View style={styles.authorNoteActions}>
+                          <TouchableOpacity style={styles.saveButton} onPress={handleSaveAuthorNote}>
+                            <Text style={styles.saveButtonText}>Save Note</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.cancelButton}
+                            onPress={() => setIsEditingAuthorNote(false)}
+                          >
+                            <Text style={styles.cancelButtonText}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.authorNoteDisplay}>
+                        {authorNote ? (
+                          <Text style={styles.authorNoteText}>{authorNote}</Text>
+                        ) : (
+                          <Text style={styles.authorNoteEmpty}>No author's note yet.</Text>
+                        )}
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => setIsEditingAuthorNote(true)}
                         >
-                          <Text style={styles.cancelButtonText}>Cancel</Text>
+                          <Text style={styles.editButtonText}>Edit Note</Text>
                         </TouchableOpacity>
                       </View>
-                    </View>
-                  ) : (
-                    <View style={styles.authorNoteDisplay}>
-                      {authorNote ? (
-                        <Text style={styles.authorNoteText}>{authorNote}</Text>
-                      ) : (
-                        <Text style={styles.authorNoteEmpty}>No author's note yet.</Text>
-                      )}
-                      <TouchableOpacity 
-                        style={styles.editButton} 
-                        onPress={() => setIsEditingAuthorNote(true)}
-                      >
-                        <Text style={styles.editButtonText}>Edit Note</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </>
-              ) : (
-                <View style={styles.authorNoteDisplay}>
-                  {authorNote ? (
-                    <Text style={styles.authorNoteText}>{authorNote}</Text>
-                  ) : (
-                    <Text style={styles.authorNoteEmpty}>No author's note for this chapter.</Text>
-                  )}
-                </View>
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.authorNoteDisplay}>
+                    {authorNote ? (
+                      <Text style={styles.authorNoteText}>{authorNote}</Text>
+                    ) : (
+                      <Text style={styles.authorNoteEmpty}>No author's note for this chapter.</Text>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Chapter Navigation Buttons */}
+            <View style={styles.chapterNavigation}>
+              {prevChapter !== null && (
+                <TouchableOpacity
+                  style={styles.navButton}
+                  onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
+                >
+                  <FontAwesome5 name="chevron-left" size={16} color={KA_COLORS.gold} />
+                  <Text style={styles.navButtonText}>Previous</Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.navSpacer} />
+              {nextChapter !== null && (
+                <TouchableOpacity
+                  style={styles.navButton}
+                  onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
+                >
+                  <Text style={styles.navButtonText}>Next</Text>
+                  <FontAwesome5 name="chevron-right" size={16} color={KA_COLORS.gold} />
+                </TouchableOpacity>
               )}
             </View>
-          )}
-          
-          <FlatList
-            ref={flatListRef}
-            data={paragraphs}
-            renderItem={renderParagraph}
-            keyExtractor={(_, index) => `para-${index}`}
-            style={styles.contentContainer}
-            initialNumToRender={50}
-            maxToRenderPerBatch={50}
-            windowSize={5}
-            removeClippedSubviews={false}
-            scrollEventThrottle={16}
-            ListHeaderComponent={
-              hasReadChapter ? (
-                <View style={styles.readingOptions}>
-                  <Text style={styles.readingModeText}>You've earned points from this chapter</Text>
-                </View>
-              ) : null
-            }
-            ListFooterComponent={ListFooter}
-          />
+
+            <View style={{ height: 80 }} />
+
+            {/* Comment Section */}
+            <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10) + 1} />
+          </ScrollView>
         </View>
       )}
       <Modal
@@ -2957,7 +3329,7 @@ const ChapterScreen = () => {
           </View>
         </View>
       </Modal>
-      
+
       {/* Video Ad Modal */}
       <Modal
         visible={showVideoAd}
@@ -2977,21 +3349,21 @@ const ChapterScreen = () => {
             <Text style={styles.modalSubtitle}>Please watch the ad to unlock this chapter for free</Text>
             <Video
               ref={videoRef}
-          source={{ uri: AD_VIDEO_URI }}
-          style={styles.video}
-          useNativeControls
-n          resizeMode="contain"
-          onEnd={handleVideoAdEnd}
-          onError={(error) => {
-            console.error('[Video Ad] Error:', error);
-            setError('Failed to load video ad');
-            setShowVideoAd(false);
-          }}
-        />
+              source={{ uri: AD_VIDEO_URI }}
+              style={styles.video}
+              useNativeControls
+              resizeMode="contain"
+              onEnd={handleVideoAdEnd}
+              onError={(error) => {
+                console.error('[Video Ad] Error:', error);
+                setError('Failed to load video ad');
+                setShowVideoAd(false);
+              }}
+            />
           </View>
         </View>
       </Modal>
-      
+
       {/* Benefactor Subscription Modal */}
       <Modal
         visible={showBenefactorModal}
@@ -3000,7 +3372,7 @@ n          resizeMode="contain"
         onRequestClose={() => setShowBenefactorModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.benefactorModalContent}>
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => setShowBenefactorModal(false)}
@@ -3009,36 +3381,254 @@ n          resizeMode="contain"
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Subscribe to Writer</Text>
             <Text style={styles.modalSubtitle}>Choose a subscription plan</Text>
-            
-            <View style={styles.benefactorPlans}>
-              {[
-                { id: 'blue', price: 0.1, chapters: 3, name: 'Blue', color: KA_COLORS.textSecondary },
-                { id: 'iron', price: 2, chapters: 6, name: 'Iron', color: '#808080' },
-                { id: 'silver', price: 3, chapters: 10, name: 'Silver', color: '#C0C0C0' },
-                { id: 'gold', price: 5, chapters: 999, name: 'Gold', color: KA_COLORS.gold },
-              ].map((plan) => (
+
+            {/* Scrollable body: keeps everything on-screen on short devices
+                instead of overflowing/clipping the plan grid below it. */}
+            <ScrollView
+              style={{ width: '100%' }}
+              contentContainerStyle={styles.benefactorScrollBody}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+            >
+              {/* Token Selector - 3 equal flex columns, can never wrap to
+                  a 2nd row regardless of screen width */}
+              <View style={styles.tokenSelectorRow}>
                 <TouchableOpacity
-                  key={plan.id}
-                  style={[styles.benefactorPlan, { borderColor: plan.color }]}
-                  onPress={() => handleBenefactorUnlock({ ...plan, selectedToken: 'USDC' })}
-                  disabled={isProcessing}
+                  style={[styles.tokenOptionFlex, selectedBenefactorToken === 'USDC' && styles.tokenOptionSelected]}
+                  onPress={() => setSelectedBenefactorToken('USDC')}
                 >
-                  <FontAwesome5 name="crown" size={24} color={plan.color} style={styles.benefactorPlanIcon} />
-                  <Text style={[styles.benefactorPlanName, { color: plan.color }]}>{plan.name}</Text>
-                  <Text style={styles.benefactorPlanPrice}>${plan.price}</Text>
-                  <Text style={styles.benefactorPlanChapters}>
-                    {plan.chapters === 999 ? 'Unlimited' : `${plan.chapters} chapters`}
-                  </Text>
-                  <Text style={styles.benefactorPlanDuration}>
-                    {plan.chapters === 999 ? '30 days' : '14 days'}
-                  </Text>
+                  <FontAwesome5 name="dollar-sign" size={16} color={selectedBenefactorToken === 'USDC' ? KA_COLORS.gold : KA_COLORS.textSecondary} />
+                  <Text style={[styles.tokenOptionText, selectedBenefactorToken === 'USDC' && styles.tokenOptionTextSelected]} numberOfLines={1}>USDC</Text>
+                  <Text style={styles.tokenBalance} numberOfLines={1}>{usdcBalance.toFixed(2)}</Text>
                 </TouchableOpacity>
-              ))}
-            </View>
+                <TouchableOpacity
+                  style={[styles.tokenOptionFlex, selectedBenefactorToken === 'SOL' && styles.tokenOptionSelected]}
+                  onPress={() => setSelectedBenefactorToken('SOL')}
+                >
+                  <FontAwesome5 name="coins" size={16} color={selectedBenefactorToken === 'SOL' ? KA_COLORS.gold : KA_COLORS.textSecondary} />
+                  <Text style={[styles.tokenOptionText, selectedBenefactorToken === 'SOL' && styles.tokenOptionTextSelected]} numberOfLines={1}>SOL</Text>
+                  <Text style={styles.tokenBalance} numberOfLines={1}>{solBalance.toFixed(4)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.tokenOptionFlex, selectedBenefactorToken === 'SKR' && styles.tokenOptionSelected]}
+                  onPress={() => setSelectedBenefactorToken('SKR')}
+                >
+                  <FontAwesome5 name="gem" size={16} color={selectedBenefactorToken === 'SKR' ? KA_COLORS.gold : KA_COLORS.textSecondary} />
+                  <Text style={[styles.tokenOptionText, selectedBenefactorToken === 'SKR' && styles.tokenOptionTextSelected]} numberOfLines={1}>SKR</Text>
+                  <Text style={styles.tokenBalance} numberOfLines={1}>{skrBalance.toFixed(2)}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Plan grid - fixed 2-column pairing on every device.
+                  Each slot is 48% of the grid width with space-between,
+                  so exactly 2 cards sit per row every time (4 plans = 2 rows). */}
+              <View style={styles.benefactorPlansGrid}>
+                {[
+                  {
+                    id: 'blue',
+                    price: 1,
+                    chapters: 3,
+                    name: 'Blue',
+                    color: KA_COLORS.textSecondary,
+                    image: require('../assets/plan-image/Blue.png'),
+                    features: [
+                      'Early access to 3 advance chapters',
+                      'Support your favorite creators',
+                      'Exclusive benefactor badge',
+                    ],
+                    duration: '14 days',
+                  },
+                  {
+                    id: 'iron',
+                    price: 2,
+                    chapters: 6,
+                    name: 'Iron',
+                    color: '#808080',
+                    image: require('../assets/plan-image/Black.png'),
+                    features: [
+                      'Early access to 6 advance chapters',
+                      'Support your favorite creators',
+                      'Exclusive benefactor badge',
+                      'Priority support',
+                    ],
+                    duration: '14 days',
+                  },
+                  {
+                    id: 'silver',
+                    price: 3,
+                    chapters: 10,
+                    name: 'Silver',
+                    color: '#C0C0C0',
+                    image: require('../assets/plan-image/Sliver.png'),
+                    features: [
+                      'Early access to 10 advance chapters',
+                      'Support your favorite creators',
+                      'Exclusive benefactor badge',
+                      'Priority support',
+                      'Creator recognition',
+                    ],
+                    duration: '14 days',
+                  },
+                  {
+                    id: 'gold',
+                    price: 5,
+                    chapters: 999,
+                    name: 'Gold',
+                    color: KA_COLORS.gold,
+                    image: require('../assets/plan-image/Gold.png'),
+                    featured: true,
+                    features: [
+                      'Unlimited access to all advance chapters',
+                      'Support your favorite creators',
+                      'Exclusive benefactor badge',
+                      'Priority support',
+                      'Creator recognition',
+                      'Voting rights',
+                    ],
+                    duration: '30 days',
+                  },
+                ].map((plan, index) => {
+                  const canAfford = selectedBenefactorToken === 'USDC'
+                    ? usdcBalance >= plan.price
+                    : solBalance >= plan.price * (solPrice || 100);
+
+                  return (
+                    <View key={plan.id} style={styles.benefactorPlanSlot}>
+                      <Animated.View
+                        style={{
+                          opacity: planAnimations[index],
+                          transform: [
+                            {
+                              translateY: planAnimations[index].interpolate({
+                                inputRange: [0, 1],
+                                outputRange: [50, 0],
+                              }),
+                            },
+                          ],
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            styles.benefactorPlan,
+                            { borderColor: plan.color },
+                            !canAfford && styles.benefactorPlanDisabled,
+                          ]}
+                          onPress={() => {
+                            setSelectedPlanDetails(plan);
+                            setShowPlanDetailsModal(true);
+                          }}
+                          disabled={isProcessing}
+                          activeOpacity={0.8}
+                        >
+                          {plan.featured && (
+                            <View style={styles.featuredBadge}>
+                              <Text style={styles.featuredBadgeText}>RECOMMENDED</Text>
+                            </View>
+                          )}
+                          <Image source={plan.image} style={styles.benefactorPlanBadge} resizeMode="contain" />
+                          <Text style={[styles.benefactorPlanName, { color: plan.color }]} numberOfLines={1}>
+                            {plan.name}
+                          </Text>
+                          <Text style={styles.benefactorPlanPrice} numberOfLines={1}>${plan.price}</Text>
+                          <Text style={styles.benefactorPlanChapters} numberOfLines={1}>
+                            {plan.chapters === 999 ? 'Unlimited' : `${plan.chapters} chapters`}
+                          </Text>
+                          <Text style={styles.benefactorPlanDuration} numberOfLines={1}>{plan.duration}</Text>
+                          {!canAfford && (
+                            <Text style={styles.insufficientBalanceText} numberOfLines={1}>
+                              Insufficient balance
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      </Animated.View>
+                    </View>
+                  );
+                })}
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
-      
+
+      {/* Plan Details Modal */}
+      <Modal
+        visible={showPlanDetailsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPlanDetailsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.planDetailsModal,
+              {
+                opacity: planDetailsAnimation,
+                transform: [
+                  {
+                    scale: planDetailsAnimation.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.9, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowPlanDetailsModal(false)}
+            >
+              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
+            </TouchableOpacity>
+
+            {selectedPlanDetails && (
+              <>
+                <Image
+                  source={selectedPlanDetails.image}
+                  style={styles.planDetailsBadge}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.planDetailsName, { color: selectedPlanDetails.color }]}>
+                  {selectedPlanDetails.name} Plan
+                </Text>
+                <Text style={styles.planDetailsPrice}>${selectedPlanDetails.price}</Text>
+                <Text style={styles.planDetailsDuration}>{selectedPlanDetails.duration}</Text>
+
+                <View style={styles.planFeaturesList}>
+                  {selectedPlanDetails.features.map((feature, index) => (
+                    <View key={index} style={styles.planFeatureItem}>
+                      <FontAwesome5 name="check" size={14} color={KA_COLORS.gold} style={styles.featureCheckIcon} />
+                      <Text style={styles.planFeatureText}>{feature}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    styles.planDetailsSubscribeButton,
+                    { backgroundColor: selectedPlanDetails.color },
+                    isProcessing && styles.planDetailsSubscribeButtonDisabled
+                  ]}
+                  onPress={() => {
+                    setShowPlanDetailsModal(false);
+                    handleBenefactorUnlock({ ...selectedPlanDetails, selectedToken: selectedBenefactorToken });
+                  }}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color={KA_COLORS.ivory} />
+                  ) : (
+                    <Text style={styles.planDetailsSubscribeButtonText}>
+                      Subscribe for ${selectedPlanDetails.price}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </Animated.View>
+        </View>
+      </Modal>
+
       {/* Chapter Selector Modal */}
       <Modal
         visible={showChapterSelector}

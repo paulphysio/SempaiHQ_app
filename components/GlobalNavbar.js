@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Animated, Dimensions, Alert, Clipboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -14,6 +14,9 @@ const GlobalNavbar = () => {
   const { session, signIn, signOut } = useGoogleAuth();
   const walletContext = React.useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const disconnectWallet = walletContext?.disconnectWallet;
+  const setShowModal = walletContext?.setShowModal;
+  const isLoading = walletContext?.isLoading;
   const [showWalletMenu, setShowWalletMenu] = useState(false);
   
   // Animation refs
@@ -55,13 +58,26 @@ const GlobalNavbar = () => {
   }, []);
 
   const toggleWalletMenu = () => {
-    setShowWalletMenu(!showWalletMenu);
+    if (!wallet && setShowModal) {
+      setShowModal(true);
+    } else {
+      setShowWalletMenu(!showWalletMenu);
+    }
   };
 
   const copyWalletAddress = () => {
     if (wallet?.publicKey) {
-      // Copy logic here
+      Clipboard.setString(wallet.publicKey.toString());
+      Alert.alert('Copied', 'Wallet address copied to clipboard');
+      setShowWalletMenu(false);
     }
+  };
+
+  const handleDisconnect = () => {
+    if (disconnectWallet) {
+      disconnectWallet();
+    }
+    setShowWalletMenu(false);
   };
 
   return (
@@ -159,20 +175,40 @@ const GlobalNavbar = () => {
                   style={GlobalNavbarStyles.headerWalletBtn}
                   accessible
                   accessibilityLabel="Wallet menu"
+                  disabled={isLoading}
                 >
                   <LinearGradient
-                    colors={['rgba(243, 99, 22, 0.3)', 'rgba(255, 87, 51, 0.2)']}
+                    colors={wallet ? ['rgba(76, 175, 80, 0.3)', 'rgba(76, 175, 80, 0.2)'] : ['rgba(243, 99, 22, 0.3)', 'rgba(255, 87, 51, 0.2)']}
                     style={GlobalNavbarStyles.walletGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <FontAwesome5 name="wallet" size={14} color="#fff" />
+                    <FontAwesome5 name="wallet" size={12} color="#fff" />
                     <Text style={GlobalNavbarStyles.headerWalletText}>
-                      {wallet?.publicKey ? `${wallet.publicKey.toString().slice(0,3)}...${wallet.publicKey.toString().slice(-3)}` : 'Wallet'}
+                      {wallet ? `${wallet.publicKey.toString().slice(0,4)}...${wallet.publicKey.toString().slice(-4)}` : 'Connect'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </Animated.View>
+              
+              {showWalletMenu && wallet && (
+                <View style={GlobalNavbarStyles.walletDropdown}>
+                  <TouchableOpacity
+                    onPress={copyWalletAddress}
+                    style={GlobalNavbarStyles.walletDropdownItem}
+                  >
+                    <FontAwesome5 name="copy" size={12} color="#FF5733" />
+                    <Text style={GlobalNavbarStyles.walletDropdownText}>Copy Address</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={handleDisconnect}
+                    style={GlobalNavbarStyles.walletDropdownItem}
+                  >
+                    <FontAwesome5 name="sign-out-alt" size={12} color="#FF5733" />
+                    <Text style={GlobalNavbarStyles.walletDropdownText}>Disconnect</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
               <TouchableOpacity
                 onPress={signOut}
                 activeOpacity={0.85}
@@ -180,7 +216,7 @@ const GlobalNavbar = () => {
                 accessible
                 accessibilityLabel="Sign out"
               >
-                <FontAwesome5 name="sign-out-alt" size={14} color="#FF5733" />
+                <FontAwesome5 name="sign-out-alt" size={12} color="#FF5733" />
                 <Text style={GlobalNavbarStyles.signOutText}>Sign out</Text>
               </TouchableOpacity>
             </>

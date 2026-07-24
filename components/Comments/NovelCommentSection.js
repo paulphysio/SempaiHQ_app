@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   title: {
     color: KA_COLORS.gold,
     fontSize: 20,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     letterSpacing: 1,
   },
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   commentUsername: {
     color: KA_COLORS.orangePrimary,
     fontSize: 14,
-    fontWeight: 'bold',
+    
   },
   commentTimestamp: {
     color: KA_COLORS.textMuted,

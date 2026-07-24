@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    fontWeight: 'bold',
+    
     marginTop: 4,
     fontFamily: 'AnimeAce',
   },

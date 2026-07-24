@@ -48,7 +48,7 @@ export const styles = StyleSheet.create({
   logoText: {
     fontSize: width <= 480 ? 20 : width <= 768 ? 22 : 26,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: '#ff6200',
     marginLeft: 12,
   },
@@ -103,7 +103,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: width <= 768 ? 18 : 18,
     fontFamily: 'Yoruka',
-    fontWeight: '500',
+    
   },
   main: {
     maxWidth: 1200,
@@ -125,7 +125,7 @@ export const styles = StyleSheet.create({
   howToTitle: {
     fontSize: width <= 480 ? 26 : width <= 768 ? 28 : 32,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: '#ff6200',
     textAlign: 'center',
     marginBottom: 20,
@@ -158,7 +158,7 @@ export const styles = StyleSheet.create({
   },
   howToListNumberText: {
     color: '#ffffff',
-    fontWeight: '500',
+    
     fontSize: width <= 480 ? 12 : width <= 768 ? 13 : 14,
     fontFamily: 'Yoruka',
   },
@@ -177,7 +177,7 @@ export const styles = StyleSheet.create({
   heroTitle: {
     fontSize: width <= 480 ? 28 : width <= 768 ? 32 : 40,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: '#ff6200',
     marginBottom: 15,
     textShadowColor: 'rgba(255, 98, 0, 0.4)',
@@ -197,7 +197,7 @@ export const styles = StyleSheet.create({
   contentHeading: {
     fontSize: width <= 480 ? 22 : width <= 768 ? 24 : 28,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#ff6200',
     marginVertical: 35,
     textAlign: 'center',
@@ -216,7 +216,7 @@ export const styles = StyleSheet.create({
   },
   highlight: {
     color: '#ff6200',
-    fontWeight: '500',
+    
     backgroundColor: 'rgba(255, 98, 0, 0.1)',
     paddingHorizontal: 6,
     paddingVertical: 2,

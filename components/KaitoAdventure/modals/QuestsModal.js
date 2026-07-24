@@ -73,7 +73,7 @@ const questsModalStyles = StyleSheet.create({
   },
   acceptButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
   },
   closeButton: {

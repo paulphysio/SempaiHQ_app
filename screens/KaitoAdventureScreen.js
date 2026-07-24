@@ -14,6 +14,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ScrollView,
+  StyleSheet,
 } from 'react-native';
 import Modal from 'react-native-modal';
 import { Picker } from '@react-native-picker/picker';
@@ -221,6 +222,10 @@ const skillTrees = {
   ],
 };
 
+// How low (as a fraction of max HP) the player's health needs to be before
+// we interrupt the "Combat" button press with a heal-first prompt.
+const LOW_HEALTH_WARNING_THRESHOLD = 0.3;
+
 // ---- KaitoAdventure Component ----
 const KaitoAdventureScreen = () => {
   const navigation = useNavigation();
@@ -275,6 +280,8 @@ const KaitoAdventureScreen = () => {
   const [travelDestination, setTravelDestination] = useState(null);
   const [gatherBuff, setGatherBuff] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Pre-combat "your health is low" confirmation
+  const [lowHealthWarning, setLowHealthWarning] = useState(false);
   const { session } = useGoogleAuth();
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
@@ -904,15 +911,27 @@ const KaitoAdventureScreen = () => {
     const levelScaleHealth = 1 + (player.level - 1) * 0.15;
     const levelScaleDamage = 1 + (player.level - 1) * 0.05;
     const weatherMod = weather.combatModifier;
+
+    // NOTE (fix): this scaled value is the enemy's FULL health at the start
+    // of the fight. It needs to be stored separately from the *current*
+    // enemyHealth so the health bar has a stable denominator to divide by.
+    // Previously nothing set `enemy.max_health` / `combatState.enemyMaxHealth`,
+    // so CombatModal fell back to `?? 1`, making the enemy bar's percentage
+    // absurdly large (e.g. 85/1) and causing it to render as permanently
+    // "full" no matter how much damage landed.
+    const scaledEnemyHealth = Math.round(enemy.health * levelScaleHealth * weatherMod);
+
     setCombatState({
       playerHealth: player.health > player.max_health ? player.max_health : player.health,
       enemy: {
         ...enemy,
-        health: Math.round(enemy.health * levelScaleHealth * weatherMod),
+        health: scaledEnemyHealth,
+        max_health: scaledEnemyHealth,
         damage: Math.round(enemy.damage * levelScaleDamage * weatherMod),
         gold: Math.round(enemy.gold * levelScaleHealth),
       },
-      enemyHealth: Math.round(enemy.health * levelScaleHealth * weatherMod),
+      enemyHealth: scaledEnemyHealth,
+      enemyMaxHealth: scaledEnemyHealth,
       isAttacking: false,
       log: player.health <= 0 ? ["You're at 0 health! Craft a potion quickly!"] : [],
     });
@@ -920,12 +939,58 @@ const KaitoAdventureScreen = () => {
     setModals((prev) => ({ ...prev, combat: true }));
     if (player.health > 0) {
       setGameMessage(
-        `Combat started against ${enemy.name} (HP: ${Math.round(
-          enemy.health * levelScaleHealth * weatherMod
-        )}, Damage: ${Math.round(enemy.damage * levelScaleDamage * weatherMod)})`
+        `Combat started against ${enemy.name} (HP: ${scaledEnemyHealth}, Damage: ${Math.round(
+          enemy.damage * levelScaleDamage * weatherMod
+        )})`
       );
     }
   }, [player.health, player.level, player.max_health, weather]);
+
+  // Finds the player's strongest available healing potion and uses it
+  // immediately. Falls back to opening the crafting menu if they don't
+  // have one yet.
+  const attemptPreCombatHeal = useCallback(() => {
+    const healingOptions = player.inventory
+      .map((item) => ({
+        item,
+        recipe: player.recipes.find((r) => r.name === item.name && r.type === 'heal'),
+      }))
+      .filter((entry) => entry.recipe && entry.item.quantity > 0)
+      .sort((a, b) => b.recipe.healPercent - a.recipe.healPercent);
+
+    if (healingOptions.length === 0) {
+      setLowHealthWarning(false);
+      setGameMessage("You don't have any healing potions yet — opening the crafting menu.");
+      setModals((prev) => ({ ...prev, craft: true }));
+      return;
+    }
+
+    const { item, recipe } = healingOptions[0];
+    setPlayer((prev) => {
+      const healAmount = Math.round(prev.max_health * recipe.healPercent);
+      return {
+        ...prev,
+        health: Math.min(prev.health + healAmount, prev.max_health),
+        inventory: prev.inventory
+          .map((i) => (i.name === item.name ? { ...i, quantity: i.quantity - 1 } : i))
+          .filter((i) => i.quantity > 0),
+      };
+    });
+    setGameMessage(`Used ${item.name} to heal up before the fight!`);
+    setLowHealthWarning(false);
+  }, [player.inventory, player.recipes]);
+
+  // Gatekeeper for the "Combat" button: if the player's HP is below the
+  // warning threshold, ask them to confirm/heal instead of throwing them
+  // straight into a fight they're likely to lose.
+  const handleCombatPress = useCallback(() => {
+    const healthPct = player.max_health > 0 ? player.health / player.max_health : 1;
+    if (player.health > 0 && healthPct <= LOW_HEALTH_WARNING_THRESHOLD) {
+      setLowHealthWarning(true);
+      return;
+    }
+    startCombat();
+  }, [player.health, player.max_health, startCombat]);
 
   const attackEnemy = useCallback(
     (skillName = "Basic Attack") => {
@@ -1981,7 +2046,7 @@ const KaitoAdventureScreen = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.button}
-              onPress={startCombat}
+              onPress={handleCombatPress}
             >
               <Text style={styles.buttonText}>Combat</Text>
             </TouchableOpacity>
@@ -2277,6 +2342,51 @@ const KaitoAdventureScreen = () => {
       <GuideModal toggleModal={toggleModal} />
     </ModalWrapper>
   );
+
+  // ---- Low Health pre-combat confirmation ----
+  const renderLowHealthWarning = () => (
+    <Modal
+      isVisible={lowHealthWarning}
+      onBackdropPress={() => setLowHealthWarning(false)}
+      onBackButtonPress={() => setLowHealthWarning(false)}
+      animationIn="zoomIn"
+      animationOut="zoomOut"
+      useNativeDriver
+      hideModalContentWhileAnimating
+    >
+      <View style={lowHealthStyles.card}>
+        <Icon name="heartbeat" size={26} color="#ff4444" style={lowHealthStyles.icon} />
+        <Text style={lowHealthStyles.title}>Health Low!</Text>
+        <Text style={lowHealthStyles.body}>
+          You're at {player.health}/{player.max_health} HP. Heal up before you fight?
+        </Text>
+        <View style={lowHealthStyles.buttonRow}>
+          <TouchableOpacity
+            style={[lowHealthStyles.button, lowHealthStyles.healButton]}
+            onPress={attemptPreCombatHeal}
+          >
+            <Text style={lowHealthStyles.buttonText}>Heal Now</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[lowHealthStyles.button, lowHealthStyles.fightButton]}
+            onPress={() => {
+              setLowHealthWarning(false);
+              startCombat();
+            }}
+          >
+            <Text style={lowHealthStyles.buttonText}>Fight Anyway</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          style={lowHealthStyles.cancelButton}
+          onPress={() => setLowHealthWarning(false)}
+        >
+          <Text style={lowHealthStyles.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+  );
+
   // ---- Main Render ----
   return (
     <SafeAreaView style={styles.container}>
@@ -2311,7 +2421,7 @@ const KaitoAdventureScreen = () => {
       </ScrollView>
       <ActionBar
         toggleModal={toggleModal}
-        startCombat={startCombat}
+        startCombat={handleCombatPress}
         travel={travel}
         currentTown={currentTown}
         towns={towns}
@@ -2337,7 +2447,63 @@ const KaitoAdventureScreen = () => {
       {renderEventsModal()}
       {renderGuildModal()}
       {renderGuideModal()}
+      {renderLowHealthWarning()}
     </SafeAreaView>
   );
 };
+
+const lowHealthStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#141210',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2d2418',
+    padding: 20,
+    alignItems: 'center',
+  },
+  icon: {
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#f5e6d3',
+    marginBottom: 6,
+  },
+  body: {
+    fontSize: 13,
+    color: '#a09080',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  button: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 4,
+  },
+  healButton: {
+    backgroundColor: '#4a7c59',
+  },
+  fightButton: {
+    backgroundColor: '#c41e3a',
+  },
+  buttonText: {
+    color: '#f5e6d3',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  cancelButton: {
+    paddingVertical: 6,
+  },
+  cancelText: {
+    color: '#6b5d4f',
+    fontSize: 12,
+  },
+});
+
 export default KaitoAdventureScreen;

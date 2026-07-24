@@ -283,7 +283,7 @@ const FloatingDamage = memo(({ damage, type, x, y, isCritical }) => {
     <Animated.Text
       style={[
         styles.floatingNumber,
-        { left: x, top: y, opacity: fadeAnim, transform: [{ translateY: slideAnim }], color, fontSize, fontWeight: '700' },
+        { left: x, top: y, opacity: fadeAnim, transform: [{ translateY: slideAnim }], color, fontSize, },
       ]}
     >
       {text}
@@ -1008,11 +1008,11 @@ const styles = StyleSheet.create({
     borderBottomColor: KA_COLORS.border,
   },
   jpHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  jpHeaderKanji: { fontSize: 12, fontWeight: '700', color: KA_COLORS.gold, letterSpacing: 2 },
+  jpHeaderKanji: { fontSize: 12, color: KA_COLORS.gold, letterSpacing: 2 },
   jpHeaderSub:   { fontSize: 6,  color: KA_COLORS.textSecondary, letterSpacing: 1 },
   realtimeIndicator: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   realtimeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#22c55e' },
-  realtimeText: { fontSize: 6, fontWeight: '700', color: KA_COLORS.gold, letterSpacing: 1 },
+  realtimeText: { fontSize: 6, color: KA_COLORS.gold, letterSpacing: 1 },
   jpFleeBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     paddingHorizontal: 6, paddingVertical: 3,
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
   jpHealthBars: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   jpHealthSide: { flex: 1 },
   jpHealthNameRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
-  jpNameTag:  { fontSize: 8, fontWeight: '700', color: KA_COLORS.ivory, letterSpacing: 1 },
+  jpNameTag:  { fontSize: 8, color: KA_COLORS.ivory, letterSpacing: 1 },
   jpHpText:   { fontSize: 8, color: KA_COLORS.textSecondary },
   jpHpSep:    { marginHorizontal: 2 },
   jpHpTrack: {
@@ -1040,8 +1040,8 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  statusBadge: { fontSize: 6, fontWeight: '700', marginTop: 2, letterSpacing: 0.5 },
-  jpVsDivider: { fontSize: 12, fontWeight: '700', color: KA_COLORS.gold, marginHorizontal: 8 },
+  statusBadge: { fontSize: 6, marginTop: 2, letterSpacing: 0.5 },
+  jpVsDivider: { fontSize: 12, color: KA_COLORS.gold, marginHorizontal: 8 },
 
   distanceMeter: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   distanceLabel: { fontSize: 6, color: KA_COLORS.textSecondary, letterSpacing: 1 },
@@ -1067,28 +1067,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(47,79,79,0.2)',
   },
   jpStageOverlay: { justifyContent: 'center', alignItems: 'center' },
-  jpBannerLeft: { position: 'absolute', left: 5, top: 5, fontSize: 22, fontWeight: '700', color: 'rgba(218,165,32,0.2)' },
-  jpBannerRight: { position: 'absolute', right: 5, top: 5, fontSize: 22, fontWeight: '700', color: 'rgba(218,165,32,0.2)' },
-  jpSigil: { fontSize: 11, fontWeight: '700', color: 'rgba(218,165,32,0.12)', letterSpacing: 4 },
+  jpBannerLeft: { position: 'absolute', left: 5, top: 5, fontSize: 22, color: 'rgba(218,165,32,0.2)' },
+  jpBannerRight: { position: 'absolute', right: 5, top: 5, fontSize: 22, color: 'rgba(218,165,32,0.2)' },
+  jpSigil: { fontSize: 11, color: 'rgba(218,165,32,0.12)', letterSpacing: 4 },
 
   fightersContainer: { position: 'relative' },
   fighter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   playerFighter: { top: '20%' },
   enemyFighter:  { top: '20%', transform: [{ scaleX: -1 }] },
 
-  floatingNumber: { position: 'absolute', zIndex: 5, fontWeight: '700' },
+  floatingNumber: { position: 'absolute', zIndex: 5, },
 
   announcementOverlay: {
     position: 'absolute', top: '40%', alignSelf: 'center', zIndex: 10,
   },
-  announcementText: { fontSize: 16, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
+  announcementText: { fontSize: 16, textShadowColor: 'rgba(0,0,0,0.9)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 },
 
   jpLogFloat: {
     position: 'absolute', top: 4, right: 4, width: 72,
     backgroundColor: 'rgba(0,0,0,0.82)', borderRadius: 4,
     borderWidth: 1, borderColor: KA_COLORS.gold, zIndex: 10, padding: 4,
   },
-  jpLogTitle: { fontSize: 6, fontWeight: '700', color: KA_COLORS.gold, marginBottom: 3, letterSpacing: 1 },
+  jpLogTitle: { fontSize: 6, color: KA_COLORS.gold, marginBottom: 3, letterSpacing: 1 },
   jpLogEntry: { fontSize: 5, color: KA_COLORS.ivory, marginBottom: 2 },
 
   jpEquipStrip: { flexDirection: 'row', gap: 6 },
@@ -1114,7 +1114,7 @@ const styles = StyleSheet.create({
     borderRadius: 4, alignItems: 'center', gap: 2,
   },
   actionBtnTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  jpActionLabel: { fontSize: 10, fontWeight: '700', color: KA_COLORS.ivory },
+  jpActionLabel: { fontSize: 10, color: KA_COLORS.ivory },
   jpActionSub:   { fontSize: 5, color: KA_COLORS.textSecondary, letterSpacing: 0.5 },
   actionReady:   { opacity: 1 },
   actionCooling: { opacity: 0.45 },
@@ -1138,8 +1138,8 @@ const styles = StyleSheet.create({
     backgroundColor: KA_COLORS.bgCard, padding: 20, borderRadius: 8,
     borderWidth: 1, borderColor: KA_COLORS.border, alignItems: 'center', minWidth: 200,
   },
-  jpResultKanji: { fontSize: 40, fontWeight: '700', color: KA_COLORS.gold, marginBottom: 8 },
-  jpResultTitle: { fontSize: 14, fontWeight: '700', color: KA_COLORS.ivory, marginBottom: 4 },
+  jpResultKanji: { fontSize: 40, color: KA_COLORS.gold, marginBottom: 8 },
+  jpResultTitle: { fontSize: 14, color: KA_COLORS.ivory, marginBottom: 4 },
   jpResultMsg:   { fontSize: 7, color: KA_COLORS.textSecondary, marginBottom: 14, textAlign: 'center' },
   jpRewards: { flexDirection: 'row', gap: 10, marginBottom: 14 },
   jpRewardItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -1147,7 +1147,7 @@ const styles = StyleSheet.create({
   jpResultBtn:   { paddingHorizontal: 20, paddingVertical: 9, borderRadius: 4 },
   jpResultBtnWin:  { backgroundColor: KA_COLORS.success },
   jpResultBtnLose: { backgroundColor: KA_COLORS.redAccent },
-  jpResultBtnText: { fontSize: 9, fontWeight: '700', color: KA_COLORS.ivory },
+  jpResultBtnText: { fontSize: 9, color: KA_COLORS.ivory },
 });
 
 export { KA_COLORS };

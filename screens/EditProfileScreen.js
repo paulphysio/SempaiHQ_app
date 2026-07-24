@@ -23,6 +23,7 @@ import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token'
 import { AMETHYST_MINT_ADDRESS, SMP_DECIMALS, RPC_URL } from '../constants';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
+import { formatNumber } from '../utils/formatNumber';
 
 const { width, height } = Dimensions.get('window');
 
@@ -413,7 +414,6 @@ const EditProfileScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [balance, setBalance] = useState(0);
   const [walletReady, setWalletReady] = useState(false);
-  const [autopayEnabled, setAutopayEnabled] = useState(false);
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -523,7 +523,7 @@ const EditProfileScreen = () => {
       try {
         const { data: user, error: userError } = await supabase
           .from('users')
-          .select('id, email, name, x_account, x_verified_at, image, isWriter, isArtist, isSuperuser, referred_by, has_updated_profile, weekly_points, autopay_enabled')
+          .select('id, email, name, x_account, x_verified_at, image, isWriter, isArtist, isSuperuser, referred_by, has_updated_profile, weekly_points')
           .eq('wallet_address', walletAddress.toString())
           .single();
 
@@ -540,7 +540,6 @@ const EditProfileScreen = () => {
         setName(user.name || '');
         setXAccount(user.x_account || '');
         setImageUrl(user.image || '');
-        setAutopayEnabled(user.autopay_enabled || false);
         setIsCreator(user.isWriter || user.isArtist);
 
         if (user.x_account && user.x_verified_at) {
@@ -737,7 +736,6 @@ const EditProfileScreen = () => {
           x_verified_at: new Date().toISOString(),
           image: imageUrl,
           has_updated_profile: true,
-          autopay_enabled: autopayEnabled,
         })
         .eq('wallet_address', walletAddress);
 
@@ -857,7 +855,7 @@ const EditProfileScreen = () => {
             <View style={styles.balanceCard}>
               <View style={styles.balanceItem}>
                 <FontAwesome5 name="gem" size={20} color={KA_COLORS.gold} />
-                <Text style={styles.balanceText}>Amethyst: {balance.toFixed(2)}</Text>
+                <Text style={styles.balanceText}>Amethyst: {formatNumber(balance)}</Text>
               </View>
               <View style={styles.balanceItem}>
                 <FontAwesome5 name="bolt" size={20} color={KA_COLORS.gold} />
@@ -989,25 +987,6 @@ const EditProfileScreen = () => {
                   <Image source={{ uri: imageUrl }} style={styles.previewImage} />
                 )}
               </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                <FontAwesome5 name="credit-card" size={16} color={KA_COLORS.orangePrimary} /> AUTOPAY
-              </Text>
-              <View style={styles.toggleContainer}>
-                <Text style={styles.toggleLabel}>Enable automatic chapter payments</Text>
-                <TouchableOpacity
-                  style={[styles.toggleSwitch, autopayEnabled && styles.toggleSwitchOn]}
-                  onPress={() => setAutopayEnabled(!autopayEnabled)}
-                  disabled={!walletReady || isSaving}
-                >
-                  <View style={[styles.toggleKnob, autopayEnabled && styles.toggleKnobOn]} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.toggleDescription}>
-                When enabled, chapters will be automatically unlocked without confirmation prompts
-              </Text>
             </View>
           </View>
 

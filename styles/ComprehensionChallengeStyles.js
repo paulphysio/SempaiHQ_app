@@ -45,7 +45,7 @@ export const styles = StyleSheet.create({
   },
   difficultyTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginTop: 15,
     fontFamily: 'Yoruka',
@@ -126,7 +126,7 @@ export const styles = StyleSheet.create({
   },
   optionIndicatorText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#CCCCCC',
     fontFamily: 'Yoruka',
   },
@@ -141,7 +141,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   selectedOptionText: {
-    fontWeight: 'bold',
+    
   },
   resultIcon: {
     marginLeft: 10,
@@ -159,7 +159,7 @@ export const styles = StyleSheet.create({
   },
   resultText: {
     fontSize: 24,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginLeft: 15,
     fontFamily: 'Yoruka',
@@ -182,7 +182,7 @@ export const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginRight: 10,
     fontFamily: 'Yoruka',

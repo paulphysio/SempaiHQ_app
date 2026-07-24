@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   navRight: {
     flexDirection: 'row',
@@ -88,7 +88,7 @@ export const styles = StyleSheet.create({
   headerTitle: {
     fontSize: width < 360 ? 20 : 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   headerSubtitle: {
     fontSize: width < 360 ? 14 : 16,
@@ -146,7 +146,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   dashboard: {
     flex: 1,
@@ -160,7 +160,7 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: width < 360 ? 18 : 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   novelForm: {
     backgroundColor: 'transparent',
@@ -172,7 +172,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginBottom: 8,
-    fontWeight: '600',
+    
   },
   input: {
     borderWidth: 1,
@@ -226,7 +226,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   tagButton: {
     borderWidth: 1,
@@ -249,7 +249,7 @@ export const styles = StyleSheet.create({
   chapterTitle: {
     fontSize: width < 360 ? 16 : 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -289,7 +289,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   chapterList: {
     marginVertical: 16,
@@ -319,7 +319,7 @@ export const styles = StyleSheet.create({
   chapterTitleText: {
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginBottom: 4,
   },
   chapterPreview: {
@@ -357,7 +357,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   announcementSection: {
     marginTop: 24,
@@ -383,7 +383,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   novelsSection: {
     marginTop: 24,
@@ -427,7 +427,7 @@ export const styles = StyleSheet.create({
   novelTitle: {
     fontSize: width < 360 ? 16 : 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 4,
   },
   novelSummary: {
@@ -465,7 +465,7 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 12 : 14,
     fontFamily: 'Yoruka',
     marginLeft: 4,
-    fontWeight: '600',
+    
   },
   deleteButton: {
     backgroundColor: '#dc3545',
@@ -507,7 +507,7 @@ export const styles = StyleSheet.create({
   writerText: {
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   writerId: {
     fontSize: width < 360 ? 12 : 14,
@@ -536,7 +536,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     fontSize: width < 360 ? 18 : 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -564,7 +564,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   cancelButton: {
     backgroundColor: '#F36316',
@@ -578,7 +578,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   tagList: {
     maxHeight: 300,
@@ -607,7 +607,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   disabledButton: {
     opacity: 0.5,

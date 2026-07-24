@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   logoText: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'AnimeAce',
   },
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: '#9B59B6',
     fontSize: 12,
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   userSection: {
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   rankNumber: {
     color: '#1a1a2e',
     fontSize: 24,
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   userInfo: {
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   username: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   timeFrame: {
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   statValue: {
     color: '#9B59B6',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   statDivider: {

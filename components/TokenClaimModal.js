@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    
     color: '#FF8C00',
     marginBottom: 15,
     textAlign: 'center',
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
   counterText: {
     fontSize: 16,
     color: '#FF8C00',
-    fontWeight: 'bold',
+    
   },
   errorContainer: {
     backgroundColor: '#FFF0F0',
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   claimButtonText: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     textAlign: 'center',
   },
   claimButtonTextDisabled: {

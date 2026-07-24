@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   scrollView: {
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   heading: {
     color: '#9B59B6',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     marginTop: 10,
     marginBottom: 8,
     fontFamily: 'Yoruka',
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   bold: {
-    fontWeight: 'bold',
+    
     color: '#FFF',
   },
   contactInfo: {

@@ -1,5 +1,15 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Modal,
+  ScrollView,
+  SafeAreaView,
+  Platform,
+  StatusBar,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { styles, KA_COLORS } from '../../styles/KaitoAdventureStyles';
 
@@ -9,21 +19,49 @@ const ModalWrapper = ({ show, onHide, title, children, centered, fullscreen }) =
     onRequestClose={onHide}
     animationType="slide"
     transparent={!fullscreen}
+    statusBarTranslucent
   >
-    <View style={[modalWrapperStyles.overlay, fullscreen ? modalWrapperStyles.fullscreen : null]}>
-      <View style={[modalWrapperStyles.modalContent, fullscreen ? modalWrapperStyles.modalContentFullscreen : null]}>
-        {fullscreen ? null : (
-          <View style={modalWrapperStyles.modalHeader}>
-            <Text style={modalWrapperStyles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onHide} style={modalWrapperStyles.closeButton}>
-              <Icon name="times" size={20} color={KA_COLORS.textSecondary} />
+    <View style={[modalWrapperStyles.overlay, fullscreen ? modalWrapperStyles.fullscreenOverlay : null]}>
+      <SafeAreaView
+        style={fullscreen ? modalWrapperStyles.fullscreenSafeArea : modalWrapperStyles.modalContent}
+      >
+        {fullscreen ? (
+          <>
+            <TouchableOpacity
+              onPress={onHide}
+              style={modalWrapperStyles.fullscreenCloseButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Icon name="times" size={18} color={KA_COLORS.textSecondary} />
             </TouchableOpacity>
-          </View>
+            <ScrollView
+              style={modalWrapperStyles.modalBodyFullscreen}
+              contentContainerStyle={modalWrapperStyles.modalBodyContentFullscreen}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
+          </>
+        ) : (
+          <>
+            <View style={modalWrapperStyles.modalHeader}>
+              <Text style={modalWrapperStyles.modalTitle}>{title}</Text>
+              <TouchableOpacity onPress={onHide} style={modalWrapperStyles.closeButton}>
+                <Icon name="times" size={20} color={KA_COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={modalWrapperStyles.modalBody}
+              contentContainerStyle={modalWrapperStyles.modalBodyContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {children}
+            </ScrollView>
+          </>
         )}
-        <ScrollView style={[modalWrapperStyles.modalBody, fullscreen ? modalWrapperStyles.modalBodyFullscreen : null]} contentContainerStyle={fullscreen ? modalWrapperStyles.modalBodyContentFullscreen : modalWrapperStyles.modalBodyContent}>
-          {children}
-        </ScrollView>
-      </View>
+      </SafeAreaView>
     </View>
   </Modal>
 );
@@ -36,10 +74,9 @@ const modalWrapperStyles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  fullscreen: {
+  fullscreenOverlay: {
     backgroundColor: KA_COLORS.bgPrimary,
     padding: 0,
-    margin: 0,
     justifyContent: 'flex-start',
     alignItems: 'stretch',
   },
@@ -49,20 +86,30 @@ const modalWrapperStyles = StyleSheet.create({
     borderColor: KA_COLORS.border,
     borderRadius: 4,
     width: '100%',
-    maxHeight: '80%',
+    // Leave room so the card never touches the very top/bottom of the
+    // screen, and always leaves space for the close button + a scroll hint.
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.8,
     shadowRadius: 64,
     elevation: 16,
   },
-  modalContentFullscreen: {
-    backgroundColor: KA_COLORS.bgPrimary,
-    borderWidth: 0,
-    borderRadius: 0,
-    maxHeight: '100%',
-    width: '100%',
+  fullscreenSafeArea: {
     flex: 1,
+    backgroundColor: KA_COLORS.bgPrimary,
+    // SafeAreaView only insets automatically on iOS; Android needs the
+    // status bar height added manually or content sits under the notch.
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0,
+  },
+  fullscreenCloseButton: {
+    position: 'absolute',
+    top: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 8 : 8,
+    right: 12,
+    zIndex: 20,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 20,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -75,7 +122,7 @@ const modalWrapperStyles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 2,
   },
@@ -83,17 +130,22 @@ const modalWrapperStyles = StyleSheet.create({
     padding: 8,
   },
   modalBody: {
-    maxHeight: '70%',
+    // flexShrink lets the ScrollView give up space to the header instead
+    // of overflowing the card's maxHeight.
+    flexShrink: 1,
   },
   modalBodyContent: {
     padding: 20,
+    paddingBottom: 28,
   },
   modalBodyFullscreen: {
     flex: 1,
-    maxHeight: '100%',
   },
   modalBodyContentFullscreen: {
     padding: 16,
+    paddingTop: 44, // clears the floating close button
+    paddingBottom: 40,
+    flexGrow: 1,
   },
 });
 

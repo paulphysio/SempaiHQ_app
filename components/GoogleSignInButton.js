@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   text: {
     color: '#333',
     fontSize: 13, // Reduced from 14
-    fontWeight: '600',
+    
     marginLeft: 5, // Reduced from 6
   },
   icon: {

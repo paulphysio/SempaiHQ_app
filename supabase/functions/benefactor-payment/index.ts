@@ -25,9 +25,9 @@ serve(async (req) => {
     if (typeof jwtBody?.email !== "string") throw new Error("JWT missing email");
 
     const body = await req.json();
-    const { novelId, planType, signature, userPublicKey } = body ?? {};
+    const { novelId, planType, signature, userPublicKey, currency } = body ?? {};
 
-    console.log("[benefactor-payment] Received fields:", { novelId, planType, signature, userPublicKey });
+    console.log("[benefactor-payment] Received fields:", { novelId, planType, signature, userPublicKey, currency });
 
     const isMissing = (v: unknown) =>
       v === null || v === undefined || (typeof v === "string" && v.trim().length === 0);
@@ -38,10 +38,10 @@ serve(async (req) => {
 
     // Pricing tiers (SMP test mode - small amounts)
     const pricingTiers: Record<string, { price: number; chapters: number; name: string; durationDays: number }> = {
-      blue: { price: 0.001, chapters: 3, name: "Blue", durationDays: 14 },
-      iron: { price: 0.002, chapters: 6, name: "Iron", durationDays: 14 },
-      silver: { price: 0.003, chapters: 10, name: "Silver", durationDays: 14 },
-      gold: { price: 0.005, chapters: 999, name: "Gold", durationDays: 30 }, // 999 = unlimited, 30 days
+      blue: { price: 1, chapters: 3, name: "Blue", durationDays: 14 },
+      iron: { price: 2, chapters: 6, name: "Iron", durationDays: 14 },
+      silver: { price: 3, chapters: 10, name: "Silver", durationDays: 14 },
+      gold: { price: 5, chapters: 999, name: "Gold", durationDays: 30 }, // 999 = unlimited, 30 days
     };
 
     const tier = pricingTiers[planType];
@@ -100,7 +100,7 @@ serve(async (req) => {
         chapters_unlocked: tier.chapters,
         chapters_remaining: tier.chapters,
         payment_amount: tier.price,
-        payment_currency: "SMP",
+        payment_currency: currency || "SMP",
         transaction_id: signature,
         paid_at: new Date().toISOString(),
         expires_at: expiresAt,

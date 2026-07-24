@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 10,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
     letterSpacing: 0.15,
     marginBottom: 12,
@@ -152,12 +152,12 @@ const styles = StyleSheet.create({
   },
   tokenName: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: 'rgba(255, 255, 255, 0.8)',
   },
   balanceAmount: {
     fontSize: 22,
-    fontWeight: '800',
+    
     color: '#ffffff',
     marginTop: 4,
   },

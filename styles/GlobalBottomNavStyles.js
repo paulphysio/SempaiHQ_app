@@ -79,7 +79,7 @@ export const styles = StyleSheet.create({
   badgeText: {
     color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   announcementToggleWrapper: {
@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     color: '#FFFFFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   modalBody: {
@@ -150,14 +150,14 @@ export const styles = StyleSheet.create({
   notificationType: {
     color: '#FF5733',
     fontSize: 12,
-    fontWeight: 'bold',
+    
     marginBottom: 4,
     fontFamily: 'Yoruka',
   },
   announcementTitle: {
     color: '#FF5733',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     marginBottom: 4,
     fontFamily: 'Yoruka',
   },

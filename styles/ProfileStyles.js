@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   scrollView: {
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   profileName: {
     color: '#FFF',
     fontSize: 24,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   bio: {
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'Yoruka',
   },
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   novelTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     padding: 12,
     fontFamily: 'Yoruka',
   },
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     fontFamily: 'Yoruka',
   },

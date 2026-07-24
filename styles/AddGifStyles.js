@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   content: {
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
   label: {
     color: '#9B59B6',
     fontSize: 14,
-    fontWeight: '600',
+    
     fontFamily: 'Yoruka',
   },
   input: {
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     fontFamily: 'Yoruka',
   },
   message: {

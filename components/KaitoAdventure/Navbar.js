@@ -76,7 +76,7 @@ const navbarStyles = StyleSheet.create({
   },
   brandText: {
     color: KA_COLORS.ivory,
-    fontWeight: '700',
+    
     fontSize: 16,
     letterSpacing: 2,
   },

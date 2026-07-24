@@ -222,7 +222,7 @@ const militaryStyles = StyleSheet.create({
   },
   campaignTitleText: {
     fontSize: 16,
-    fontWeight: '700',
+    
     color: '#ffd700',
   },
   campaignSubtitle: {
@@ -273,7 +273,7 @@ const militaryStyles = StyleSheet.create({
   },
   timeFrameTextActive: {
     color: '#fff',
-    fontWeight: '600',
+    
   },
   leaderboardHeader: {
     flexDirection: 'row',
@@ -286,7 +286,7 @@ const militaryStyles = StyleSheet.create({
   headerCell: {
     flex: 1,
     fontSize: 11,
-    fontWeight: '700',
+    
     color: '#ffd700',
     textAlign: 'center',
     textTransform: 'uppercase',
@@ -341,7 +341,7 @@ const militaryStyles = StyleSheet.create({
   },
   rankNumber: {
     fontSize: 16,
-    fontWeight: '800',
+    
     color: '#fff',
   },
   player: {
@@ -360,7 +360,7 @@ const militaryStyles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 12,
-    fontWeight: '700',
+    
     color: '#fff',
   },
   playerInfo: {
@@ -368,7 +368,7 @@ const militaryStyles = StyleSheet.create({
   },
   name: {
     fontSize: 11,
-    fontWeight: '600',
+    
     color: '#fff',
   },
   address: {
@@ -381,7 +381,7 @@ const militaryStyles = StyleSheet.create({
   },
   scoreValue: {
     fontSize: 12,
-    fontWeight: '600',
+    
     color: '#ffd700',
   },
   level: {
@@ -404,7 +404,7 @@ const militaryStyles = StyleSheet.create({
   },
   tierText: {
     fontSize: 10,
-    fontWeight: '600',
+    
   },
   shareButton: {
     width: 32,
@@ -425,7 +425,7 @@ const militaryStyles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 14,
-    fontWeight: '700',
+    
     color: '#fff',
   },
   shareModalOverlay: {
@@ -454,7 +454,7 @@ const militaryStyles = StyleSheet.create({
   },
   shareModalTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    
     color: '#ffd700',
     marginBottom: 12,
     textAlign: 'center',
@@ -469,7 +469,7 @@ const militaryStyles = StyleSheet.create({
   },
   shareCardTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    
     color: '#ff6200',
     marginBottom: 8,
     textAlign: 'center',
@@ -485,7 +485,7 @@ const militaryStyles = StyleSheet.create({
   },
   shareCardValue: {
     fontSize: 12,
-    fontWeight: '600',
+    
     color: '#fff',
   },
   shareButtonX: {
@@ -502,7 +502,7 @@ const militaryStyles = StyleSheet.create({
   },
   shareButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: '#fff',
   },
 });

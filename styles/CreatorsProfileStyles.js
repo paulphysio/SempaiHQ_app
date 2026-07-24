@@ -49,7 +49,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Yoruka',
     color: '#F36316',
-    fontWeight: 'bold',
+    
     marginLeft: 8,
   },
   logoTextArtist: {
@@ -92,7 +92,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#FFF',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   main: {
     padding: 16,
@@ -113,7 +113,7 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Yoruka',
     color: '#FFF',
-    fontWeight: 'bold',
+    
     textAlign: 'center',
   },
   errorContainer: {
@@ -169,7 +169,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Yoruka',
     color: '#FFF',
-    fontWeight: 'bold',
+    
   },
   bio: {
     fontSize: 16,
@@ -225,7 +225,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Yoruka',
     color: '#FFF',
-    fontWeight: 'bold',
+    
     marginBottom: 4,
   },
   novelSummary: {
@@ -247,7 +247,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#FFF',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   placeholder: {
     fontSize: 16,
@@ -275,7 +275,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     color: '#FFF',
     marginLeft: 8,
-    fontWeight: '600',
+    
   },
   modal: {
     justifyContent: 'center',
@@ -302,7 +302,7 @@ export const styles = StyleSheet.create({
     fontSize: 20,
     fontFamily: 'Yoruka',
     color: '#FFF',
-    fontWeight: 'bold',
+    
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -325,7 +325,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#FFF',
-    fontWeight: '600',
+    
   },
   buyBadgeButton: {
     flexDirection: 'row',
@@ -341,7 +341,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   modalOverlay: {
     flex: 1,
@@ -373,7 +373,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 12,
     marginTop: 16,
   },
@@ -401,14 +401,14 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginTop: 8,
   },
   badgePrice: {
     color: '#F36316',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginTop: 4,
   },
   modalButton: {
@@ -421,6 +421,6 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
 });

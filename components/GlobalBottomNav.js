@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, Fragment, useContext } from 'react';
-import { View, TouchableOpacity, Text, Dimensions, Animated, Modal, ScrollView } from 'react-native';
+import { View, TouchableOpacity, Text, Dimensions, Animated, Modal, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -22,6 +22,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
   const [announcements, setAnnouncements] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   
   // Animation refs
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -81,6 +82,12 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
   const handleAnnouncements = () => {
     setShowAnnouncements(true);
     fetchAnnouncements();
+  };
+
+  const handleNavigation = (screenName) => {
+    setIsNavigating(true);
+    navigation.navigate(screenName);
+    setTimeout(() => setIsNavigating(false), 500);
   };
 
   const fetchNotifications = async () => {
@@ -185,6 +192,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
               onPress={onMenuToggle}
               accessible={true}
               accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
+              disabled={isNavigating}
             >
               <LinearGradient
                 colors={menuOpen ? ['#FF5733', '#F36316'] : ['rgba(255, 87, 51, 0.15)', 'rgba(243, 99, 22, 0.08)']}
@@ -192,11 +200,15 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                <FontAwesome5 
-                  name={menuOpen ? 'times' : 'bars'} 
-                  size={width < 480 ? 20 : 22} 
-                  color={menuOpen ? '#fff' : '#FF5733'}
-                />
+                {isNavigating ? (
+                  <ActivityIndicator size="small" color="#FF5733" />
+                ) : (
+                  <FontAwesome5 
+                    name={menuOpen ? 'times' : 'bars'} 
+                    size={width < 480 ? 20 : 22} 
+                    color={menuOpen ? '#fff' : '#FF5733'}
+                  />
+                )}
               </LinearGradient>
             </TouchableOpacity>
           </Animated.View>

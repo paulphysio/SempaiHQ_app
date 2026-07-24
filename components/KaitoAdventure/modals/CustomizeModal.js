@@ -78,7 +78,7 @@ const customizeModalStyles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
     marginBottom: 8,
   },
@@ -110,7 +110,7 @@ const customizeModalStyles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
   },
   closeButton: {

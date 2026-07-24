@@ -315,13 +315,10 @@ export const AuthProvider = ({ children }) => {
       console.log('[signIn] Initiating OAuth sign-in');
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { 
-          redirectTo: 'sempaihq://auth-callback',
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          }
-        },
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
       });
       if (error) throw error;
       console.log('[signIn] OAuth sign-in initiated successfully');

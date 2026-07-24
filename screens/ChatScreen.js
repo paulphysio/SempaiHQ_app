@@ -37,6 +37,16 @@ const Message = memo(
     const isSuper = msg.is_superuser || (msg.is_writer && msg.is_artist);
     const showWriterBadge = msg.is_writer && !msg.is_artist && !msg.is_superuser;
     const showArtistBadge = msg.is_artist && !msg.is_writer && !msg.is_superuser;
+    const showBenefactorBadge = msg.is_benefactor && !isSuper;
+
+    const getBenefactorBadgeImage = () => {
+      if (!msg.is_benefactor) return null;
+      const level = msg.benefactor_level?.toLowerCase();
+      if (level === 'gold') return require('../assets/plan-image/Gold.png');
+      if (level === 'silver') return require('../assets/plan-image/Sliver.png');
+      if (level === 'blue') return require('../assets/plan-image/Blue.png');
+      return require('../assets/plan-image/Black.png');
+    };
 
     return (
       <View
@@ -73,6 +83,12 @@ const Message = memo(
                   {showArtistBadge && (
                     <Image
                       source={require('../assets/artist-badge.png')}
+                      style={styles.badgeImage}
+                    />
+                  )}
+                  {showBenefactorBadge && getBenefactorBadgeImage() && (
+                    <Image
+                      source={getBenefactorBadgeImage()}
                       style={styles.badgeImage}
                     />
                   )}

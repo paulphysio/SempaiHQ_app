@@ -39,7 +39,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   navRight: {
     flexDirection: 'row',
@@ -83,7 +83,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bold: {
-    fontWeight: 'bold',
+    
   },
   header: {
     padding: 20,
@@ -93,7 +93,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 28,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   headerTagline: {
     color: '#ccc',
@@ -149,7 +149,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   tagOptionTextSelected: {
-    fontWeight: 'bold',
+    
   },
   mangaGrid: {
     padding: 20,
@@ -177,7 +177,7 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   mangaSummary: {
     color: '#ccc',
@@ -217,7 +217,7 @@ export const styles = StyleSheet.create({
     color: '#ff4444',
     fontSize: 12,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   noManga: {
     color: '#ccc',
@@ -319,13 +319,13 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   refreshButtonText: {
     color: '#fff',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   disabledButton: {
     opacity: 0.5,

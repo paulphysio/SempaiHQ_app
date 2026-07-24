@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
     color: KA_COLORS.gold,
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     letterSpacing: 1,
   },
@@ -163,7 +163,7 @@ export const styles = StyleSheet.create({
     color: KA_COLORS.orangePrimary,
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   commentTimestamp: {
     color: KA_COLORS.textMuted,

@@ -16,6 +16,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
+import { formatNumber } from '../utils/formatNumber';
 import {
   Connection,
   PublicKey,
@@ -40,9 +41,11 @@ import {
   RPC_URL,
   SMP_MINT_ADDRESS,
   USDC_MINT_ADDRESS,
+  SKR_MINT_ADDRESS,
   TARGET_WALLET,
   SMP_DECIMALS,
   AMETHYST_MINT_ADDRESS,
+  WEB_API_BASE_URL,
 } from '../constants';
 import bs58 from 'bs58';
 import MangaCommentSection from '../components/MangaCommentSection';
@@ -66,6 +69,26 @@ const fetchSolPrice = async () => {
   } catch (error) {
     console.error('Error fetching SOL price:', error);
     return 150;
+  }
+};
+
+// Fetch fallback SMP price from web API (when Jupiter fails)
+const fetchSmpFallbackPrice = async () => {
+  try {
+    const res = await fetch(`${WEB_API_BASE_URL}/api/smp-fallback-price`);
+    if (!res.ok) {
+      console.warn('[fetchSmpFallbackPrice] Web API unavailable');
+      return null;
+    }
+    const data = await res.json();
+    if (data?.fallbackPrice) {
+      // Convert from SMP per USDC to USDC per SMP
+      return 1 / data.fallbackPrice;
+    }
+    return null;
+  } catch (err) {
+    console.error('[fetchSmpFallbackPrice] Error:', err.message);
+    return null;
   }
 };
 
@@ -691,6 +714,22 @@ const MangaChapterScreen = () => {
         decimals = 6;
         mint = USDC_MINT_ADDRESS;
         displayAmount = (amount / 10 ** 6).toFixed(2);
+      } else if (currency === 'SKR') {
+        if (paymentType === 'threeChapters') {
+          amount = threeChaptersSmp * 10 ** 6; // Using same decimals as SMP
+          displayAmount = threeChaptersSmp.toLocaleString();
+          usdAmount = 3;
+        } else if (paymentType === 'fullChapters') {
+          amount = fullChaptersSmp * 10 ** 6; // Using same decimals as SMP
+          displayAmount = fullChaptersSmp.toLocaleString();
+          usdAmount = 15;
+        } else {
+          amount = SMP_READ_COST * 10 ** 6; // Using same decimals as SMP
+          displayAmount = SMP_READ_COST.toLocaleString();
+          usdAmount = chapterPrice;
+        }
+        decimals = 6;
+        mint = SKR_MINT_ADDRESS;
       } else if (currency === 'SMP') {
         if (paymentType === 'threeChapters') {
           amount = threeChaptersSmp * 10 ** SMP_DECIMALS;
@@ -842,6 +881,18 @@ const MangaChapterScreen = () => {
         expectedAmount = chapterPrice;
         decimals = 6;
         mint = USDC_MINT_ADDRESS;
+      } else if (currency === 'SKR') {
+        if (paymentType === 'threeChapters') {
+          expectedAmount = threeChaptersSmp;
+          chapterPrice = 3;
+        } else if (paymentType === 'fullChapters') {
+          expectedAmount = fullChaptersSmp;
+          chapterPrice = 15;
+        } else {
+          expectedAmount = SMP_READ_COST;
+        }
+        decimals = 6;
+        mint = SKR_MINT_ADDRESS;
       } else if (currency === 'SMP') {
         if (paymentType === 'threeChapters') {
           expectedAmount = threeChaptersSmp;
@@ -1264,19 +1315,19 @@ const MangaChapterScreen = () => {
         <View style={styles.balanceItem}>
           <Icon name="wallet" size={16} color="#F36316" style={styles.balanceIcon} />
           <Text style={styles.balanceText}>
-            SMP: {smpBalance !== null ? smpBalance.toLocaleString() : 'Loading...'}
+            SMP: {smpBalance !== null ? formatNumber(smpBalance) : 'Loading...'}
           </Text>
         </View>
         <View style={styles.balanceItem}>
           <Icon name="star" size={16} color="#F36316" style={styles.balanceIcon} />
           <Text style={styles.balanceText}>
-            Points: {weeklyPoints !== null ? weeklyPoints.toLocaleString() : 'Loading...'}
+            Points: {weeklyPoints !== null ? formatNumber(weeklyPoints) : 'Loading...'}
           </Text>
         </View>
         <View style={styles.balanceItem}>
           <Icon name="gem" size={16} color="#F36316" style={styles.balanceIcon} />
           <Text style={styles.balanceText}>
-            Amethyst: {amethystBalance.toFixed(2)}
+            Amethyst: {formatNumber(amethystBalance)}
           </Text>
         </View>
       </Animated.View>

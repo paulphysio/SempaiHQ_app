@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'Yoruka',
   },
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   deniedText: {
     color: '#E74C3C',
     fontSize: 24,
-    fontWeight: 'bold',
+    
     marginTop: 16,
     fontFamily: 'Yoruka',
   },
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'Yoruka',
   },
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   label: {
     color: '#9B59B6',
     fontSize: 14,
-    fontWeight: '600',
+    
     fontFamily: 'Yoruka',
   },
   input: {
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     marginLeft: 12,
     fontFamily: 'Yoruka',
   },

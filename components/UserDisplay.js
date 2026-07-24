@@ -120,12 +120,12 @@ const styles = StyleSheet.create({
   },
   avatarPlaceholderText: {
     color: '#9B59B6',
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   username: {
     color: '#FFF',
-    fontWeight: '600',
+    
     fontFamily: 'AnimeAce',
   },
   inlineContainer: {

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useContext, createContext } from 'react';
-import { View, Text, TouchableOpacity, Alert, Platform, TextInput, Clipboard, ToastAndroid, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Platform, TextInput, Clipboard, ToastAndroid, ActivityIndicator, ScrollView, Animated } from 'react-native';
 import Modal from 'react-native-modal';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,58 +15,12 @@ import TokenClaimModal from './TokenClaimModal';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// Import Mobile Wallet Adapter for Seeker support
-import { 
-  MobileWalletAdapter, 
-  useMobileWalletAdapter,
-  transact 
-} from '@solana-mobile/mobile-wallet-adapter-protocol';
-import { 
-  SolanaMobileWalletAdapterWallet 
-} from '@solana-mobile/mobile-wallet-adapter-protocol-web3js';
-
-// Check if device supports Mobile Wallet Adapter (Seeker detection)
-const isSeekerDevice = async () => {
-  try {
-    console.log('[isSeekerDevice] Starting detection...');
-    
-    // First check if we're on Android
-    if (Platform.OS !== 'android') {
-      console.log('[isSeekerDevice] Not on Android, returning false');
-      return false;
-    }
-    
-    console.log('[isSeekerDevice] On Android, checking MWA availability...');
-    
-    // For development, let's show the Seeker option on all Android devices
-    // In production, you'd want more sophisticated detection
-    const isAndroid = Platform.OS === 'android';
-    console.log('[isSeekerDevice] Result:', isAndroid);
-    
-    return isAndroid;
-  } catch (error) {
-    console.log('[isSeekerDevice] Error during detection:', error.message);
-    return false;
-  }
-};
-
-// For immediate UI decisions, we'll use a simpler check
-const isSeekerDeviceSync = () => {
-  // For now, show on all Android devices for testing
-  // In production, this should be more sophisticated
-  const result = Platform.OS === 'android';
-  console.log('[isSeekerDeviceSync] Quick check result:', result);
-  return result;
-};
-
 export const EmbeddedWalletContext = createContext();
 
 const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
-// Wallet types
 const WALLET_TYPES = {
-  EMBEDDED: 'embedded',
-  SEEKER: 'seeker'
+  EMBEDDED: 'embedded'
 };
 
 const secureStoreWrapper = {
@@ -137,14 +91,40 @@ const secureStoreWrapper = {
       }
       console.log(`[secureStoreWrapper] Deleted ${key}`);
     } catch (err) {
-      console.error(`[secureStoreWrapper] Error deleting ${key}:`, err.message);
-      throw err;
+      // Non-fatal: key may not exist yet
+      console.warn(`[secureStoreWrapper] Error deleting ${key} (may not exist):`, err.message);
     }
   },
 };
 
+// Kept outside the component so encryptPrivateKey helpers can call it
+const invokeEncryptionFunction = async (action, data) => {
+  try {
+    const webApiUrl = 'https://www.sempaihq.com/api/wallet-encryption';
+    const response = await fetch(webApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, data }),
+    });
+    const responseData = await response.json();
+    if (!response.ok || responseData.error) {
+      console.error('[invokeEncryptionFunction] Error response:', responseData.error);
+      throw new Error(`Edge function error: ${responseData.error || 'Unknown error'}`);
+    }
+    if (!responseData.result) {
+      console.error('[invokeEncryptionFunction] No result in response:', responseData);
+      throw new Error('No result returned from edge function');
+    }
+    return responseData.result;
+  } catch (err) {
+    console.error(`[invokeEncryptionFunction] ${action} failed:`, err.message);
+    throw err;
+  }
+};
+
 export const EmbeddedWalletProvider = ({ children }) => {
-  // Original embedded wallet state
   const [wallet, setWallet] = useState(null);
   const [secretKey, setSecretKey] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -155,353 +135,141 @@ export const EmbeddedWalletProvider = ({ children }) => {
   const [isPasswordModalVisible, setPasswordModalVisible] = useState(false);
   const [pendingTransaction, setPendingTransaction] = useState(null);
   const [resolveTransaction, setResolveTransaction] = useState(null);
-  
-  // New wallet selection state
+  const [pendingMode, setPendingMode] = useState('send'); // 'send' | 'sign'
+
   const [walletType, setWalletType] = useState(null);
   const [showWalletSelection, setShowWalletSelection] = useState(false);
-  const [seekerWallet, setSeekerWallet] = useState(null);
-  const [isSeekerConnected, setIsSeekerConnected] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const { user, isLoading: authLoading } = useAuth();
 
-  const invokeEncryptionFunction = async (action, data) => {
-    try {
-      const { data: response, error } = await supabase.functions.invoke('wallet-encryption', {
-        body: { action, data },
-      });
-      if (error) {
-        console.error('[invokeEncryptionFunction] Error response:', error);
-        throw new Error(`Edge function error: ${error.message || 'Unknown error'}`);
-      }
-      if (!response.result) {
-        console.error('[invokeEncryptionFunction] No result in response:', response);
-        throw new Error('No result returned from edge function');
-      }
-      return response.result;
-    } catch (err) {
-      console.error(`[invokeEncryptionFunction] ${action} failed:`, err.message);
-      throw err;
-    }
-  };
-
-  // Enhanced Seeker Wallet connection with better error handling
-  const connectSeekerWallet = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      console.log('[connectSeekerWallet] Connecting to Seeker Wallet...');
-      setError(null);
-      
-      // Check if MWA is available
-      if (!MobileWalletAdapter) {
-        throw new Error('Mobile Wallet Adapter not available. Make sure you are on a Seeker device.');
-      }
-      
-      const walletAdapter = new MobileWalletAdapter();
-      
-      const result = await transact(async (wallet) => {
-        console.log('[connectSeekerWallet] Connected to wallet:', wallet);
-        
-        try {
-          const publicKey = wallet.publicKey;
-          const address = publicKey.toString();
-          
-          if (!publicKey || !address) {
-            throw new Error('Invalid wallet public key received');
-          }
-          
-          // Update user's wallet address in database if needed
-          if (user && !user.isGuest) {
-            const { error: updateError } = await supabase
-              .from('users')
-              .update({ wallet_address: address })
-              .eq('id', user.id);
-              
-            if (updateError) {
-              console.warn('[connectSeekerWallet] Failed to update wallet address:', updateError.message);
-            }
-          }
-          
-          setSeekerWallet(wallet);
-          setIsSeekerConnected(true);
-          setWalletType(WALLET_TYPES.SEEKER);
-          setWallet({ publicKey });
-          
-          console.log('[connectSeekerWallet] Wallet connection successful:', { address, publicKey: publicKey.toString() });
-          return { publicKey, address };
-          
-        } catch (innerError) {
-          console.error('[connectSeekerWallet] Inner error during connection:', innerError);
-          throw innerError;
-        }
-      });
-      
-      console.log('[connectSeekerWallet] Successfully connected to Seeker Wallet');
-      return result;
-    } catch (err) {
-      console.error('[connectSeekerWallet] Connection error:', err.message);
-      
-      // Provide better error messages
-      let errorMessage = 'Failed to connect to Seeker Wallet';
-      if (err.message.includes('not available')) {
-        errorMessage = 'Seeker Wallet not available. Make sure you are on a Seeker device with the Seeker Wallet app installed.';
-      } else if (err.message.includes('timeout')) {
-        errorMessage = 'Connection timeout. Please try again.';
-      } else if (err.message.includes('cancelled')) {
-        errorMessage = 'Connection was cancelled.';
-      } else if (err.message.includes('Invalid wallet')) {
-        errorMessage = 'Invalid wallet response. Please restart the app and try again.';
-      }
-      
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user]);
-
-  // Disconnect Seeker Wallet
-  const disconnectSeekerWallet = useCallback(async () => {
-    try {
-      console.log('[disconnectSeekerWallet] Disconnecting Seeker Wallet');
-      setSeekerWallet(null);
-      setIsSeekerConnected(false);
-      setWallet(null);
-      setWalletType(null);
-      setError(null);
-      console.log('[disconnectSeekerWallet] Seeker Wallet disconnected');
-    } catch (err) {
-      console.error('[disconnectSeekerWallet] Error:', err.message);
-      setError('Failed to disconnect Seeker Wallet: ' + err.message);
-    }
-  }, []);
+  // ─── Disconnect ─────────────────────────────────────────────────────────────
 
   const disconnectWallet = useCallback(async () => {
     try {
       console.log('[disconnectWallet] Disconnecting wallet');
-      
-      // Disconnect based on current wallet type
-      if (walletType === WALLET_TYPES.SEEKER) {
-        await disconnectSeekerWallet();
-      } else {
-        // Disconnect embedded wallet
-        await secureStoreWrapper.deleteItemAsync('walletData');
-        await secureStoreWrapper.deleteItemAsync('useBiometrics');
-        await AsyncStorage.removeItem('walletAddress');
-        setWallet(null);
-        setSecretKey(null);
-        setTransactionPassword(null);
-        setUseBiometrics(false);
-        setIsWalletConnected(false);
-        setWalletType(null);
-      }
-      
+      // Gracefully handle keys that may not exist yet
+      await secureStoreWrapper.deleteItemAsync('walletData');
+      await secureStoreWrapper.deleteItemAsync('useBiometrics');
+      try { await AsyncStorage.removeItem('walletAddress'); } catch (_) {}
+      setWallet(null);
+      setSecretKey(null);
+      setTransactionPassword(null);
+      setUseBiometrics(false);
+      setIsWalletConnected(false);
+      setWalletType(null);
       setError(null);
       console.log('[disconnectWallet] Wallet disconnected');
     } catch (err) {
       console.error('[disconnectWallet] Error:', err.message);
       setError('Failed to disconnect wallet: ' + err.message);
     }
-  }, [walletType, disconnectSeekerWallet]);
+  }, []);
 
-  // Enhanced transaction signing with Seeker Wallet
-  const signWithSeekerWallet = useCallback(async (transaction) => {
-    if (!seekerWallet) {
-      throw new Error('No Seeker Wallet connected');
-    }
-    
-    try {
-      console.log('[signWithSeekerWallet] Signing transaction with Seeker Wallet');
-      console.log('[signWithSeekerWallet] Transaction details:', {
-        recentBlockhash: transaction.recentBlockhash,
-        feePayer: transaction.feePayer?.toString(),
-        instructions: transaction.instructions.length
-      });
-      
-      const result = await transact(async (wallet) => {
-        try {
-          // Validate transaction before signing
-          if (!transaction.recentBlockhash) {
-            throw new Error('Transaction missing recent blockhash');
-          }
-          
-          if (!transaction.feePayer) {
-            transaction.feePayer = wallet.publicKey;
-          }
-          
-          // Sign the transaction
-          const signedTransactions = await wallet.signTransactions([transaction]);
-          
-          if (!signedTransactions || signedTransactions.length === 0) {
-            throw new Error('Failed to sign transaction');
-          }
-          
-          console.log('[signWithSeekerWallet] Transaction signed successfully');
-          
-          // Send the transaction
-          const signature = await connection.sendRawTransaction(
-            signedTransactions[0].serialize(),
-            {
-              skipPreflight: false,
-              preflightCommitment: 'confirmed'
-            }
-          );
-          
-          console.log('[signWithSeekerWallet] Transaction sent with signature:', signature);
-          
-          // Wait for confirmation
-          const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-          
-          if (confirmation.value.err) {
-            throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-          }
-          
-          console.log('[signWithSeekerWallet] Transaction confirmed:', signature);
-          return signature;
-          
-        } catch (innerError) {
-          console.error('[signWithSeekerWallet] Inner error during signing:', innerError);
-          
-          // Provide better error messages
-          if (innerError.message.includes('insufficient funds')) {
-            throw new Error('Insufficient funds for this transaction');
-          } else if (innerError.message.includes('blockhash')) {
-            throw new Error('Transaction expired. Please try again.');
-          } else if (innerError.message.includes('cancelled')) {
-            throw new Error('Transaction was cancelled');
-          } else if (innerError.message.includes('timeout')) {
-            throw new Error('Transaction timed out. Please try again.');
-          }
-          
-          throw innerError;
-        }
-      });
-      
-      console.log('[signWithSeekerWallet] Transaction completed successfully:', result);
-      return result;
-    } catch (err) {
-      console.error('[signWithSeekerWallet] Error:', err.message);
-      
-      // Enhanced error handling
-      let errorMessage = 'Failed to sign transaction with Seeker Wallet';
-      if (err.message.includes('insufficient funds')) {
-        errorMessage = 'Insufficient SOL balance for this transaction';
-      } else if (err.message.includes('expired')) {
-        errorMessage = 'Transaction expired. Please try again.';
-      } else if (err.message.includes('cancelled')) {
-        errorMessage = 'Transaction was cancelled';
-      } else if (err.message.includes('timeout')) {
-        errorMessage = 'Transaction timed out. Please check your connection and try again.';
-      } else if (err.message.includes('network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      }
-      
-      throw new Error(errorMessage);
-    }
-  }, [seekerWallet]);
+  // ─── Restore wallet on mount ─────────────────────────────────────────────────
+  // Runs for ALL users (authenticated or not). Authenticated users additionally
+  // verify the stored public key matches the database record.
 
   useEffect(() => {
     if (authLoading) return;
-    
+
     const restoreWallet = async () => {
-      if (!user || user.isGuest) {
-        console.log('[restoreWallet] No authenticated user or guest user, skipping wallet restore');
-        return;
-      }
-      
       try {
         setIsLoading(true);
-        console.log('[restoreWallet] Restoring wallet for user:', user.email);
-        
-        // Check if user had a preferred wallet type
+        console.log('[restoreWallet] Starting restore. User:', user?.email ?? 'unauthenticated');
+
         const storedWalletType = await AsyncStorage.getItem('preferredWalletType');
-        
-        if (storedWalletType === WALLET_TYPES.SEEKER) {
-          // For Seeker, we can't auto-connect, user must manually connect
-          console.log('[restoreWallet] User prefers Seeker Wallet, waiting for manual connection');
-          setWalletType(WALLET_TYPES.SEEKER);
-        } else {
-          // Restore embedded wallet (original logic)
-          const storedUseBiometrics = (await secureStoreWrapper.getItemAsync('useBiometrics', false)) === 'true';
-          setUseBiometrics(storedUseBiometrics);
 
-          const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', storedUseBiometrics);
-          if (!walletDataStr) {
-            console.log('[restoreWallet] No embedded wallet data in storage');
-            return;
-          }
+        // Try to read stored wallet data (works for both auth states)
+        const storedUseBiometrics = (await secureStoreWrapper.getItemAsync('useBiometrics', false)) === 'true';
+        setUseBiometrics(storedUseBiometrics);
 
-          let walletData;
-          try {
-            walletData = JSON.parse(walletDataStr);
-          } catch (parseError) {
-            console.error('[restoreWallet] Failed to parse wallet data:', parseError.message);
-            throw new Error('Invalid wallet data format');
-          }
+        const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', storedUseBiometrics);
+        if (!walletDataStr) {
+          console.log('[restoreWallet] No embedded wallet data in storage');
+          return;
+        }
 
-          const { publicKey, encryptedPrivateKey, storedPassword } = walletData;
-          if (!publicKey || !encryptedPrivateKey || !storedPassword) {
-            console.log('[restoreWallet] Missing embedded wallet data fields');
-            return;
-          }
+        let walletData;
+        try {
+          walletData = JSON.parse(walletDataStr);
+        } catch (parseError) {
+          console.error('[restoreWallet] Failed to parse wallet data:', parseError.message);
+          throw new Error('Invalid wallet data format');
+        }
 
-          let privateKeyBase58;
-          try {
-            privateKeyBase58 = await invokeEncryptionFunction('decrypt', encryptedPrivateKey);
-            console.log('[restoreWallet] Private key decrypted via edge function');
-          } catch (decryptionError) {
-            console.error('[restoreWallet] Decryption failed:', decryptionError.message);
-            throw new Error('Failed to decrypt stored private key');
-          }
+        const { publicKey, encryptedPrivateKey, storedPassword } = walletData;
+        if (!publicKey || !encryptedPrivateKey || !storedPassword) {
+          console.log('[restoreWallet] Missing embedded wallet data fields');
+          return;
+        }
 
-          const privateKeyBytes = bs58.decode(privateKeyBase58);
-          if (privateKeyBytes.length !== 64) {
-            throw new Error(`Invalid private key format: length ${privateKeyBytes.length}`);
-          }
+        let privateKeyBase58;
+        try {
+          privateKeyBase58 = await invokeEncryptionFunction('decrypt', encryptedPrivateKey);
+          console.log('[restoreWallet] Private key decrypted via edge function');
+        } catch (decryptionError) {
+          console.error('[restoreWallet] Decryption failed:', decryptionError.message);
+          throw new Error('Failed to decrypt stored private key');
+        }
 
-          const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
-          if (keypair.publicKey.toString() !== publicKey) {
-            console.error('[restoreWallet] Public key mismatch:', {
-              stored: publicKey,
-              derived: keypair.publicKey.toString(),
-            });
-            throw new Error('Private key does not match stored public key');
-          }
+        const privateKeyBytes = bs58.decode(privateKeyBase58);
+        if (privateKeyBytes.length !== 64) {
+          throw new Error(`Invalid private key format: length ${privateKeyBytes.length}`);
+        }
 
+        const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
+        if (keypair.publicKey.toString() !== publicKey) {
+          console.error('[restoreWallet] Public key mismatch:', {
+            stored: publicKey,
+            derived: keypair.publicKey.toString(),
+          });
+          throw new Error('Private key does not match stored public key');
+        }
+
+        // For authenticated users, verify the wallet still matches their DB record
+        if (user && !user.isGuest) {
           const { data: userData, error: userError } = await supabase
             .from('users')
             .select('id, wallet_address')
             .eq('email', user.email)
             .single();
-          if (userError) throw new Error(`Supabase user query failed: ${userError.message}`);
 
-          if (userData && userData.wallet_address === publicKey) {
-            setWallet({ publicKey: keypair.publicKey });
-            setSecretKey(privateKeyBytes);
-            setTransactionPassword(storedPassword);
-            setIsWalletConnected(true);
-            setWalletType(WALLET_TYPES.EMBEDDED);
-            console.log('[restoreWallet] Embedded wallet restored:', publicKey);
-          } else {
-            console.log('[restoreWallet] Wallet mismatch, clearing');
+          if (userError) {
+            console.warn('[restoreWallet] Supabase query failed, restoring anyway:', userError.message);
+          } else if (userData && userData.wallet_address && userData.wallet_address !== publicKey) {
+            console.log('[restoreWallet] Wallet mismatch with DB record, clearing');
             await disconnectWallet();
+            return;
           }
         }
+
+        setWallet({ publicKey: keypair.publicKey });
+        setSecretKey(privateKeyBytes);
+        setTransactionPassword(storedPassword);
+        setIsWalletConnected(true);
+        setWalletType(WALLET_TYPES.EMBEDDED);
+        console.log('[restoreWallet] Embedded wallet restored:', publicKey);
+
       } catch (err) {
         console.error('[restoreWallet] Error:', err.message);
         setError('Failed to restore wallet: ' + err.message);
-        await disconnectWallet();
+        // Only wipe if the data is genuinely corrupt; non-fatal read errors are
+        // handled above. Here we still clear to avoid a broken state.
+        try { await disconnectWallet(); } catch (_) {}
       } finally {
         setIsLoading(false);
       }
     };
 
     restoreWallet();
-  }, [user, authLoading, disconnectWallet]);
+  }, [user, authLoading]); // intentionally omitting disconnectWallet to avoid loop
+
+  // ─── Create ─────────────────────────────────────────────────────────────────
 
   const createEmbeddedWallet = useCallback(async (password) => {
-    if (!user || user.isGuest) {
-      throw new Error('Sign in with an account to create a wallet');
-    }
+    if (!user) throw new Error('Sign in with an account to create a wallet');
+    if (user.isGuest) throw new Error('Guest accounts cannot create wallets. Please sign in with a full account.');
     if (!password || typeof password !== 'string' || password.length < 8) {
       throw new Error('Password must be a string and at least 8 characters long');
     }
@@ -511,9 +279,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
       const { data: authUser, error: authError } = await supabase.auth.getUser();
       if (authError) throw new Error(`Auth error: ${authError.message}`);
-      if (!authUser.user || authUser.user.id !== user.id) {
-        throw new Error('Authenticated user mismatch');
-      }
+      if (!authUser.user || authUser.user.id !== user.id) throw new Error('Authenticated user mismatch');
 
       const keypair = solanaWeb3.Keypair.generate();
       const publicKey = keypair.publicKey;
@@ -527,33 +293,43 @@ export const EmbeddedWalletProvider = ({ children }) => {
       let isUnique = false;
       const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       while (!isUnique) {
-        referralCode = Array.from({ length: 8 }, () => characters.charAt(Math.floor(Math.random() * characters.length))).join('');
+        referralCode = Array.from({ length: 8 }, () =>
+          characters.charAt(Math.floor(Math.random() * characters.length))
+        ).join('');
         const { data } = await supabase.from('users').select('id').eq('referral_code', referralCode).maybeSingle();
         isUnique = !data;
       }
 
       const userMetadata = authUser.user.user_metadata || {};
-      const name = userMetadata.full_name || user.email.split('@')[0];
+      const name  = userMetadata.full_name || user.email.split('@')[0];
       const email = user.email;
       const image = userMetadata.avatar_url || null;
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .upsert({ id: user.id, email, name, image, wallet_address: publicKey.toString(), referral_code: referralCode, has_updated_profile: false }, { onConflict: 'id' })
+        .upsert(
+          { id: user.id, email, name, image, wallet_address: publicKey.toString(), referral_code: referralCode, has_updated_profile: false },
+          { onConflict: 'id' }
+        )
         .select('id')
         .single();
 
       if (userError) throw new Error(`User upsert failed: ${userError.message}`);
       if (!userData) throw new Error('User upsert succeeded but returned no data');
 
-      const { error: walletError } = await supabase.from('user_wallets').insert({ user_id: userData.id, address: publicKey.toString(), private_key: encryptedPrivateKey });
+      const { error: walletError } = await supabase
+        .from('user_wallets')
+        .insert({ user_id: userData.id, address: publicKey.toString(), private_key: encryptedPrivateKey });
       if (walletError) throw new Error(`Wallet insert failed: ${walletError.message}`);
 
       const encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', secretKeyBase58);
-      const walletData = { publicKey: publicKey.toString(), encryptedPrivateKey: encryptedPrivateKeyForStore, storedPassword: hashedPassword };
-      const walletDataStr = JSON.stringify(walletData);
+      const walletData = {
+        publicKey: publicKey.toString(),
+        encryptedPrivateKey: encryptedPrivateKeyForStore,
+        storedPassword: hashedPassword,
+      };
 
-      await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
+      await secureStoreWrapper.setItemAsync('walletData', JSON.stringify(walletData), useBiometrics);
       await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
       await AsyncStorage.setItem('walletAddress', publicKey.toString());
       await AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
@@ -574,44 +350,67 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [user, useBiometrics]);
 
+  // ─── Retrieve ────────────────────────────────────────────────────────────────
+
   const retrieveEmbeddedWallet = useCallback(async (password) => {
-    if (!user || user.isGuest) throw new Error('Sign in with an account to retrieve a wallet');
-    if (!password || typeof password !== 'string' || password.length < 8) throw new Error('Password must be a string and at least 8 characters long');
-    
+    if (!user) throw new Error('Sign in with an account to retrieve a wallet');
+    if (user.isGuest) throw new Error('Guest accounts cannot retrieve wallets. Please sign in with a full account.');
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      throw new Error('Password must be a string and at least 8 characters long');
+    }
     try {
       setIsLoading(true);
       console.log('[retrieveEmbeddedWallet] Retrieving embedded wallet for:', user.email);
 
       const { data: authUser, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser.user || authUser.user.id !== user.id) throw new Error('Authenticated user mismatch');
+      if (authError || !authUser.user || authUser.user.id !== user.id) {
+        throw new Error('Authenticated user mismatch');
+      }
 
-      await disconnectWallet();
+      try { await disconnectWallet(); } catch (_) {}
 
-      const { data: userData, error: userError } = await supabase.from('users').select('id, wallet_address').eq('email', user.email).single();
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, wallet_address')
+        .eq('email', user.email)
+        .single();
       if (userError || !userData) throw new Error('User not found. Please ensure your account is registered.');
       if (!userData.wallet_address) throw new Error('No wallet address associated with this user. Please create a new wallet.');
 
-      const { data: walletData, error: walletError } = await supabase.from('user_wallets').select('address, private_key').eq('user_id', userData.id).eq('address', userData.wallet_address).single();
+      const { data: walletData, error: walletError } = await supabase
+        .from('user_wallets')
+        .select('address, private_key')
+        .eq('user_id', userData.id)
+        .eq('address', userData.wallet_address)
+        .single();
       if (walletError || !walletData) throw new Error('No wallet found for this user. Please create a new wallet or contact support.');
-      if (typeof walletData.address !== 'string' || typeof walletData.private_key !== 'string') throw new Error('Invalid wallet data format in database.');
+      if (typeof walletData.address !== 'string' || typeof walletData.private_key !== 'string') {
+        throw new Error('Invalid wallet data format in database.');
+      }
 
       const privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.private_key);
-      const privateKeyBytes = bs58.decode(privateKeyBase58);
-      if (privateKeyBytes.length !== 64) throw new Error(`Invalid private key format after decryption: length ${privateKeyBytes.length}`);
+      const privateKeyBytes  = bs58.decode(privateKeyBase58);
+      if (privateKeyBytes.length !== 64) {
+        throw new Error(`Invalid private key format after decryption: length ${privateKeyBytes.length}`);
+      }
 
-      const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
-      const publicKey = keypair.publicKey;
+      const keypair      = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
+      const publicKey    = keypair.publicKey;
       const publicKeyStr = publicKey.toString();
 
       if (publicKeyStr !== walletData.address) throw new Error('Public key mismatch. Please contact support.');
 
       const hashedPassword = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+
       const encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', privateKeyBase58);
 
-      const walletDataObj = { publicKey: publicKeyStr, encryptedPrivateKey: encryptedPrivateKeyForStore, storedPassword: hashedPassword };
-      const walletDataStr = JSON.stringify(walletDataObj);
+      const walletDataObj = {
+        publicKey: publicKeyStr,
+        encryptedPrivateKey: encryptedPrivateKeyForStore,
+        storedPassword: hashedPassword,
+      };
 
-      await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
+      await secureStoreWrapper.setItemAsync('walletData', JSON.stringify(walletDataObj), useBiometrics);
       await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
       await AsyncStorage.setItem('walletAddress', publicKeyStr);
       await AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
@@ -632,21 +431,23 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [user, useBiometrics, disconnectWallet]);
 
+  // ─── Import wallet ───────────────────────────────────────────────────────────
+
   const importWalletFromPrivateKey = useCallback(async (privateKeyInput, password) => {
-    if (!user || user.isGuest) throw new Error('Sign in with an account to import a wallet');
-    if (!password || typeof password !== 'string' || password.length < 8) throw new Error('Password must be a string and at least 8 characters long');
-    if (!privateKeyInput || typeof privateKeyInput !== 'string') throw new Error('Private key is required');
-    
+    if (!password || typeof password !== 'string' || password.length < 8) {
+      throw new Error('Password must be a string and at least 8 characters long');
+    }
+    if (!privateKeyInput || typeof privateKeyInput !== 'string') {
+      throw new Error('Private key is required');
+    }
+
     try {
       setIsLoading(true);
-      console.log('[importWalletFromPrivateKey] Importing wallet for:', user.email);
+      console.log('[importWalletFromPrivateKey] Importing wallet');
 
-      const { data: authUser, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser.user || authUser.user.id !== user.id) throw new Error('Authenticated user mismatch');
+      try { await disconnectWallet(); } catch (_) {}
 
-      await disconnectWallet();
-
-      // Validate and decode private key
+      // Validate private key
       let privateKeyBytes;
       try {
         privateKeyBytes = bs58.decode(privateKeyInput.trim());
@@ -663,52 +464,59 @@ export const EmbeddedWalletProvider = ({ children }) => {
       const publicKeyStr = publicKey.toString();
       const privateKeyBase58 = bs58.encode(privateKeyBytes);
 
-      // Check if user already has a wallet
-      const { data: userData, error: userError } = await supabase.from('users').select('id, wallet_address').eq('email', user.email).single();
-      if (userError || !userData) throw new Error('User not found. Please ensure your account is registered.');
+      const hashedPassword = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
 
-      // If user already has a wallet, update it; otherwise, insert new wallet
-      if (userData.wallet_address) {
-        // Update existing wallet
-        const encryptedPrivateKey = await invokeEncryptionFunction('encrypt', privateKeyBase58);
-        const { error: updateError } = await supabase
-          .from('user_wallets')
-          .update({ address: publicKeyStr, private_key: encryptedPrivateKey })
-          .eq('user_id', userData.id)
-          .eq('address', userData.wallet_address);
-        
-        if (updateError) throw new Error(`Failed to update wallet: ${updateError.message}`);
+      // Use edge function for encryption
+      const encryptedPrivateKey = await invokeEncryptionFunction('encrypt', privateKeyBase58);
 
-        const { error: userUpdateError } = await supabase
-          .from('users')
-          .update({ wallet_address: publicKeyStr })
-          .eq('id', userData.id);
-        
-        if (userUpdateError) throw new Error(`Failed to update user wallet address: ${userUpdateError.message}`);
-      } else {
-        // Insert new wallet
-        const encryptedPrivateKey = await invokeEncryptionFunction('encrypt', privateKeyBase58);
-        const { error: walletError } = await supabase
-          .from('user_wallets')
-          .insert({ user_id: userData.id, address: publicKeyStr, private_key: encryptedPrivateKey });
-        
-        if (walletError) throw new Error(`Failed to insert wallet: ${walletError.message}`);
+      // Only perform database operations if user is authenticated
+      if (user && !user.isGuest) {
+        try {
+          const { data: authUser, error: authError } = await supabase.auth.getUser();
+          if (authError || !authUser.user || authUser.user.id !== user.id) {
+            console.log('[importWalletFromPrivateKey] Skipping database linking - user not authenticated');
+          } else {
+            const { data: existingWallet } = await supabase
+              .from('user_wallets')
+              .select('id, user_id')
+              .eq('address', publicKeyStr)
+              .maybeSingle();
 
-        const { error: userUpdateError } = await supabase
-          .from('users')
-          .update({ wallet_address: publicKeyStr })
-          .eq('id', userData.id);
-        
-        if (userUpdateError) throw new Error(`Failed to update user wallet address: ${userUpdateError.message}`);
+            if (!existingWallet) {
+              const { error: walletError } = await supabase
+                .from('user_wallets')
+                .insert({ user_id: user.id, address: publicKeyStr, private_key: encryptedPrivateKey });
+              if (walletError) {
+                console.log('[importWalletFromPrivateKey] Database insert failed (non-fatal):', walletError.message);
+              } else {
+                const { error: userUpdateError } = await supabase
+                  .from('users')
+                  .update({ wallet_address: publicKeyStr })
+                  .eq('id', user.id);
+                if (userUpdateError) {
+                  console.log('[importWalletFromPrivateKey] User update failed (non-fatal):', userUpdateError.message);
+                } else {
+                  console.log('[importWalletFromPrivateKey] Wallet linked to account:', publicKeyStr);
+                }
+              }
+            } else {
+              console.log('[importWalletFromPrivateKey] Wallet already exists in database:', publicKeyStr);
+            }
+          }
+        } catch (dbError) {
+          console.log('[importWalletFromPrivateKey] Database linking skipped (non-fatal):', dbError.message);
+        }
       }
 
-      const hashedPassword = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
+      // Store wallet locally
       const encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', privateKeyBase58);
+      const walletData = {
+        publicKey: publicKeyStr,
+        encryptedPrivateKey: encryptedPrivateKeyForStore,
+        storedPassword: hashedPassword,
+      };
 
-      const walletDataObj = { publicKey: publicKeyStr, encryptedPrivateKey: encryptedPrivateKeyForStore, storedPassword: hashedPassword };
-      const walletDataStr = JSON.stringify(walletDataObj);
-
-      await secureStoreWrapper.setItemAsync('walletData', walletDataStr, useBiometrics);
+      await secureStoreWrapper.setItemAsync('walletData', JSON.stringify(walletData), useBiometrics);
       await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
       await AsyncStorage.setItem('walletAddress', publicKeyStr);
       await AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
@@ -718,7 +526,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       setTransactionPassword(hashedPassword);
       setIsWalletConnected(true);
       setWalletType(WALLET_TYPES.EMBEDDED);
-      console.log('[importWalletFromPrivateKey] Wallet imported successfully:', publicKeyStr);
+      console.log('[importWalletFromPrivateKey] Wallet imported and connected:', publicKeyStr);
       return { publicKey: publicKeyStr, privateKey: privateKeyBase58 };
     } catch (err) {
       console.error('[importWalletFromPrivateKey] Error:', err.message);
@@ -729,32 +537,27 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [user, useBiometrics, disconnectWallet]);
 
+  // ─── Password verification ───────────────────────────────────────────────────
+
   const verifyPassword = useCallback(async (password) => {
     if (!transactionPassword) return false;
     const hashedInput = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
     return hashedInput === transactionPassword;
   }, [transactionPassword]);
 
+  // ─── Sign & send ─────────────────────────────────────────────────────────────
+
   const signAndSendTransaction = useCallback(async (transaction, inputPassword) => {
     try {
-      console.log('[signAndSendTransaction] Starting transaction signing...');
-      console.log('[signAndSendTransaction] Wallet type:', walletType);
-      console.log('[signAndSendTransaction] Seeker connected:', isSeekerConnected);
-      
-      // Use Seeker Wallet if connected
-      if (walletType === WALLET_TYPES.SEEKER && isSeekerConnected) {
-        console.log('[signAndSendTransaction] Using Seeker Wallet for transaction');
-        return await signWithSeekerWallet(transaction);
-      }
-      
-      // Otherwise use embedded wallet
-      console.log('[signAndSendTransaction] Using embedded wallet for transaction');
+      console.log('[signAndSendTransaction] Starting. Wallet type:', walletType);
+
+      console.log('[signAndSendTransaction] Using embedded wallet');
       const biometricsEnabled = (await AsyncStorage.getItem('useBiometrics')) === 'true';
-      console.log(`[signAndSendTransaction] Embedded wallet - Biometrics enabled: ${biometricsEnabled}`);
 
       if (!biometricsEnabled && !inputPassword) {
-        console.log('[signAndSendTransaction] Biometrics not enabled and no password, showing modal.');
+        console.log('[signAndSendTransaction] No password provided, showing modal');
         setPendingTransaction(transaction);
+        setPendingMode('send');
         setPasswordModalVisible(true);
         return new Promise((resolve, reject) => {
           setResolveTransaction({ resolve, reject });
@@ -762,22 +565,25 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
 
       if (!wallet?.publicKey) throw new Error('No wallet connected');
-      
-      if (!transaction) throw new Error('No transaction provided');
+      if (!transaction)       throw new Error('No transaction provided');
 
-      if (inputPassword) {
+      // Only verify password if biometrics is not enabled
+      if (!biometricsEnabled && inputPassword) {
         const isValid = await verifyPassword(inputPassword);
         if (!isValid) throw new Error('Invalid transaction password');
       }
 
+      // Retrieve and decrypt stored private key
+      // When biometrics is enabled, this will trigger biometric authentication
       let privateKeyBase58;
       try {
         const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', biometricsEnabled);
         if (!walletDataStr) throw new Error('Wallet data unavailable');
-        
+
         const walletData = JSON.parse(walletDataStr);
         if (!walletData.encryptedPrivateKey) throw new Error('Private key unavailable');
-        
+
+        // Use edge function for decryption
         privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.encryptedPrivateKey);
       } catch (err) {
         console.error('[signAndSendTransaction] Error retrieving/decrypting wallet data:', err);
@@ -785,95 +591,143 @@ export const EmbeddedWalletProvider = ({ children }) => {
       }
 
       const privateKeyBytes = bs58.decode(privateKeyBase58);
-      const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
+      const keypair         = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
 
       if (wallet.publicKey.toString() !== keypair.publicKey.toString()) {
         throw new Error('Private key does not match wallet public key');
       }
 
-      // Set fee payer if not set
       if (!transaction.feePayer) {
         transaction.feePayer = keypair.publicKey;
       }
 
-      // Check if this is a VersionedTransaction (new Solana transaction format)
       if (transaction instanceof solanaWeb3.VersionedTransaction) {
         console.log('[signAndSendTransaction] Handling VersionedTransaction');
         transaction.sign([keypair]);
         const serializedTx = transaction.serialize();
-        const signature = await connection.sendRawTransaction(serializedTx, {
-          skipPreflight: false,
-          maxRetries: 3
-        });
-        
+        const signature    = await connection.sendRawTransaction(serializedTx, { skipPreflight: false, maxRetries: 3 });
         console.log('[signAndSendTransaction] VersionedTransaction sent:', signature);
-        
-        // Wait for confirmation
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        
-        if (confirmation.value.err) {
-          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-        }
-        
+        if (confirmation.value.err) throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
         console.log('[signAndSendTransaction] VersionedTransaction confirmed:', signature);
         return signature;
       } else {
-        // Legacy transaction handling
         console.log('[signAndSendTransaction] Handling legacy transaction');
-        const signature = await connection.sendTransaction(transaction, [keypair]);
-        
+        const signature    = await connection.sendTransaction(transaction, [keypair]);
         console.log('[signAndSendTransaction] Legacy transaction sent:', signature);
-        
-        // Wait for confirmation
         const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-        
-        if (confirmation.value.err) {
-          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-        }
-        
+        if (confirmation.value.err) throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
         console.log('[signAndSendTransaction] Legacy transaction confirmed:', signature);
         return signature;
       }
-      
+
     } catch (err) {
       console.error('[signAndSendTransaction] Error:', err.message);
-      
-      // Enhanced error handling for both wallet types
       let errorMessage = 'Transaction failed';
-      if (err.message.includes('insufficient funds')) {
-        errorMessage = 'Insufficient SOL balance for this transaction';
-      } else if (err.message.includes('Invalid transaction password')) {
-        errorMessage = 'Invalid password. Please check your credentials.';
-      } else if (err.message.includes('Private key does not match')) {
-        errorMessage = 'Wallet security error. Please reconnect your wallet.';
-      } else if (err.message.includes('network')) {
-        errorMessage = 'Network error. Please check your internet connection.';
-      } else if (err.message.includes('timeout')) {
-        errorMessage = 'Transaction timed out. Please try again.';
-      }
-      
+      if (err.message.includes('insufficient funds'))          errorMessage = 'Insufficient SOL balance for this transaction';
+      else if (err.message.includes('Invalid transaction password')) errorMessage = 'Invalid password. Please check your credentials.';
+      else if (err.message.includes('Private key does not match'))   errorMessage = 'Wallet security error. Please reconnect your wallet.';
+      else if (err.message.includes('network'))               errorMessage = 'Network error. Please check your internet connection.';
+      else if (err.message.includes('timeout'))               errorMessage = 'Transaction timed out. Please try again.';
       throw new Error(errorMessage);
     }
-  }, [walletType, isSeekerConnected, signWithSeekerWallet, wallet, verifyPassword]);
+  }, [walletType, wallet, verifyPassword]);
+
+  // ─── Sign only (without sending) ──────────────────────────────────────────────
+
+  const signTransactionOnly = useCallback(async (transaction, inputPassword) => {
+    try {
+      console.log('[signTransactionOnly] Starting. Wallet type:', walletType);
+
+      const biometricsEnabled = (await AsyncStorage.getItem('useBiometrics')) === 'true';
+
+      if (!biometricsEnabled && !inputPassword) {
+        console.log('[signTransactionOnly] No password provided, showing modal');
+        setPendingTransaction(transaction);
+        setPendingMode('sign');
+        setPasswordModalVisible(true);
+        return new Promise((resolve, reject) => {
+          setResolveTransaction({ resolve, reject });
+        });
+      }
+
+      if (!wallet?.publicKey) throw new Error('No wallet connected');
+      if (!transaction)       throw new Error('No transaction provided');
+
+      // Only verify password if biometrics is not enabled
+      if (!biometricsEnabled && inputPassword) {
+        const isValid = await verifyPassword(inputPassword);
+        if (!isValid) throw new Error('Invalid transaction password');
+      }
+
+      // Retrieve and decrypt stored private key
+      let privateKeyBase58;
+      try {
+        const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', biometricsEnabled);
+        if (!walletDataStr) throw new Error('Wallet data unavailable');
+
+        const walletData = JSON.parse(walletDataStr);
+        if (!walletData.encryptedPrivateKey) throw new Error('Private key unavailable');
+
+        // Use edge function for decryption
+        privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.encryptedPrivateKey);
+      } catch (err) {
+        console.error('[signTransactionOnly] Error retrieving/decrypting wallet data:', err);
+        throw new Error('Failed to retrieve or decrypt wallet data: ' + err.message);
+      }
+
+      const privateKeyBytes = bs58.decode(privateKeyBase58);
+      const keypair         = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
+
+      if (wallet.publicKey.toString() !== keypair.publicKey.toString()) {
+        throw new Error('Private key does not match wallet public key');
+      }
+
+      if (!transaction.feePayer) {
+        transaction.feePayer = keypair.publicKey;
+      }
+
+      if (transaction instanceof solanaWeb3.VersionedTransaction) {
+        console.log('[signTransactionOnly] Handling VersionedTransaction');
+        transaction.sign([keypair]);
+        return Buffer.from(transaction.serialize()).toString('base64');
+      } else {
+        console.log('[signTransactionOnly] Handling legacy transaction');
+        transaction.partialSign(keypair);
+        return transaction.serialize().toString('base64');
+      }
+
+    } catch (err) {
+      console.error('[signTransactionOnly] Error:', err.message);
+      let errorMessage = 'Transaction signing failed';
+      if (err.message.includes('Invalid transaction password')) errorMessage = 'Invalid password. Please check your credentials.';
+      else if (err.message.includes('Private key does not match'))   errorMessage = 'Wallet security error. Please reconnect your wallet.';
+      else if (err.message.includes('network'))               errorMessage = 'Network error. Please check your internet connection.';
+      throw new Error(errorMessage);
+    }
+  }, [walletType, wallet, verifyPassword]);
+
+  // ─── Provider ────────────────────────────────────────────────────────────────
 
   return (
     <EmbeddedWalletContext.Provider
       value={{
         wallet,
         secretKey,
-        isWalletConnected: isWalletConnected || isSeekerConnected,
+        isWalletConnected,
         walletType,
         createEmbeddedWallet,
         retrieveEmbeddedWallet,
         importWalletFromPrivateKey,
-        connectSeekerWallet,
         disconnectWallet,
         signAndSendTransaction,
+        signTransactionOnly,
         isLoading,
         error,
         useBiometrics,
         setUseBiometrics,
-        isSeekerConnected,
+        showModal,
+        setShowModal,
       }}
     >
       {children}
@@ -889,10 +743,38 @@ export const EmbeddedWalletProvider = ({ children }) => {
           setPasswordModalVisible(false);
           if (pendingTransaction && resolveTransaction) {
             try {
-              const signature = await signAndSendTransaction(pendingTransaction, password);
-              resolveTransaction.resolve(signature);
+              const result = pendingMode === 'sign'
+                ? await signTransactionOnly(pendingTransaction, password)
+                : await signAndSendTransaction(pendingTransaction, password);
+              resolveTransaction.resolve(result);
             } catch (error) {
               resolveTransaction.reject(error);
+            }
+          }
+        }}
+        onUseBiometrics={async () => {
+          if (pendingTransaction && resolveTransaction) {
+            try {
+              console.log('[onUseBiometrics] Starting biometric authentication...');
+
+              // Enable biometrics for this transaction
+              await setUseBiometrics(true);
+              await AsyncStorage.setItem('useBiometrics', 'true');
+              console.log('[onUseBiometrics] Biometrics enabled in state');
+
+              setPasswordModalVisible(false);
+              console.log('[onUseBiometrics] Modal closed, signing transaction...');
+              const result = pendingMode === 'sign'
+                ? await signTransactionOnly(pendingTransaction)
+                : await signAndSendTransaction(pendingTransaction);
+              console.log('[onUseBiometrics] Transaction signed:', result);
+              resolveTransaction.resolve(result);
+            } catch (error) {
+              console.error('[onUseBiometrics] Error:', error);
+              // Re-open modal to allow password entry as fallback
+              setPasswordModalVisible(true);
+              // Don't reject yet - let user try password
+              // Only reject if they cancel the modal
             }
           }
         }}
@@ -905,23 +787,44 @@ export const EmbeddedWalletProvider = ({ children }) => {
           setShowWalletSelection(false);
           AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
         }}
-        onSelectSeeker={() => {
-          setWalletType(WALLET_TYPES.SEEKER);
-          setShowWalletSelection(false);
-          AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.SEEKER);
-          connectSeekerWallet();
-        }}
+      />
+      <WalletConnectionModal
+        isVisible={showModal}
+        onClose={() => setShowModal(false)}
       />
     </EmbeddedWalletContext.Provider>
   );
 };
 
-const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
+// ─── Password Modal ───────────────────────────────────────────────────────────
+
+const PasswordModal = ({ isVisible, onClose, onSubmit, onUseBiometrics }) => {
   const [password, setPassword] = useState('');
+  const [biometricsAvailable, setBiometricsAvailable] = useState(false);
+
+  useEffect(() => {
+    const checkBiometrics = async () => {
+      try {
+        const hasHardware = await SecureStore.isAvailableAsync();
+        setBiometricsAvailable(hasHardware);
+      } catch (error) {
+        setBiometricsAvailable(false);
+      }
+    };
+    if (isVisible) {
+      checkBiometrics();
+    }
+  }, [isVisible]);
 
   const handleSubmit = () => {
     onSubmit(password);
     setPassword('');
+  };
+
+  const handleBiometrics = () => {
+    if (onUseBiometrics) {
+      onUseBiometrics();
+    }
   };
 
   return (
@@ -933,8 +836,19 @@ const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
       animationOut="slideOutDown"
     >
       <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Enter Password</Text>
-        <Text style={styles.modalText}>Please enter your password to sign the transaction.</Text>
+        <Text style={styles.modalTitle}>Authenticate Transaction</Text>
+        <Text style={styles.modalText}>Choose your authentication method:</Text>
+        
+        {biometricsAvailable && onUseBiometrics && (
+          <TouchableOpacity style={styles.actionButton} onPress={handleBiometrics}>
+            <FontAwesome5 name="fingerprint" size={20} color="#fff" style={{ marginRight: 10 }} />
+            <Text style={styles.actionButtonText}>Use Fingerprint</Text>
+          </TouchableOpacity>
+        )}
+        
+        <Text style={[styles.modalText, { marginTop: biometricsAvailable && onUseBiometrics ? 16 : 8, marginBottom: 8 }]}>
+          {biometricsAvailable && onUseBiometrics ? 'Or enter password:' : 'Enter your password:'}
+        </Text>
         <TextInput
           style={styles.input}
           placeholder="Password"
@@ -944,7 +858,7 @@ const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
           placeholderTextColor="#999"
         />
         <TouchableOpacity style={styles.actionButton} onPress={handleSubmit}>
-          <Text style={styles.actionButtonText}>Submit</Text>
+          <Text style={styles.actionButtonText}>Submit Password</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
           <Text style={styles.secondaryButtonText}>Cancel</Text>
@@ -954,22 +868,10 @@ const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
   );
 };
 
-const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded, onSelectSeeker }) => {
-  const [showSeekerOption, setShowSeekerOption] = useState(false);
-  
-  useEffect(() => {
-    const checkSeekerAvailability = async () => {
-      console.log('[WalletSelectionModal] Checking Seeker availability...');
-      const isSeeker = await isSeekerDevice();
-      console.log('[WalletSelectionModal] Seeker available:', isSeeker);
-      setShowSeekerOption(isSeeker);
-    };
-    
-    if (isVisible) {
-      checkSeekerAvailability();
-    }
-  }, [isVisible]);
-  
+// ─── Wallet Selection Modal ───────────────────────────────────────────────────
+
+const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded }) => {
+
   return (
     <Modal
       isVisible={isVisible}
@@ -981,7 +883,7 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded, onSelectSe
       <View style={styles.modalContent}>
         <Text style={styles.modalTitle}>Choose Wallet Type</Text>
         <Text style={styles.modalText}>Select how you want to manage your crypto assets:</Text>
-        
+
         <TouchableOpacity style={styles.walletOption} onPress={onSelectEmbedded}>
           <View style={styles.walletOptionHeader}>
             <MaterialCommunityIcons name="wallet-outline" size={24} color="#FF5733" />
@@ -997,25 +899,6 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded, onSelectSe
           </View>
         </TouchableOpacity>
 
-        {/* Only show Seeker option on Seeker devices */}
-        {showSeekerOption && (
-          <TouchableOpacity style={styles.walletOption} onPress={onSelectSeeker}>
-            <View style={styles.walletOptionHeader}>
-              <MaterialCommunityIcons name="cellphone" size={24} color="#FF5733" />
-              <Text style={styles.walletOptionTitle}>Seeker Wallet</Text>
-            </View>
-            <Text style={styles.walletOptionDescription}>
-              Hardware-level security with Seed Vault technology. Biometric authentication at the hardware level.
-            </Text>
-            <View style={styles.walletOptionFeatures}>
-              <Text style={styles.walletOptionFeature}>✓ Hardware Security</Text>
-              <Text style={styles.walletOptionFeature}>✓ Double-tap Transactions</Text>
-              <Text style={styles.walletOptionFeature}>✓ Seeker ID Support</Text>
-              <Text style={styles.walletOptionFeature}>✓ Genesis Token Benefits</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
         <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
           <Text style={styles.secondaryButtonText}>Cancel</Text>
         </TouchableOpacity>
@@ -1024,74 +907,71 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded, onSelectSe
   );
 };
 
-// Compact, header-friendly wallet button
+// ─── Connect Button ───────────────────────────────────────────────────────────
+
 const ConnectButton = ({ compact = false, label }) => {
   const walletContext = useContext(EmbeddedWalletContext);
-  const wallet = walletContext?.wallet;
-  const walletType = walletContext?.walletType;
-  const isLoading = walletContext?.isLoading;
-  const isSeekerConnected = walletContext?.isSeekerConnected;
-  const disconnectWallet = walletContext?.disconnectWallet;
+  const wallet          = walletContext?.wallet;
+  const walletType      = walletContext?.walletType;
+  const isLoading       = walletContext?.isLoading;
+  const disconnectWallet  = walletContext?.disconnectWallet;
   const { user } = useAuth();
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [showModal, setShowModal] = useState(false);
+  const [showDropdown, setShowDropdown]           = useState(false);
   const [showReferralPrompt, setShowReferralPrompt] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
 
-  // If context is not available, show a simple connect button
   if (!walletContext) {
+    const [localShowModal, setLocalShowModal] = useState(false);
     return (
-      <TouchableOpacity
-        onPress={() => setShowModal(true)}
-        style={[styles.connectButtonWrapper, compact && styles.connectButtonWrapperCompact]}
-      >
-        <LinearGradient
-          colors={['#FF5733', '#F36316']}
-          style={styles.connectButtonGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+      <>
+        <TouchableOpacity
+          onPress={() => setLocalShowModal(true)}
+          style={[styles.connectButtonWrapper, compact && styles.connectButtonWrapperCompact]}
         >
-          <Text style={styles.connectButtonText}>Connect Wallet</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={['#FF5733', '#F36316']}
+            style={styles.connectButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            <Text style={styles.connectButtonText}>Connect Wallet</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+        <WalletConnectionModal
+          isVisible={localShowModal}
+          onClose={() => setLocalShowModal(false)}
+        />
+      </>
     );
   }
 
   const handleReferralPrompt = () => setShowReferralPrompt(false);
 
   const getWalletLabel = () => {
-    if (walletType === WALLET_TYPES.SEEKER) {
-      return 'Seeker';
-    } else if (walletType === WALLET_TYPES.EMBEDDED) {
-      return 'Embedded';
-    }
+    if (walletType === WALLET_TYPES.EMBEDDED) return 'Embedded';
     return null;
   };
 
   const renderDropdown = () => {
     if (!showDropdown || !wallet) return null;
-    
     return (
-      <View style={styles.dropdown}>
+      <View style={styles.dropdown} pointerEvents="auto">
         <View style={styles.dropdownHeader}>
           <Text style={styles.dropdownTitle}>Wallet Options</Text>
           <TouchableOpacity onPress={() => setShowDropdown(false)}>
             <MaterialCommunityIcons name="close" size={20} color="#666" />
           </TouchableOpacity>
         </View>
-        
         <View style={styles.dropdownItem}>
           <Text style={styles.dropdownItemText}>Type: {getWalletLabel()}</Text>
         </View>
-        
         <View style={styles.dropdownItem}>
           <Text style={styles.dropdownItemText}>
             Address: {wallet.publicKey.toString().slice(0, 4)}...{wallet.publicKey.toString().slice(-4)}
           </Text>
         </View>
-        
-        <TouchableOpacity 
-          style={styles.dropdownAction} 
+        <TouchableOpacity
+          style={styles.dropdownAction}
           onPress={() => {
             Clipboard.setString(wallet.publicKey.toString());
             Alert.alert('Copied', 'Wallet address copied to clipboard');
@@ -1099,13 +979,9 @@ const ConnectButton = ({ compact = false, label }) => {
         >
           <Text style={styles.dropdownActionText}>Copy Address</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.dropdownAction, styles.disconnectAction]} 
-          onPress={() => {
-            setShowDropdown(false);
-            setShowDisconnectModal(true);
-          }}
+        <TouchableOpacity
+          style={[styles.dropdownAction, styles.disconnectAction]}
+          onPress={() => { setShowDropdown(false); setShowDisconnectModal(true); }}
         >
           <Text style={[styles.dropdownActionText, styles.disconnectActionText]}>Disconnect Wallet</Text>
         </TouchableOpacity>
@@ -1115,7 +991,6 @@ const ConnectButton = ({ compact = false, label }) => {
 
   const renderDisconnectModal = () => {
     if (!showDisconnectModal) return null;
-    
     return (
       <Modal
         isVisible={showDisconnectModal}
@@ -1129,19 +1004,13 @@ const ConnectButton = ({ compact = false, label }) => {
           <Text style={styles.modalText}>
             Are you sure you want to disconnect your {getWalletLabel()} wallet?
           </Text>
-          <TouchableOpacity 
-            style={styles.actionButton} 
-            onPress={async () => {
-              await disconnectWallet();
-              setShowDisconnectModal(false);
-            }}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={async () => { await disconnectWallet(); setShowDisconnectModal(false); }}
           >
             <Text style={styles.actionButtonText}>Disconnect</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.secondaryButton} 
-            onPress={() => setShowDisconnectModal(false)}
-          >
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowDisconnectModal(false)}>
             <Text style={styles.secondaryButtonText}>Cancel</Text>
           </TouchableOpacity>
         </View>
@@ -1159,13 +1028,13 @@ const ConnectButton = ({ compact = false, label }) => {
             if (wallet) {
               setShowDropdown((prev) => !prev);
             } else {
-              setShowModal(true);
+              walletContext?.setShowModal?.(true);
             }
           }}
           disabled={isLoading}
         >
           <LinearGradient
-            colors={wallet ? ['#FF5733', '#FF7F50'] : ['#FF5733', '#FF7F50']}
+            colors={['#FF5733', '#FF7F50']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.connectButtonGradient, compact && styles.connectButtonGradientCompact]}
@@ -1178,11 +1047,11 @@ const ConnectButton = ({ compact = false, label }) => {
             ) : wallet ? (
               <View style={styles.walletInfoContainer}>
                 <View style={styles.walletAddressContainer}>
-                  <MaterialCommunityIcons 
-                    name={walletType === WALLET_TYPES.SEEKER ? "cellphone" : "wallet-outline"} 
-                    size={14} 
-                    color="#ffffff" 
-                    style={styles.walletIcon} 
+                  <MaterialCommunityIcons
+                    name="wallet-outline"
+                    size={14}
+                    color="#ffffff"
+                    style={styles.walletIcon}
                   />
                   <Text style={[styles.connectButtonText, compact && styles.connectButtonTextCompact]}>
                     {getWalletLabel()}: {wallet.publicKey.toString().slice(0, 2)}...{wallet.publicKey.toString().slice(-2)}
@@ -1208,29 +1077,29 @@ const ConnectButton = ({ compact = false, label }) => {
         {renderDropdown()}
         {renderDisconnectModal()}
       </View>
-      
-      {/* Wallet Creation/Connection Modal */}
-      <WalletConnectionModal 
-        isVisible={showModal}
-        onClose={() => setShowModal(false)}
-      />
     </>
   );
 };
 
+// ─── Wallet Connection Modal ──────────────────────────────────────────────────
+
 const WalletConnectionModal = ({ isVisible, onClose }) => {
   const walletContext = useContext(EmbeddedWalletContext);
-  const createEmbeddedWallet = walletContext?.createEmbeddedWallet;
+  const createEmbeddedWallet  = walletContext?.createEmbeddedWallet;
   const retrieveEmbeddedWallet = walletContext?.retrieveEmbeddedWallet;
-  const connectSeekerWallet = walletContext?.connectSeekerWallet;
-  const walletType = walletContext?.walletType;
-  const setWalletType = walletContext?.setWalletType;
+  const importWalletFromPrivateKey = walletContext?.importWalletFromPrivateKey;
   const { user } = useAuth();
-  const [mode, setMode] = useState('menu'); // menu, create, retrieve, seeker
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
-  // If context is not available, show a simple message
+  const [mode, setMode]                   = useState('menu');
+  const [password, setPassword]           = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [privateKeyInput, setPrivateKeyInput] = useState('');
+  const [hasExistingWallet, setHasExistingWallet] = useState(false);
+  const [loading, setLoading]             = useState(false);
+  const [fadeAnim]  = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(50));
+  const [scaleAnim] = useState(new Animated.Value(0.9));
+
   if (!walletContext) {
     return (
       <Modal isVisible={isVisible} onBackdropPress={onClose}>
@@ -1244,35 +1113,74 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
       </Modal>
     );
   }
-  const [loading, setLoading] = useState(false);
-  const [showSeekerOption, setShowSeekerOption] = useState(false);
 
   useEffect(() => {
-    const checkSeekerAvailability = async () => {
-      console.log('[WalletConnectionModal] Checking Seeker availability...');
-      const isSeeker = await isSeekerDevice();
-      console.log('[WalletConnectionModal] Seeker available:', isSeeker);
-      setShowSeekerOption(isSeeker);
+    const checkExistingWallet = async () => {
+      if (user && !user.isGuest) {
+        try {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('wallet_address')
+            .eq('email', user.email)
+            .single();
+          const hasWallet = !!userData?.wallet_address;
+          setHasExistingWallet(hasWallet);
+
+          if (hasWallet) {
+            try {
+              const storedWalletData = await AsyncStorage.getItem('walletAddress');
+              const storedWalletType = await AsyncStorage.getItem('preferredWalletType');
+              if (storedWalletData !== userData.wallet_address || storedWalletType !== WALLET_TYPES.EMBEDDED) {
+                setMode('retrieve');
+              }
+            } catch (error) {
+              console.log('[WalletConnectionModal] Error checking local wallet:', error.message);
+            }
+          }
+        } catch (error) {
+          console.log('[WalletConnectionModal] Error checking existing wallet:', error.message);
+        }
+      }
     };
-    
+
     if (isVisible) {
-      checkSeekerAvailability();
+      checkExistingWallet();
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    } else {
+      fadeAnim.setValue(0);
+      slideAnim.setValue(50);
+      scaleAnim.setValue(0.9);
+      setMode('menu');
     }
-  }, [isVisible]);
+  }, [isVisible, user]);
+
+  const handleModeChange = (newMode) => {
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 0,    duration: 150, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 0.95, duration: 150, useNativeDriver: true }),
+    ]).start(() => {
+      setMode(newMode);
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(scaleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+      ]).start();
+    });
+  };
 
   const handleCreateWallet = async () => {
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+    if (password !== confirmPassword) { Alert.alert('Error', 'Passwords do not match'); return; }
+    if (hasExistingWallet) {
+      Alert.alert('Wallet Exists', 'You already have a wallet linked to this account. Please use the Restore option instead.');
       return;
     }
-    
     setLoading(true);
     try {
       const result = await createEmbeddedWallet(password);
-      if (result) {
-        Alert.alert('Success', 'Embedded wallet created successfully!');
-        onClose();
-      }
+      if (result) { Alert.alert('Success', 'Embedded wallet created successfully!'); onClose(); }
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -1284,10 +1192,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     setLoading(true);
     try {
       const result = await retrieveEmbeddedWallet(password);
-      if (result) {
-        Alert.alert('Success', 'Embedded wallet retrieved successfully!');
-        onClose();
-      }
+      if (result) { Alert.alert('Success', 'Embedded wallet retrieved successfully!'); onClose(); }
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -1295,12 +1200,23 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     }
   };
 
-  const handleConnectSeeker = async () => {
+
+  const handleImportWallet = async () => {
+    if (!password || password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+    if (!confirmPassword || password !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
     setLoading(true);
     try {
-      await connectSeekerWallet();
-      Alert.alert('Success', 'Seeker Wallet connected successfully!');
-      onClose();
+      const result = await importWalletFromPrivateKey(privateKeyInput, password);
+      if (result) {
+        Alert.alert('Success', 'Wallet imported successfully!');
+        onClose();
+      }
     } catch (error) {
       Alert.alert('Error', error.message);
     } finally {
@@ -1313,163 +1229,174 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
       isVisible={isVisible}
       onBackdropPress={onClose}
       style={styles.modal}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
+      animationIn="fadeIn"
+      animationOut="fadeOut"
+      backdropOpacity={0.6}
     >
-      <ScrollView style={styles.modalScrollView}>
-        <View style={styles.modalContent}>
-          {mode === 'menu' && (
-            <>
-              <Text style={styles.modalTitle}>Wallet Options</Text>
-              <Text style={styles.modalText}>Choose how you want to manage your crypto:</Text>
-              
-              <TouchableOpacity 
-                style={styles.walletOption} 
-                onPress={() => setMode('create')}
-              >
-                <View style={styles.walletOptionHeader}>
-                  <MaterialCommunityIcons name="plus-circle" size={24} color="#FF5733" />
-                  <Text style={styles.walletOptionTitle}>Create New Embedded Wallet</Text>
-                </View>
-                <Text style={styles.walletOptionDescription}>
-                  Create a new secure wallet with password protection and biometric support.
-                </Text>
-              </TouchableOpacity>
+      <Animated.View
+        style={[
+          styles.modalContent,
+          { opacity: fadeAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] }
+        ]}
+      >
+        {mode === 'menu' && (
+          <>
+            <View style={styles.modalHeader}>
+              <MaterialCommunityIcons name="wallet-outline" size={48} color="#FF5733" />
+              <Text style={styles.modalTitle}>Choose Your Wallet</Text>
+              <Text style={styles.modalSubtitle}>Select how you want to manage your crypto assets</Text>
+            </View>
 
-              <TouchableOpacity 
-                style={styles.walletOption} 
-                onPress={() => setMode('retrieve')}
-              >
+            <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('create')} activeOpacity={0.7}>
+              <LinearGradient colors={['rgba(255, 87, 51, 0.1)', 'rgba(255, 87, 51, 0.05)']} style={styles.walletOptionGradient}>
                 <View style={styles.walletOptionHeader}>
-                  <MaterialCommunityIcons name="download" size={24} color="#FF5733" />
-                  <Text style={styles.walletOptionTitle}>Restore Embedded Wallet</Text>
-                </View>
-                <Text style={styles.walletOptionDescription}>
-                  Access your existing embedded wallet with your password.
-                </Text>
-              </TouchableOpacity>
-
-              {/* Only show Seeker option on Seeker devices */}
-              {showSeekerOption && (
-                <TouchableOpacity 
-                  style={styles.walletOption} 
-                  onPress={() => setMode('seeker')}
-                >
-                  <View style={styles.walletOptionHeader}>
-                    <MaterialCommunityIcons name="cellphone" size={24} color="#FF5733" />
-                    <Text style={styles.walletOptionTitle}>Connect Seeker Wallet</Text>
+                  <View style={styles.walletIconContainer}>
+                    <MaterialCommunityIcons name="plus-circle" size={28} color="#FF5733" />
                   </View>
-                  <Text style={styles.walletOptionDescription}>
-                    Use your Seeker phone's built-in hardware wallet for maximum security.
-                  </Text>
-                </TouchableOpacity>
-              )}
+                  <View style={styles.walletOptionTextContainer}>
+                    <Text style={styles.walletOptionTitle}>Create New Wallet</Text>
+                    <Text style={styles.walletOptionDescription}>Generate a new secure wallet with password protection</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#FF5733" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-              <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-                <Text style={styles.secondaryButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </>
-          )}
+            <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('retrieve')} activeOpacity={0.7}>
+              <LinearGradient colors={['rgba(76, 175, 80, 0.1)', 'rgba(76, 175, 80, 0.05)']} style={styles.walletOptionGradient}>
+                <View style={styles.walletOptionHeader}>
+                  <View style={[styles.walletIconContainer, { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}>
+                    <MaterialCommunityIcons name="download" size={28} color="#4CAF50" />
+                  </View>
+                  <View style={styles.walletOptionTextContainer}>
+                    <Text style={[styles.walletOptionTitle, { color: '#4CAF50' }]}>Restore Wallet</Text>
+                    <Text style={styles.walletOptionDescription}>
+                      {hasExistingWallet ? 'Access your existing wallet linked to this account' : 'Access your existing wallet with your password'}
+                    </Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#4CAF50" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          {mode === 'create' && (
-            <>
-              <Text style={styles.modalTitle}>Create Embedded Wallet</Text>
-              <Text style={styles.modalText}>Set a password to secure your wallet:</Text>
-              
-              <TextInput
-                style={styles.input}
-                placeholder="Password (min 8 characters)"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                placeholderTextColor="#999"
-              />
-              
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                secureTextEntry
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholderTextColor="#999"
-              />
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={handleCreateWallet}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.actionButtonText}>Create Wallet</Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => setMode('menu')}>
-                <Text style={styles.secondaryButtonText}>Back</Text>
-              </TouchableOpacity>
-            </>
-          )}
+            <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('import')} activeOpacity={0.7}>
+              <LinearGradient colors={['rgba(156, 39, 176, 0.1)', 'rgba(156, 39, 176, 0.05)']} style={styles.walletOptionGradient}>
+                <View style={styles.walletOptionHeader}>
+                  <View style={[styles.walletIconContainer, { backgroundColor: 'rgba(156, 39, 176, 0.15)' }]}>
+                    <MaterialCommunityIcons name="key" size={28} color="#9C27B0" />
+                  </View>
+                  <View style={styles.walletOptionTextContainer}>
+                    <Text style={[styles.walletOptionTitle, { color: '#9C27B0' }]}>Import Wallet</Text>
+                    <Text style={styles.walletOptionDescription}>Import an existing wallet using your private key</Text>
+                  </View>
+                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9C27B0" />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-          {mode === 'retrieve' && (
-            <>
-              <Text style={styles.modalTitle}>Restore Embedded Wallet</Text>
-              <Text style={styles.modalText}>Enter your password to access your wallet:</Text>
-              
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                placeholderTextColor="#999"
-              />
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={handleRetrieveWallet}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.actionButtonText}>Restore Wallet</Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => setMode('menu')}>
-                <Text style={styles.secondaryButtonText}>Back</Text>
-              </TouchableOpacity>
-            </>
-          )}
+            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
-          {mode === 'seeker' && (
-            <>
-              <Text style={styles.modalTitle}>Connect Seeker Wallet</Text>
-              <Text style={styles.modalText}>
-                Make sure you have the Seeker Wallet app installed and unlocked.
+        {mode === 'create' && (
+          <>
+            <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#FF5733" />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+            <View style={styles.formHeader}>
+              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(255, 87, 51, 0.15)' }]}>
+                <MaterialCommunityIcons name="plus-circle" size={32} color="#FF5733" />
+              </View>
+              <Text style={styles.modalTitle}>Create New Wallet</Text>
+              <Text style={styles.modalSubtitle}>Set a secure password to protect your wallet</Text>
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput style={styles.input} placeholder="Min 8 characters" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" />
+            </View>
+            <TouchableOpacity style={styles.actionButton} onPress={handleCreateWallet} disabled={loading} activeOpacity={0.8}>
+              <LinearGradient colors={['#FF5733', '#FF7F50']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Create Wallet</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {mode === 'retrieve' && (
+          <>
+            <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#4CAF50" />
+              <Text style={[styles.backButtonText, { color: '#4CAF50' }]}>Back</Text>
+            </TouchableOpacity>
+            <View style={styles.formHeader}>
+              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}>
+                <MaterialCommunityIcons name="download" size={32} color="#4CAF50" />
+              </View>
+              <Text style={[styles.modalTitle, { color: '#4CAF50' }]}>Restore Wallet</Text>
+              <Text style={styles.modalSubtitle}>
+                {hasExistingWallet ? 'Enter your password to access your wallet' : 'Enter your password to access your existing wallet'}
               </Text>
-              
-              <TouchableOpacity 
-                style={styles.actionButton} 
-                onPress={handleConnectSeeker}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Text style={styles.actionButtonText}>Connect Seeker Wallet</Text>
-                )}
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => setMode('menu')}>
-                <Text style={styles.secondaryButtonText}>Back</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </ScrollView>
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput style={styles.input} placeholder="Enter your wallet password" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" />
+            </View>
+            <TouchableOpacity style={styles.actionButton} onPress={handleRetrieveWallet} disabled={loading} activeOpacity={0.8}>
+              <LinearGradient colors={['#4CAF50', '#66BB6A']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Restore Wallet</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {mode === 'import' && (
+          <>
+            <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#9C27B0" />
+              <Text style={[styles.backButtonText, { color: '#9C27B0' }]}>Back</Text>
+            </TouchableOpacity>
+            <View style={styles.formHeader}>
+              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(156, 39, 176, 0.15)' }]}>
+                <MaterialCommunityIcons name="key" size={32} color="#9C27B0" />
+              </View>
+              <Text style={[styles.modalTitle, { color: '#9C27B0' }]}>Import Wallet</Text>
+              <Text style={styles.modalSubtitle}>Enter your private key and set a password to secure your wallet</Text>
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Private Key</Text>
+              <TextInput 
+                style={styles.input} 
+                placeholder="Enter your private key (base58)" 
+                value={privateKeyInput} 
+                onChangeText={setPrivateKeyInput} 
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput style={styles.input} placeholder="Min 8 characters" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" />
+            </View>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" />
+            </View>
+            <TouchableOpacity style={styles.actionButton} onPress={handleImportWallet} disabled={loading} activeOpacity={0.8}>
+              <LinearGradient colors={['#9C27B0', '#BA68C8']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Import Wallet</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
+        )}
+      </Animated.View>
     </Modal>
   );
 };

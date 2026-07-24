@@ -88,7 +88,7 @@ const playerStatsStyles = StyleSheet.create({
   },
   name: {
     fontSize: 20,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     letterSpacing: 2,
   },
@@ -119,7 +119,7 @@ const playerStatsStyles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     color: KA_COLORS.ivory,
-    fontWeight: '600',
+    
   },
   xpContainer: {
     marginTop: 10,

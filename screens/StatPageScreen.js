@@ -20,6 +20,7 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { SMP_MINT_ADDRESS, TREASURY_PUBLIC_KEY, RPC_URL, SMP_DECIMALS } from '../constants';
 import { styles } from '../styles/StatStyles';
+import { formatNumber } from '../utils/formatNumber';
 
 const { width } = Dimensions.get('window');
 const connection = new Connection(RPC_URL, 'confirmed');
@@ -442,18 +443,18 @@ const StatPageScreen = () => {
         <View style={styles.statGrid}>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Total Users</Text>
-            <Text style={styles.statValue}>{Number.isFinite(totalUsers) ? totalUsers.toLocaleString() : 'N/A'}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(totalUsers) ? formatNumber(totalUsers) : 'N/A'}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>SMP Rewards Bank</Text>
             <Text style={styles.statValue}>
-              {Number.isFinite(mintTreasuryBalance) ? mintTreasuryBalance.toLocaleString() : 'Loading...'}
+              {Number.isFinite(mintTreasuryBalance) ? formatNumber(mintTreasuryBalance) : 'Loading...'}
             </Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Total SMP Rewarded</Text>
             <Text style={styles.statValue}>
-              {Number.isFinite(rewardsWalletBalance) ? rewardsWalletBalance.toLocaleString() : 'Loading...'}
+              {Number.isFinite(rewardsWalletBalance) ? formatNumber(rewardsWalletBalance) : 'Loading...'}
             </Text>
           </View>
           <View style={styles.statCard}>
@@ -461,18 +462,18 @@ const StatPageScreen = () => {
             <Text style={styles.statValue}>
               {isWalletConnected
                 ? Number.isFinite(userSmpBalance.onChain) && Number.isFinite(userSmpBalance.offChain)
-                  ? `${userSmpBalance.onChain.toLocaleString()} (${userSmpBalance.offChain.toLocaleString()})`
+                  ? `${formatNumber(userSmpBalance.onChain)} (${formatNumber(userSmpBalance.offChain)})`
                   : 'Loading...'
                 : 'Connect Wallet'}
             </Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Total Novel Reads</Text>
-            <Text style={styles.statValue}>{Number.isFinite(totalNovelsRead) ? totalNovelsRead.toLocaleString() : 'N/A'}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(totalNovelsRead) ? formatNumber(totalNovelsRead) : 'N/A'}</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statTitle}>Avg Weekly Points</Text>
-            <Text style={styles.statValue}>{Number.isFinite(avgWeeklyPoints) ? avgWeeklyPoints.toFixed(2) : 'N/A'}</Text>
+            <Text style={styles.statValue}>{Number.isFinite(avgWeeklyPoints) ? formatNumber(avgWeeklyPoints) : 'N/A'}</Text>
           </View>
         </View>
 

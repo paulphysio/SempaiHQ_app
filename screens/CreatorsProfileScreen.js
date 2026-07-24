@@ -37,6 +37,7 @@ const CreatorsProfileScreen = () => {
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [showCreatorChoice, setShowCreatorChoice] = useState(false);
+  const [showBadgePurchaseModal, setShowBadgePurchaseModal] = useState(false);
   const editButtonScale = new Animated.Value(1);
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
@@ -253,6 +254,15 @@ const CreatorsProfileScreen = () => {
                     {isWriter && <UBBadge type="writer" size="small" />}
                     {isArtist && <UBBadge type="artist" size="small" />}
                   </View>
+                  {!isOwnProfile && walletReady && (
+                    <TouchableOpacity 
+                      style={styles.buyBadgeButton}
+                      onPress={() => setShowBadgePurchaseModal(true)}
+                    >
+                      <Icon name="cart" size={16} color="#fff" />
+                      <Text style={styles.buyBadgeButtonText}>Buy Badge</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
               <Text style={styles.bio}>{creatorData?.bio || 'No bio provided.'}</Text>
@@ -391,6 +401,51 @@ const CreatorsProfileScreen = () => {
               accessibilityLabel="Manga Creators Dashboard"
             >
               <Text style={styles.choiceButtonText}>Manga Creators Dashboard</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Badge Purchase Modal */}
+      <Modal
+        visible={showBadgePurchaseModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBadgePurchaseModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowBadgePurchaseModal(false)}
+            >
+              <Icon name="close" size={20} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Purchase Badge</Text>
+            <Text style={styles.modalMessage}>
+              Support {creatorData?.name || 'this creator'} by purchasing their badge.
+            </Text>
+            <View style={styles.badgeOptions}>
+              {isWriter && (
+                <TouchableOpacity style={styles.badgeOption}>
+                  <UBBadge type="writer" size="medium" />
+                  <Text style={styles.badgeOptionText}>Writer Badge</Text>
+                  <Text style={styles.badgePrice}>100 SMP</Text>
+                </TouchableOpacity>
+              )}
+              {isArtist && (
+                <TouchableOpacity style={styles.badgeOption}>
+                  <UBBadge type="artist" size="medium" />
+                  <Text style={styles.badgeOptionText}>Artist Badge</Text>
+                  <Text style={styles.badgePrice}>100 SMP</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: buttonColor }]}
+              onPress={() => setShowBadgePurchaseModal(false)}
+            >
+              <Text style={styles.modalButtonText}>Coming Soon</Text>
             </TouchableOpacity>
           </View>
         </View>

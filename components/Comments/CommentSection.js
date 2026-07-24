@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   title: {
     color: KA_COLORS.gold,
     fontSize: 20,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     letterSpacing: 1,
   },
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   commentUsername: {
     color: KA_COLORS.orangePrimary,
     fontSize: 14,
-    fontWeight: 'bold',
+    
   },
   commentTimestamp: {
     color: KA_COLORS.textMuted,
@@ -746,31 +746,30 @@ const CommentSection = ({ novelId, chapter }) => {
             </TouchableOpacity>
           </View>
         </View>
-        <FlatList
-          data={buildThread(comments)}
-          renderItem={({ item }) => (
-            <Comment
-              comment={item}
-              replies={item.replies}
-              addReply={addReply}
-              replyingTo={replyingTo}
-              cancelReply={cancelReply}
-              toggleRepliesVisibility={toggleRepliesVisibility}
-              areRepliesVisible={areRepliesVisible}
-              deleteComment={deleteComment}
-              currentUserId={currentUserId}
-              setNewComment={setNewComment}
-              newComment={newComment}
-              handleCommentSubmit={handleCommentSubmit}
-              chapter={chapter}
-            />
-          )}
-          keyExtractor={(item) => `comment-${item.id}`}
-          contentContainerStyle={styles.commentsContainer}
-          ListEmptyComponent={
+        <View style={styles.commentsContainer}>
+          {buildThread(comments).length === 0 ? (
             <Text style={styles.noComments}>No comments yet. Be the first!</Text>
-          }
-        />
+          ) : (
+            buildThread(comments).map((comment) => (
+              <Comment
+                key={`comment-${comment.id}`}
+                comment={comment}
+                replies={comment.replies}
+                addReply={addReply}
+                replyingTo={replyingTo}
+                cancelReply={cancelReply}
+                toggleRepliesVisibility={toggleRepliesVisibility}
+                areRepliesVisible={areRepliesVisible}
+                deleteComment={deleteComment}
+                currentUserId={currentUserId}
+                setNewComment={setNewComment}
+                newComment={newComment}
+                handleCommentSubmit={handleCommentSubmit}
+                chapter={chapter}
+              />
+            ))
+          )}
+        </View>
       </View>
     </View>
   );

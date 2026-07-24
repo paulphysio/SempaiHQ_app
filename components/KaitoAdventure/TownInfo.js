@@ -87,7 +87,7 @@ const townInfoStyles = StyleSheet.create({
   },
   townName: {
     fontSize: 18,
-    fontWeight: '700',
+    
     color: KA_COLORS.gold,
     letterSpacing: 2,
   },
@@ -122,7 +122,7 @@ const townInfoStyles = StyleSheet.create({
     marginTop: 8,
   },
   eventLabel: {
-    fontWeight: '700',
+    
     letterSpacing: 2,
     textTransform: 'uppercase',
     fontSize: 12,

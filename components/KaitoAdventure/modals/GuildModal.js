@@ -53,7 +53,7 @@ const guildModalStyles = StyleSheet.create({
   },
   contributeButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
   },
   noGuild: {

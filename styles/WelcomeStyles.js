@@ -36,7 +36,7 @@ export const styles = StyleSheet.create({
   title: {
     fontSize: width <= 480 ? 28 : 32,
     fontFamily: 'Yoruka',
-    fontWeight: '700',
+    
     color: '#F36316',
     textAlign: 'center',
     textShadowColor: 'rgba(243, 99, 22, 0.4)',

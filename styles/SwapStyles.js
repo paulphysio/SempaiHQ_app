@@ -24,7 +24,7 @@ export const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     color: '#ffffff',
     flex: 1,
     textAlign: 'center',
@@ -71,7 +71,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   swapForm: {
     alignItems: 'center',
@@ -79,7 +79,7 @@ export const styles = StyleSheet.create({
   formTitle: {
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     color: '#ffffff',
     marginBottom: 20,
   },
@@ -111,7 +111,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginBottom: 8,
   },
   input: {
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginLeft: 10,
   },
   buttonIcon: {
@@ -199,7 +199,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -223,7 +223,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   cancelButton: {
     backgroundColor: '#dc3545',
@@ -235,7 +235,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   tokenList: {
     maxHeight: 300,
@@ -277,7 +277,7 @@ export const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginBottom: 10,
   },
   actionButtons: {

@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 10, // Small text
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     marginLeft: 6,
   },
   panelContainer: {
@@ -77,7 +77,7 @@ export const styles = StyleSheet.create({
     color: '#F36316',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '500',
+    
     marginLeft: 8,
     flex: 1,
   },
@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   actionSection: {
     borderTopWidth: 1,
@@ -131,7 +131,7 @@ export const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
   },
   errorText: {
     color: '#FF4D4D',

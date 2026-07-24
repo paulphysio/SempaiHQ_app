@@ -504,10 +504,10 @@ const ProfileScreen = () => {
   const getBenefactorBadgeImage = () => {
     if (!isBenefactor) return null;
     const level = benefactorLevel?.toLowerCase();
-    if (level === 'gold') return require('../assets/plan-image/Gold.svg');
-    if (level === 'silver') return require('../assets/plan-image/Silver.svg');
-    if (level === 'blue') return require('../assets/plan-image/Blue.svg');
-    return require('../assets/plan-image/Black.svg');
+    if (level === 'gold') return require('../assets/plan-image/Gold.png');
+    if (level === 'silver') return require('../assets/plan-image/Sliver.png');
+    if (level === 'blue') return require('../assets/plan-image/Blue.png');
+    return require('../assets/plan-image/Black.png');
   };
 
   const getDashboardButtonProps = () => {

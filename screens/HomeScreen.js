@@ -23,7 +23,8 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
-import { styles } from '../styles/HomeStyles';
+import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP } from '../styles/HomeStyles';
+import { AnimatedPressable, useDelayedUnmount } from '../utils/homeAnimation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -69,11 +70,26 @@ const Home = () => {
   const waveAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(0)).current;
   const headerPulse = useRef(new Animated.Value(0)).current;
+  const badgePop = useRef(new Animated.Value(1)).current;
   const isMounted = useRef(true);
   const novelFlatListRef = useRef(null);
   const mangaFlatListRef = useRef(null);
   const novelIndexRef = useRef(0);
   const mangaIndexRef = useRef(0);
+
+  // Keeps dropdowns/overlay mounted long enough to play their exit
+  // animation instead of disappearing the instant state flips.
+  const overlayShouldRender = useDelayedUnmount(menuOpen, 300);
+  const notificationsShouldRender = useDelayedUnmount(showNotifications, 300);
+  const announcementsShouldRender = useDelayedUnmount(showAnnouncements, 300);
+  const walletMenuShouldRender = useDelayedUnmount(showWalletMenu, 250);
+  const authMenuShouldRender = useDelayedUnmount(showAuthMenu, 250);
+
+  const overlayOpacity = slideAnim.interpolate({
+    inputRange: [0, 280],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   // Feature cards
   const features = [
@@ -136,8 +152,20 @@ const Home = () => {
     };
   }, []);
 
+  // Pop the notification badge whenever the unread count goes up, instead
+  // of it just silently changing number.
+  useEffect(() => {
+    if (unreadCount > 0) {
+      badgePop.setValue(0.6);
+      Animated.spring(badgePop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
+    }
+  }, [unreadCount]);
+
   // Wallet dropdown handlers
   const toggleWalletMenu = () => {
+    if (showAnnouncements) { setShowAnnouncements(false); Animated.timing(announcementAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
+    if (showNotifications) { setShowNotifications(false); Animated.timing(notificationAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
+    if (showAuthMenu) { setShowAuthMenu(false); Animated.timing(authAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
     const toValue = showWalletMenu ? 0 : 1;
     Animated.timing(walletMenuAnim, { toValue, duration: 250, useNativeDriver: true }).start();
     setShowWalletMenu(!showWalletMenu);
@@ -599,11 +627,13 @@ const Home = () => {
     fetchManga();
   }, []);
 
-  // Toggle sidebar
+  // Toggle sidebar — spring instead of a flat timing curve, so it has a
+  // touch of natural overshoot/settle rather than a mechanical slide.
   const toggleMenu = () => {
-    Animated.timing(slideAnim, {
+    Animated.spring(slideAnim, {
       toValue: menuOpen ? 280 : 0,
-      duration: 300,
+      friction: 9,
+      tension: 65,
       useNativeDriver: true,
     }).start();
     setMenuOpen(!menuOpen);
@@ -728,19 +758,21 @@ const Home = () => {
     return () => clearInterval(interval);
   }, [manga.length]);
 
-  // Render novel/manga carousel item
-  const renderCarouselItem = ({ item, type }) => {
-    console.log(`Rendering ${type}:`, { id: item.id, title: item.title });
+  // Render novel/manga carousel item — poster-card layout. `index` drives
+  // the rank badge (only meaningful because both lists are pre-sorted by
+  // viewers before they ever reach this component).
+  const renderCarouselItem = ({ item, index, type }) => {
     if (!item.id) {
       console.warn(`Missing ID for ${type}: ${item.title}`);
       return null;
     }
+    const hasWriterCredit =
+      (type === 'novel' ? item.writer?.isWriter : item.writer?.isArtist) && item.writer?.name !== 'Unknown';
+
     return (
       <View style={styles.contentCard}>
-        <TouchableOpacity
-          activeOpacity={0.7}
+        <AnimatedPressable
           onPress={() => {
-            console.log(`Navigating to ${type} with ID: ${item.id}`);
             try {
               navigation.navigate(type === 'novel' ? 'NovelDetail' : 'MangaDetail', { id: item.id });
             } catch (error) {
@@ -751,46 +783,46 @@ const Home = () => {
           accessible={true}
           accessibilityLabel={`View ${item.title}`}
           accessibilityHint={`Navigate to ${type} details`}
+          scaleTo={0.96}
         >
-          <Image
-            source={{ uri: item.image || 'https://via.placeholder.com/260x200' }}
-            style={styles.contentImage}
-            defaultSource={{ uri: 'https://via.placeholder.com/260x200' }}
-          />
-          <View style={styles.contentOverlay}>
-            <Text style={styles.contentTitle} numberOfLines={1}>{item.title}</Text>
-            <Text style={styles.contentSummary} numberOfLines={2}>{item.summary || 'No summary available.'}</Text>
-            {item.isAdult && <Text style={styles.adultWarning}>Adult(18+)</Text>}
+          <View style={styles.contentImageWrap}>
+            <Image
+              source={{ uri: item.image || 'https://via.placeholder.com/260x340' }}
+              style={styles.contentImage}
+              defaultSource={{ uri: 'https://via.placeholder.com/260x340' }}
+            />
+            <View style={styles.rankBadge}>
+              <Text style={styles.rankBadgeText}>{index + 1}</Text>
+            </View>
+            <View style={styles.ratingFloatBadge}>
+              <FontAwesome5 name="star" size={9} color={HOME_COLORS.gold} />
+              <Text style={styles.ratingFloatText}>{item.averageRating}</Text>
+            </View>
+            {item.isAdult && (
+              <View style={styles.adultRibbon}>
+                <Text style={styles.adultWarning}>18+</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.contentInfo}>
+            <Text style={styles.contentTitle} numberOfLines={2}>{item.title}</Text>
             <View style={styles.contentStats}>
-              <Text style={styles.viewers}>
-                <FontAwesome5 name="eye" size={14} color="#fff" /> {item.viewers}
-              </Text>
-              <Text style={styles.rating}>
-                <FontAwesome5 name="star" size={14} color="#ffd700" /> {item.averageRating}
-              </Text>
+              {hasWriterCredit ? (
+                <View style={styles.writerName}>
+                  <FontAwesome5 name="feather-alt" size={10} color={HOME_COLORS.accent} style={styles.writerIcon} />
+                  <Text style={styles.writerNameText} numberOfLines={1}>{item.writer.name}</Text>
+                </View>
+              ) : (
+                <View />
+              )}
+              <View style={styles.statChip}>
+                <FontAwesome5 name="eye" size={10} color={HOME_COLORS.textMuted} />
+                <Text style={styles.viewers}>{item.viewers}</Text>
+              </View>
             </View>
           </View>
-        </TouchableOpacity>
-        {(type === 'novel' ? item.writer?.isWriter : item.writer?.isArtist) && item.writer?.name !== 'Unknown' && (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.writerName}
-            onPress={() => {
-              if (item.user_id) {
-                console.log(`Navigating to CreatorsProfile with ID: ${item.user_id}`);
-                navigation.navigate('CreatorsProfile', { id: item.user_id });
-              } else {
-                console.warn(`Missing user_id for ${type}: ${item.title}`);
-              }
-            }}
-            accessible={true}
-            accessibilityLabel={`View profile of ${item.writer.name}`}
-            accessibilityHint={`Navigate to ${type === 'novel' ? 'writer' : 'artist'} profile`}
-          >
-            <FontAwesome5 name="feather-alt" size={14} color="#fff" style={styles.writerIcon} />
-            <Text style={styles.writerNameText}>{item.writer.name}</Text>
-          </TouchableOpacity>
-        )}
+        </AnimatedPressable>
       </View>
     );
   };
@@ -804,10 +836,7 @@ const Home = () => {
         {item.novels && (
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => {
-              console.log(`Navigating to Novel with ID: ${item.novels.id}`);
-              navigation.navigate('NovelDetail', { id: item.novels.id });
-            }}
+            onPress={() => navigation.navigate('NovelDetail', { id: item.novels.id })}
           >
             <Text style={styles.announcementLink}>{item.novels.title}</Text>
           </TouchableOpacity>
@@ -827,7 +856,6 @@ const Home = () => {
       style={styles.notificationItem}
       onPress={() => {
         if (item.novel_id) {
-          console.log(`Navigating to Novel with ID: ${item.novel_id}`);
           navigation.navigate('NovelDetail', { id: item.novel_id });
         }
       }}
@@ -884,7 +912,6 @@ const Home = () => {
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           onPress={() => {
-            console.log(`Navigating to ${item.path}`);
             if (item.requiresWallet && !isWalletConnected) {
               Alert.alert('Wallet Required', 'Please connect your wallet.');
             } else {
@@ -897,11 +924,13 @@ const Home = () => {
             style={[styles.featureImage, item.title === 'Google Sign-In' && styles.googleSignInImage]}
             defaultSource={require('../assets/default-feature.png')}
           />
+          <LinearGradient colors={HOME_GRADIENTS.featureImage} style={styles.featureImageGradient} pointerEvents="none" />
           <View style={styles.featureOverlay}>
             <Text style={styles.featureTitle} numberOfLines={1}>{item.title}</Text>
             {item.requiresWallet && (
               <View style={styles.premiumBadge}>
-                <Text style={styles.premiumBadgeText}></Text>
+                <FontAwesome5 name="lock" size={9} color="#fff" />
+                <Text style={styles.premiumBadgeText}>Wallet</Text>
               </View>
             )}
           </View>
@@ -909,6 +938,22 @@ const Home = () => {
       </Animated.View>
     );
   };
+
+  // Section header with accent bar + optional "See all" action.
+  const SectionHeader = ({ title, onSeeAll }) => (
+    <View style={styles.sectionHeaderRow}>
+      <View style={styles.sectionHeaderLeft}>
+        <View style={styles.sectionAccentBar} />
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      {onSeeAll && (
+        <AnimatedPressable style={styles.sectionSeeAll} onPress={onSeeAll} scaleTo={0.93}>
+          <Text style={styles.sectionSeeAllText}>See all</Text>
+          <FontAwesome5 name="chevron-right" size={9} color={HOME_COLORS.textSecondary} />
+        </AnimatedPressable>
+      )}
+    </View>
+  );
 
   // Update the sidebar rendering part of the Home component
 
@@ -1014,33 +1059,33 @@ const Home = () => {
         >
           {navGroups.filter(group => !group.condition || group.condition).map((group, groupIndex) => (
             <View key={groupIndex} style={styles.navGroup}>
-              <TouchableOpacity
+              <AnimatedPressable
                 style={styles.navGroupButton}
                 onPress={() => toggleDropdown(groupIndex)}
-                activeOpacity={0.7}
+                scaleTo={0.98}
               >
-                <FontAwesome5 name={group.icon} size={16} color="#FF5733" style={styles.navIcon} />
+                <FontAwesome5 name={group.icon} size={16} color={HOME_COLORS.accent} style={styles.navIcon} />
                 <Text style={styles.navGroupText}>{group.title}</Text>
                 <FontAwesome5 
                   name={activeDropdown === groupIndex ? 'chevron-up' : 'chevron-down'} 
                   size={12} 
-                  color="#FF5733" 
+                  color={HOME_COLORS.accent} 
                   style={styles.dropdownIcon} 
                 />
-              </TouchableOpacity>
+              </AnimatedPressable>
               
               {activeDropdown === groupIndex && (
                 <View style={styles.dropdown}>
                   {group.items.filter(item => !item.condition || item.condition).map((item, itemIndex) => (
-                    <TouchableOpacity
+                    <AnimatedPressable
                       key={itemIndex}
                       style={styles.dropdownItem}
                       onPress={() => navigateToScreen(item.screen)}
-                      activeOpacity={0.7}
+                      scaleTo={0.97}
                     >
-                      <FontAwesome5 name={item.icon} size={14} color="#FF5733" style={styles.navIcon} />
+                      <FontAwesome5 name={item.icon} size={14} color={HOME_COLORS.accent} style={styles.navIcon} />
                       <Text style={styles.dropdownItemText}>{item.name}</Text>
-                    </TouchableOpacity>
+                    </AnimatedPressable>
                   ))}
                 </View>
               )}
@@ -1052,6 +1097,9 @@ const Home = () => {
       </View>
     );
   };
+
+  const walletAddress = wallet?.publicKey?.toString();
+  const walletLabel = walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : 'Connect';
 
   return (
     <View style={styles.container}>
@@ -1096,6 +1144,66 @@ const Home = () => {
         <View style={styles.circle3} />
       </View>
 
+      {/* Header */}
+      {/* <View style={styles.header}>
+        <View style={styles.brand}>
+          <Image
+            source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
+            style={styles.brandLogo}
+          />
+          <Text style={styles.brandText}>SEMPAI</Text>
+        </View>
+
+        <View style={styles.headerRight}>
+          <View style={styles.headerActions}>
+            <View style={styles.announcementToggleWrapper}>
+              <AnimatedPressable style={styles.headerAction} onPress={toggleAnnouncements} accessible accessibilityLabel="Announcements" scaleTo={0.88}>
+                <FontAwesome5 name="bullhorn" size={15} color="#fff" />
+                {announcements.length > 0 && (
+                  <View style={styles.headerBadge}>
+                    <Text style={styles.headerBadgeText}>{announcements.length > 9 ? '9+' : announcements.length}</Text>
+                  </View>
+                )}
+              </AnimatedPressable>
+            </View>
+
+            <View style={styles.notificationWrapper}>
+              <AnimatedPressable style={styles.headerAction} onPress={toggleNotifications} accessible accessibilityLabel="Notifications" scaleTo={0.88}>
+                <FontAwesome5 name="bell" size={15} color="#fff" />
+                {unreadCount > 0 && (
+                  <Animated.View style={[styles.headerBadge, { transform: [{ scale: badgePop }] }]}>
+                    <Text style={styles.headerBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                  </Animated.View>
+                )}
+              </AnimatedPressable>
+            </View>
+          </View>
+
+          <View style={styles.headerAuthRow}>
+            {session ? (
+              <AnimatedPressable style={styles.signOutBtn} onPress={() => signOut?.()} scaleTo={0.94}>
+                <FontAwesome5 name="sign-out-alt" size={12} color={HOME_COLORS.accent} />
+                <Text style={styles.signOutText}>Sign Out</Text>
+              </AnimatedPressable>
+            ) : (
+              <AnimatedPressable style={styles.headerSignInBtn} onPress={toggleAuthMenu} scaleTo={0.94}>
+                <FontAwesome5 name="google" size={12} color={HOME_COLORS.accent} />
+                <Text style={styles.headerSignInText}>Sign In</Text>
+              </AnimatedPressable>
+            )}
+
+            <AnimatedPressable style={styles.headerWalletBtn} onPress={toggleWalletMenu} scaleTo={0.94}>
+              <FontAwesome5 name="wallet" size={12} color="#fff" />
+              <Text style={styles.headerWalletText}>{walletLabel}</Text>
+            </AnimatedPressable>
+          </View>
+
+          <AnimatedPressable style={styles.menuButton} onPress={toggleMenu} accessible accessibilityLabel="Open menu" scaleTo={0.88}>
+            <FontAwesome5 name="bars" size={16} color="#fff" />
+          </AnimatedPressable>
+        </View>
+      </View> */}
+
       {/* Main content */}
       <ScrollView
         style={styles.scrollContainer}
@@ -1104,6 +1212,14 @@ const Home = () => {
         bounces={false}
       >
         <View style={styles.heroSection}>
+          <Animated.Text
+            style={[
+              styles.heroEyebrow,
+              { opacity: heroTextAnim },
+            ]}
+          >
+            Novels • Manga • On-chain rewards
+          </Animated.Text>
           <Animated.Text
             style={[
               styles.heroTitle,
@@ -1116,30 +1232,32 @@ const Home = () => {
             Discover Epic Stories
           </Animated.Text>
           <View style={styles.heroButtons}>
-            <TouchableOpacity
-              activeOpacity={0.7}
+            <AnimatedPressable
               style={styles.heroButton}
               onPress={() => handleNavigation('NovelsPage', {})}
               accessible={true}
               accessibilityLabel="Explore novels"
+              scaleTo={0.94}
             >
+              <FontAwesome5 name="book" size={12} color="#fff" />
               <Text style={styles.heroButtonText}>Novels</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
+            </AnimatedPressable>
+            <AnimatedPressable
               style={styles.heroButton}
               onPress={() => handleNavigation('MangaPage', {})}
               accessible={true}
               accessibilityLabel="Explore manga"
+              scaleTo={0.94}
             >
+              <FontAwesome5 name="images" size={12} color="#fff" />
               <Text style={styles.heroButtonText}>Manga</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         </View>
 
         {loading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF5733" />
+            <ActivityIndicator size="large" color={HOME_COLORS.accent} />
             <Text style={styles.loadingText}>Loading...</Text>
           </View>
         ) : error ? (
@@ -1150,18 +1268,18 @@ const Home = () => {
           <>
             {/* Novels section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Featured Novels</Text>
+              <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
               {novels.length === 0 ? (
                 <Text style={styles.noContent}>No novels available.</Text>
               ) : (
                 <FlatList
                   ref={novelFlatListRef}
                   data={novels}
-                  renderItem={({ item }) => renderCarouselItem({ item, type: 'novel' })}
+                  renderItem={({ item, index }) => renderCarouselItem({ item, index, type: 'novel' })}
                   keyExtractor={item => `novel-${item.id}`}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  snapToInterval={276}
+                  snapToInterval={CARD_STEP}
                   decelerationRate="fast"
                   contentContainerStyle={styles.carouselContainer}
                   removeClippedSubviews={false}
@@ -1172,18 +1290,18 @@ const Home = () => {
 
             {/* Manga section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Featured Manga</Text>
+              <SectionHeader title="Featured Manga" onSeeAll={() => handleNavigation('MangaPage', {})} />
               {manga.length === 0 ? (
                 <Text style={styles.noContent}>No manga available.</Text>
               ) : (
                 <FlatList
                   ref={mangaFlatListRef}
                   data={manga}
-                  renderItem={({ item }) => renderCarouselItem({ item, type: 'manga' })}
+                  renderItem={({ item, index }) => renderCarouselItem({ item, index, type: 'manga' })}
                   keyExtractor={item => `manga-${item.id}`}
                   horizontal
                   showsHorizontalScrollIndicator={false}
-                  snapToInterval={276}
+                  snapToInterval={CARD_STEP}
                   decelerationRate="fast"
                   contentContainerStyle={styles.carouselContainer}
                   removeClippedSubviews={false}
@@ -1194,7 +1312,7 @@ const Home = () => {
 
             {/* Features section */}
             <View style={styles.featuresSection}>
-              <Text style={styles.sectionTitle}>Explore More</Text>
+              <SectionHeader title="Explore More" />
               {features.length === 0 ? (
                 <Text style={styles.noContent}>No features available.</Text>
               ) : (
@@ -1213,7 +1331,7 @@ const Home = () => {
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}> 2025 SempaiHQ. All rights reserved.</Text>
+          <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
         </View>
       </ScrollView>
 
@@ -1222,19 +1340,25 @@ const Home = () => {
         {renderSidebarContent()}
       </Animated.View>
 
-      {/* Sidebar overlay */}
-      {menuOpen && (
-        <TouchableOpacity
-          style={styles.overlay}
-          onPress={toggleMenu}
-          activeOpacity={0.7}
-          accessible={true}
-          accessibilityLabel="Close menu"
-        />
+      {/* Sidebar overlay — fades with the sidebar's own slide position and
+          stays mounted long enough to finish fading before it unmounts. */}
+      {overlayShouldRender && (
+        <Animated.View
+          style={[styles.overlay, { opacity: overlayOpacity }]}
+          pointerEvents={menuOpen ? 'auto' : 'none'}
+        >
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            onPress={toggleMenu}
+            activeOpacity={1}
+            accessible={true}
+            accessibilityLabel="Close menu"
+          />
+        </Animated.View>
       )}
 
       {/* Notifications dropdown */}
-      {showNotifications && (
+      {notificationsShouldRender && (
         <Animated.View
           style={[
             styles.notificationDropdown,
@@ -1255,15 +1379,14 @@ const Home = () => {
                 style={styles.notificationList}
               />
               {unreadCount > 0 && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
+                <AnimatedPressable
                   style={styles.markReadButton}
                   onPress={markNotificationsRead}
                   accessible={true}
                   accessibilityLabel="Mark all notifications as read"
                 >
                   <Text style={styles.markReadButtonText}>Mark All as Read</Text>
-                </TouchableOpacity>
+                </AnimatedPressable>
               )}
             </>
           )}
@@ -1271,7 +1394,7 @@ const Home = () => {
       )}
 
       {/* Header Wallet dropdown (root-level for layering) */}
-      {showWalletMenu && (
+      {walletMenuShouldRender && (
         <Animated.View
           style={[
             styles.headerWalletDropdown,
@@ -1283,44 +1406,59 @@ const Home = () => {
         >
           {wallet?.publicKey ? (
             <>
-              <TouchableOpacity style={styles.headerWalletItem} activeOpacity={0.8} onPress={copyWalletAddress}>
+              <AnimatedPressable style={styles.headerWalletItem} onPress={copyWalletAddress} scaleTo={0.97}>
                 <FontAwesome5 name="copy" size={14} color="#fff" />
                 <Text style={styles.headerWalletItemText}>Copy address</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
               <View style={styles.headerWalletDivider} />
-              <TouchableOpacity style={styles.headerWalletItem} activeOpacity={0.8} onPress={() => { setShowWalletMenu(false); handleNavigation('Wallet'); }}>
+              <AnimatedPressable style={styles.headerWalletItem} onPress={() => { setShowWalletMenu(false); handleNavigation('Wallet'); }} scaleTo={0.97}>
                 <FontAwesome5 name="external-link-alt" size={14} color="#fff" />
                 <Text style={styles.headerWalletItemText}>Open wallet</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
               <View style={styles.headerWalletDivider} />
-              <TouchableOpacity style={styles.headerWalletItem} activeOpacity={0.8} onPress={async () => { try { await disconnectWallet?.(); } finally { setShowWalletMenu(false); } }}>
+              <AnimatedPressable style={styles.headerWalletItem} onPress={async () => { try { await disconnectWallet?.(); } finally { setShowWalletMenu(false); } }} scaleTo={0.97}>
                 <FontAwesome5 name="unlink" size={14} color="#ff9b82" />
                 <Text style={[styles.headerWalletItemText, { color: '#ff9b82' }]}>Disconnect</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             </>
           ) : (
-            <>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.headerWalletItem, { justifyContent: 'center' }]}
-                onPress={() => {
-                  setShowWalletMenu(false);
-                  setWalletModalMode('choose');
-                  setWalletPassword('');
-                  setWalletPassword2('');
-                  setWalletModalError(null);
-                  setShowWalletConnectModal(true);
-                }}
-              >
-                <Text style={styles.headerWalletItemText}>Connect</Text>
-              </TouchableOpacity>
-            </>
+            <AnimatedPressable
+              style={[styles.headerWalletItem, { justifyContent: 'center' }]}
+              onPress={() => {
+                setShowWalletMenu(false);
+                setWalletModalMode('choose');
+                setWalletPassword('');
+                setWalletPassword2('');
+                setWalletModalError(null);
+                setShowWalletConnectModal(true);
+              }}
+              scaleTo={0.97}
+            >
+              <Text style={styles.headerWalletItemText}>Connect</Text>
+            </AnimatedPressable>
           )}
         </Animated.View>
       )}
 
+      {/* Auth dropdown */}
+      {authMenuShouldRender && (
+        <Animated.View
+          style={[
+            styles.authDropdown,
+            {
+              opacity: authAnim,
+              transform: [{ translateY: authAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+            },
+          ]}
+        >
+          <View style={styles.authItem}>
+            <GoogleSignInButton />
+          </View>
+        </Animated.View>
+      )}
+
       {/* Announcements dropdown */}
-      {showAnnouncements && (
+      {announcementsShouldRender && (
         <Animated.View
           style={[
             styles.announcementDropdown,
@@ -1330,15 +1468,15 @@ const Home = () => {
             },
           ]}
         >
-          <TouchableOpacity
-            activeOpacity={0.7}
+          <AnimatedPressable
             style={styles.closeAnnouncementButton}
             onPress={toggleAnnouncements}
             accessible={true}
             accessibilityLabel="Close announcements"
+            scaleTo={0.85}
           >
-            <FontAwesome5 name="times" size={20} color="#fff" />
-          </TouchableOpacity>
+            <FontAwesome5 name="times" size={16} color="#fff" />
+          </AnimatedPressable>
           {announcements.length === 0 ? (
             <Text style={styles.noAnnouncements}>No announcements</Text>
           ) : (
@@ -1353,11 +1491,10 @@ const Home = () => {
       )}
 
       {/* Dashboard selection modal */}
-      <Modal isVisible={showDashboardPopup} onBackdropPress={() => setShowDashboardPopup(false)}>
+      <Modal isVisible={showDashboardPopup} onBackdropPress={() => setShowDashboardPopup(false)} useNativeDriver>
         <View style={styles.popupContainer}>
           <Text style={styles.popupTitle}>Choose Your Dashboard</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
+          <AnimatedPressable
             style={styles.popupButton}
             onPress={() => {
               setShowDashboardPopup(false);
@@ -1367,9 +1504,8 @@ const Home = () => {
             accessibilityLabel="Open Writer's Dashboard"
           >
             <Text style={styles.popupButtonText}>Writer's Dashboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
+          </AnimatedPressable>
+          <AnimatedPressable
             style={styles.popupButton}
             onPress={() => {
               setShowDashboardPopup(false);
@@ -1379,46 +1515,33 @@ const Home = () => {
             accessibilityLabel="Open Artist's Dashboard"
           >
             <Text style={styles.popupButtonText}>Artist's Dashboard</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.7}
+          </AnimatedPressable>
+          <AnimatedPressable
             style={styles.popupCancelButton}
             onPress={() => setShowDashboardPopup(false)}
             accessible={true}
             accessibilityLabel="Cancel dashboard selection"
           >
             <Text style={styles.popupCancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
+          </AnimatedPressable>
         </View>
       </Modal>
 
       {/* Wallet connect modal */}
-      <Modal isVisible={showWalletConnectModal} onBackdropPress={() => setShowWalletConnectModal(false)}>
+      <Modal isVisible={showWalletConnectModal} onBackdropPress={() => setShowWalletConnectModal(false)} useNativeDriver>
         <View style={styles.popupContainer}>
           {walletModalMode === 'choose' && (
             <>
               <Text style={styles.popupTitle}>Connect Wallet</Text>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.popupButton}
-                onPress={() => setWalletModalMode('create')}
-              >
+              <AnimatedPressable style={styles.popupButton} onPress={() => setWalletModalMode('create')}>
                 <Text style={styles.popupButtonText}>Create New Wallet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.popupButton}
-                onPress={() => setWalletModalMode('retrieve')}
-              >
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.popupButton} onPress={() => setWalletModalMode('retrieve')}>
                 <Text style={styles.popupButtonText}>Retrieve Existing Wallet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.popupCancelButton}
-                onPress={() => setShowWalletConnectModal(false)}
-              >
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.popupCancelButton} onPress={() => setShowWalletConnectModal(false)}>
                 <Text style={styles.popupCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             </>
           )}
 
@@ -1446,8 +1569,7 @@ const Home = () => {
                 value={walletPassword2}
                 onChangeText={setWalletPassword2}
               />
-              <TouchableOpacity
-                activeOpacity={0.8}
+              <AnimatedPressable
                 style={styles.popupButton}
                 onPress={async () => {
                   try {
@@ -1479,14 +1601,10 @@ const Home = () => {
                 <Text style={styles.popupButtonText}>
                   {walletModalMode === 'create' ? 'Create Wallet' : 'Retrieve Wallet'}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.popupCancelButton}
-                onPress={() => setWalletModalMode('choose')}
-              >
+              </AnimatedPressable>
+              <AnimatedPressable style={styles.popupCancelButton} onPress={() => setWalletModalMode('choose')}>
                 <Text style={styles.popupCancelButtonText}>Back</Text>
-              </TouchableOpacity>
+              </AnimatedPressable>
             </>
           )}
         </View>

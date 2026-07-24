@@ -41,7 +41,7 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginTop: 15,
     fontFamily: 'Yoruka',
@@ -127,7 +127,7 @@ export const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },

@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: '600',
+    
     color: '#333333',
     marginBottom: 12,
     textAlign: 'center',
@@ -55,7 +55,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#FFFFFF',
-    fontWeight: '500',
+    
   },
   secondaryButton: {
     backgroundColor: 'transparent',
@@ -71,6 +71,6 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     color: '#007AFF',
-    fontWeight: '500',
+    
   },
 });

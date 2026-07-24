@@ -34,7 +34,7 @@ export const styles = StyleSheet.create({
     color: '#FF5252',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -74,7 +74,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   navRight: {
     flexDirection: 'row',
@@ -119,7 +119,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -151,7 +151,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 5,
   },
   summaryText: {
@@ -168,7 +168,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 20,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
     marginBottom: 15,
   },
   chapterGrid: {
@@ -245,7 +245,7 @@ export const styles = StyleSheet.create({
     marginBottom: 5,
   },
   bold: {
-    fontWeight: 'bold',
+    
   },
   withdrawButton: {
     backgroundColor: '#F36316',
@@ -257,7 +257,7 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
   footer: {
     padding: 20,
@@ -280,6 +280,6 @@ export const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    fontWeight: 'bold',
+    
   },
 });

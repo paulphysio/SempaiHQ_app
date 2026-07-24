@@ -43,6 +43,7 @@ import WalletScreen from './screens/WalletScreen';
 import GlobalNavbar from './components/GlobalNavbar';
 import GlobalBottomNav from './components/GlobalBottomNav';
 import GlobalSidebar from './components/GlobalSidebar';
+import NavigationLoadingOverlay from './components/NavigationLoadingOverlay';
 import FeedScreen from './screens/FeedScreen';
 import RampScreen from './screens/RampScreen';
 import MarketplaceScreen from './screens/MarketplaceScreen';
@@ -72,17 +73,16 @@ const Stack = createStackNavigator();
 // Create global text styles
 const globalTextStyles = StyleSheet.create({
   default: {
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     color: '#FFFFFF',
   },
   title: {
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     fontSize: 24,
-    fontWeight: 'bold',
     color: '#FFFFFF',
   },
   subtitle: {
-    fontFamily: 'AnimeAce',
+    fontFamily: 'Yoruka',
     fontSize: 18,
     color: '#CCCCCC',
   }
@@ -152,6 +152,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentRoute, setCurrentRoute] = useState(null);
+  const [isNavigating, setIsNavigating] = useState(false);
   const navigationRef = useNavigationContainerRef();
 
   useNavigationHandler(() => {
@@ -163,6 +164,15 @@ const AppContent = ({ setIsStatusBarHidden }) => {
     const unsubscribe = navigationRef?.addListener('state', (e) => {
       const route = e.data.state?.routes[e.data.state.index];
       setCurrentRoute(route?.name);
+      setIsNavigating(false);
+    });
+    return unsubscribe;
+  }, [navigationRef]);
+
+  // Add navigation listener for loading state
+  useEffect(() => {
+    const unsubscribe = navigationRef?.addListener('beforeRemove', () => {
+      setIsNavigating(true);
     });
     return unsubscribe;
   }, [navigationRef]);
@@ -172,17 +182,17 @@ const AppContent = ({ setIsStatusBarHidden }) => {
       try {
         await Promise.race([
           Font.loadAsync({
-            AnimeAce: require('./assets/fonts/animeace.ttf'),
+            Yoruka: require('./assets/fonts/Yoruka-1j9rL.ttf'),
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Font load timeout')), 10000)),
         ]);
         setFontsLoaded(true);
-        console.log('AnimeAce font loaded successfully');
+        console.log('Yoruka font loaded successfully');
       } catch (error) {
-        console.error('Error loading AnimeAce font:', error.message);
+        console.error('Error loading Yoruka font:', error.message);
         Alert.alert(
           'Font Error',
-          'Failed to load AnimeAce font. Using system font as fallback.',
+          'Failed to load Yoruka font. Using system font as fallback.',
           [{ text: 'OK' }]
         );
         setFontsLoaded(true); // Proceed even if font fails
@@ -310,6 +320,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
           isVisible={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
+        <NavigationLoadingOverlay visible={isNavigating} />
       </View>
     </NavigationContainer>
   );

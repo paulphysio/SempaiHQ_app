@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: '700',
+    
     color: '#ffffff',
     marginBottom: 24,
   },
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
     letterSpacing: 0.12,
     marginBottom: 8,
@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   tokenName: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '500',
+    
   },
   dropdownArrow: {
     marginLeft: 'auto',
@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
   },
   balanceLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    
     textTransform: 'uppercase',
     letterSpacing: 0.12,
     marginBottom: 4,
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   },
   balanceAmount: {
     fontSize: 18,
-    fontWeight: '700',
+    
     color: '#ffffff',
   },
   errorText: {
@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
   sendButtonText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '600',
+    
   },
   tokenList: {
     maxHeight: 300,
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    
   },
   cancelButton: {
     backgroundColor: '#dc3545',
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+    
   },
 });
 

@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 // Constants
 const SMP_MINT_ADDRESS = "SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor";
 const USDC_MINT_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const SKR_MINT_ADDRESS = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -68,10 +69,10 @@ serve(async (req) => {
     const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(jwt.split(".")[1])));
     if (typeof jwtBody?.email !== "string") throw new Error("JWT missing email");
 
-    const { novelId, chapterId, paymentType, currency, signature, transactionId } = await req.json();
+    const { novelId, chapterId, paymentType, currency, signature, transactionId, walletAddress } = await req.json();
 
-    if (!novelId || !chapterId || !paymentType || !currency || !signature) {
-      throw new Error("Missing required fields (novelId, chapterId, paymentType, currency, signature)");
+    if (!novelId || !chapterId || !paymentType || !currency || !signature || !walletAddress) {
+      throw new Error("Missing required fields (novelId, chapterId, paymentType, currency, signature, walletAddress)");
     }
 
     // Parallel DB fetches
@@ -126,19 +127,22 @@ serve(async (req) => {
     let paymentAmount = 0;
     let paymentMint = null;
 
+    // Fetch prices for token currencies
+    const prices = await getPrices(currency);
+
     if (currency === "USDC") {
       paymentMint = USDC_MINT_ADDRESS;
       paymentAmount = Math.floor(usdAmount * 1e6);
+    } else if (currency === "SKR") {
+      paymentMint = SKR_MINT_ADDRESS;
+      paymentAmount = Math.floor(usdAmount * prices.smpPerUsd * 1e6); // Using same decimals as SMP
+    } else if (currency === "SOL") {
+      paymentAmount = Math.floor(usdAmount * prices.solPerUsd * 1e9);
+    } else if (currency === "SMP") {
+      paymentMint = SMP_MINT_ADDRESS;
+      paymentAmount = Math.floor(usdAmount * prices.smpPerUsd * 1e6);
     } else {
-      const prices = await getPrices(currency);
-      if (currency === "SOL") {
-        paymentAmount = Math.floor(usdAmount * prices.solPerUsd * 1e9);
-      } else if (currency === "SMP") {
-        paymentMint = SMP_MINT_ADDRESS;
-        paymentAmount = Math.floor(usdAmount * prices.smpPerUsd * 1e6);
-      } else {
-        throw new Error(`Invalid currency: ${currency}`);
-      }
+      throw new Error(`Invalid currency: ${currency}`);
     }
 
     // Record payment
@@ -146,7 +150,7 @@ serve(async (req) => {
       const { error: insertError } = await supabaseAdmin
         .from("chapter_payments")
         .insert({
-          wallet_address: jwtBody.email,
+          wallet_address: walletAddress,
           novel_id: novelId,
           chapter_number: parseInt(chapterId, 10),
           payment_type: paymentType,
@@ -164,7 +168,7 @@ serve(async (req) => {
           const { data: existingPayment } = await supabaseAdmin
             .from("chapter_payments")
             .select("*")
-            .eq("wallet_address", jwtBody.email)
+            .eq("wallet_address", walletAddress)
             .eq("novel_id", novelId)
             .eq("chapter_number", parseInt(chapterId, 10))
             .single();

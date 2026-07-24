@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontFamily: 'AnimeAce',
     fontSize: 28,
-    fontWeight: '900',
+    
     color: '#1A1A1A',
     marginBottom: 16,
     textShadowColor: 'rgba(255, 69, 0, 0.5)',
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 28,
     lineHeight: 26,
-    fontWeight: '600',
+    
     textShadowColor: 'rgba(255, 147, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4,
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 51, 51, 0.2)',
     padding: 10,
     borderRadius: 10,
-    fontWeight: '600',
+    
   },
   googleButtonContainer: {
     width: '100%',
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   googleButtonText: {
     fontFamily: 'AnimeAce',
     fontSize: 18,
-    fontWeight: '800',
+    
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 2, height: 2 },
@@ -437,7 +437,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontFamily: 'AnimeAce',
     fontSize: 17,
-    fontWeight: '700',
+    
     color: '#FF4500',
     textShadowColor: 'rgba(255, 69, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },

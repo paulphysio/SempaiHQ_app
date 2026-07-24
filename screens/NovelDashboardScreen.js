@@ -7,20 +7,21 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
-  FlatList,
+  ScrollView,
   ActivityIndicator,
   Image,
   Alert,
   KeyboardAvoidingView,
-  TouchableWithoutFeedback,
-  Keyboard,
   StyleSheet,
   Dimensions,
   Animated,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Modal from 'react-native-modal';
-import DraggableFlatList from 'react-native-draggable-flatlist';
+import {
+  NestableScrollContainer,
+  NestableDraggableFlatList,
+} from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
@@ -169,7 +170,6 @@ const NovelDashboardScreen = () => {
   const [writers, setWriters] = useState([]);
   const [editChapterIndex, setEditChapterIndex] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
   const [announcementReleaseDate, setAnnouncementReleaseDate] = useState({
@@ -185,6 +185,8 @@ const NovelDashboardScreen = () => {
   const [chapterToDelete, setChapterToDelete] = useState(null);
   const [showNovelDeleteConfirm, setShowNovelDeleteConfirm] = useState(false);
   const [novelToDelete, setNovelToDelete] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const chapterTitleRef = useRef(null);
   const emberAnims = useRef([]);
 
@@ -197,7 +199,7 @@ const NovelDashboardScreen = () => {
       duration: 6 + Math.random() * 4,
     }));
     emberAnims.current = embers.map(() => new Animated.Value(0));
-    
+
     emberAnims.current.forEach((anim, index) => {
       Animated.loop(
         Animated.sequence([
@@ -211,12 +213,6 @@ const NovelDashboardScreen = () => {
       ).start();
     });
   }, []);
-
-  // Debug state changes for chapter title and content
-  useEffect(() => {
-    console.log('Chapter Title:', newChapterTitle);
-    console.log('Chapter Content:', newChapterContent);
-  }, [newChapterTitle, newChapterContent]);
 
   // Focus the chapter title input when editing a chapter
   useEffect(() => {
@@ -279,7 +275,6 @@ const NovelDashboardScreen = () => {
 
       const { data, error } = await query;
       if (error) throw new Error(error.message);
-      console.log('Fetched novels:', data);
       setNovelsList(data || []);
     } catch (err) {
       console.error('Error fetching novels:', err.message);
@@ -337,11 +332,7 @@ const NovelDashboardScreen = () => {
         quality: 1,
       });
 
-      console.log('Image Picker Response:', response);
-      if (response.canceled) {
-        console.log('Image selection cancelled');
-        return;
-      }
+      if (response.canceled) return;
       if (response.errorCode) {
         Alert.alert('Error', `Image selection failed: ${response.errorMessage}`);
         return;
@@ -354,7 +345,6 @@ const NovelDashboardScreen = () => {
         };
         setNovelImage(file);
         setNovelImageUrl(file.uri);
-        console.log('Image selected:', file);
       }
     } catch (err) {
       console.error('Error in handleImageChange:', err.message);
@@ -433,8 +423,13 @@ const NovelDashboardScreen = () => {
   };
 
   const handleEditChapter = (index) => {
-    console.log('handleEditChapter called with index:', index);
-    if (index === undefined || index === null || index < 0 || index >= chapterTitles.length || index >= chapterContents.length) {
+    if (
+      index === undefined ||
+      index === null ||
+      index < 0 ||
+      index >= chapterTitles.length ||
+      index >= chapterContents.length
+    ) {
       console.error('Invalid chapter index:', index, {
         chapterTitlesLength: chapterTitles.length,
         chapterContentsLength: chapterContents.length,
@@ -450,11 +445,6 @@ const NovelDashboardScreen = () => {
       is_advance: false,
       free_release_date: null,
     };
-
-    console.log('Editing chapter:', { index, title, content, advanceInfo });
-    if (!title || !content) {
-      console.warn('Chapter data is empty:', { title, content });
-    }
 
     setNewChapterTitle(title);
     setNewChapterContent(content);
@@ -504,7 +494,6 @@ const NovelDashboardScreen = () => {
       return;
     }
 
-    console.log('handleDragEnd data:', data);
     const newTitles = data.map((item) => item.title);
     const newContents = data.map((item) => item.content);
     const newAdvanceChapters = data.map((item, newIndex) => {
@@ -519,7 +508,6 @@ const NovelDashboardScreen = () => {
       };
     });
 
-    console.log('After drag:', { newTitles, newContents, newAdvanceChapters });
     setChapterTitles(newTitles);
     setChapterContents(newContents);
     setAdvanceChapters(newAdvanceChapters);
@@ -530,18 +518,17 @@ const NovelDashboardScreen = () => {
       Alert.alert('Error', 'You can only edit your own novels unless you are a superuser.');
       return;
     }
-    const chapterTitles = Array.isArray(novel.chaptertitles) ? novel.chaptertitles : [];
-    const chapterContents = Array.isArray(novel.chaptercontents) ? novel.chaptercontents : [];
-    const advanceChapters = Array.isArray(novel.advance_chapters) ? novel.advance_chapters : [];
-    console.log('Editing novel:', { chapterTitles, chapterContents, advanceChapters });
+    const nextChapterTitles = Array.isArray(novel.chaptertitles) ? novel.chaptertitles : [];
+    const nextChapterContents = Array.isArray(novel.chaptercontents) ? novel.chaptercontents : [];
+    const nextAdvanceChapters = Array.isArray(novel.advance_chapters) ? novel.advance_chapters : [];
     setSelectedNovel(novel);
     setNovelTitle(novel.title || '');
     setNovelImage(null);
     setNovelImageUrl(novel.image || '');
     setNovelSummary(novel.summary || '');
-    setChapterTitles(chapterTitles);
-    setChapterContents(chapterContents);
-    setAdvanceChapters(advanceChapters);
+    setChapterTitles(nextChapterTitles);
+    setChapterContents(nextChapterContents);
+    setAdvanceChapters(nextAdvanceChapters);
     setTags(novel.tags ? novel.tags.map((tag) => ({ value: tag, label: tag })) : []);
     setEditChapterIndex(null);
   };
@@ -589,7 +576,10 @@ const NovelDashboardScreen = () => {
       if (chapter.is_advance && chapter.free_release_date) {
         const { year, month, day, hour, minute } = parseISOToSelections(chapter.free_release_date);
         if (!validateDate(year, month, day, hour, minute)) {
-          Alert.alert('Error', `Invalid or past release date for chapter ${chapter.index + 1}. Please select a valid future date.`);
+          Alert.alert(
+            'Error',
+            `Invalid or past release date for chapter ${chapter.index + 1}. Please select a valid future date.`
+          );
           return;
         }
       }
@@ -602,11 +592,15 @@ const NovelDashboardScreen = () => {
         const fileName = `${currentUserId}/${Date.now()}-${novelImage.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('covers')
-          .upload(fileName, {
-            uri: novelImage.uri,
-            name: novelImage.name,
-            type: novelImage.type,
-          }, { upsert: true });
+          .upload(
+            fileName,
+            {
+              uri: novelImage.uri,
+              name: novelImage.name,
+              type: novelImage.type,
+            },
+            { upsert: true }
+          );
         if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
         imageUrl = supabase.storage.from('covers').getPublicUrl(fileName).data.publicUrl;
       }
@@ -664,7 +658,8 @@ const NovelDashboardScreen = () => {
         );
       }
 
-      Alert.alert('Success', 'Novel submitted successfully! Users notified.');
+      setSuccessMessage('Novel submitted successfully! Users notified.');
+      setShowSuccessModal(true);
       resetForm();
       fetchNovels();
     } catch (err) {
@@ -730,17 +725,16 @@ const NovelDashboardScreen = () => {
           novel_title: selectedNovel.title,
         }));
 
-        const { error: notifError } = await supabase
-         me        .from('notifications')
-          .insert(notifications);
+        // NOTE: this line previously had a stray "me" token before ".from(...)"
+        // which would have thrown a syntax error at build time.
+        const { error: notifError } = await supabase.from('notifications').insert(notifications);
 
         if (notifError) throw new Error(notifError.message);
 
-        await schedulePushNotification(
-          announcementTitle,
-          announcementMessage,
-          { novelId: selectedNovel.id, type: 'announcement' }
-        );
+        await schedulePushNotification(announcementTitle, announcementMessage, {
+          novelId: selectedNovel.id,
+          type: 'announcement',
+        });
       }
 
       Alert.alert('Success', 'Announcement sent successfully to readers!');
@@ -775,8 +769,6 @@ const NovelDashboardScreen = () => {
     setAnnouncementReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
   };
 
-  const toggleMenu = () => setMenuOpen((prev) => !prev);
-
   const handleTagSelect = (tag) => {
     if (tags.find((t) => t.value === tag.value)) {
       setTags(tags.filter((t) => t.value !== tag.value));
@@ -785,8 +777,7 @@ const NovelDashboardScreen = () => {
     }
   };
 
-  const renderChapterItem = ({ item, drag }) => {
-    console.log('renderChapterItem item:', item);
+  const renderChapterItem = ({ item, drag, isActive }) => {
     if (item.id === undefined || item.id === null) {
       console.error('Invalid item id in renderChapterItem:', item);
       return null;
@@ -794,34 +785,42 @@ const NovelDashboardScreen = () => {
     const advanceInfo = advanceChapters.find((c) => c.index === item.id) || { is_advance: false };
     return (
       <TouchableOpacity
-        style={[styles.chapterItem, styles.darkChapterItem]}
+        style={[
+          styles.chapterItem,
+          styles.darkChapterItem,
+          isActive && styles.chapterItemActive,
+        ]}
         onLongPress={drag}
+        delayLongPress={150}
         activeOpacity={0.7}
         accessible
         accessibilityLabel={`Chapter ${item.title}`}
         accessibilityRole="button"
       >
+        <View style={styles.dragHandle}>
+          <FontAwesome5 name="grip-lines" size={14} color={KA_COLORS.textMuted} />
+        </View>
         <View style={styles.chapterText}>
-          <Text style={[styles.chapterTitleText, styles.darkText]}>
-            {item.title}
-          </Text>
+          <Text style={[styles.chapterTitleText, styles.darkText]}>{item.title}</Text>
           <Text style={[styles.chapterPreview, styles.darkText]}>
             {item.content.slice(0, 50)}...
           </Text>
           {advanceInfo.is_advance && (
             <Text style={[styles.advanceInfo, styles.darkText]}>
-              Advance (Free on: {advanceInfo.free_release_date ? new Date(advanceInfo.free_release_date).toLocaleString('sv-SE').slice(0, 16) : 'TBD'})
+              Advance (Free on:{' '}
+              {advanceInfo.free_release_date
+                ? new Date(advanceInfo.free_release_date).toLocaleString('sv-SE').slice(0, 16)
+                : 'TBD'}
+              )
             </Text>
           )}
         </View>
         <View style={styles.chapterActions}>
           <TouchableOpacity
-            onPress={() => {
-              console.log('Edit button pressed for id:', item.id);
-              handleEditChapter(item.id);
-            }}
+            onPress={() => handleEditChapter(item.id)}
             style={styles.actionButton}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessible
             accessibilityLabel="Edit chapter"
             accessibilityRole="button"
@@ -832,6 +831,7 @@ const NovelDashboardScreen = () => {
             onPress={() => handleRemoveChapter(item.id)}
             style={styles.actionButton}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessible
             accessibilityLabel="Delete chapter"
             accessibilityRole="button"
@@ -843,15 +843,13 @@ const NovelDashboardScreen = () => {
     );
   };
 
-  const renderNovelItem = ({ item }) => (
-    <View style={[styles.novelCard, styles.darkNovelCard]}>
+  const renderNovelCard = (item) => (
+    <View key={item.id} style={[styles.novelCard, styles.darkNovelCard]}>
       <Image source={{ uri: item.image }} style={styles.novelImage} />
       <View style={styles.novelInfo}>
-        <Text style={[styles.novelTitle, styles.darkText]}>
-          {item.title}
-        </Text>
+        <Text style={[styles.novelTitle, styles.darkText]}>{item.title}</Text>
         <Text style={[styles.novelSummary, styles.darkText]}>
-          {item.summary.slice(0, 50)}...
+          {(item.summary || '').slice(0, 50)}...
         </Text>
         <Text style={[styles.novelTags, styles.darkText]}>
           Tags: {item.tags?.join(', ') || 'None'}
@@ -888,14 +886,12 @@ const NovelDashboardScreen = () => {
     </View>
   );
 
-  const renderWriterItem = ({ item }) => (
-    <View style={[styles.writerItem, styles.darkWriterItem]}>
+  const renderWriterRow = (item) => (
+    <View key={item.id} style={[styles.writerItem, styles.darkWriterItem]}>
       <Text style={[styles.writerText, styles.darkText]}>
         {item.name} ({item.email})
       </Text>
-      <Text style={[styles.writerId, styles.darkText]}>
-        ID: {item.id}
-      </Text>
+      <Text style={[styles.writerId, styles.darkText]}>ID: {item.id}</Text>
     </View>
   );
 
@@ -979,72 +975,141 @@ const NovelDashboardScreen = () => {
     </View>
   );
 
-  const renderMainContent = () => {
-    if (!isWalletConnected) {
-      return [
-        {
-          key: 'connectPrompt',
-          render: () => (
-            <View style={styles.connectPrompt}>
-              <FontAwesome5 name="gem" size={48} color={KA_COLORS.orangePrimary} style={styles.connectFontAwesome5} />
-              <Text style={[styles.connectText, styles.darkText]}>
-                Connect your wallet to access the Writer’s Vault.
-              </Text>
-              <ConnectButton />
-            </View>
-          ),
-        },
-      ];
-    }
+  if (!isWalletConnected) {
+    return (
+      <SafeAreaView style={[styles.container, styles.darkContainer]}>
+        <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
+        <View style={styles.backgroundGradient} />
+        <View style={styles.emberContainer} pointerEvents="none">
+          {emberAnims.current.map((anim, index) => (
+            <Animated.View
+              key={index}
+              style={[
+                styles.ember,
+                {
+                  left: `${Math.random() * 100}%`,
+                  opacity: anim,
+                  transform: [
+                    {
+                      translateY: anim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [height, -50],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </View>
+        <View style={styles.connectPrompt}>
+          <FontAwesome5
+            name="gem"
+            size={48}
+            color={KA_COLORS.orangePrimary}
+            style={styles.connectFontAwesome5}
+          />
+          <Text style={[styles.connectText, styles.darkText]}>
+            Connect your wallet to access the Writer's Vault.
+          </Text>
+          <ConnectButton />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-    if (!isWriter && !isSuperuser) {
-      return [
-        {
-          key: 'accessDenied',
-          render: () => (
-            <View style={styles.accessDenied}>
-              <FontAwesome5 name="times" size={48} color={KA_COLORS.error} style={styles.deniedFontAwesome5} />
-              <Text style={[styles.accessDeniedText, styles.darkText]}>
-                Access Denied. Only writers and superusers may enter.
-              </Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Home')}
-                style={styles.backButton}
-                activeOpacity={0.7}
-                accessible
-                accessibilityLabel="Return to home"
-                accessibilityRole="button"
-              >
-                <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
-                <Text style={styles.backButtonText}>Return Home</Text>
-              </TouchableOpacity>
-            </View>
-          ),
-        },
-      ];
-    }
+  if (!isWriter && !isSuperuser) {
+    return (
+      <SafeAreaView style={[styles.container, styles.darkContainer]}>
+        <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
+        <View style={styles.backgroundGradient} />
+        <View style={styles.accessDenied}>
+          <FontAwesome5
+            name="times"
+            size={48}
+            color={KA_COLORS.error}
+            style={styles.deniedFontAwesome5}
+          />
+          <Text style={[styles.accessDeniedText, styles.darkText]}>
+            Access Denied. Only writers and superusers may enter.
+          </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Home')}
+            style={styles.backButton}
+            activeOpacity={0.7}
+            accessible
+            accessibilityLabel="Return to home"
+            accessibilityRole="button"
+          >
+            <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
+            <Text style={styles.backButtonText}>Return Home</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-    const chapterData = chapterTitles
-      .map((title, index) => ({
-        id: index,
-        title,
-        content: chapterContents[index],
-      }))
-      .filter((item) => item.title && item.content);
+  const chapterData = chapterTitles
+    .map((title, index) => ({
+      id: index,
+      title,
+      content: chapterContents[index],
+    }))
+    .filter((item) => item.title && item.content);
 
-    console.log('chapterData:', chapterData);
+  return (
+    <SafeAreaView style={[styles.container, styles.darkContainer]}>
+      <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
+      <View style={styles.backgroundGradient} />
+      {/* pointerEvents must be a prop, not a style key, or this invisible
+          full-screen layer can swallow touches on some Android builds -
+          this was very likely the cause of "have to touch the edge to scroll" */}
+      <View style={styles.emberContainer} pointerEvents="none">
+        {emberAnims.current.map((anim, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.ember,
+              {
+                left: `${Math.random() * 100}%`,
+                opacity: anim,
+                transform: [
+                  {
+                    translateY: anim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [height, -50],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        ))}
+      </View>
 
-    return [
-      {
-        key: 'novelForm',
-        render: () => (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        {/* Single top-level scroll container. Everything below (chapters,
+            novels, writers) renders inline instead of as nested FlatLists,
+            so there's only ever one scroll gesture owner. */}
+        <NestableScrollContainer
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.main}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ---- Novel form ---- */}
           <View style={styles.formSection}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <View style={styles.sectionHeader}>
               <FontAwesome5 name="book-open" size={20} color={KA_COLORS.ivory} />
               <Text style={[styles.sectionTitle, styles.darkText]}>
                 {selectedNovel ? 'Edit Manuscript' : 'New Manuscript'}
               </Text>
             </View>
+
             <View style={styles.novelForm}>
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, styles.darkText]}>Title</Text>
@@ -1060,6 +1125,7 @@ const NovelDashboardScreen = () => {
                   accessibilityHint="Enter the title of your novel"
                 />
               </View>
+
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, styles.darkText]}>
                   <FontAwesome5 name="image" size={16} color={KA_COLORS.ivory} /> Cover Image
@@ -1067,9 +1133,7 @@ const NovelDashboardScreen = () => {
                 {novelImageUrl ? (
                   <Image source={{ uri: novelImageUrl }} style={styles.imagePreview} />
                 ) : (
-                  <Text style={[styles.placeholderText, styles.darkText]}>
-                    No image selected
-                  </Text>
+                  <Text style={[styles.placeholderText, styles.darkText]}>No image selected</Text>
                 )}
                 <TouchableOpacity
                   onPress={handleImageChange}
@@ -1082,6 +1146,7 @@ const NovelDashboardScreen = () => {
                   <Text style={styles.fileButtonText}>Choose Image</Text>
                 </TouchableOpacity>
               </View>
+
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, styles.darkText]}>Summary</Text>
                 <TextInput
@@ -1098,6 +1163,7 @@ const NovelDashboardScreen = () => {
                   accessibilityHint="Enter a brief summary of your novel"
                 />
               </View>
+
               <View style={styles.inputGroup}>
                 <Text style={[styles.label, styles.darkText]}>Tags</Text>
                 <TouchableOpacity
@@ -1111,13 +1177,16 @@ const NovelDashboardScreen = () => {
                   <Text style={[styles.tagButtonText, styles.darkText]}>
                     {tags.length > 0 ? tags.map((t) => t.label).join(', ') : 'Select tags...'}
                   </Text>
+                  <FontAwesome5 name="chevron-down" size={12} color={KA_COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
+
               <View style={styles.chapterSection}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <View style={styles.sectionHeader}>
                   <FontAwesome5 name="plus" size={16} color={KA_COLORS.ivory} />
                   <Text style={[styles.chapterTitle, styles.darkText]}>Chapters</Text>
                 </View>
+
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, styles.darkText]}>Chapter Title</Text>
                   <TextInput
@@ -1133,6 +1202,7 @@ const NovelDashboardScreen = () => {
                     accessibilityHint="Enter the title of the chapter"
                   />
                 </View>
+
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, styles.darkText]}>Chapter Content</Text>
                   <TextInput
@@ -1149,6 +1219,7 @@ const NovelDashboardScreen = () => {
                     accessibilityHint="Enter the content of the chapter"
                   />
                 </View>
+
                 <View style={styles.inputGroup}>
                   <TouchableOpacity
                     onPress={() => setNewChapterIsAdvance(!newChapterIsAdvance)}
@@ -1174,6 +1245,7 @@ const NovelDashboardScreen = () => {
                     </View>
                   )}
                 </View>
+
                 <View style={styles.formActions}>
                   <TouchableOpacity
                     onPress={handleAddChapter}
@@ -1207,16 +1279,21 @@ const NovelDashboardScreen = () => {
                     <Text style={styles.resetButtonText}>Reset</Text>
                   </TouchableOpacity>
                 </View>
+
+                {chapterData.length > 0 && validateChapterData() && (
+                  // Nestable version works safely inside the outer scroll
+                  // container above - drag reorders, page scroll still works.
+                  <NestableDraggableFlatList
+                    data={chapterData}
+                    renderItem={renderChapterItem}
+                    keyExtractor={(item) => `chapter-${item.id}`}
+                    onDragEnd={handleDragEnd}
+                    activationDistance={12}
+                    containerStyle={styles.chapterList}
+                  />
+                )}
               </View>
-              {chapterData.length > 0 && validateChapterData() && (
-                <DraggableFlatList
-                  data={chapterData}
-                  renderItem={renderChapterItem}
-                  keyExtractor={(item) => `chapter-${item.id}`}
-                  onDragEnd={handleDragEnd}
-                  containerStyle={styles.chapterList}
-                />
-              )}
+
               <TouchableOpacity
                 onPress={handleNovelSubmit}
                 style={[styles.submitButton, loading && styles.disabledButton]}
@@ -1231,14 +1308,17 @@ const NovelDashboardScreen = () => {
                 ) : (
                   <>
                     <FontAwesome5 name="upload" size={16} color={KA_COLORS.ivory} />
-                    <Text style={styles.submitButtonText}>{selectedNovel ? 'Update Novel' : 'Publish Novel'}</Text>
+                    <Text style={styles.submitButtonText}>
+                      {selectedNovel ? 'Update Novel' : 'Publish Novel'}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
+
             {selectedNovel && (
               <View style={styles.announcementSection}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <View style={styles.sectionHeader}>
                   <FontAwesome5 name="bullhorn" size={20} color={KA_COLORS.ivory} />
                   <Text style={[styles.sectionTitle, styles.darkText]}>Announce to Readers</Text>
                 </View>
@@ -1299,13 +1379,10 @@ const NovelDashboardScreen = () => {
               </View>
             )}
           </View>
-        ),
-      },
-      {
-        key: 'novelsSection',
-        render: () => (
+
+          {/* ---- Novels list (mapped inline, not a nested FlatList) ---- */}
           <View style={styles.novelsSection}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <View style={styles.sectionHeader}>
               <FontAwesome5 name="book-open" size={20} color={KA_COLORS.ivory} />
               <Text style={[styles.sectionTitle, styles.darkText]}>Your Manuscripts</Text>
             </View>
@@ -1314,223 +1391,195 @@ const NovelDashboardScreen = () => {
                 No manuscripts yet. Start creating!
               </Text>
             ) : (
-              <FlatList
-                data={novelsList}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderNovelItem}
-                contentContainerStyle={styles.novelsGrid}
-                initialNumToRender={10}
-                windowSize={21}
-              />
+              <View style={styles.novelsGrid}>{novelsList.map(renderNovelCard)}</View>
             )}
           </View>
-        ),
-      },
-      ...(isSuperuser
-        ? [
-            {
-              key: 'writersSection',
-              render: () => (
-                <View style={styles.writersSection}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <FontAwesome5 name="user-shield" size={20} color={KA_COLORS.ivory} />
-                    <Text style={[styles.sectionTitle, styles.darkText]}>Writers</Text>
-                  </View>
-                  {writers.length === 0 ? (
-                    <Text style={[styles.noWriters, styles.darkText]}>
-                      No writers found.
-                    </Text>
-                  ) : (
-                    <FlatList
-                      data={writers}
-                      keyExtractor={(item) => item.id.toString()}
-                      renderItem={renderWriterItem}
-                      contentContainerStyle={styles.writersList}
-                      initialNumToRender={10}
-                      windowSize={21}
-                    />
-                  )}
-                </View>
-              ),
-            },
-          ]
-        : []),
-    ];
-  };
 
-  return (
-    <SafeAreaView style={[styles.container, styles.darkContainer]}>
-      <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
-      <View style={styles.backgroundGradient} />
-      <View style={styles.emberContainer}>
-        {emberAnims.current.map((anim, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.ember,
-              {
-                left: `${Math.random() * 100}%`,
-                opacity: anim,
-                transform: [
-                  {
-                    translateY: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, -50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-      </View>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={{ flex: 1 }}>
-            
-            
-<FlatList
-              data={renderMainContent()}
-              keyExtractor={(item) => item.key}
-              renderItem={({ item }) => item.render()}
-              contentContainerStyle={styles.main}
-            />
-
-            <Modal
-              isVisible={showTagModal}
-              onBackdropPress={() => setShowTagModal(false)}
-              style={styles.modalContainer}
-              animationIn="slideInUp"
-              animationOut="slideOutDown"
-            >
-              <View style={[styles.modalContainer, styles.darkModal]}>
-                <Text style={[styles.modalTitle, styles.darkText]}>Select Tags</Text>
-                <FlatList
-                  data={TAG_OPTIONS}
-                  keyExtractor={(item) => item.value}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => handleTagSelect(item)}
-                      style={styles.tagOption}
-                      activeOpacity={0.7}
-                      accessible
-                      accessibilityLabel={`Select tag ${item.label}`}
-                      accessibilityRole="checkbox"
-                    >
-                      <FontAwesome5
-                        name={tags.find((t) => t.value === item.value) ? 'check-square' : 'square'}
-                        size={20}
-                        color={KA_COLORS.ivory}
-                      />
-                      <Text style={[styles.tagOptionText, styles.darkText]}>
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  contentContainerStyle={styles.tagList}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowTagModal(false)}
-                  style={styles.modalCloseButton}
-                  activeOpacity={0.7}
-                  accessible
-                  accessibilityLabel="Close tag selection modal"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.modalCloseButtonText}>Done</Text>
-                </TouchableOpacity>
+          {/* ---- Writers list (superuser only) ---- */}
+          {isSuperuser && (
+            <View style={styles.writersSection}>
+              <View style={styles.sectionHeader}>
+                <FontAwesome5 name="user-shield" size={20} color={KA_COLORS.ivory} />
+                <Text style={[styles.sectionTitle, styles.darkText]}>Writers</Text>
               </View>
-            </Modal>
-
-            <Modal
-              isVisible={showDeleteConfirm}
-              onBackdropPress={() => setShowDeleteConfirm(false)}
-              style={styles.modalContainer}
-              animationIn="slideInUp"
-              animationOut="slideOutDown"
-            >
-              <View style={[styles.modalContainer, styles.darkModal]}>
-                <Text style={[styles.modalTitle, styles.darkText]}>Confirm Deletion</Text>
-                <Text style={[styles.modalText, styles.darkText]}>
-                  Are you sure you want to delete{' '}
-                  <Text style={{ fontWeight: 'bold' }}>{chapterTitles[chapterToDelete]}</Text>? This
-                  action cannot be undone.
-                </Text>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    onPress={confirmDeleteChapter}
-                    style={styles.confirmButton}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Confirm delete chapter"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.confirmButtonText}>Yes, Delete</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setShowDeleteConfirm(false)}
-                    style={styles.cancelButton}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Cancel delete chapter"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-
-            <Modal
-              isVisible={showNovelDeleteConfirm}
-              onBackdropPress={() => setShowNovelDeleteConfirm(false)}
-              style={styles.modalContainer}
-              animationIn="slideInUp"
-              animationOut="slideOutDown"
-            >
-              <View style={[styles.modalContainer, styles.darkModal]}>
-                <Text style={[styles.modalTitle, styles.darkText]}>Confirm Deletion</Text>
-                <Text style={[styles.modalText, styles.darkText]}>
-                  Are you sure you want to delete{' '}
-                  <Text style={{ fontWeight: 'bold' }}>{novelToDelete?.title}</Text>? This action
-                  cannot be undone.
-                </Text>
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    onPress={confirmDeleteNovel}
-                    style={styles.confirmButton}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Confirm delete novel"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.confirmButtonText}>Yes, Delete</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setShowNovelDeleteConfirm(false)}
-                    style={styles.cancelButton}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Cancel delete novel"
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-
-            <View style={[styles.footer, styles.darkFooter]}>
-              <Text style={[styles.footerText, styles.darkText]}>
-                © 2025 Sempai HQ. All rights reserved.
-              </Text>
+              {writers.length === 0 ? (
+                <Text style={[styles.noWriters, styles.darkText]}>No writers found.</Text>
+              ) : (
+                <View style={styles.writersList}>{writers.map(renderWriterRow)}</View>
+              )}
             </View>
+          )}
+
+          <View style={[styles.footer, styles.darkFooter]}>
+            <Text style={[styles.footerText, styles.darkText]}>
+              © 2025 Sempai HQ. All rights reserved.
+            </Text>
           </View>
-        </TouchableWithoutFeedback>
+        </NestableScrollContainer>
       </KeyboardAvoidingView>
+
+      {/* ---- Tag picker: proper bottom sheet with its own bounded,
+            scrollable region so it always scrolls regardless of how
+            many tags there are. ---- */}
+      <Modal
+        isVisible={showTagModal}
+        onBackdropPress={() => setShowTagModal(false)}
+        onSwipeComplete={() => setShowTagModal(false)}
+        swipeDirection="down"
+        style={styles.sheetWrapper}
+        animationIn="slideInUp"
+        animationOut="slideOutDown"
+        propagateSwipe
+      >
+        <View style={styles.sheetContent}>
+          <View style={styles.sheetHandle} />
+          <Text style={[styles.modalTitle, styles.darkText]}>Select Tags</Text>
+          <ScrollView
+            style={styles.tagScroll}
+            contentContainerStyle={styles.tagList}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
+            {TAG_OPTIONS.map((item) => (
+              <TouchableOpacity
+                key={item.value}
+                onPress={() => handleTagSelect(item)}
+                style={styles.tagOption}
+                activeOpacity={0.7}
+                accessible
+                accessibilityLabel={`Select tag ${item.label}`}
+                accessibilityRole="checkbox"
+              >
+                <FontAwesome5
+                  name={tags.find((t) => t.value === item.value) ? 'check-square' : 'square'}
+                  size={20}
+                  color={KA_COLORS.ivory}
+                />
+                <Text style={[styles.tagOptionText, styles.darkText]}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            onPress={() => setShowTagModal(false)}
+            style={styles.modalCloseButton}
+            activeOpacity={0.7}
+            accessible
+            accessibilityLabel="Close tag selection modal"
+            accessibilityRole="button"
+          >
+            <Text style={styles.modalCloseButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      <Modal
+        isVisible={showDeleteConfirm}
+        onBackdropPress={() => setShowDeleteConfirm(false)}
+        style={styles.modalWrapper}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+      >
+        <View style={[styles.modalContainer, styles.darkModal]}>
+          <Text style={[styles.modalTitle, styles.darkText]}>Confirm Deletion</Text>
+          <Text style={[styles.modalText, styles.darkText]}>
+            Are you sure you want to delete{' '}
+            <Text style={{ fontWeight: 'bold' }}>{chapterTitles[chapterToDelete]}</Text>? This
+            action cannot be undone.
+          </Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              onPress={confirmDeleteChapter}
+              style={styles.confirmButton}
+              activeOpacity={0.7}
+              accessible
+              accessibilityLabel="Confirm delete chapter"
+              accessibilityRole="button"
+            >
+              <Text style={styles.confirmButtonText}>Yes, Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowDeleteConfirm(false)}
+              style={styles.cancelButton}
+              activeOpacity={0.7}
+              accessible
+              accessibilityLabel="Cancel delete chapter"
+              accessibilityRole="button"
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        isVisible={showNovelDeleteConfirm}
+        onBackdropPress={() => setShowNovelDeleteConfirm(false)}
+        style={styles.modalWrapper}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+      >
+        <View style={[styles.modalContainer, styles.darkModal]}>
+          <Text style={[styles.modalTitle, styles.darkText]}>Confirm Deletion</Text>
+          <Text style={[styles.modalText, styles.darkText]}>
+            Are you sure you want to delete{' '}
+            <Text style={{ fontWeight: 'bold' }}>{novelToDelete?.title}</Text>? This action cannot
+            be undone.
+          </Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              onPress={confirmDeleteNovel}
+              style={styles.confirmButton}
+              activeOpacity={0.7}
+              accessible
+              accessibilityLabel="Confirm delete novel"
+              accessibilityRole="button"
+            >
+              <Text style={styles.confirmButtonText}>Yes, Delete</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setShowNovelDeleteConfirm(false)}
+              style={styles.cancelButton}
+              activeOpacity={0.7}
+              accessible
+              accessibilityLabel="Cancel delete novel"
+              accessibilityRole="button"
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        isVisible={showSuccessModal}
+        onBackdropPress={() => setShowSuccessModal(false)}
+        style={styles.modalWrapper}
+        animationIn="fadeIn"
+        animationOut="fadeOut"
+      >
+        <View style={[styles.modalContainer, styles.darkModal, styles.successModal]}>
+          <View style={styles.successIconContainer}>
+            <FontAwesome5 name="check-circle" size={60} color={KA_COLORS.orangePrimary} />
+          </View>
+          <Text style={[styles.modalTitle, styles.darkText, styles.successTitle]}>Success!</Text>
+          <Text style={[styles.modalText, styles.darkText, styles.successText]}>
+            {successMessage}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowSuccessModal(false)}
+            style={styles.successButton}
+            activeOpacity={0.7}
+            accessible
+            accessibilityLabel="Close success modal"
+            accessibilityRole="button"
+          >
+            <FontAwesome5 name="check" size={16} color={KA_COLORS.ivory} />
+            <Text style={styles.successButtonText}>Continue</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -1557,7 +1606,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    pointerEvents: 'none',
   },
   ember: {
     position: 'absolute',
@@ -1570,68 +1618,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 6,
   },
-  navbar: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS.border,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  darkNavbar: {
-    backgroundColor: KA_COLORS.bgCard,
-  },
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  navLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  navText: {
-    color: KA_COLORS.ivory,
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
   darkText: {
     color: KA_COLORS.ivory,
-  },
-  navRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  menuToggle: {
-    padding: 8,
-  },
-  navMenu: {
-    position: 'absolute',
-    top: 60,
-    right: 20,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 8,
-    zIndex: 10,
-  },
-  darkNavMenu: {
-    backgroundColor: KA_COLORS.bgElevated,
-  },
-  navMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  navMenuText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
   },
   main: {
     padding: 16,
@@ -1642,9 +1630,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-  },
-  connectIcon: {
-    marginBottom: 16,
   },
   connectFontAwesome5: {
     marginBottom: 16,
@@ -1661,9 +1646,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
-  },
-  deniedIcon: {
-    marginBottom: 16,
   },
   deniedFontAwesome5: {
     marginBottom: 16,
@@ -1690,6 +1672,12 @@ const styles = StyleSheet.create({
     color: KA_COLORS.ivory,
     fontSize: 14,
     letterSpacing: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   formSection: {
     marginBottom: 32,
@@ -1736,6 +1724,7 @@ const styles = StyleSheet.create({
     color: KA_COLORS.ivory,
     fontSize: 14,
     minHeight: 80,
+    textAlignVertical: 'top',
   },
   imagePreview: {
     width: 200,
@@ -1768,10 +1757,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   tagButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
+    flexShrink: 1,
   },
   chapterSection: {
     marginTop: 16,
@@ -1843,9 +1836,18 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 12,
     padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   darkChapterItem: {
     backgroundColor: KA_COLORS.bgElevated,
+  },
+  chapterItemActive: {
+    borderColor: KA_COLORS.orangePrimary,
+    opacity: 0.9,
+  },
+  dragHandle: {
+    paddingRight: 12,
   },
   chapterText: {
     flex: 1,
@@ -2024,11 +2026,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
   },
+  // --- Confirmation modals (centered) ---
+  modalWrapper: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    margin: 0,
+  },
   modalContainer: {
+    width: width * 0.86,
     backgroundColor: KA_COLORS.bgCard,
     borderWidth: 1,
     borderColor: KA_COLORS.border,
-    borderRadius: 4,
+    borderRadius: 8,
     padding: 24,
   },
   darkModal: {
@@ -2080,12 +2089,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 1,
   },
+  // --- Tag picker bottom sheet ---
+  sheetWrapper: {
+    justifyContent: 'flex-end',
+    margin: 0,
+  },
+  sheetContent: {
+    backgroundColor: KA_COLORS.bgCard,
+    borderTopWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 24,
+    height: height * 0.65,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: KA_COLORS.border,
+    marginBottom: 16,
+  },
+  tagScroll: {
+    flex: 1,
+  },
   tagOption: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
     borderBottomColor: KA_COLORS.border,
   },
@@ -2094,7 +2130,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   tagList: {
-    maxHeight: 300,
+    paddingBottom: 12,
   },
   modalCloseButton: {
     backgroundColor: KA_COLORS.orangePrimary,
@@ -2140,6 +2176,41 @@ const styles = StyleSheet.create({
   footerText: {
     color: KA_COLORS.textMuted,
     fontSize: 12,
+    letterSpacing: 1,
+  },
+  // --- Success Modal Styles ---
+  successModal: {
+    alignItems: 'center',
+    padding: 32,
+  },
+  successIconContainer: {
+    marginBottom: 24,
+  },
+  successTitle: {
+    color: KA_COLORS.orangePrimary,
+    fontSize: 28,
+    marginBottom: 12,
+  },
+  successText: {
+    textAlign: 'center',
+    fontSize: 16,
+    marginBottom: 32,
+  },
+  successButton: {
+    backgroundColor: KA_COLORS.orangePrimary,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    minWidth: 200,
+  },
+  successButtonText: {
+    color: KA_COLORS.ivory,
+    fontSize: 16,
+    fontWeight: 'bold',
     letterSpacing: 1,
   },
 });

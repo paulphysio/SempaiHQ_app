@@ -45,7 +45,7 @@ export const styles = StyleSheet.create({
   },
   tierTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginTop: 15,
     fontFamily: 'Yoruka',
@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },

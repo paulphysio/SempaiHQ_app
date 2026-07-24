@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -57,7 +57,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -90,7 +90,7 @@ export const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    
   },
   loadingContainer: {
     flex: 1,
@@ -124,7 +124,7 @@ export const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 28,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginTop: 10,
     fontFamily: 'Yoruka',
@@ -140,7 +140,7 @@ export const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     marginBottom: 20,
     fontFamily: 'Yoruka',
@@ -164,7 +164,7 @@ export const styles = StyleSheet.create({
   },
   writerName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -210,7 +210,7 @@ export const styles = StyleSheet.create({
   },
   actionButtonText: {
     fontSize: 14,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -233,7 +233,7 @@ export const styles = StyleSheet.create({
   },
   rewardUser: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },

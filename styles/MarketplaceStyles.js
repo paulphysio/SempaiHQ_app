@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -51,7 +51,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
   },
   activeTabText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    
   },
   loadingContainer: {
     flex: 1,
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
     marginBottom: 5,
@@ -221,7 +221,7 @@ export const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
     marginBottom: 5,

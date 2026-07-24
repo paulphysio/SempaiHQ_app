@@ -446,6 +446,15 @@ const KaitoLeaderboardScreen = () => {
     fetchLeaderboard();
   }, [timeFrame]);
 
+  // Auto-refresh leaderboard every 30 seconds for live data
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchLeaderboard();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [timeFrame]);
+
   const handleShare = (reader) => {
     setSelectedReader(reader);
     setShowShareModal(true);

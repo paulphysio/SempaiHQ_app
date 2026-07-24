@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -85,7 +85,7 @@ export const styles = StyleSheet.create({
   },
   walletName: {
     fontSize: 18,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },

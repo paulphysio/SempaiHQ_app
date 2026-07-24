@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -48,7 +48,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -102,7 +102,7 @@ export const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -185,7 +185,7 @@ export const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    
     color: '#FFFFFF',
     fontFamily: 'Yoruka',
   },
@@ -278,7 +278,7 @@ export const styles = StyleSheet.create({
   logoText: {
     color: '#D94F04',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     fontFamily: 'Yoruka',
   },
@@ -316,7 +316,7 @@ export const styles = StyleSheet.create({
   feedTitle: {
     color: '#D94F04',
     fontSize: 24,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     fontFamily: 'Yoruka',
   },
@@ -349,7 +349,7 @@ export const styles = StyleSheet.create({
   postButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     fontFamily: 'Yoruka',
   },

@@ -48,7 +48,7 @@ const guideModalStyles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
+    
     color: KA_COLORS.ivory,
     marginBottom: 12,
   },
@@ -78,7 +78,7 @@ const guideModalStyles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: 14,
-    fontWeight: '600',
+    
     color: KA_COLORS.ivory,
   },
 });

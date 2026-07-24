@@ -239,7 +239,7 @@ export const styles = StyleSheet.create({
   summaryLinkText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+    
     marginLeft: 8,
     fontFamily: 'Poppins-SemiBold',
   },
@@ -385,7 +385,7 @@ export const styles = StyleSheet.create({
   summaryPageTitle: {
     color: '#D94F04',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Poppins-SemiBold',
   },
   searchSection: {
@@ -432,7 +432,7 @@ export const styles = StyleSheet.create({
   summaryNovelTitle: {
     color: '#D94F04',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     fontFamily: 'Poppins-SemiBold',
   },
   summaryPreview: {
@@ -449,7 +449,7 @@ export const styles = StyleSheet.create({
   readMoreText: {
     color: '#D94F04',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     marginRight: 8,
     fontFamily: 'Poppins-SemiBold',
   },
@@ -465,7 +465,7 @@ export const styles = StyleSheet.create({
   noResultsTitle: {
     color: '#D94F04',
     fontSize: 20,
-    fontWeight: 'bold',
+    
     fontFamily: 'Poppins-SemiBold',
     marginBottom: 8,
   },
@@ -484,7 +484,7 @@ export const styles = StyleSheet.create({
   singleSummaryTitle: {
     color: '#D94F04',
     fontSize: 24,
-    fontWeight: 'bold',
+    
     fontFamily: 'Poppins-SemiBold',
     marginBottom: 16,
   },

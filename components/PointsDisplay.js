@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#FFF',
     fontSize: 18,
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   refreshButton: {
@@ -260,14 +260,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     color: '#9B59B6',
     fontSize: 12,
-    fontWeight: '600',
+    
     marginLeft: 8,
     fontFamily: 'AnimeAce',
   },
   cardValue: {
     color: '#FFF',
     fontSize: 24,
-    fontWeight: 'bold',
+    
     marginBottom: 4,
     fontFamily: 'AnimeAce',
   },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   breakdownTitle: {
     color: '#9B59B6',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     marginBottom: 8,
     fontFamily: 'AnimeAce',
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   breakdownValue: {
     color: '#FFF',
     fontSize: 14,
-    fontWeight: 'bold',
+    
     fontFamily: 'AnimeAce',
   },
   bonus: {
