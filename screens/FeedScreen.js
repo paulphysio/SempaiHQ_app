@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: '#fff',
     fontSize: 20,
-    fontWeight: 'bold',
+     
   },
   headerButton: {
     padding: 8,
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
   },
   postButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+     
     fontSize: 14,
   },
   postCard: {
@@ -792,7 +792,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     color: '#fff',
-    fontWeight: 'bold',
+     
     fontSize: 15,
     marginRight: 4,
   },
@@ -853,7 +853,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: 'bold',
+     
   },
   postActions: {
     flexDirection: 'row',
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
   },
   commentUserName: {
     color: '#fff',
-    fontWeight: 'bold',
+     
     fontSize: 14,
     marginRight: 4,
   },
@@ -955,7 +955,7 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 18,
     marginTop: 16,
-    fontWeight: 'bold',
+     
   },
   emptySubtext: {
     color: '#666',
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
   },
   modalText: {
@@ -1008,7 +1008,7 @@ const styles = StyleSheet.create({
   modalDeleteText: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: 'bold',
+     
   },
 });
 

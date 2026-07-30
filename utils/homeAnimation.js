@@ -114,8 +114,6 @@ export const useEntrance = ({ duration = 450, distance = 16 } = {}) => {
 // ---------------------------------------------------------------------------
 // useAnimatedVisibility — proper enter/exit for things that toggle on and
 // off (error/success banners), instead of the element just vanishing.
-// Caller is responsible for keeping the last non-empty content visible
-// during the exit animation (see SwapScreen's `displayedError` pattern).
 // ---------------------------------------------------------------------------
 export const useAnimatedVisibility = (visible, { duration = 220 } = {}) => {
   const [shouldRender, setShouldRender] = useState(visible);
@@ -137,8 +135,7 @@ export const useAnimatedVisibility = (visible, { duration = 220 } = {}) => {
 };
 
 // ---------------------------------------------------------------------------
-// useStaggeredEntrance — staggered fade/slide-in for a list of items
-// (portfolio action buttons, token rows).
+// useStaggeredEntrance — staggered fade/slide-in for a list of items.
 // ---------------------------------------------------------------------------
 export const useStaggeredEntrance = (count, { delayStep = 60, duration = 350 } = {}) => {
   const anims = useRef(Array.from({ length: count }, () => new Animated.Value(0))).current;

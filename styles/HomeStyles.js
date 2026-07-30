@@ -28,7 +28,7 @@ const COLOR = {
 
 const RADIUS = { sm: 6, md: 10, lg: 16, xl: 20, pill: 999 };
 const SPACE = { xs: 4, s: 8, m: 12, l: 16, xl: 20, xxl: 28 };
-const FONT = 'AnimeAce';
+const FONT = 'Yoruka';
 
 const cardShadow = {
   shadowColor: '#000',
@@ -56,6 +56,7 @@ const CARD_IMAGE_HEIGHT = Math.round(CARD_IMAGE_WIDTH * 1.45);
 const CARD_MARGIN = 8;
 
 export const CARD_STEP = CARD_IMAGE_WIDTH + CARD_MARGIN * 2;
+export { CARD_IMAGE_WIDTH, CARD_IMAGE_HEIGHT };
 
 export const styles = StyleSheet.create({
   container: {
@@ -1052,6 +1053,210 @@ export const styles = StyleSheet.create({
 
   writerIcon: {
     color: COLOR.accent,
+  },
+
+  // -------------------------------------------------------------------------
+  // Cinematic card expansion — the small poster's image morphs into this
+  // panel in place (see CinematicCardOverlay). Kept separate from the
+  // regular card styles since geometry here is screen-relative, not
+  // card-relative.
+  // -------------------------------------------------------------------------
+  cinematicBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000',
+  },
+
+  cinematicLetterbox: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: '#000',
+  },
+
+  cinematicPanel: {
+    position: 'absolute',
+    backgroundColor: COLOR.bgCard,
+    ...cardShadow,
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+
+  cinematicGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '68%',
+  },
+
+  cinematicContent: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: SPACE.xl,
+  },
+
+  cinematicBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.s,
+    marginBottom: SPACE.s,
+  },
+
+  cinematicRankPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: COLOR.accentSoft,
+    borderWidth: 1,
+    borderColor: COLOR.accentGlow,
+    borderRadius: RADIUS.pill,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+
+  cinematicRankPillText: {
+    color: COLOR.accent,
+    fontSize: 11,
+    fontWeight: '800',
+    fontFamily: FONT,
+  },
+
+  cinematicRatingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: RADIUS.pill,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+
+  cinematicRatingPillText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+    fontFamily: FONT,
+  },
+
+  cinematicTitle: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '900',
+    fontFamily: FONT,
+    marginBottom: 6,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+  },
+
+  cinematicMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.m,
+    marginBottom: SPACE.m,
+  },
+
+  cinematicMetaText: {
+    color: COLOR.textSecondary,
+    fontSize: 12,
+    fontFamily: FONT,
+  },
+
+  cinematicSummaryScroll: {
+    maxHeight: 132,
+    marginBottom: SPACE.l,
+  },
+
+  cinematicSummaryText: {
+    color: '#E4E4EC',
+    fontSize: 13.5,
+    lineHeight: 20,
+    fontFamily: FONT,
+  },
+
+  cinematicCTA: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLOR.accent,
+    borderRadius: RADIUS.pill,
+    paddingVertical: 13,
+    ...glowShadow,
+  },
+
+  cinematicCTAText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '800',
+    fontFamily: FONT,
+    letterSpacing: 0.4,
+  },
+
+  cinematicCloseButton: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+
+  cinematicHint: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: RADIUS.pill,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+  },
+
+  cinematicHintText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontFamily: FONT,
+  },
+
+  // Shimmer skeleton — shown in place of the carousel while data loads,
+  // sized to match the real poster card exactly so nothing reflows once
+  // real content swaps in.
+  skeletonCard: {
+    width: CARD_IMAGE_WIDTH,
+    marginHorizontal: CARD_MARGIN,
+  },
+
+  skeletonImage: {
+    width: '100%',
+    height: CARD_IMAGE_HEIGHT,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLOR.bgCardAlt,
+  },
+
+  skeletonLine: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLOR.bgCardAlt,
+    marginTop: 9,
+  },
+
+  skeletonLineShort: {
+    width: '55%',
   },
 
   // -------------------------------------------------------------------------

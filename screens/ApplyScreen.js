@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#fff',
     fontSize: 28,
-    fontWeight: 'bold',
+     
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   roleButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+     
   },
   reasonButton: {
     backgroundColor: '#FF5733',
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   reasonButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+     
     fontSize: 16,
   },
   reasonPreview: {
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+     
     fontSize: 18,
   },
 });

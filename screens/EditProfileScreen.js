@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   title: {
     color: KA_COLORS.ivory,
     fontSize: 32,
-    fontWeight: 'bold',
+     
     textAlign: 'center',
     letterSpacing: 3,
     textShadowColor: KA_COLORS.orangePrimary,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   balanceText: {
     color: KA_COLORS.gold,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   walletInfo: {
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
     marginBottom: 8,
     textShadowColor: KA_COLORS.orangePrimary,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   imageGroup: {

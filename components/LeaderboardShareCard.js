@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     
     marginLeft: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   badge: {
     backgroundColor: 'rgba(155, 89, 182, 0.3)',
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     color: '#9B59B6',
     fontSize: 12,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   userSection: {
     flexDirection: 'row',
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     fontSize: 24,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   userInfo: {
     flexDirection: 'row',
@@ -213,12 +213,12 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   timeFrame: {
     color: '#AAA',
     fontSize: 14,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   statsSection: {
     flexDirection: 'row',
@@ -235,13 +235,13 @@ const styles = StyleSheet.create({
   statLabel: {
     color: '#AAA',
     fontSize: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   statValue: {
     color: '#9B59B6',
     fontSize: 20,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   statDivider: {
     width: 1,
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   urlDisplay: {
     backgroundColor: 'rgba(155, 89, 182, 0.1)',
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   urlText: {
     color: '#9B59B6',
     fontSize: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   border: {
     position: 'absolute',

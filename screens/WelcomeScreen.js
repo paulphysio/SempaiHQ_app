@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     top: height * 0.16,
     color: ORANGE_BRIGHT,
     fontSize: 13,
-    fontWeight: '800',
+     
     letterSpacing: 8,
   },
   energyField: {
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 21,
-    fontWeight: '700',
+     
     color: '#f5efe8',
     letterSpacing: 0.5,
     marginBottom: 14,
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    fontWeight: '600',
+     
     color: ORANGE,
     letterSpacing: 2,
     textTransform: 'uppercase',

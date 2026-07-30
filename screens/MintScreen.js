@@ -36,105 +36,13 @@ const MintScreen = () => {
   const [mintResult, setMintResult] = useState(null);
 
   const handleMintNFT = async () => {
-    if (!nftName.trim() || !nftDescription.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('wallet_address', wallet?.publicKey)
-        .single();
-
-      if (userData) {
-        const response = await fetch(`${API_BASE_URL}/mint/nft`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: userData.id,
-            name: nftName.trim(),
-            description: nftDescription.trim(),
-            imageUrl: nftImageUrl.trim()
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setMintResult({
-          success: true,
-          message: 'NFT minted successfully',
-          nftMint: data.nftMint
-        });
-        Alert.alert('Success', 'NFT minted successfully!');
-        setNftName('');
-        setNftDescription('');
-        setNftImageUrl('');
-      }
-    } catch (error) {
-      console.error('[MintScreen] Error minting NFT:', error);
-      Alert.alert('Error', 'Failed to mint NFT');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert('Minting Disabled', 'Minting functionality is currently disabled. Please check back later.');
+    return;
   };
 
   const handleMintToken = async () => {
-    if (!tokenName.trim() || !tokenSymbol.trim() || !tokenSupply) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data: userData } = await supabase
-        .from('users')
-        .select('id')
-        .eq('wallet_address', wallet?.publicKey)
-        .single();
-
-      if (userData) {
-        const response = await fetch(`${API_BASE_URL}/mint/token`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: userData.id,
-            name: tokenName.trim(),
-            symbol: tokenSymbol.trim().toUpperCase(),
-            supply: parseInt(tokenSupply)
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setMintResult({
-          success: true,
-          message: 'Token minted successfully',
-          tokenMint: data.tokenMint
-        });
-        Alert.alert('Success', 'Token minted successfully!');
-        setTokenName('');
-        setTokenSymbol('');
-        setTokenSupply('');
-      }
-    } catch (error) {
-      console.error('[MintScreen] Error minting token:', error);
-      Alert.alert('Error', 'Failed to mint token');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert('Minting Disabled', 'Minting functionality is currently disabled. Please check back later.');
+    return;
   };
 
   if (!isWalletConnected) {

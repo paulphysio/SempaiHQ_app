@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   headerText: {
     color: '#D94F04',
     fontSize: 18,
-    fontWeight: '700',
+     
   },
   placeholder: {
     width: 40,
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#D94F04',
     fontSize: 28,
-    fontWeight: '700',
+     
     marginBottom: 10,
   },
   subtitle: {
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#fff',
     fontSize: 22,
-    fontWeight: '600',
+     
     marginBottom: 15,
   },
   providerCard: {
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
   providerName: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+     
   },
   providerDescription: {
     color: '#aaa',
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   featureBullet: {
     color: '#D94F04',
     fontSize: 16,
-    fontWeight: '700',
+     
   },
   featureText: {
     color: '#888',
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   buyButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+     
   },
   howItWorksSection: {
     marginBottom: 30,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   stepNumberText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '700',
+     
   },
   stepContent: {
     flex: 1,
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+     
     marginBottom: 5,
   },
   stepDescription: {

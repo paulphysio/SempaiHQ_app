@@ -6,7 +6,7 @@ export default function CustomText(props) {
     <Text 
       {...props} 
       style={[
-        { fontFamily: 'AnimeAce' },
+        { fontFamily: ' Yoruka' },
         props.style
       ]}
     >

@@ -24,9 +24,30 @@ import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP } from '../styles/HomeStyles';
-import { AnimatedPressable, useDelayedUnmount } from '../utils/homeAnimation';
+import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
+import { useCardExpansion } from '../utils/cardExpansion';
+import CinematicCardOverlay from '../components/CinematicCardOverlay';
 
 const { width, height } = Dimensions.get('window');
+
+// Shimmer placeholder shown in place of a carousel while its data is still
+// loading — sized to match the real poster card exactly so nothing reflows
+// once real content swaps in. Defined outside Home so it isn't recreated
+// (and its usePulse loop restarted) on every Home render.
+const CarouselSkeleton = ({ count = 4 }) => {
+  const pulse = usePulse();
+  return (
+    <View style={{ flexDirection: 'row', paddingHorizontal: 8 }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <Animated.View key={i} style={[styles.skeletonCard, { opacity: pulse }]}>
+          <View style={styles.skeletonImage} />
+          <View style={styles.skeletonLine} />
+          <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
+        </Animated.View>
+      ))}
+    </View>
+  );
+};
 
 const Home = () => {
   const navigation = useNavigation();
@@ -76,6 +97,20 @@ const Home = () => {
   const mangaFlatListRef = useRef(null);
   const novelIndexRef = useRef(0);
   const mangaIndexRef = useRef(0);
+
+  // Cinematic card expansion — measures the tapped poster's real screen
+  // rect, then CinematicCardOverlay morphs it into a full detail panel.
+  // cardNodeRefs holds the live View node for each rendered card so we can
+  // call measureInWindow() on tap.
+  const cardNodeRefs = useRef({});
+  const { expandedCard, progress, kenBurns, openCard, closeCard, resetImmediate } = useCardExpansion();
+
+  // Scroll-linked hero parallax — the hero text drifts up and fades
+  // slightly as the person scrolls into the content below, instead of
+  // sitting static the whole time.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const heroParallaxTranslate = scrollY.interpolate({ inputRange: [0, 160], outputRange: [0, -26], extrapolate: 'clamp' });
+  const heroParallaxOpacity = scrollY.interpolate({ inputRange: [0, 160], outputRange: [1, 0.4], extrapolate: 'clamp' });
 
   // Keeps dropdowns/overlay mounted long enough to play their exit
   // animation instead of disappearing the instant state flips.
@@ -734,9 +769,11 @@ const Home = () => {
     }
   };
 
-  // Auto-scroll novels
+  // Auto-scroll novels — paused while a card is expanded so the list can't
+  // silently scroll underneath the overlay (which would make the collapse
+  // animation land somewhere other than where the card actually is now).
   useEffect(() => {
-    if (novels.length <= 1) return;
+    if (novels.length <= 1 || expandedCard) return;
     const interval = setInterval(() => {
       let nextIndex = novelIndexRef.current + 1;
       if (nextIndex >= novels.length) nextIndex = 0;
@@ -744,11 +781,11 @@ const Home = () => {
       novelIndexRef.current = nextIndex;
     }, 2500);
     return () => clearInterval(interval);
-  }, [novels.length]);
+  }, [novels.length, expandedCard]);
 
-  // Auto-scroll manga
+  // Auto-scroll manga — same pause-while-expanded guard as novels above.
   useEffect(() => {
-    if (manga.length <= 1) return;
+    if (manga.length <= 1 || expandedCard) return;
     const interval = setInterval(() => {
       let nextIndex = mangaIndexRef.current + 1;
       if (nextIndex >= manga.length) nextIndex = 0;
@@ -756,7 +793,25 @@ const Home = () => {
       mangaIndexRef.current = nextIndex;
     }, 2500);
     return () => clearInterval(interval);
-  }, [manga.length]);
+  }, [manga.length, expandedCard]);
+
+  // Tapping a poster no longer navigates immediately — it opens the
+  // cinematic in-place preview. The CTA inside that preview is what
+  // actually navigates to the full detail screen.
+  const handleCardPress = (item, type) => {
+    const node = cardNodeRefs.current[`${type}-${item.id}`];
+    if (!node?.measureInWindow) return;
+    node.measureInWindow((x, y, measuredWidth, measuredHeight) => {
+      openCard(item, type, { x, y, width: measuredWidth, height: measuredHeight });
+    });
+  };
+
+  const handleReadNow = () => {
+    if (!expandedCard) return;
+    const { item, type } = expandedCard;
+    resetImmediate(); // no point playing the 420ms close animation on a screen we're leaving
+    navigation.navigate(type === 'novel' ? 'NovelDetail' : 'MangaDetail', { id: item.id });
+  };
 
   // Render novel/manga carousel item — poster-card layout. `index` drives
   // the rank badge (only meaningful because both lists are pre-sorted by
@@ -772,20 +827,19 @@ const Home = () => {
     return (
       <View style={styles.contentCard}>
         <AnimatedPressable
-          onPress={() => {
-            try {
-              navigation.navigate(type === 'novel' ? 'NovelDetail' : 'MangaDetail', { id: item.id });
-            } catch (error) {
-              console.error(`Failed to navigate to ${type} ID ${item.id}: ${error.message}`);
-              Alert.alert('Navigation Error', 'Unable to view this item. Please try again.');
-            }
-          }}
+          onPress={() => handleCardPress(item, type)}
           accessible={true}
-          accessibilityLabel={`View ${item.title}`}
-          accessibilityHint={`Navigate to ${type} details`}
+          accessibilityLabel={`Preview ${item.title}`}
+          accessibilityHint="Opens a detail preview in place"
           scaleTo={0.96}
         >
-          <View style={styles.contentImageWrap}>
+          <View
+            style={styles.contentImageWrap}
+            ref={(node) => {
+              if (node) cardNodeRefs.current[`${type}-${item.id}`] = node;
+            }}
+            collapsable={false}
+          >
             <Image
               source={{ uri: item.image || 'https://via.placeholder.com/260x340' }}
               style={styles.contentImage}
@@ -1210,8 +1264,18 @@ const Home = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         bounces={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        <View style={styles.heroSection}>
+        <Animated.View
+          style={[
+            styles.heroSection,
+            { opacity: heroParallaxOpacity, transform: [{ translateY: heroParallaxTranslate }] },
+          ]}
+        >
           <Animated.Text
             style={[
               styles.heroEyebrow,
@@ -1253,14 +1317,9 @@ const Home = () => {
               <Text style={styles.heroButtonText}>Manga</Text>
             </AnimatedPressable>
           </View>
-        </View>
+        </Animated.View>
 
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={HOME_COLORS.accent} />
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
-        ) : error ? (
+        {error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
@@ -1269,7 +1328,9 @@ const Home = () => {
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
-              {novels.length === 0 ? (
+              {loading ? (
+                <CarouselSkeleton />
+              ) : novels.length === 0 ? (
                 <Text style={styles.noContent}>No novels available.</Text>
               ) : (
                 <FlatList
@@ -1291,7 +1352,9 @@ const Home = () => {
             {/* Manga section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Manga" onSeeAll={() => handleNavigation('MangaPage', {})} />
-              {manga.length === 0 ? (
+              {loading ? (
+                <CarouselSkeleton />
+              ) : manga.length === 0 ? (
                 <Text style={styles.noContent}>No manga available.</Text>
               ) : (
                 <FlatList
@@ -1310,22 +1373,27 @@ const Home = () => {
               )}
             </View>
 
-            {/* Features section */}
-            <View style={styles.featuresSection}>
-              <SectionHeader title="Explore More" />
-              {features.length === 0 ? (
-                <Text style={styles.noContent}>No features available.</Text>
-              ) : (
-                <FlatList
-                  data={features}
-                  renderItem={renderFeatureItem}
-                  keyExtractor={item => `feature-${item.title}`}
-                  numColumns={2}
-                  contentContainerStyle={styles.featuresGrid}
-                  scrollEnabled={false}
-                />
-              )}
-            </View>
+            {/* Features section — held back until data has settled so it
+                doesn't render an empty grid with a floating header while
+                loading; novels/manga above already communicate progress
+                via their skeletons. */}
+            {!loading && (
+              <View style={styles.featuresSection}>
+                <SectionHeader title="Explore More" />
+                {features.length === 0 ? (
+                  <Text style={styles.noContent}>No features available.</Text>
+                ) : (
+                  <FlatList
+                    data={features}
+                    renderItem={renderFeatureItem}
+                    keyExtractor={item => `feature-${item.title}`}
+                    numColumns={2}
+                    contentContainerStyle={styles.featuresGrid}
+                    scrollEnabled={false}
+                  />
+                )}
+              </View>
+            )}
           </>
         )}
 
@@ -1609,6 +1677,16 @@ const Home = () => {
           )}
         </View>
       </Modal>
+
+      {/* Cinematic card preview — sits above everything (including the
+          sidebar/dropdowns) via its own zIndex. */}
+      <CinematicCardOverlay
+        expandedCard={expandedCard}
+        progress={progress}
+        kenBurns={kenBurns}
+        onClose={closeCard}
+        onReadNow={handleReadNow}
+      />
     </View>
   );
 };

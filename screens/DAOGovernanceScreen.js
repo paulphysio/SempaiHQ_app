@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
   title: {
     color: '#fff',
     fontSize: 24,
-    fontWeight: 'bold',
+     
     marginBottom: 20,
   },
   message: {
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
+     
   },
 });
 

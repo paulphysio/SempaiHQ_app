@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   title: {
     color: KA_COLORS.ivory,
     fontSize: 32,
-    fontWeight: 'bold',
+     
     textAlign: 'center',
     letterSpacing: 3,
     textShadowColor: KA_COLORS.orangePrimary,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   profileName: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
     textShadowColor: KA_COLORS.orangePrimary,
     textShadowOffset: { width: 0, height: 1 },
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: KA_COLORS.ivory,
     fontSize: 18,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
     marginBottom: 16,
     textShadowColor: KA_COLORS.orangePrimary,
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   novelTitle: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
     marginBottom: 6,
   },
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
     marginLeft: 8,
   },

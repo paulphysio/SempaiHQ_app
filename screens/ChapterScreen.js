@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     textAlign: 'center',
     marginBottom: 20,
     letterSpacing: 2,
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   secondaryButton: {
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   balanceText: {
     color: KA_COLORS.gold,
     fontSize: 12,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   header: {
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     color: KA_COLORS.ivory,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
     flex: 1,
     textAlign: 'center',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
   lockedMessage: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: 2,
@@ -299,14 +299,14 @@ const styles = StyleSheet.create({
   paymentButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 12,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
     letterSpacing: 1,
   },
   paymentPrice: {
     color: KA_COLORS.gold,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   actionButtonsContainer: {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
   smpButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   getSmpButton: {
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: KA_COLORS.ivory,
     fontSize: 20,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
     letterSpacing: 2,
   },
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   modalNote: {
@@ -649,14 +649,14 @@ const styles = StyleSheet.create({
   },
   benefactorPlanName: {
     fontSize: 16,
-    fontWeight: 'bold',
+     
     marginBottom: 4,
     letterSpacing: 1,
   },
   benefactorPlanPrice: {
     color: KA_COLORS.gold,
     fontSize: 18,
-    fontWeight: 'bold',
+     
     marginBottom: 4,
     letterSpacing: 1,
   },
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
   featuredBadgeText: {
     color: KA_COLORS.bgPrimary,
     fontSize: 10,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   benefactorPlanDisabled: {
@@ -700,7 +700,7 @@ const styles = StyleSheet.create({
     color: KA_COLORS.error,
     fontSize: 10,
     marginTop: 4,
-    fontWeight: 'bold',
+     
   },
   tokenSelector: {
     flexDirection: 'row',
@@ -727,7 +727,7 @@ const styles = StyleSheet.create({
   tokenOptionText: {
     color: KA_COLORS.textSecondary,
     fontSize: 14,
-    fontWeight: 'bold',
+     
   },
   tokenOptionTextSelected: {
     color: KA_COLORS.gold,
@@ -755,14 +755,14 @@ const styles = StyleSheet.create({
   },
   planDetailsName: {
     fontSize: 28,
-    fontWeight: 'bold',
+     
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: 2,
   },
   planDetailsPrice: {
     fontSize: 32,
-    fontWeight: 'bold',
+     
     color: KA_COLORS.gold,
     textAlign: 'center',
     marginBottom: 4,
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
   planDetailsSubscribeButtonText: {
     color: KA_COLORS.bgPrimary,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
   },
   chapterList: {
@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
   authorNoteTitle: {
     color: KA_COLORS.gold,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     marginBottom: 12,
     letterSpacing: 1,
   },
@@ -861,7 +861,7 @@ const styles = StyleSheet.create({
   editButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
   },
   authorNoteEdit: {
     backgroundColor: KA_COLORS.bgPrimary,
@@ -895,7 +895,7 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
   },
   cancelButton: {
     backgroundColor: KA_COLORS.bgCard,
@@ -933,7 +933,7 @@ const styles = StyleSheet.create({
   navButtonText: {
     color: KA_COLORS.gold,
     fontSize: 14,
-    fontWeight: 'bold',
+     
   },
   navSpacer: {
     flex: 1,
@@ -963,7 +963,7 @@ const AD_VIDEO_URI = require('../assets/ad_video.mp4');
 // USD cost of unlocking a single chapter. Centralized here so the displayed
 // SMP cost (SMP_READ_COST) and the amount actually charged on-chain
 // (processChapterPayment) can never drift apart.
-const CHAPTER_READ_USD_COST = 0.0025;
+const CHAPTER_READ_USD_COST = 0.025;
 
 // ---------------------------------------------------------------------------
 // Live pricing (Jupiter)

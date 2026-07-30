@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     marginBottom: 24,
     letterSpacing: 2,
   },
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   novelTitle: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     marginBottom: 16,
     textAlign: 'center',
     letterSpacing: 1,
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   novelViewsText: {
     color: KA_COLORS.gold,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   novelIntro: {
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   highlight: {
     color: KA_COLORS.orangePrimary,
-    fontWeight: 'bold',
+     
   },
   summaryLinkContainer: {
     padding: 16,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
   summaryLinkText: {
     color: KA_COLORS.orangePrimary,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   chaptersSection: {
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: KA_COLORS.gold,
     fontSize: 20,
-    fontWeight: 'bold',
+     
     marginBottom: 16,
     letterSpacing: 2,
   },
@@ -289,14 +289,14 @@ const styles = StyleSheet.create({
   chapterTitle: {
     color: KA_COLORS.ivory,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
     letterSpacing: 1,
   },
   chapterNumber: {
     color: KA_COLORS.gold,
     fontSize: 12,
-    fontWeight: 'bold',
+     
     marginBottom: 4,
     letterSpacing: 1,
   },
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   popupTitle: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     marginBottom: 12,
     letterSpacing: 2,
   },

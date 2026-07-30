@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: COLORS.textHi,
     fontSize: 18,
-    fontWeight: '700',
+     
     marginTop: 20,
     textAlign: 'center',
   },
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '700',
+     
   },
 
   // Header
@@ -539,13 +539,13 @@ const styles = StyleSheet.create({
   eyebrow: {
     color: COLORS.brand,
     fontSize: 11,
-    fontWeight: '800',
+     
     letterSpacing: 1.4,
   },
   pageTitle: {
     color: '#FFFFFF',
     fontSize: 24,
-    fontWeight: '800',
+     
     marginTop: 2,
     letterSpacing: -0.3,
   },
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   timeButtonText: {
     color: COLORS.textLow,
     fontSize: 13,
-    fontWeight: '700',
+     
   },
   timeButtonTextActive: {
     color: '#FFFFFF',
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   noResultsTitle: {
     color: COLORS.textHi,
     fontSize: 18,
-    fontWeight: '700',
+     
     marginTop: 18,
   },
   noResultsText: {
@@ -679,24 +679,24 @@ const styles = StyleSheet.create({
   podiumAvatarText: {
     color: COLORS.textHi,
     fontSize: 16,
-    fontWeight: '800',
+     
   },
   podiumName: {
     color: COLORS.textHi,
     fontSize: 12,
-    fontWeight: '700',
+     
     maxWidth: 90,
   },
   podiumPoints: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+     
     marginTop: 4,
   },
   podiumRank: {
     color: COLORS.textLow,
     fontSize: 11,
-    fontWeight: '700',
+     
     marginTop: 2,
   },
 
@@ -709,7 +709,7 @@ const styles = StyleSheet.create({
   legendText: {
     color: COLORS.textLow,
     fontSize: 10,
-    fontWeight: '800',
+     
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
@@ -738,7 +738,7 @@ const styles = StyleSheet.create({
   rankNumber: {
     color: COLORS.textLow,
     fontSize: 13,
-    fontWeight: '800',
+     
   },
   avatarCell: {
     width: 34,
@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
   avatarText: {
     color: COLORS.textHi,
     fontSize: 13,
-    fontWeight: '800',
+     
   },
   readerCell: {
     flex: 1,
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
   readerName: {
     color: COLORS.textHi,
     fontSize: 14,
-    fontWeight: '700',
+     
   },
   metaRow: {
     flexDirection: 'row',
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
   walletAddress: {
     color: COLORS.textLow,
     fontSize: 10,
-    fontWeight: '600',
+     
   },
   gemChip: {
     flexDirection: 'row',
@@ -798,12 +798,12 @@ const styles = StyleSheet.create({
   gemChipText: {
     color: COLORS.gem,
     fontSize: 10,
-    fontWeight: '700',
+     
   },
   gemChipBonus: {
     color: COLORS.gem,
     fontSize: 9,
-    fontWeight: '800',
+     
     opacity: 0.75,
   },
   statsCell: {
@@ -813,12 +813,12 @@ const styles = StyleSheet.create({
   effectivePoints: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+     
   },
   subStat: {
     color: COLORS.textLow,
     fontSize: 10,
-    fontWeight: '600',
+     
     marginTop: 2,
   },
   shareButton: {
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   shareModalTitle: {
     color: '#FFFFFF',
     fontSize: 17,
-    fontWeight: '800',
+     
   },
   shareModalClose: {
     width: 32,
@@ -892,19 +892,19 @@ const styles = StyleSheet.create({
   shareCardRank: {
     color: COLORS.textHi,
     fontSize: 15,
-    fontWeight: '700',
+     
     letterSpacing: 0.5,
   },
   shareCardUsername: {
     color: '#FFFFFF',
     fontSize: 22,
-    fontWeight: '800',
+     
     marginTop: 6,
   },
   shareCardPoints: {
     color: COLORS.textMid,
     fontSize: 15,
-    fontWeight: '600',
+     
     marginTop: 6,
   },
   shareCardTimeFramePill: {
@@ -919,7 +919,7 @@ const styles = StyleSheet.create({
   shareCardTimeFrame: {
     color: COLORS.gem,
     fontSize: 12,
-    fontWeight: '800',
+     
     letterSpacing: 0.4,
   },
   shareButtonX: {
@@ -936,7 +936,7 @@ const styles = StyleSheet.create({
   shareButtonXText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '800',
+     
   },
 });
 

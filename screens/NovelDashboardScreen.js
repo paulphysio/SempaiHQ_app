@@ -1685,7 +1685,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: KA_COLORS.gold,
     fontSize: 20,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
   },
   novelForm: {
@@ -1697,7 +1697,7 @@ const styles = StyleSheet.create({
   label: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   input: {
@@ -1747,7 +1747,7 @@ const styles = StyleSheet.create({
   fileButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   tagButton: {
@@ -1772,7 +1772,7 @@ const styles = StyleSheet.create({
   chapterTitle: {
     color: KA_COLORS.gold,
     fontSize: 18,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   checkboxContainer: {
@@ -1806,7 +1806,7 @@ const styles = StyleSheet.create({
   addChapterButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   resetButton: {
@@ -1855,7 +1855,7 @@ const styles = StyleSheet.create({
   chapterTitleText: {
     color: KA_COLORS.ivory,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
   },
   chapterPreview: {
@@ -1891,7 +1891,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   announcementSection: {
@@ -1913,7 +1913,7 @@ const styles = StyleSheet.create({
   announcementButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   novelsSection: {
@@ -1945,7 +1945,7 @@ const styles = StyleSheet.create({
   novelTitle: {
     color: KA_COLORS.ivory,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
   },
   novelSummary: {
@@ -1981,7 +1981,7 @@ const styles = StyleSheet.create({
   editNovelButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 12,
-    fontWeight: 'bold',
+     
   },
   deleteButton: {
     backgroundColor: KA_COLORS.error,
@@ -2046,7 +2046,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: KA_COLORS.ivory,
     fontSize: 20,
-    fontWeight: 'bold',
+     
     marginBottom: 16,
     letterSpacing: 2,
   },
@@ -2071,7 +2071,7 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   cancelButton: {
@@ -2143,7 +2143,7 @@ const styles = StyleSheet.create({
   modalCloseButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   datePickerContainer: {
@@ -2210,7 +2210,7 @@ const styles = StyleSheet.create({
   successButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
 });

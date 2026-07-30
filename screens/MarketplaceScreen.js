@@ -126,60 +126,13 @@ const MarketplaceScreen = () => {
   };
 
   const handlePurchase = async (listing) => {
-    if (!userId) return;
-    
-    try {
-      const response = await fetch(`${API_BASE_URL}/marketplace/purchase`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          listingId: listing.id,
-          buyerId: userId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      setShowDetailModal(false);
-      loadListings();
-      loadHoardItems();
-    } catch (error) {
-      console.error('[MarketplaceScreen] Error purchasing item:', error);
-    }
+    Alert.alert('Purchase Disabled', 'Purchase functionality is currently disabled. Backend API endpoints not implemented.');
+    return;
   };
 
   const handleListItem = async () => {
-    if (!userId || !selectedItem || !listingPrice) return;
-
-    try {
-      const price = parseInt(listingPrice);
-      
-      const response = await fetch(`${API_BASE_URL}/marketplace/list`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          sellerId: userId,
-          itemId: selectedItem.id,
-          price
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      setShowListModal(false);
-      setListingPrice('');
-      loadHoardItems();
-    } catch (error) {
-      console.error('[MarketplaceScreen] Error listing item:', error);
-    }
+    Alert.alert('Listing Disabled', 'Listing functionality is currently disabled. Backend API endpoints not implemented.');
+    return;
   };
 
   const renderListing = ({ item }) => {

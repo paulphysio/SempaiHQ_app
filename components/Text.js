@@ -4,7 +4,7 @@ import { Text as RNText } from 'react-native';
 export const Text = ({ style, allowFontScaling = false, ...props }) => {
   return (
     <RNText
-      style={[{ fontFamily: 'AnimeAce' }, style]}
+      style={[{ fontFamily: ' Yoruka' }, style]}
       allowFontScaling={allowFontScaling}
       {...props}
     />

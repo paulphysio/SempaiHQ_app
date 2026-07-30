@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   campaignTitleText: {
     color: '#ffd700',
     fontSize: 20,
-    fontWeight: '900',
+     
     letterSpacing: 1,
   },
   campaignSubtitle: {
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   campaignBadgeText: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '600',
+     
     marginLeft: 6,
   },
   // Time Frame Selector
@@ -104,11 +104,11 @@ const styles = StyleSheet.create({
   timeFrameButtonText: {
     color: '#8b949e',
     fontSize: 13,
-    fontWeight: '600',
+     
   },
   timeFrameButtonTextActive: {
     color: '#ffffff',
-    fontWeight: '700',
+     
   },
   // Leaderboard Container
   leaderboardContainer: {
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   headerRankText: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '700',
+     
   },
   headerPlayer: {
     flex: 1,
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   headerPlayerText: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '700',
+     
   },
   headerScore: {
     width: 70,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   headerScoreText: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '700',
+     
   },
   headerLevel: {
     width: 60,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   headerLevelText: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '700',
+     
   },
   headerTier: {
     width: 60,
@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   headerTierText: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '700',
+     
   },
   headerShare: {
     width: 40,
@@ -216,12 +216,12 @@ const styles = StyleSheet.create({
   rankBadgeText: {
     color: '#ffffff',
     fontSize: 12,
-    fontWeight: '700',
+     
   },
   rankNumber: {
     color: '#8b949e',
     fontSize: 13,
-    fontWeight: '600',
+     
   },
   playerCell: {
     flex: 1,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     color: '#ffd700',
     fontSize: 14,
-    fontWeight: '700',
+     
   },
   playerDetails: {
     flex: 1,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   playerName: {
     color: '#ffffff',
     fontSize: 13,
-    fontWeight: '600',
+     
     marginBottom: 2,
   },
   playerAddress: {
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   scoreValue: {
     color: '#ffd700',
     fontSize: 13,
-    fontWeight: '700',
+     
   },
   levelCell: {
     width: 60,
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   levelValue: {
     color: '#8b949e',
     fontSize: 12,
-    fontWeight: '600',
+     
   },
   tierCell: {
     width: 60,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   tierBadgeText: {
     color: '#ffffff',
     fontSize: 10,
-    fontWeight: '600',
+     
   },
   shareCell: {
     width: 40,
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 16,
-    fontWeight: '600',
+     
   },
   retryButton: {
     backgroundColor: '#ff6200',
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
+     
   },
   // Share Modal
   shareModalOverlay: {
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   shareModalTitle: {
     color: '#ffd700',
     fontSize: 18,
-    fontWeight: '800',
+     
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -379,13 +379,13 @@ const styles = StyleSheet.create({
   shareCardName: {
     color: '#ffffff',
     fontSize: 18,
-    fontWeight: '800',
+     
     marginBottom: 8,
   },
   shareCardRank: {
     color: '#ffd700',
     fontSize: 32,
-    fontWeight: '900',
+     
     marginBottom: 4,
   },
   shareCardPoints: {
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
   shareCardTier: {
     color: '#238636',
     fontSize: 12,
-    fontWeight: '600',
+     
   },
   shareToXButton: {
     flexDirection: 'row',
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   shareToXButtonText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
+     
     marginLeft: 8,
   },
 });

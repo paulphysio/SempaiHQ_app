@@ -396,7 +396,7 @@ const StatPageScreen = () => {
     },
     propsForLabels: {
       fontSize: 13,
-      fontWeight: '600',
+       
       fontFamily: 'System',
       fill: '#FFD580',
     },
@@ -521,7 +521,7 @@ const StatPageScreen = () => {
                 color: item.color,
                 legendFontColor: '#FFD580',
                 legendFontSize: 14,
-                legendFontWeight: '600',
+                legend, 
                 legendFontFamily: 'System',
                 name: item.name,
               }))}

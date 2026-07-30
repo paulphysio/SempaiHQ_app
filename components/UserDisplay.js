@@ -121,12 +121,12 @@ const styles = StyleSheet.create({
   avatarPlaceholderText: {
     color: '#9B59B6',
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   username: {
     color: '#FFF',
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   inlineContainer: {
     flexDirection: 'row',
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   inlineUsername: {
     color: '#FFF',
     fontSize: 14,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
 });
 

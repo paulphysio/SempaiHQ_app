@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+     
     color: '#ffffff',
   },
   backButton: {
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+     
     color: '#ffffff',
     marginBottom: 16,
   },
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 24,
-    fontWeight: 'bold',
+     
     color: '#ffffff',
   },
   userDate: {
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   statNumber: {
     fontSize: 24,
-    fontWeight: 'bold',
+     
     color: '#E67E22',
     marginTop: 8,
   },
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   activityTitle: {
     color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
   },
   activityItem: {

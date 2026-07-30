@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+     
     color: '#FFFFFF',
     marginBottom: 10,
   },
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
+     
     color: '#FFFFFF',
     marginBottom: 8,
   },
@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: 'bold',
+     
   },
   warningBox: {
     flexDirection: 'row',
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#E67E22',
     fontSize: 16,
-    fontWeight: '600',
+     
     marginLeft: 8,
   },
 });

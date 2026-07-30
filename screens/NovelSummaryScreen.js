@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     marginBottom: 12,
     letterSpacing: 2,
   },
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
   singleSummaryTitle: {
     color: KA_COLORS.ivory,
     fontSize: 24,
-    fontWeight: 'bold',
+     
     marginBottom: 16,
     letterSpacing: 1,
   },
@@ -167,13 +167,13 @@ const styles = StyleSheet.create({
   logoText: {
     color: KA_COLORS.ivory,
     fontSize: 18,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   summaryPageTitle: {
     color: KA_COLORS.gold,
     fontSize: 18,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
   },
   searchSection: {
@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   summaryNovelTitle: {
     color: KA_COLORS.ivory,
     fontSize: 18,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   summaryPreview: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   readMoreText: {
     color: KA_COLORS.orangePrimary,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
   },
   noResults: {
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   noResultsTitle: {
     color: KA_COLORS.ivory,
     fontSize: 20,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
     letterSpacing: 1,
   },

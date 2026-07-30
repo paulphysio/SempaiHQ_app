@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   refreshButton: {
     padding: 8,
@@ -212,12 +212,12 @@ const styles = StyleSheet.create({
     color: '#AAA',
     fontSize: 14,
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   errorText: {
     color: '#E74C3C',
     fontSize: 14,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   retryButton: {
     flexDirection: 'row',
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   pointsGrid: {
     flexDirection: 'row',
@@ -262,19 +262,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     
     marginLeft: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   cardValue: {
     color: '#FFF',
     fontSize: 24,
     
     marginBottom: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   cardSubtitle: {
     color: '#AAA',
     fontSize: 12,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   breakdown: {
     backgroundColor: 'rgba(155, 89, 182, 0.05)',
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     
     marginBottom: 8,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   breakdownItem: {
     flexDirection: 'row',
@@ -296,13 +296,13 @@ const styles = StyleSheet.create({
   breakdownLabel: {
     color: '#CCC',
     fontSize: 14,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   breakdownValue: {
     color: '#FFF',
     fontSize: 14,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   bonus: {
     color: '#2ECC71',

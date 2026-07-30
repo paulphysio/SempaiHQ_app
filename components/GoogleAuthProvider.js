@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   modalTitle: {
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
     fontSize: 28,
     
     color: '#1A1A1A',
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 6,
   },
   modalSubtitle: {
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
     fontSize: 18,
     color: '#333333',
     textAlign: 'center',
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
   },
   errorText: {
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
     fontSize: 16,
     color: '#FF3333',
     marginBottom: 20,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   googleButtonText: {
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
     fontSize: 18,
     
     color: '#FFFFFF',
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 69, 0, 0.5)',
   },
   cancelButtonText: {
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
     fontSize: 17,
     
     color: '#FF4500',

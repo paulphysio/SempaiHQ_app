@@ -1077,7 +1077,7 @@ const ChatScreen = () => {
     editMode && (
       <Modal isVisible={true} onBackdropPress={handleCancelEdit}>
         <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20 }}>
-          <Text style={{ fontWeight: 'bold', fontSize: 16, marginBottom: 10 }}>Edit Message</Text>
+          <Text style={{   fontSize: 16, marginBottom: 10 }}>Edit Message</Text>
           <TextInput
             value={editText}
             onChangeText={setEditText}
@@ -1088,10 +1088,10 @@ const ChatScreen = () => {
           />
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
             <TouchableOpacity onPress={handleCancelEdit} style={{ marginRight: 16 }}>
-              <Text style={{ color: '#EF5350', fontWeight: 'bold', fontSize: 15 }}>Cancel</Text>
+              <Text style={{ color: '#EF5350',   fontSize: 15 }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSaveEdit}>
-              <Text style={{ color: '#F28C38', fontWeight: 'bold', fontSize: 15 }}>Save</Text>
+              <Text style={{ color: '#F28C38',   fontSize: 15 }}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>

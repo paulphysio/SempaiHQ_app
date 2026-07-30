@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: KA_COLORS.gold,
     fontSize: isTablet ? 36 : 28,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   },
   tagChipTextActive: {
     color: KA_COLORS.ivory,
-    fontWeight: 'bold',
+     
   },
   clearTagsButton: {
     flexDirection: 'row',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   resultsCountHighlight: {
     color: KA_COLORS.gold,
-    fontWeight: 'bold',
+     
   },
   // Grid Container
   gridContainer: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   adultBadgeText: {
     color: KA_COLORS.ivory,
     fontSize: 11,
-    fontWeight: 'bold',
+     
     letterSpacing: 0.5,
   },
   novelInfo: {
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   novelTitle: {
     color: KA_COLORS.ivory,
     fontSize: isTablet ? 16 : 15,
-    fontWeight: 'bold',
+     
     marginBottom: 8,
     letterSpacing: 0.5,
     lineHeight: 22,
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: KA_COLORS.ivory,
     fontSize: 20,
-    fontWeight: 'bold',
+     
     marginBottom: 12,
     letterSpacing: 1,
   },
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontWeight: 'bold',
+     
     marginLeft: 8,
     letterSpacing: 1,
   },

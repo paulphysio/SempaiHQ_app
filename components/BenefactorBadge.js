@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     
     marginTop: 4,
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
 });
 

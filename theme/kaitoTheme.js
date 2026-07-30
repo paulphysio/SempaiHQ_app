@@ -75,7 +75,7 @@ export const kaitoBase = StyleSheet.create({
   screenTitle: {
     color: KA_COLORS.ivory,
     fontSize: 30,
-    fontWeight: 'bold',
+     
     letterSpacing: 3,
     textShadowColor: KA_COLORS.orangePrimary,
     textShadowOffset: { width: 0, height: 2 },
@@ -91,7 +91,7 @@ export const kaitoBase = StyleSheet.create({
   sectionTitle: {
     color: KA_COLORS.ivory,
     fontSize: 16,
-    fontWeight: 'bold',
+     
     letterSpacing: 2,
     marginBottom: 14,
     textShadowColor: KA_COLORS.orangePrimary,
@@ -140,7 +140,7 @@ export const kaitoBase = StyleSheet.create({
   primaryButtonText: {
     color: KA_COLORS.ivory,
     fontSize: 15,
-    fontWeight: 'bold',
+     
     letterSpacing: 1,
     marginLeft: 8,
   },
@@ -155,7 +155,7 @@ export const kaitoBase = StyleSheet.create({
   secondaryButtonText: {
     color: KA_COLORS.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
+     
     letterSpacing: 1,
   },
   pill: {
@@ -179,7 +179,7 @@ export const kaitoBase = StyleSheet.create({
   label: {
     color: KA_COLORS.textSecondary,
     fontSize: 11,
-    fontWeight: '600',
+     
     letterSpacing: 1.5,
     textTransform: 'uppercase',
   },

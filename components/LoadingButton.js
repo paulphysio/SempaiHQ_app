@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     
-    fontFamily: 'AnimeAce',
+    fontFamily: ' Yoruka',
   },
   iconLeft: {
     marginRight: 8,
