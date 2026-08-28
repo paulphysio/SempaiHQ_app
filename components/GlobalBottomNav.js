@@ -3,7 +3,8 @@ import { View, TouchableOpacity, Text, Dimensions, Animated, Modal, ScrollView, 
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import GlobalBottomNavStyles from '../styles/GlobalBottomNavStyles';
+import { useTheme } from '../context/ThemeContext';
+import { getGlobalBottomNavStyles } from '../styles/GlobalBottomNavStyles';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 
@@ -15,6 +16,8 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
   const wallet = walletContext?.wallet;
   const isWalletConnected = walletContext?.isWalletConnected || !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
+  const { isDark, colors } = useTheme();
+  const themedStyles = getGlobalBottomNavStyles(isDark);
   
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
@@ -159,7 +162,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
     <Fragment>
       <Animated.View 
         style={[
-          GlobalBottomNavStyles.bottomNavbar,
+          themedStyles.bottomNavbar,
           {
             opacity: fadeInAnim,
             transform: [{ translateY: slideUpAnim }],
@@ -167,11 +170,11 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
         ]}
       >
         <LinearGradient
-          colors={['rgba(17, 18, 24, 0.95)', 'rgba(11, 11, 20, 0.98)']}
-          style={GlobalBottomNavStyles.gradientOverlay}
+          colors={isDark ? ['rgba(17, 18, 24, 0.95)', 'rgba(11, 11, 20, 0.98)'] : ['rgba(255, 255, 255, 0.95)', 'rgba(248, 248, 232, 0.98)']}
+          style={themedStyles.gradientOverlay}
         />
-        <View style={GlobalBottomNavStyles.glowEffect} />
-        <View style={GlobalBottomNavStyles.navContent}>
+        <View style={themedStyles.glowEffect} />
+        <View style={themedStyles.navContent}>
           <Animated.View
             style={{
               transform: [{
@@ -180,7 +183,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                   outputRange: [1, 1.04],
                 })
               }],
-              shadowColor: '#FF5733',
+              shadowColor: colors.accent,
               shadowOffset: { width: 0, height: 0 },
               shadowOpacity: menuPulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.3] }),
               shadowRadius: menuPulseAnim.interpolate({ inputRange: [0, 1], outputRange: [2, 4] }),
@@ -188,25 +191,25 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
           >
             <TouchableOpacity
               activeOpacity={0.7}
-              style={GlobalBottomNavStyles.bottomNavButton}
+              style={themedStyles.bottomNavButton}
               onPress={onMenuToggle}
               accessible={true}
               accessibilityLabel={menuOpen ? 'Close menu' : 'Open menu'}
               disabled={isNavigating}
             >
               <LinearGradient
-                colors={menuOpen ? ['#FF5733', '#F36316'] : ['rgba(255, 87, 51, 0.15)', 'rgba(243, 99, 22, 0.08)']}
-                style={GlobalBottomNavStyles.buttonGradient}
+                colors={menuOpen ? [colors.accent, colors.accentDeep] : [colors.accentSoft, colors.accentGlow]}
+                style={themedStyles.buttonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
                 {isNavigating ? (
-                  <ActivityIndicator size="small" color="#FF5733" />
+                  <ActivityIndicator size="small" color={colors.accent} />
                 ) : (
                   <FontAwesome5 
                     name={menuOpen ? 'times' : 'bars'} 
                     size={width < 480 ? 20 : 22} 
-                    color={menuOpen ? '#fff' : '#FF5733'}
+                    color={menuOpen ? '#fff' : colors.accent}
                   />
                 )}
               </LinearGradient>
@@ -221,35 +224,35 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                   outputRange: [1, 1.06],
                 }) : 1,
               }],
-              shadowColor: unreadCount > 0 ? '#FF5733' : 'transparent',
+              shadowColor: unreadCount > 0 ? colors.accent : 'transparent',
               shadowOffset: { width: 0, height: 0 },
               shadowOpacity: unreadCount > 0 ? notifPulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.35] }) : 0,
               shadowRadius: unreadCount > 0 ? notifPulseAnim.interpolate({ inputRange: [0, 1], outputRange: [2, 5] }) : 0,
             }}
           >
-            <View style={GlobalBottomNavStyles.notificationWrapper}>
+            <View style={themedStyles.notificationWrapper}>
               <TouchableOpacity
                 activeOpacity={0.7}
-                style={GlobalBottomNavStyles.bottomNavButton}
+                style={themedStyles.bottomNavButton}
                 onPress={handleNotifications}
                 accessible={true}
                 accessibilityLabel="View notifications"
               >
                 <LinearGradient
-                  colors={unreadCount > 0 ? ['#FF5733', '#F36316'] : ['rgba(255, 87, 51, 0.12)', 'rgba(243, 99, 22, 0.06)']}
-                  style={GlobalBottomNavStyles.buttonGradient}
+                  colors={unreadCount > 0 ? [colors.accent, colors.accentDeep] : [colors.accentSoft, colors.accentGlow]}
+                  style={themedStyles.buttonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   <FontAwesome5 
                     name="envelope" 
                     size={width < 480 ? 20 : 22} 
-                    color={unreadCount > 0 ? '#fff' : '#FF5733'}
+                    color={unreadCount > 0 ? '#fff' : colors.accent}
                   />
                   {unreadCount > 0 && (
                     <Animated.View 
                       style={[
-                        GlobalBottomNavStyles.notificationBadge,
+                        themedStyles.notificationBadge,
                         {
                           transform: [{
                             scale: notifPulseAnim.interpolate({
@@ -260,7 +263,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                         }
                       ]}
                     >
-                      <Text style={GlobalBottomNavStyles.badgeText}>{unreadCount}</Text>
+                      <Text style={themedStyles.badgeText}>{unreadCount}</Text>
                     </Animated.View>
                   )}
                 </LinearGradient>
@@ -276,35 +279,35 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                   outputRange: [1, 1.06],
                 }) : 1,
               }],
-              shadowColor: announcementCount > 0 ? '#F36316' : 'transparent',
+              shadowColor: announcementCount > 0 ? colors.accentDeep : 'transparent',
               shadowOffset: { width: 0, height: 0 },
               shadowOpacity: announcementCount > 0 ? announcePulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.35] }) : 0,
               shadowRadius: announcementCount > 0 ? announcePulseAnim.interpolate({ inputRange: [0, 1], outputRange: [2, 5] }) : 0,
             }}
           >
-            <View style={GlobalBottomNavStyles.announcementToggleWrapper}>
+            <View style={themedStyles.announcementToggleWrapper}>
               <TouchableOpacity
                 activeOpacity={0.7}
-                style={GlobalBottomNavStyles.bottomNavButton}
+                style={themedStyles.bottomNavButton}
                 onPress={handleAnnouncements}
                 accessible={true}
                 accessibilityLabel="View announcements"
               >
                 <LinearGradient
-                  colors={announcementCount > 0 ? ['#F36316', '#FF5733'] : ['rgba(243, 99, 22, 0.12)', 'rgba(255, 87, 51, 0.06)']}
-                  style={GlobalBottomNavStyles.buttonGradient}
+                  colors={announcementCount > 0 ? [colors.accentDeep, colors.accent] : [colors.accentSoft, colors.accentGlow]}
+                  style={themedStyles.buttonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   <FontAwesome5 
                     name="bell" 
                     size={width < 480 ? 20 : 22} 
-                    color={announcementCount > 0 ? '#fff' : '#F36316'}
+                    color={announcementCount > 0 ? '#fff' : colors.accentDeep}
                   />
                   {announcementCount > 0 && (
                     <Animated.View 
                       style={[
-                        GlobalBottomNavStyles.announcementBadge,
+                        themedStyles.announcementBadge,
                         {
                           transform: [{
                             scale: announcePulseAnim.interpolate({
@@ -315,7 +318,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                         }
                       ]}
                     >
-                      <Text style={GlobalBottomNavStyles.badgeText}>{announcementCount}</Text>
+                      <Text style={themedStyles.badgeText}>{announcementCount}</Text>
                     </Animated.View>
                   )}
                 </LinearGradient>
@@ -332,27 +335,27 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
         transparent={true}
         onRequestClose={() => setShowNotifications(false)}
       >
-        <View style={GlobalBottomNavStyles.modalOverlay}>
-          <View style={GlobalBottomNavStyles.modalContent}>
-            <View style={GlobalBottomNavStyles.modalHeader}>
-              <Text style={GlobalBottomNavStyles.modalTitle}>Notifications</Text>
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <View style={themedStyles.modalHeader}>
+              <Text style={themedStyles.modalTitle}>Notifications</Text>
               <TouchableOpacity onPress={() => setShowNotifications(false)}>
-                <FontAwesome5 name="times" size={24} color="#FFFFFF" />
+                <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={GlobalBottomNavStyles.modalBody}>
+            <ScrollView style={themedStyles.modalBody}>
               {loadingNotifications ? (
-                <Text style={GlobalBottomNavStyles.modalText}>Loading notifications...</Text>
+                <Text style={themedStyles.modalText}>Loading notifications...</Text>
               ) : !isWalletConnected ? (
-                <Text style={GlobalBottomNavStyles.modalText}>Connect your wallet to view notifications.</Text>
+                <Text style={themedStyles.modalText}>Connect your wallet to view notifications.</Text>
               ) : notifications.length === 0 ? (
-                <Text style={GlobalBottomNavStyles.modalText}>No notifications found.</Text>
+                <Text style={themedStyles.modalText}>No notifications found.</Text>
               ) : (
                 notifications.map((notif) => (
-                  <View key={notif.id} style={GlobalBottomNavStyles.notificationItem}>
-                    <Text style={GlobalBottomNavStyles.notificationType}>{notif.type}</Text>
-                    <Text style={GlobalBottomNavStyles.notificationMessage}>{notif.message}</Text>
-                    <Text style={GlobalBottomNavStyles.notificationDate}>
+                  <View key={notif.id} style={themedStyles.notificationItem}>
+                    <Text style={themedStyles.notificationType}>{notif.type}</Text>
+                    <Text style={themedStyles.notificationMessage}>{notif.message}</Text>
+                    <Text style={themedStyles.notificationDate}>
                       {new Date(notif.created_at).toLocaleDateString()}
                     </Text>
                   </View>
@@ -370,30 +373,30 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
         transparent={true}
         onRequestClose={() => setShowAnnouncements(false)}
       >
-        <View style={GlobalBottomNavStyles.modalOverlay}>
-          <View style={GlobalBottomNavStyles.modalContent}>
-            <View style={GlobalBottomNavStyles.modalHeader}>
-              <Text style={GlobalBottomNavStyles.modalTitle}>Announcements</Text>
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <View style={themedStyles.modalHeader}>
+              <Text style={themedStyles.modalTitle}>Announcements</Text>
               <TouchableOpacity onPress={() => setShowAnnouncements(false)}>
-                <FontAwesome5 name="times" size={24} color="#FFFFFF" />
+                <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={GlobalBottomNavStyles.modalBody}>
+            <ScrollView style={themedStyles.modalBody}>
               {loadingAnnouncements ? (
-                <Text style={GlobalBottomNavStyles.modalText}>Loading announcements...</Text>
+                <Text style={themedStyles.modalText}>Loading announcements...</Text>
               ) : announcements.length === 0 ? (
-                <Text style={GlobalBottomNavStyles.modalText}>No announcements found.</Text>
+                <Text style={themedStyles.modalText}>No announcements found.</Text>
               ) : (
                 announcements.map((announcement) => (
-                  <View key={announcement.id} style={GlobalBottomNavStyles.notificationItem}>
-                    <Text style={GlobalBottomNavStyles.announcementTitle}>{announcement.title}</Text>
-                    <Text style={GlobalBottomNavStyles.notificationMessage}>{announcement.message}</Text>
+                  <View key={announcement.id} style={themedStyles.notificationItem}>
+                    <Text style={themedStyles.announcementTitle}>{announcement.title}</Text>
+                    <Text style={themedStyles.notificationMessage}>{announcement.message}</Text>
                     {announcement.release_date && (
-                      <Text style={GlobalBottomNavStyles.notificationDate}>
+                      <Text style={themedStyles.notificationDate}>
                         Release: {new Date(announcement.release_date).toLocaleDateString()}
                       </Text>
                     )}
-                    <Text style={GlobalBottomNavStyles.notificationDate}>
+                    <Text style={themedStyles.notificationDate}>
                       Created: {new Date(announcement.created_at).toLocaleDateString()}
                     </Text>
                   </View>

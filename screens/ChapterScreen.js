@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
-  ActivityIndicator,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  StatusBar,
-  SafeAreaView,
   StyleSheet,
   ScrollView,
   Dimensions,
   Animated,
   Image,
+  TouchableOpacity,
+  Modal,
+  StatusBar,
+  SafeAreaView,
+  Linking,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Video } from 'expo-av';
 import Tts from 'react-native-tts';
@@ -35,918 +36,13 @@ import {
 } from '../constants';
 import CommentSection from '../components/Comments/CommentSection';
 import UBBadge from '../components/UBBadge';
+import AutopaySettings from '../components/AutopaySettings';
 import { CardStyleInterpolators } from '@react-navigation/stack';
 import { formatNumber } from '../utils/formatNumber';
+import { useTheme } from '../context/ThemeContext';
+import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
 
 const { height } = Dimensions.get('window');
-
-// Kaito Adventure Design System - Japanese Dark-Orange
-const KA_COLORS = {
-  bgPrimary: '#0c0c0c',
-  bgCard: '#141210',
-  bgElevated: '#1a1714',
-  orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
-  orangeSoft: '#e67e22',
-  orangeDim: '#8b4513',
-  gold: '#c9a84c',
-  goldBright: '#ffd700',
-  ivory: '#f5e6d3',
-  ivoryDim: '#c4b5a0',
-  border: '#2d2418',
-  textPrimary: '#f5e6d3',
-  textSecondary: '#a09080',
-  textMuted: '#6b5d4f',
-  success: '#4a7c59',
-  error: '#c41e3a',
-  warning: '#c9a84c',
-};
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  emberContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  ember: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: KA_COLORS.orangePrimary,
-    shadowColor: KA_COLORS.orangeBright,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  loadingText: {
-    color: KA_COLORS.ivory,
-    fontSize: 16,
-    marginTop: 16,
-    letterSpacing: 1,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgPrimary,
-    padding: 20,
-  },
-  errorTitle: {
-    color: KA_COLORS.ivory,
-    fontSize: 24,
-     
-    textAlign: 'center',
-    marginBottom: 20,
-    letterSpacing: 2,
-  },
-  input: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    width: '100%',
-    marginBottom: 16,
-    letterSpacing: 1,
-  },
-  actionButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderWidth: 1,
-    borderColor: KA_COLORS.orangeBright,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    width: '100%',
-    marginBottom: 12,
-    shadowColor: KA_COLORS.orangePrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  actionButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  secondaryButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 8,
-    width: '100%',
-  },
-  secondaryButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  balanceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: KA_COLORS.bgElevated,
-  },
-  balanceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  balanceIcon: {
-    marginRight: 4,
-  },
-  balanceText: {
-    color: KA_COLORS.gold,
-    fontSize: 12,
-     
-    letterSpacing: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: KA_COLORS.bgCard,
-    borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS.border,
-  },
-  headerButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    color: KA_COLORS.ivory,
-    fontSize: 16,
-     
-    letterSpacing: 1,
-    flex: 1,
-    textAlign: 'center',
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    margin: 16,
-    padding: 16,
-    borderRadius: 4,
-    borderWidth: 1,
-  },
-  errorMessage: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderColor: KA_COLORS.error,
-  },
-  warningMessage: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderColor: KA_COLORS.warning,
-  },
-  successMessage: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderColor: KA_COLORS.success,
-  },
-  messageText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-    flex: 1,
-  },
-  lockedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  lockIcon: {
-    marginBottom: 20,
-  },
-  lockedMessage: {
-    color: KA_COLORS.ivory,
-    fontSize: 24,
-     
-    textAlign: 'center',
-    marginBottom: 12,
-    letterSpacing: 2,
-  },
-  lockedSubMessage: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 24,
-    letterSpacing: 1,
-  },
-  paymentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 24,
-  },
-  paymentButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 16,
-    alignItems: 'center',
-    width: '45%',
-    minWidth: 140,
-  },
-  fullChaptersButton: {
-    borderColor: KA_COLORS.gold,
-  },
-  threeChaptersButton: {
-    borderColor: KA_COLORS.orangeDim,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  paymentButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 12,
-     
-    marginBottom: 8,
-    letterSpacing: 1,
-  },
-  paymentPrice: {
-    color: KA_COLORS.gold,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 24,
-  },
-  smpButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderWidth: 1,
-    borderColor: KA_COLORS.orangeBright,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    flex: 1,
-    shadowColor: KA_COLORS.orangePrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  smpButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  getSmpButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    flex: 1,
-  },
-  getSmpButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  contentContainer: {
-    flex: 1,
-    padding: 16,
-  },
-  paragraph: {
-    color: KA_COLORS.ivory,
-    fontSize: 16,
-    lineHeight: 28,
-    marginBottom: 16,
-    letterSpacing: 0.5,
-  },
-  readingOptions: {
-    padding: 16,
-    marginBottom: 16,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.gold,
-    borderRadius: 4,
-  },
-  readingModeText: {
-    color: KA_COLORS.gold,
-    fontSize: 14,
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-  },
-  closeButton: {
-    alignSelf: 'flex-end',
-    padding: 8,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    color: KA_COLORS.ivory,
-    fontSize: 20,
-     
-    marginBottom: 8,
-    letterSpacing: 2,
-  },
-  modalSubtitle: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    marginBottom: 16,
-    letterSpacing: 1,
-  },
-  transactionDetails: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 16,
-    marginBottom: 16,
-  },
-  detailText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    marginBottom: 8,
-    letterSpacing: 1,
-  },
-  modalButtonRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
-  },
-  modalConfirmButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderWidth: 1,
-    borderColor: KA_COLORS.orangeBright,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flex: 1,
-    alignItems: 'center',
-  },
-  modalCancelButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flex: 1,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  modalNote: {
-    color: KA_COLORS.textMuted,
-    fontSize: 12,
-    textAlign: 'center',
-    letterSpacing: 1,
-  },
-  adUnlockContainer: {
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  adUnlockButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderColor: KA_COLORS.orangeBright,
-  },
-  benefactorContainer: {
-    marginTop: 24,
-  },
-  benefactorButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderColor: KA_COLORS.gold,
-  },
-  benefactorStatus: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.gold,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  benefactorStatusText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  benefactorExpiryText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 12,
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-  audioControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 16,
-    marginBottom: 16,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-  },
-  audioButton: {
-    alignItems: 'center',
-    opacity: 1,
-  },
-  audioButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 12,
-    marginTop: 4,
-    letterSpacing: 1,
-  },
-  chapterSelector: {
-    marginBottom: 16,
-  },
-  chapterSelectorButton: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chapterSelectorText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  ratingSection: {
-    padding: 16,
-    marginBottom: 16,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-  },
-  userRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  averageRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingLabel: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    marginRight: 8,
-    letterSpacing: 1,
-  },
-  starsContainer: {
-    flexDirection: 'row',
-  },
-  star: {
-    marginRight: 4,
-  },
-  ratingValue: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 12,
-    marginLeft: 8,
-    letterSpacing: 1,
-  },
-  videoAdContainer: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  video: {
-    width: '100%',
-    height: 200,
-    marginTop: 16,
-  },
-  benefactorPlans: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 16,
-  },
-  // Fixed 2-column grid for the plan cards. Width is a percentage of the
-  // slot (not the card itself, and not mixed with a competing minWidth),
-  // so two always fit per row no matter the device width.
-  benefactorPlansGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    paddingTop: 6, // clearance for the "RECOMMENDED" badge that overhangs the top-right corner
-  },
-  benefactorPlanSlot: {
-    width: '48%',
-    marginBottom: 14,
-  },
-  benefactorModalContent: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 8,
-    padding: 20,
-    width: '92%',
-    maxWidth: 440,
-    maxHeight: '85%',
-  },
-  benefactorScrollBody: {
-    paddingBottom: 4,
-  },
-  tokenSelectorRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  tokenOptionFlex: {
-    flex: 1,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    gap: 4,
-  },
-  benefactorPlan: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 2,
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    width: '100%',
-  },
-  benefactorPlanIcon: {
-    marginBottom: 8,
-  },
-  benefactorPlanName: {
-    fontSize: 16,
-     
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  benefactorPlanPrice: {
-    color: KA_COLORS.gold,
-    fontSize: 18,
-     
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  benefactorPlanChapters: {
-    color: KA_COLORS.ivory,
-    fontSize: 12,
-    marginBottom: 4,
-    letterSpacing: 1,
-  },
-  benefactorPlanDuration: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 10,
-    letterSpacing: 1,
-  },
-  benefactorPlanBadge: {
-    width: 60,
-    height: 60,
-    marginBottom: 8,
-  },
-  featuredBadge: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: KA_COLORS.gold,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    zIndex: 1,
-    elevation: 2,
-  },
-  featuredBadgeText: {
-    color: KA_COLORS.bgPrimary,
-    fontSize: 10,
-     
-    letterSpacing: 1,
-  },
-  benefactorPlanDisabled: {
-    opacity: 0.5,
-  },
-  insufficientBalanceText: {
-    color: KA_COLORS.error,
-    fontSize: 10,
-    marginTop: 4,
-     
-  },
-  tokenSelector: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    marginTop: 16,
-    marginBottom: 16,
-  },
-  tokenOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 8,
-    padding: 12,
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  tokenOptionSelected: {
-    borderColor: KA_COLORS.gold,
-    backgroundColor: 'rgba(201, 168, 76, 0.1)',
-  },
-  tokenOptionText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-     
-  },
-  tokenOptionTextSelected: {
-    color: KA_COLORS.gold,
-  },
-  tokenBalance: {
-    color: KA_COLORS.ivoryDim,
-    fontSize: 12,
-  },
-  planDetailsModal: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 12,
-    padding: 24,
-    width: '85%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    position: 'relative',
-  },
-  planDetailsBadge: {
-    width: 80,
-    height: 80,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  planDetailsName: {
-    fontSize: 28,
-     
-    textAlign: 'center',
-    marginBottom: 8,
-    letterSpacing: 2,
-  },
-  planDetailsPrice: {
-    fontSize: 32,
-     
-    color: KA_COLORS.gold,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  planDetailsDuration: {
-    fontSize: 14,
-    color: KA_COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: 24,
-    letterSpacing: 1,
-  },
-  planFeaturesList: {
-    marginBottom: 24,
-  },
-  planFeatureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  featureCheckIcon: {
-    marginRight: 12,
-  },
-  planFeatureText: {
-    fontSize: 14,
-    color: KA_COLORS.ivory,
-    flex: 1,
-  },
-  planDetailsSubscribeButton: {
-    paddingVertical: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planDetailsSubscribeButtonDisabled: {
-    opacity: 0.6,
-  },
-  planDetailsSubscribeButtonText: {
-    color: KA_COLORS.bgPrimary,
-    fontSize: 16,
-     
-    letterSpacing: 2,
-  },
-  chapterList: {
-    maxHeight: 400,
-    marginTop: 16,
-  },
-  chapterListItem: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS.border,
-  },
-  chapterListItemText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  authorNoteSection: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.gold,
-    borderRadius: 4,
-  },
-  authorNoteTitle: {
-    color: KA_COLORS.gold,
-    fontSize: 16,
-     
-    marginBottom: 12,
-    letterSpacing: 1,
-  },
-  authorNoteDisplay: {
-    backgroundColor: KA_COLORS.bgPrimary,
-    borderRadius: 4,
-    padding: 12,
-  },
-  authorNoteText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  authorNoteEmpty: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  editButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  editButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-  },
-  authorNoteEdit: {
-    backgroundColor: KA_COLORS.bgPrimary,
-    borderRadius: 4,
-    padding: 12,
-  },
-  authorNoteTextarea: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    padding: 12,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: 12,
-  },
-  authorNoteActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  saveButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-    flex: 1,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-  },
-  cancelButton: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-    flex: 1,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-  },
-  chapterNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  navButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.gold,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-  },
-  navButtonText: {
-    color: KA_COLORS.gold,
-    fontSize: 14,
-     
-  },
-  navSpacer: {
-    flex: 1,
-  },
-  priceStaleNote: {
-    color: KA_COLORS.textMuted,
-    fontSize: 10,
-    textAlign: 'center',
-    letterSpacing: 1,
-    marginTop: -16,
-    marginBottom: 16,
-  },
-});
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const MIN_ATA_SOL = 0.00103928;
@@ -968,20 +64,6 @@ const CHAPTER_READ_USD_COST = 0.025;
 // ---------------------------------------------------------------------------
 // Live pricing (Jupiter)
 // ---------------------------------------------------------------------------
-// Previously this screen derived SOL and SMP prices from a raw Meteora pool
-// reserve ratio, with SOL hardcoded to a flat $100 regardless of its real
-// market price. That meant every SMP price (and therefore SMP_READ_COST)
-// inherited whatever error existed between $100 and SOL's actual price, and
-// silently assumed the Meteora API always returned [SMP, SOL] in that exact
-// order with human-readable (not raw base-unit) amounts.
-//
-// Both SOL and SMP prices now come from Jupiter's Price API v3, the same
-// source used on the Swap screen, so pricing is accurate and consistent
-// app-wide. Jupiter's v3 endpoint silently omits mints it doesn't consider
-// reliably priced (thin liquidity, single-pool tokens — which is exactly
-// SMP's situation on its lone Meteora pool), so for any mint it drops we
-// fall back to a live Swap API /quote for 1 whole token -> USDC and derive
-// the price from that, matching the Swap screen's fallback exactly.
 const SOL_MINT_ADDRESS = 'So11111111111111111111111111111111111111112';
 const PRICE_CACHE_KEY = 'kaito_live_price_cache_v2';
 const PRICE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -1004,7 +86,6 @@ async function fetchQuoteDerivedUsdcPrice(mint, decimals) {
   }
 }
 
-// Fetch fallback SMP price from web API (when Jupiter fails)
 async function fetchSmpFallbackPrice() {
   try {
     const res = await fetch(`${WEB_API_BASE_URL}/api/smp-fallback-price`);
@@ -1014,7 +95,6 @@ async function fetchSmpFallbackPrice() {
     }
     const data = await res.json();
     if (data?.fallbackPrice) {
-      // Convert from SMP per USDC to USDC per SMP
       return 1 / data.fallbackPrice;
     }
     return null;
@@ -1024,7 +104,6 @@ async function fetchSmpFallbackPrice() {
   }
 }
 
-// Helper: Split payment amounts
 function splitAmountWithResidual(amount, ratios) {
   const totalRatio = ratios.reduce((a, b) => a + b, 0);
   const r = [];
@@ -1037,17 +116,11 @@ function splitAmountWithResidual(amount, ratios) {
   return r;
 }
 
-// Helper: Create benefactor payment transaction with 80/20 split (author/treasury)
 async function createBenefactorPaymentTransaction({ paymentMint, paymentAmount, userPublicKey, authorPublicKey }) {
-  const [authorAmount, treasuryAmount] = splitAmountWithResidual(
-    paymentAmount,
-    [80, 20]
-  );
-
+  const [authorAmount, treasuryAmount] = splitAmountWithResidual(paymentAmount, [80, 20]);
   const instructions = [];
 
   if (!paymentMint) {
-    // SOL transfer - 80% to author, 20% to treasury
     instructions.push(
       SystemProgram.transfer({
         fromPubkey: userPublicKey,
@@ -1061,90 +134,27 @@ async function createBenefactorPaymentTransaction({ paymentMint, paymentAmount, 
       })
     );
   } else {
-    // Token transfer - 80% to author, 20% to treasury
-    const userAta = getAssociatedTokenAddressSync(paymentMint, userPublicKey);
-    const authorAta = getAssociatedTokenAddressSync(paymentMint, authorPublicKey);
-    const treasuryAta = getAssociatedTokenAddressSync(paymentMint, TREASURY_WALLET, true);
+    const userAta = await getAssociatedTokenAddressSync(paymentMint, userPublicKey);
+    const authorAta = await getAssociatedTokenAddressSync(paymentMint, authorPublicKey);
+    const treasuryAta = await getAssociatedTokenAddressSync(paymentMint, TREASURY_WALLET);
 
-    let reroutedToTreasury = 0;
-
-    // Check if ATAs exist and route accordingly
-    const [authorAtaInfo, treasuryAtaInfo] = await connection.getMultipleAccountsInfo([
-      authorAta,
-      treasuryAta,
-    ]);
-
-    // Check user's SOL balance for ATA creation costs
-    const userBalance = await connection.getBalance(userPublicKey);
-    const ataRentExemption = 0.00203928 * 1000000000; // Approximate rent exemption in lamports
-
-    // Author - Create ATA if missing and user has enough SOL
-    let authorDestAta = authorAta;
-    let authorDestAmount = authorAmount;
-    if (!authorAtaInfo) {
-      if (userBalance >= ataRentExemption) {
-        instructions.push(
-          createAssociatedTokenAccountInstruction(
-            userPublicKey,
-            authorAta,
-            authorPublicKey,
-            paymentMint
-          )
-        );
-      } else {
-        reroutedToTreasury += authorAmount;
-        authorDestAta = null;
-        authorDestAmount = 0;
-      }
-    }
-
-    // Treasury - Create ATA if missing and user has enough SOL
-    let treasuryDestAta = treasuryAta;
-    let treasuryDestAmount = treasuryAmount;
-    if (!treasuryAtaInfo) {
-      if (userBalance >= ataRentExemption) {
-        instructions.push(
-          createAssociatedTokenAccountInstruction(
-            userPublicKey,
-            treasuryAta,
-            TREASURY_WALLET,
-            paymentMint
-          )
-        );
-      } else {
-        treasuryDestAta = null;
-        treasuryDestAmount = 0;
-      }
-    }
-
-    // Build transfer instructions
-    if (authorDestAta && authorDestAmount > 0) {
-      instructions.push(createTransferInstruction(userAta, authorDestAta, userPublicKey, authorDestAmount));
-    }
-
-    // Treasury gets its share + any rerouted shares
-    const totalTreasuryAmount = treasuryDestAmount + reroutedToTreasury;
-    if (totalTreasuryAmount > 0 && treasuryDestAta) {
-      instructions.push(createTransferInstruction(userAta, treasuryDestAta, userPublicKey, totalTreasuryAmount));
-    }
+    instructions.push(
+      createTransferInstruction(userAta, authorAta, userPublicKey, authorAmount),
+      createTransferInstruction(userAta, treasuryAta, userPublicKey, treasuryAmount)
+    );
   }
 
   const tx = new Transaction();
   tx.add(...instructions);
+  tx.feePayer = userPublicKey;
   return tx;
 }
 
-// Helper: Create payment transaction on client side (updated to match web version 50/30/20 split)
 async function createPaymentTransactionClient({ paymentMint, paymentAmount, userPublicKey, authorPublicKey, smpMintAddress }) {
-  const [creatorAmount, sempaiHqAmount, founderFundAmount] = splitAmountWithResidual(
-    paymentAmount,
-    [50, 30, 20]
-  );
-
+  const [creatorAmount, sempaiHqAmount, founderFundAmount] = splitAmountWithResidual(paymentAmount, [50, 30, 20]);
   const instructions = [];
 
   if (!paymentMint) {
-    // SOL transfer - 50% to creator, 30% to Sempai HQ, 20% to Founder Fund
     instructions.push(
       SystemProgram.transfer({
         fromPubkey: userPublicKey,
@@ -1163,7 +173,6 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
       })
     );
   } else {
-    // Token transfer - 50% to creator, 30% to Sempai HQ, 20% to Founder Fund
     const userAta = getAssociatedTokenAddressSync(paymentMint, userPublicKey);
     const creatorAta = getAssociatedTokenAddressSync(paymentMint, authorPublicKey);
     const sempaiHqAta = getAssociatedTokenAddressSync(paymentMint, SEMPAI_HQ_WALLET, true);
@@ -1171,19 +180,16 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
 
     let reroutedToFounderFund = 0;
 
-    // Check if ATAs exist and route accordingly
     const [creatorAtaInfo, sempaiHqAtaInfo, founderFundAtaInfo] = await connection.getMultipleAccountsInfo([
       creatorAta,
       sempaiHqAta,
       founderFundAta,
     ]);
 
-    // Check user's SOL balance for ATA creation costs
     const userBalance = await connection.getBalance(userPublicKey);
-    const ataRentExemption = 0.00203928 * 1000000000; // Approximate rent exemption in lamports
+    const ataRentExemption = 0.00203928 * 1000000000;
     const requiredSolForAtas = (!creatorAtaInfo ? ataRentExemption : 0) + (!sempaiHqAtaInfo ? ataRentExemption : 0);
 
-    // Creator - Create ATA if missing and user has enough SOL
     let creatorDestAta = creatorAta;
     let creatorDestAmount = creatorAmount;
     if (!creatorAtaInfo) {
@@ -1203,7 +209,6 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
       }
     }
 
-    // Sempai HQ - Create ATA if missing and user has enough SOL
     let sempaiHqDestAta = sempaiHqAta;
     let sempaiHqDestAmount = sempaiHqAmount;
     if (!sempaiHqAtaInfo) {
@@ -1223,7 +228,6 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
       }
     }
 
-    // Founder Fund - Create ATA if missing and user has enough SOL
     let founderFundDestAta = founderFundAta;
     let founderFundDestAmount = founderFundAmount;
     if (!founderFundAtaInfo) {
@@ -1242,7 +246,6 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
       }
     }
 
-    // Build transfer instructions
     if (creatorDestAta && creatorDestAmount > 0) {
       instructions.push(createTransferInstruction(userAta, creatorDestAta, userPublicKey, creatorDestAmount));
     }
@@ -1250,13 +253,11 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
       instructions.push(createTransferInstruction(userAta, sempaiHqDestAta, userPublicKey, sempaiHqDestAmount));
     }
 
-    // Founder Fund gets its share + any rerouted shares
     const totalFounderFundAmount = founderFundDestAmount + reroutedToFounderFund;
     if (totalFounderFundAmount > 0 && founderFundDestAta) {
       instructions.push(createTransferInstruction(userAta, founderFundDestAta, userPublicKey, totalFounderFundAmount));
     }
 
-    // Burn SMP tokens if applicable
     if (smpMintAddress && paymentMint.equals(smpMintAddress)) {
       instructions.push(createBurnInstruction(userAta, paymentMint, userPublicKey, founderFundAmount));
     }
@@ -1273,6 +274,8 @@ const ChapterScreen = () => {
   const route = useRoute();
   const { novelId, chapterId } = route.params || {};
   const { wallet, isWalletConnected: contextWalletConnected, signAndSendTransaction } = useContext(EmbeddedWalletContext);
+  const { isDark, colors } = useTheme();
+  const styles = getChapterScreenStyles(isDark);
 
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1290,6 +293,7 @@ const ChapterScreen = () => {
   const [smpBalance, setSmpBalance] = useState(0);
   const [weeklyPoints, setWeeklyPoints] = useState(0);
   const [amethystBalance, setAmethystBalance] = useState(0);
+  const [skrBalance, setSkrBalance] = useState(0);
   const [showTransactionPopup, setShowTransactionPopup] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [solPrice, setSolPrice] = useState(100); // Live SOL price in USD (fallback until first fetch resolves)
@@ -1316,9 +320,9 @@ const ChapterScreen = () => {
   const [showBenefactorOption, setShowBenefactorOption] = useState(false);
   const [showBenefactorModal, setShowBenefactorModal] = useState(false);
   const [selectedBenefactorToken, setSelectedBenefactorToken] = useState('USDC');
+  const [autopayEnabled, setAutopayEnabled] = useState(false);
   const [solBalance, setSolBalance] = useState(0);
   const [usdcBalance, setUsdcBalance] = useState(0);
-  const [skrBalance, setSkrBalance] = useState(0);
   const [showPlanDetailsModal, setShowPlanDetailsModal] = useState(false);
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
   const planAnimations = useRef([
@@ -1588,6 +592,31 @@ const ChapterScreen = () => {
     }
   }, [activeWalletAddress, activePublicKey]);
 
+  const fetchSkrBalance = useCallback(async () => {
+    if (!activeWalletAddress || !activePublicKey) return 0;
+    try {
+      const skrMint = new PublicKey(SKR_MINT_ADDRESS);
+      const ataAddress = await getAssociatedTokenAddress(skrMint, activePublicKey);
+      const ataInfo = await connection.getAccountInfo(ataAddress);
+      const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SKR_DECIMALS : 0;
+      console.log('[fetchSkrBalance] Balance:', balance);
+      setSkrBalance(balance);
+      return balance;
+    } catch (error) {
+      console.error('[fetchSkrBalance] Error:', error.message);
+
+      // Don't show error to user for RPC issues, just log it
+      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+        console.warn('[fetchSkrBalance] RPC authorization issue, using fallback balance 0');
+        setSkrBalance(0);
+      } else {
+        setError('Failed to fetch SKR balance.');
+        setTimeout(() => setError(null), 5000);
+      }
+      return 0;
+    }
+  }, [activeWalletAddress, activePublicKey]);
+
   const fetchUserData = useCallback(async () => {
     if (!activeWalletAddress) return;
     try {
@@ -1599,7 +628,7 @@ const ChapterScreen = () => {
       if (error) throw new Error(error.message);
       setUserId(data.id);
       setWeeklyPoints(data.weekly_points || 0);
-      await Promise.all([fetchSmpBalanceOnChain(), fetchAmethystBalance()]);
+      await Promise.all([fetchSmpBalanceOnChain(), fetchAmethystBalance(), fetchSkrBalance()]);
 
       // Check ad unlock eligibility
       const chapterNum = parseInt(chapterId, 10);
@@ -1660,6 +689,16 @@ const ChapterScreen = () => {
       }
 
       setShowBenefactorOption(!benefactorAccess);
+
+      // Fetch autopay preference
+      if (data.id) {
+        const { data: autopayData } = await supabase
+          .from('users')
+          .select('autopay_enabled')
+          .eq('id', data.id)
+          .single();
+        setAutopayEnabled(autopayData?.autopay_enabled || false);
+      }
     } catch (error) {
       console.error('[fetchUserData] Error:', error.message);
       setError('Failed to load user data.');
@@ -2139,6 +1178,47 @@ const ChapterScreen = () => {
       setIsProcessing(false);
     }
   }, [activeWalletAddress, novelId, chapterId, isProcessing, checkBenefactorAccess, processBenefactorPayment, solPrice]);
+
+  // Autopay functionality
+  const handleAutopayUnlock = useCallback(async () => {
+    if (!activeWalletAddress || !autopayEnabled || smpBalance < (SMP_READ_COST / 10 ** SMP_DECIMALS)) return;
+
+    try {
+      setIsProcessing(true);
+      // Trigger SMP payment for chapter unlock
+      console.log('[Autopay] Automatically unlocking chapter with SMP');
+      await processChapterPayment('SINGLE', 'SMP');
+    } catch (error) {
+      console.error('[Autopay] Error:', error);
+      setError(`Autopay failed: ${error.message}`);
+      setTimeout(() => setError(null), 5000);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [activeWalletAddress, autopayEnabled, smpBalance, processChapterPayment]);
+
+  useEffect(() => {
+    if (isLocked && autopayEnabled && smpBalance >= (SMP_READ_COST / 10 ** SMP_DECIMALS) && !isProcessing && userId) {
+      handleAutopayUnlock();
+    }
+  }, [isLocked, autopayEnabled, smpBalance, isProcessing, userId, handleAutopayUnlock]);
+
+  // Share functionality
+  const handleShare = useCallback(async () => {
+    const shareUrl = `https://sempaihq.com/novel/${novelId}/chapter/${chapterId}`;
+    const shareText = `Read ${novel?.title} - ${novel?.chaptertitles?.[chapterId]} on Sempai HQ!`;
+
+    try {
+      await Share.share({
+        message: `${shareText}\n${shareUrl}`,
+        url: shareUrl,
+      });
+    } catch (error) {
+      console.error('[Share] Error sharing:', error);
+      setError('Failed to share chapter');
+      setTimeout(() => setError(null), 3000);
+    }
+  }, [novelId, chapterId, novel]);
 
   // Rating functions
   const fetchRatings = useCallback(async () => {
@@ -2894,7 +1974,7 @@ const ChapterScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgPrimary} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <View style={styles.backgroundGradient} />
       <View style={styles.emberContainer} pointerEvents="none">
         {embersInitialized.current && emberAnims.current && emberAnims.current.length > 0 && embersData.current && embersData.current.map((ember, index) => {
@@ -2924,30 +2004,40 @@ const ChapterScreen = () => {
       </View>
       {isWalletConnected && (
         <View style={styles.balanceContainer}>
-          <View style={styles.balanceItem}>
-            <FontAwesome5 name="wallet" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>SMP: {formatNumber(smpBalance)}</Text>
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceCard}>
+              <FontAwesome5 name="wallet" size={12} color={colors.gold} />
+              <Text style={styles.balanceLabel}>SMP</Text>
+              <Text style={styles.balanceValue}>{formatNumber(smpBalance)}</Text>
+            </View>
+            <View style={styles.balanceCard}>
+              <FontAwesome5 name="gem" size={12} color={colors.gold} />
+              <Text style={styles.balanceLabel}>Amethyst</Text>
+              <Text style={styles.balanceValue}>{formatNumber(amethystBalance)}</Text>
+            </View>
+            <View style={styles.balanceCard}>
+              <FontAwesome5 name="gem" size={12} color={colors.gold} />
+              <Text style={styles.balanceLabel}>SKR</Text>
+              <Text style={styles.balanceValue}>{formatNumber(skrBalance)}</Text>
+            </View>
           </View>
-          <View style={styles.balanceItem}>
-            <FontAwesome5 name="star" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>Points: {formatNumber(weeklyPoints)}</Text>
-          </View>
-          <View style={styles.balanceItem}>
-            <FontAwesome5 name="gem" size={16} color={KA_COLORS.gold} style={styles.balanceIcon} />
-            <Text style={styles.balanceText}>Amethyst: {formatNumber(amethystBalance)}</Text>
+          <View style={styles.pointsCard}>
+            <FontAwesome5 name="star" size={12} color={colors.gold} />
+            <Text style={styles.pointsLabel}>Points</Text>
+            <Text style={styles.pointsValue}>{formatNumber(weeklyPoints)}</Text>
           </View>
         </View>
       )}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
-          <FontAwesome5 name="home" size={20} color={KA_COLORS.ivory} />
+          <FontAwesome5 name="home" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => navigation.navigate('NovelsPage', { novelId })}
         >
-          <FontAwesome5 name="book" size={20} color={KA_COLORS.ivory} />
+          <FontAwesome5 name="book" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
       {(successMessage || (error && isWalletConnected) || warningMessage) && (
@@ -2960,27 +2050,27 @@ const ChapterScreen = () => {
           <FontAwesome5
             name={error ? 'exclamation-circle' : warningMessage ? 'exclamation-triangle' : 'check-circle'}
             size={14}
-            color={error ? KA_COLORS.error : warningMessage ? KA_COLORS.warning : KA_COLORS.success}
+            color={error ? colors.error : warningMessage ? colors.warning : colors.success}
           />
           <Text style={styles.messageText}>{successMessage || error || warningMessage}</Text>
         </View>
       )}
       {!isWalletConnected && parseInt(chapterId, 10) > 0 ? (
         <View style={styles.lockedContainer}>
-          <FontAwesome5 name="wallet" size={48} color={KA_COLORS.orangePrimary} style={styles.lockIcon} />
+          <FontAwesome5 name="wallet" size={48} color={colors.accent} style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
           <Text style={styles.lockedSubMessage}>Please connect your wallet to read chapters.</Text>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('WalletImport')}
           >
-            <FontAwesome5 name="wallet" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+            <FontAwesome5 name="wallet" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
             <Text style={styles.actionButtonText}>Connect Wallet</Text>
           </TouchableOpacity>
         </View>
       ) : loading ? (
         <View style={styles.lockedContainer}>
-          <ActivityIndicator size="large" color={KA_COLORS.orangePrimary} />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.lockedMessage}>Loading chapter...</Text>
         </View>
       ) : isLocked && isAdvanceChapter ? (
@@ -3018,7 +2108,7 @@ const ChapterScreen = () => {
                 <FontAwesome5
                   name={type === 'FULL' ? 'crown' : 'rocket'}
                   size={20}
-                  color={KA_COLORS.ivory}
+                  color={colors.textPrimary}
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.paymentButtonText}>
@@ -3045,7 +2135,7 @@ const ChapterScreen = () => {
                 onPress={handleAdBasedUnlock}
                 disabled={isProcessing || hasUsedAdUnlockToday}
               >
-                <FontAwesome5 name="video" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <FontAwesome5 name="video" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
                 <Text style={styles.actionButtonText}>
                   {hasUsedAdUnlockToday ? 'Ad Unlock Used Today' : 'Watch Ad - Free Unlock'}
                 </Text>
@@ -3060,34 +2150,41 @@ const ChapterScreen = () => {
               onPress={() => processChapterPayment(chapterId, 'SINGLE', 'SMP')}
               disabled={isProcessing}
             >
-              <FontAwesome5 name="gem" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+              <FontAwesome5 name="gem" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
               <Text style={styles.smpButtonText}>
                 Read with {(SMP_READ_COST / 10 ** SMP_DECIMALS).toLocaleString()} SMP (Earn Points)
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.getSmpButton}
-              onPress={() =>
-                navigation.navigate('TokenSwap', {
-                  returnScreen: 'Chapter',
-                  returnParams: { novelId, chapterId },
-                })
-              }
+              onPress={() => {
+                const rampUrl = `https://buy.ramp.network/?hostApiKey=${WEB_API_BASE_URL}&defaultAsset=SOL`;
+                Linking.openURL(rampUrl).catch(err => console.error('Failed to open URL:', err));
+              }}
             >
-              <FontAwesome5 name="shopping-cart" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
-              <Text style={styles.getSmpButtonText}>Get SMP Tokens</Text>
+              <FontAwesome5 name="shopping-cart" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
+              <Text style={styles.getSmpButtonText}>Get Tokens</Text>
             </TouchableOpacity>
           </View>
 
           {/* Benefactor subscription option */}
           {showBenefactorOption && !benefactorAccess && (
             <View style={styles.benefactorContainer}>
+              <AutopaySettings onAutopayToggle={(enabled) => setAutopayEnabled(enabled)} />
+              <TouchableOpacity
+                style={[styles.actionButton, styles.badgesButton]}
+                onPress={() => navigation.navigate('Badges', { writerId: novel?.user_id })}
+                disabled={isProcessing}
+              >
+                <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
+                <Text style={styles.actionButtonText}>Buy Badges</Text>
+              </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.benefactorButton]}
                 onPress={() => setShowBenefactorModal(true)}
                 disabled={isProcessing}
               >
-                <FontAwesome5 name="crown" size={16} color={KA_COLORS.gold} style={styles.buttonIcon} />
+                <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
                 <Text style={styles.actionButtonText}>Subscribe to Writer</Text>
               </TouchableOpacity>
             </View>
@@ -3096,7 +2193,7 @@ const ChapterScreen = () => {
           {/* Benefactor status */}
           {benefactorAccess && (
             <View style={styles.benefactorStatus}>
-              <FontAwesome5 name="star" size={16} color={KA_COLORS.gold} style={styles.buttonIcon} />
+              <FontAwesome5 name="star" size={16} color={colors.gold} style={styles.buttonIcon} />
               <Text style={styles.benefactorStatusText}>
                 Writer Subscription: {benefactorAccess.plan_type?.toUpperCase()} Plan
               </Text>
@@ -3114,23 +2211,27 @@ const ChapterScreen = () => {
       ) : (
         <View style={styles.contentContainer}>
           <ScrollView contentContainerStyle={styles.scrollContent}>
-            {/* Audio controls */}
+            {/* Audio controls and share */}
             <View style={styles.audioControls}>
               <TouchableOpacity style={styles.audioButton} onPress={readText} disabled={isSpeaking}>
-                <FontAwesome5 name="volume-up" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <FontAwesome5 name="volume-up" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
                 <Text style={styles.audioButtonText}>Read Aloud</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.audioButton} onPress={pauseText} disabled={!isSpeaking || isPaused}>
-                <FontAwesome5 name="pause" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <FontAwesome5 name="pause" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
                 <Text style={styles.audioButtonText}>Pause</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.audioButton} onPress={resumeText} disabled={!isSpeaking || !isPaused}>
-                <FontAwesome5 name="play" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <FontAwesome5 name="play" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
                 <Text style={styles.audioButtonText}>Resume</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.audioButton} onPress={stopText} disabled={!isSpeaking}>
-                <FontAwesome5 name="stop" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <FontAwesome5 name="stop" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
                 <Text style={styles.audioButtonText}>Stop</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.audioButton} onPress={handleShare}>
+                <FontAwesome5 name="share-alt" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
+                <Text style={styles.audioButtonText}>Share</Text>
               </TouchableOpacity>
             </View>
 
@@ -3147,7 +2248,7 @@ const ChapterScreen = () => {
             {/* Chapter selector */}
             <View style={styles.chapterSelector}>
               <TouchableOpacity style={styles.chapterSelectorButton} onPress={() => setShowChapterSelector(true)}>
-                <FontAwesome5 name="book-open" size={16} color={KA_COLORS.ivory} style={styles.buttonIcon} />
+                <FontAwesome5 name="book-open" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
                 <Text style={styles.chapterSelectorText}>Jump to Chapter</Text>
               </TouchableOpacity>
             </View>
@@ -3163,7 +2264,7 @@ const ChapterScreen = () => {
                         <FontAwesome5
                           name="star"
                           size={20}
-                          color={star <= (userRating || 0) ? KA_COLORS.goldBright : KA_COLORS.textMuted}
+                          color={star <= (userRating || 0) ? colors.goldBright : colors.textMuted}
                           style={styles.star}
                         />
                       </TouchableOpacity>
@@ -3178,7 +2279,7 @@ const ChapterScreen = () => {
                         key={star}
                         name="star"
                         size={20}
-                        color={star <= Math.round(averageRating || 0) ? KA_COLORS.goldBright : KA_COLORS.textMuted}
+                        color={star <= Math.round(averageRating || 0) ? colors.goldBright : colors.textMuted}
                         style={styles.star}
                       />
                     ))}
@@ -3254,7 +2355,7 @@ const ChapterScreen = () => {
                   style={styles.navButton}
                   onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
                 >
-                  <FontAwesome5 name="chevron-left" size={16} color={KA_COLORS.gold} />
+                  <FontAwesome5 name="chevron-left" size={16} color={colors.gold} />
                   <Text style={styles.navButtonText}>Previous</Text>
                 </TouchableOpacity>
               )}
@@ -3265,7 +2366,7 @@ const ChapterScreen = () => {
                   onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
                 >
                   <Text style={styles.navButtonText}>Next</Text>
-                  <FontAwesome5 name="chevron-right" size={16} color={KA_COLORS.gold} />
+                  <FontAwesome5 name="chevron-right" size={16} color={colors.gold} />
                 </TouchableOpacity>
               )}
             </View>
@@ -3289,7 +2390,7 @@ const ChapterScreen = () => {
               style={styles.closeButton}
               onPress={() => setShowTransactionPopup(false)}
             >
-              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Confirm Transaction</Text>
             <Text style={styles.modalSubtitle}>
@@ -3343,7 +2444,7 @@ const ChapterScreen = () => {
               style={styles.closeButton}
               onPress={() => setShowVideoAd(false)}
             >
-              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Watch Ad to Unlock</Text>
             <Text style={styles.modalSubtitle}>Please watch the ad to unlock this chapter for free</Text>
@@ -3377,7 +2478,7 @@ const ChapterScreen = () => {
               style={styles.closeButton}
               onPress={() => setShowBenefactorModal(false)}
             >
-              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Subscribe to Writer</Text>
             <Text style={styles.modalSubtitle}>Choose a subscription plan</Text>
@@ -3397,7 +2498,7 @@ const ChapterScreen = () => {
                   style={[styles.tokenOptionFlex, selectedBenefactorToken === 'USDC' && styles.tokenOptionSelected]}
                   onPress={() => setSelectedBenefactorToken('USDC')}
                 >
-                  <FontAwesome5 name="dollar-sign" size={16} color={selectedBenefactorToken === 'USDC' ? KA_COLORS.gold : KA_COLORS.textSecondary} />
+                  <FontAwesome5 name="dollar-sign" size={16} color={selectedBenefactorToken === 'USDC' ? colors.gold : colors.textSecondary} />
                   <Text style={[styles.tokenOptionText, selectedBenefactorToken === 'USDC' && styles.tokenOptionTextSelected]} numberOfLines={1}>USDC</Text>
                   <Text style={styles.tokenBalance} numberOfLines={1}>{usdcBalance.toFixed(2)}</Text>
                 </TouchableOpacity>
@@ -3405,7 +2506,7 @@ const ChapterScreen = () => {
                   style={[styles.tokenOptionFlex, selectedBenefactorToken === 'SOL' && styles.tokenOptionSelected]}
                   onPress={() => setSelectedBenefactorToken('SOL')}
                 >
-                  <FontAwesome5 name="coins" size={16} color={selectedBenefactorToken === 'SOL' ? KA_COLORS.gold : KA_COLORS.textSecondary} />
+                  <FontAwesome5 name="coins" size={16} color={selectedBenefactorToken === 'SOL' ? colors.gold : colors.textSecondary} />
                   <Text style={[styles.tokenOptionText, selectedBenefactorToken === 'SOL' && styles.tokenOptionTextSelected]} numberOfLines={1}>SOL</Text>
                   <Text style={styles.tokenBalance} numberOfLines={1}>{solBalance.toFixed(4)}</Text>
                 </TouchableOpacity>
@@ -3413,7 +2514,7 @@ const ChapterScreen = () => {
                   style={[styles.tokenOptionFlex, selectedBenefactorToken === 'SKR' && styles.tokenOptionSelected]}
                   onPress={() => setSelectedBenefactorToken('SKR')}
                 >
-                  <FontAwesome5 name="gem" size={16} color={selectedBenefactorToken === 'SKR' ? KA_COLORS.gold : KA_COLORS.textSecondary} />
+                  <FontAwesome5 name="gem" size={16} color={selectedBenefactorToken === 'SKR' ? colors.gold : colors.textSecondary} />
                   <Text style={[styles.tokenOptionText, selectedBenefactorToken === 'SKR' && styles.tokenOptionTextSelected]} numberOfLines={1}>SKR</Text>
                   <Text style={styles.tokenBalance} numberOfLines={1}>{skrBalance.toFixed(2)}</Text>
                 </TouchableOpacity>
@@ -3429,7 +2530,7 @@ const ChapterScreen = () => {
                     price: 1,
                     chapters: 3,
                     name: 'Blue',
-                    color: KA_COLORS.textSecondary,
+                    color: colors.textSecondary,
                     image: require('../assets/plan-image/Blue.png'),
                     features: [
                       'Early access to 3 advance chapters',
@@ -3474,7 +2575,7 @@ const ChapterScreen = () => {
                     price: 5,
                     chapters: 999,
                     name: 'Gold',
-                    color: KA_COLORS.gold,
+                    color: colors.gold,
                     image: require('../assets/plan-image/Gold.png'),
                     featured: true,
                     features: [
@@ -3578,7 +2679,7 @@ const ChapterScreen = () => {
               style={styles.closeButton}
               onPress={() => setShowPlanDetailsModal(false)}
             >
-              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
 
             {selectedPlanDetails && (
@@ -3597,7 +2698,7 @@ const ChapterScreen = () => {
                 <View style={styles.planFeaturesList}>
                   {selectedPlanDetails.features.map((feature, index) => (
                     <View key={index} style={styles.planFeatureItem}>
-                      <FontAwesome5 name="check" size={14} color={KA_COLORS.gold} style={styles.featureCheckIcon} />
+                      <FontAwesome5 name="check" size={14} color={colors.gold} style={styles.featureCheckIcon} />
                       <Text style={styles.planFeatureText}>{feature}</Text>
                     </View>
                   ))}
@@ -3616,7 +2717,7 @@ const ChapterScreen = () => {
                   disabled={isProcessing}
                 >
                   {isProcessing ? (
-                    <ActivityIndicator size="small" color={KA_COLORS.ivory} />
+                    <ActivityIndicator size="small" color={colors.textPrimary} />
                   ) : (
                     <Text style={styles.planDetailsSubscribeButtonText}>
                       Subscribe for ${selectedPlanDetails.price}
@@ -3642,7 +2743,7 @@ const ChapterScreen = () => {
               style={styles.closeButton}
               onPress={() => setShowChapterSelector(false)}
             >
-              <FontAwesome5 name="times" size={20} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Jump to Chapter</Text>
             <ScrollView style={styles.chapterList}>

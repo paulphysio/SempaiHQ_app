@@ -28,6 +28,8 @@ import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
+import { useTheme } from '../context/ThemeContext';
+import { getNovelDashboardStyles } from '../styles/NovelDashboardStyles';
 import * as Notifications from 'expo-notifications';
 
 const { width, height } = Dimensions.get('window');
@@ -143,6 +145,9 @@ const NovelDashboardScreen = () => {
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const { isDark, colors } = useTheme();
+  const styles = getNovelDashboardStyles(isDark);
+  
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey;
   const [novelTitle, setNovelTitle] = useState('');

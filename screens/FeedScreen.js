@@ -17,6 +17,8 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
+import { useTheme } from '../context/ThemeContext';
+import { getFeedStyles } from '../styles/FeedStyles';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
@@ -24,6 +26,8 @@ const API_BASE_URL = 'https://sempaihq.com/api';
 const FeedScreen = () => {
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
+  const { isDark, colors } = useTheme();
+  const themedStyles = getFeedStyles(isDark);
   
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -380,167 +384,164 @@ const FeedScreen = () => {
     const postComments = comments[post.id] || [];
 
     return (
-      <View key={post.id} style={styles.postCard}>
-        <View style={styles.postContent}>
+      <View key={post.id} style={themedStyles.postCard}>
+        <View style={themedStyles.postContent}>
           {/* Avatar */}
-          <View style={styles.avatar}>
-            <FontAwesome5 name="user" size={20} color="#D94F04" />
+          <View style={themedStyles.avatar}>
+            <FontAwesome5 name="user" size={20} color={colors.accent} />
           </View>
 
           {/* Post Body */}
-          <View style={styles.postBody}>
+          <View style={themedStyles.userDetails}>
             {/* Header */}
-            <View style={styles.postHeader}>
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>
+            <View style={themedStyles.postHeader}>
+              <View style={themedStyles.userInfo}>
+                <Text style={themedStyles.userName}>
                   {post.user?.name || post.users?.name || 'Anonymous'}
                 </Text>
-                <Text style={styles.userHandle}>
-                  @{(post.user?.name || post.users?.name || 'user').toLowerCase().replace(/\s/g, '')}
-                </Text>
-                <Text style={styles.postTime}>· {formatTimeAgo(post.created_at)}</Text>
+                <Text style={themedStyles.postTime}>· {formatTimeAgo(post.created_at)}</Text>
               </View>
               
               {isOwnPost && (
                 <TouchableOpacity 
-                  style={styles.moreButton}
+                  style={themedStyles.menuButton}
                   onPress={() => setShowDeleteModal(post.id)}
                 >
-                  <MaterialIcons name="more-horiz" size={20} color="#666" />
+                  <MaterialIcons name="more-horiz" size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Content */}
             {editingPost === post.id ? (
-              <View style={styles.editContainer}>
+              <View style={themedStyles.postCreator}>
                 <TextInput
-                  style={styles.editInput}
+                  style={themedStyles.postInput}
                   value={editContent}
                   onChangeText={setEditContent}
                   multiline
                   autoFocus
                 />
-                <View style={styles.editActions}>
+                <View style={themedStyles.modalActions}>
                   <TouchableOpacity
-                    style={styles.cancelButton}
+                    style={themedStyles.attachButton}
                     onPress={() => {
                       setEditingPost(null);
                       setEditContent('');
                     }}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={themedStyles.actionText}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.saveButton}
+                    style={themedStyles.postButton}
                     onPress={handleEditPost}
                   >
-                    <Text style={styles.saveButtonText}>Save</Text>
+                    <Text style={themedStyles.postButtonText}>Save</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <Text style={styles.postText}>{post.content}</Text>
+              <Text style={themedStyles.postContent}>{post.content}</Text>
             )}
 
             {/* Image */}
             {post.image_url && (
-              <Image source={{ uri: post.image_url }} style={styles.postImage} />
+              <Image source={{ uri: post.image_url }} style={themedStyles.postImage} />
             )}
 
             {/* Actions */}
-            <View style={styles.postActions}>
+            <View style={themedStyles.postActions}>
               <TouchableOpacity 
-                style={styles.actionButton}
+                style={themedStyles.actionButton}
                 onPress={() => toggleComments(post.id)}
               >
                 <FontAwesome5 
                   name="comment" 
                   size={16} 
-                  color={isExpanded ? '#D94F04' : '#666'} 
+                  color={isExpanded ? colors.accent : colors.textMuted} 
                 />
-                <Text style={[styles.actionText, isExpanded && styles.actionTextActive]}>
+                <Text style={[themedStyles.actionText, isExpanded && { color: colors.accent }]}>
                   {post.comments_count || 0}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={styles.actionButton}
+                style={themedStyles.actionButton}
                 onPress={() => handleResharePost(post.id)}
               >
                 <FontAwesome5 
                   name="retweet" 
                   size={16} 
-                  color={resharedPosts[post.id] ? '#D94F04' : '#666'} 
+                  color={resharedPosts[post.id] ? colors.accent : colors.textMuted} 
                 />
-                <Text style={[styles.actionText, resharedPosts[post.id] && styles.actionTextActive]}>
+                <Text style={[themedStyles.actionText, resharedPosts[post.id] && { color: colors.accent }]}>
                   {post.shares_count || 0}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={styles.actionButton}
+                style={themedStyles.actionButton}
                 onPress={() => handleLikePost(post.id)}
               >
                 <FontAwesome5 
                   name="heart" 
                   size={16} 
-                  color={likedPosts[post.id] ? '#D94F04' : '#666'} 
+                  color={likedPosts[post.id] ? colors.danger : colors.textMuted} 
                 />
-                <Text style={[styles.actionText, likedPosts[post.id] && styles.actionTextActive]}>
+                <Text style={[themedStyles.actionText, likedPosts[post.id] && { color: colors.danger }]}>
                   {post.likes_count || 0}
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
-                <FontAwesome5 name="share-alt" size={16} color="#666" />
+              <TouchableOpacity style={themedStyles.actionButton}>
+                <FontAwesome5 name="share-alt" size={16} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Comments Section */}
             {isExpanded && (
-              <View style={styles.commentsSection}>
+              <View style={themedStyles.postCreator}>
                 {postComments.length > 0 ? (
                   postComments.map(comment => (
-                    <View key={comment.id} style={styles.comment}>
-                      <View style={styles.commentAvatar}>
-                        <FontAwesome5 name="user" size={14} color="#D94F04" />
+                    <View key={comment.id} style={themedStyles.postHeader}>
+                      <View style={themedStyles.avatar}>
+                        <FontAwesome5 name="user" size={14} color={colors.accent} />
                       </View>
-                      <View style={styles.commentBody}>
-                        <View style={styles.commentHeader}>
-                          <Text style={styles.commentUserName}>
+                      <View style={themedStyles.userDetails}>
+                        <View style={themedStyles.userInfo}>
+                          <Text style={themedStyles.userName}>
                             {comment.users?.name || 'Anonymous'}
                           </Text>
-                          <Text style={styles.commentTime}>
+                          <Text style={themedStyles.postTime}>
                             · {formatTimeAgo(comment.created_at)}
                           </Text>
                         </View>
-                        <Text style={styles.commentText}>{comment.content}</Text>
+                        <Text style={themedStyles.postContent}>{comment.content}</Text>
                       </View>
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.noComments}>No comments yet</Text>
+                  <Text style={themedStyles.emptySubtext}>No comments yet</Text>
                 )}
 
                 {/* Add Comment */}
-                <View style={styles.addComment}>
-                  <View style={styles.commentInputAvatar}>
-                    <FontAwesome5 name="user" size={14} color="#D94F04" />
+                <View style={themedStyles.postHeader}>
+                  <View style={themedStyles.avatar}>
+                    <FontAwesome5 name="user" size={14} color={colors.accent} />
                   </View>
                   <TextInput
-                    style={styles.commentInput}
+                    style={themedStyles.postInput}
                     placeholder="Write a comment..."
-                    placeholderTextColor="#666"
+                    placeholderTextColor={colors.textMuted}
                     value={newComment[post.id] || ''}
                     onChangeText={(text) => setNewComment(prev => ({ ...prev, [post.id]: text }))}
                   />
                   <TouchableOpacity
-                    style={styles.commentButton}
+                    style={themedStyles.menuButton}
                     onPress={() => handleCreateComment(post.id)}
                     disabled={!newComment[post.id]?.trim()}
                   >
-                    <FontAwesome5 name="paper-plane" size={16} color="#D94F04" />
+                    <FontAwesome5 name="paper-plane" size={16} color={colors.accent} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -553,10 +554,10 @@ const FeedScreen = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#D94F04" />
-          <Text style={styles.loadingText}>Loading feed...</Text>
+      <SafeAreaView style={themedStyles.container}>
+        <View style={themedStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={themedStyles.loadingText}>Loading feed...</Text>
         </View>
       </SafeAreaView>
     );
@@ -564,52 +565,52 @@ const FeedScreen = () => {
 
   return (
     <KeyboardAvoidingView 
-      style={styles.container}
+      style={themedStyles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={themedStyles.container}>
         <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          style={themedStyles.feedContent}
+          contentContainerStyle={themedStyles.feedList}
           showsVerticalScrollIndicator={false}
         >
           {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Home</Text>
-            <TouchableOpacity style={styles.headerButton}>
-              <FontAwesome5 name="feather" size={20} color="#D94F04" />
+          <View style={themedStyles.header}>
+            <Text style={themedStyles.headerTitle}>Home</Text>
+            <TouchableOpacity style={themedStyles.menuButton}>
+              <FontAwesome5 name="feather" size={20} color={colors.accent} />
             </TouchableOpacity>
           </View>
 
           {/* Post Composer */}
           {userId && (
-            <View style={styles.composer}>
-              <View style={styles.composerAvatar}>
-                <FontAwesome5 name="user" size={20} color="#D94F04" />
+            <View style={themedStyles.postCreator}>
+              <View style={themedStyles.avatar}>
+                <FontAwesome5 name="user" size={20} color={colors.accent} />
               </View>
-              <View style={styles.composerBody}>
+              <View style={themedStyles.userDetails}>
                 <TextInput
-                  style={styles.composerInput}
+                  style={themedStyles.postInput}
                   placeholder="What's happening?"
-                  placeholderTextColor="#666"
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   value={postContent}
                   onChangeText={setPostContent}
                   maxLength={280}
                 />
-                <View style={styles.composerActions}>
-                  <TouchableOpacity style={styles.composerActionButton}>
-                    <FontAwesome5 name="image" size={18} color="#D94F04" />
+                <View style={themedStyles.modalActions}>
+                  <TouchableOpacity style={themedStyles.attachButton}>
+                    <FontAwesome5 name="image" size={18} color={colors.primary} />
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.composerActionButton}>
-                    <FontAwesome5 name="gift" size={18} color="#D94F04" />
+                  <TouchableOpacity style={themedStyles.attachButton}>
+                    <FontAwesome5 name="gift" size={18} color={colors.primary} />
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.postButton, !postContent.trim() && styles.postButtonDisabled]}
+                    style={[themedStyles.postButton, !postContent.trim() && { opacity: 0.5 }]}
                     onPress={handleCreatePost}
                     disabled={!postContent.trim()}
                   >
-                    <Text style={styles.postButtonText}>Post</Text>
+                    <Text style={themedStyles.postButtonText}>Post</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -620,15 +621,15 @@ const FeedScreen = () => {
           {posts.length > 0 ? (
             posts.map(post => renderPost(post))
           ) : (
-            <View style={styles.centerContainer}>
-              <FontAwesome5 name="newspaper" size={48} color="#666" />
-              <Text style={styles.emptyText}>No posts yet</Text>
-              <Text style={styles.emptySubtext}>Be the first to share something!</Text>
+            <View style={themedStyles.emptyContainer}>
+              <FontAwesome5 name="newspaper" size={48} color={colors.textMuted} />
+              <Text style={themedStyles.emptyText}>No posts yet</Text>
+              <Text style={themedStyles.emptySubtext}>Be the first to share something!</Text>
             </View>
           )}
 
           {/* Bottom padding for nav */}
-          <View style={styles.bottomPadding} />
+          <View style={{ height: 20 }} />
         </ScrollView>
       </SafeAreaView>
 
@@ -639,24 +640,24 @@ const FeedScreen = () => {
         animationType="fade"
         onRequestClose={() => setShowDeleteModal(null)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Delete Post?</Text>
-            <Text style={styles.modalText}>
+        <View style={themedStyles.modalContainer}>
+          <View style={themedStyles.modalContent}>
+            <Text style={themedStyles.modalTitle}>Delete Post?</Text>
+            <Text style={themedStyles.postContent}>
               This action cannot be undone.
             </Text>
-            <View style={styles.modalActions}>
+            <View style={themedStyles.modalActions}>
               <TouchableOpacity
-                style={styles.modalCancelButton}
+                style={themedStyles.attachButton}
                 onPress={() => setShowDeleteModal(null)}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={themedStyles.actionText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalDeleteButton}
+                style={[themedStyles.postButton, { backgroundColor: colors.danger }]}
                 onPress={() => handleDeletePost(showDeleteModal)}
               >
-                <Text style={styles.modalDeleteText}>Delete</Text>
+                <Text style={themedStyles.postButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -666,350 +667,5 @@ const FeedScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 80,
-  },
-  bottomPadding: {
-    height: 20,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  loadingText: {
-    color: '#666',
-    marginTop: 16,
-    fontSize: 16,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2F3336',
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 20,
-     
-  },
-  headerButton: {
-    padding: 8,
-  },
-  composer: {
-    flexDirection: 'row',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2F3336',
-  },
-  composerAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#D94F04',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  composerBody: {
-    flex: 1,
-  },
-  composerInput: {
-    color: '#fff',
-    fontSize: 16,
-    minHeight: 60,
-    textAlignVertical: 'top',
-  },
-  composerActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  composerActionButton: {
-    padding: 8,
-  },
-  postButton: {
-    backgroundColor: '#D94F04',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  postButtonDisabled: {
-    backgroundColor: '#2F3336',
-  },
-  postButtonText: {
-    color: '#fff',
-     
-    fontSize: 14,
-  },
-  postCard: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2F3336',
-  },
-  postContent: {
-    flexDirection: 'row',
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#D94F04',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  postBody: {
-    flex: 1,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  userName: {
-    color: '#fff',
-     
-    fontSize: 15,
-    marginRight: 4,
-  },
-  userHandle: {
-    color: '#666',
-    fontSize: 14,
-    marginRight: 4,
-  },
-  postTime: {
-    color: '#666',
-    fontSize: 14,
-  },
-  moreButton: {
-    padding: 4,
-  },
-  postText: {
-    color: '#fff',
-    fontSize: 15,
-    lineHeight: 20,
-    marginBottom: 12,
-  },
-  postImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  editContainer: {
-    marginBottom: 12,
-  },
-  editInput: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    minHeight: 60,
-    marginBottom: 8,
-  },
-  editActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  cancelButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  saveButton: {
-    backgroundColor: '#D94F04',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 14,
-     
-  },
-  postActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-  },
-  actionText: {
-    color: '#666',
-    fontSize: 13,
-    marginLeft: 4,
-  },
-  actionTextActive: {
-    color: '#D94F04',
-  },
-  commentsSection: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#2F3336',
-  },
-  comment: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  commentAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#D94F04',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  commentBody: {
-    flex: 1,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  commentUserName: {
-    color: '#fff',
-     
-    fontSize: 14,
-    marginRight: 4,
-  },
-  commentTime: {
-    color: '#666',
-    fontSize: 12,
-  },
-  commentText: {
-    color: '#fff',
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  noComments: {
-    color: '#666',
-    fontSize: 14,
-    textAlign: 'center',
-    paddingVertical: 8,
-  },
-  addComment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#2F3336',
-  },
-  commentInputAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#D94F04',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    color: '#fff',
-    fontSize: 14,
-  },
-  commentButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 18,
-    marginTop: 16,
-     
-  },
-  emptySubtext: {
-    color: '#666',
-    fontSize: 14,
-    marginTop: 8,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#1A1A2E',
-    borderRadius: 12,
-    padding: 24,
-    width: '80%',
-    maxWidth: 320,
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 18,
-     
-    marginBottom: 8,
-  },
-  modalText: {
-    color: '#666',
-    fontSize: 14,
-    marginBottom: 24,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  modalCancelButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  modalCancelText: {
-    color: '#fff',
-    fontSize: 14,
-  },
-  modalDeleteButton: {
-    backgroundColor: '#F4212E',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  modalDeleteText: {
-    color: '#fff',
-    fontSize: 14,
-     
-  },
-});
 
 export default FeedScreen;

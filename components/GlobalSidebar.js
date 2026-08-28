@@ -1,66 +1,41 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Animated, Alert, Clipboard, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Clipboard, ActivityIndicator, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
-import GlobalSidebarStyles from '../styles/GlobalSidebarStyles';
+import { useTheme } from '../context/ThemeContext';
+import {
+  getGlobalSidebarStyles,
+  SIDEBAR_ACCENT,
+  SIDEBAR_CONNECTED,
+} from '../styles/GlobalSidebarStyles';
 
 const GlobalSidebar = ({ isVisible, onClose }) => {
   const navigation = useNavigation();
   const { session } = useGoogleAuth();
   const walletContext = useContext(EmbeddedWalletContext);
+  const { isDark } = useTheme();
+  const styles = getGlobalSidebarStyles(isDark);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
-  const slideAnim = React.useRef(new Animated.Value(0)).current;
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
-  
+
   const wallet = walletContext?.wallet;
   const disconnectWallet = walletContext?.disconnectWallet;
   const setShowModal = walletContext?.setShowModal;
   const isLoading = walletContext?.isLoading;
 
-  // Pulse animation for wallet button
-  React.useEffect(() => {
-    if (wallet) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.05,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-    }
-  }, [wallet]);
-
-  React.useEffect(() => {
-    Animated.timing(slideAnim, {
-      toValue: isVisible ? 0 : 280,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [isVisible]);
-
   const navGroups = [
     {
-      title: wallet ? wallet.publicKey.toString().slice(0, 6) + '...' + wallet.publicKey.toString().slice(-4) : 'Connect',
+      title: wallet ? `${wallet.publicKey.toString().slice(0, 6)}...${wallet.publicKey.toString().slice(-4)}` : 'Connect',
       icon: 'wallet',
       isWallet: true,
-      items: wallet ? [
-        { name: 'Copy Address', action: 'copyAddress', icon: 'copy' },
-        { name: 'Disconnect', action: 'disconnect', icon: 'sign-out-alt' },
-      ] : [
-        { name: 'Connect Wallet', action: 'connect', icon: 'plug' },
-      ],
+      items: wallet
+        ? [
+            { name: 'Copy Address', action: 'copyAddress', icon: 'copy' },
+            { name: 'Disconnect', action: 'disconnect', icon: 'sign-out-alt' },
+          ]
+        : [{ name: 'Connect Wallet', action: 'connect', icon: 'plug' }],
     },
     {
       title: 'Main',
@@ -77,8 +52,8 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       items: [
         { name: 'Novel Dashboard', screen: 'NovelDashboard', icon: 'book-open' },
         { name: 'Manga Dashboard', screen: 'MangaDashboard', icon: 'images' },
-        { name: 'Novels', screen: 'NovelsPage', icon: 'book' },
-        { name: 'Manga', screen: 'MangaPage', icon: 'images' },
+        { name: 'Hoard', screen: 'NovelsPage', icon: 'book' },
+        { name: 'Manga Hoard', screen: 'MangaPage', icon: 'images' },
       ],
     },
     {
@@ -98,6 +73,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       icon: 'users',
       items: [
         { name: 'Chat', screen: 'Chat', icon: 'comments' },
+        { name: 'Badges', screen: 'Badges', icon: 'award' },
         { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
         { name: 'Kaito Leaderboard', screen: 'KaitoLeaderboard', icon: 'crown' },
       ],
@@ -147,11 +123,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
   };
 
   const navigateToScreen = (screenName) => {
-    // Map display names to actual screen names
-    const screenMap = {
-      'Crazy Corner': 'Feed',
-      'Nexus': 'Wallet',
-    };
+    const screenMap = { 'Crazy Corner': 'Feed', Nexus: 'Wallet' };
     const actualScreenName = screenMap[screenName] || screenName;
     setIsNavigating(true);
     navigation.navigate(actualScreenName);
@@ -164,57 +136,76 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
     <>
       {isVisible && (
         <TouchableOpacity
-          style={GlobalSidebarStyles.overlay}
+          style={styles.overlay}
           onPress={onClose}
           activeOpacity={0.7}
-          accessible={true}
+          accessible
           accessibilityLabel="Close menu"
         />
       )}
-      <Animated.View style={[GlobalSidebarStyles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
-        <View style={GlobalSidebarStyles.sidebarContent}>
-          
-          {/* Navigation Links */}
-          <ScrollView 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={GlobalSidebarStyles.navLinksContainer}
-          >
+      <View style={[styles.sidebar, { transform: [{ translateX: isVisible ? 0 : 320 }] }]}>
+        <View style={styles.sidebarContent}>
+          <View style={styles.sidebarHeader}>
+            <Image
+              source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
+              style={styles.sidebarLogo}
+            />
+            <Text style={styles.sidebarTitle}>Sempai HQ</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={onClose} accessibilityLabel="Close menu">
+              <FontAwesome5 name="times" size={13} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.navLinksContainer}>
             {navGroups.map((group, groupIndex) => (
-              <View key={groupIndex} style={GlobalSidebarStyles.navGroup}>
-                <Animated.View style={{ transform: [{ scale: group.isWallet && wallet ? pulseAnim : 1 }] }}>
-                  <TouchableOpacity
-                    style={[GlobalSidebarStyles.navGroupButton, group.isWallet && wallet && GlobalSidebarStyles.walletButtonConnected]}
-                    onPress={() => toggleDropdown(groupIndex)}
-                    activeOpacity={0.7}
-                    disabled={group.isWallet && isLoading}
+              <View key={groupIndex} style={styles.navGroup}>
+                <TouchableOpacity
+                  style={[
+                    styles.navGroupButton,
+                    group.isWallet && wallet ? styles.walletButtonConnected : null,
+                  ]}
+                  onPress={() => toggleDropdown(groupIndex)}
+                  activeOpacity={0.7}
+                  disabled={group.isWallet && isLoading}
+                >
+                  <FontAwesome5
+                    name={group.icon}
+                    size={15}
+                    color={group.isWallet && wallet ? SIDEBAR_CONNECTED(isDark) : SIDEBAR_ACCENT(isDark)}
+                    style={styles.navIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.navGroupText,
+                      group.isWallet && wallet ? styles.walletConnectedText : null,
+                    ]}
                   >
-                    <FontAwesome5 name={group.icon} size={16} color={group.isWallet && wallet ? '#4CAF50' : '#FF5733'} style={GlobalSidebarStyles.navIcon} />
-                    <Text style={[GlobalSidebarStyles.navGroupText, group.isWallet && wallet && GlobalSidebarStyles.walletConnectedText]}>{group.title}</Text>
-                    <FontAwesome5 
-                      name={activeDropdown === groupIndex ? 'chevron-up' : 'chevron-down'} 
-                      size={12} 
-                      color={group.isWallet && wallet ? '#4CAF50' : '#FF5733'} 
-                      style={GlobalSidebarStyles.dropdownIcon} 
-                    />
-                  </TouchableOpacity>
-                </Animated.View>
-                
+                    {group.title}
+                  </Text>
+                  <FontAwesome5
+                    name={activeDropdown === groupIndex ? 'chevron-up' : 'chevron-down'}
+                    size={11}
+                    color={group.isWallet && wallet ? SIDEBAR_CONNECTED(isDark) : SIDEBAR_ACCENT(isDark)}
+                    style={styles.dropdownIcon}
+                  />
+                </TouchableOpacity>
+
                 {activeDropdown === groupIndex && (
-                  <View style={GlobalSidebarStyles.dropdown}>
+                  <View style={styles.dropdown}>
                     {group.items.map((item, itemIndex) => (
                       <TouchableOpacity
                         key={`${groupIndex}-${item.name}-${itemIndex}`}
-                        style={GlobalSidebarStyles.dropdownItem}
-                        onPress={() => group.isWallet ? handleWalletAction(item.action) : navigateToScreen(item.screen)}
+                        style={styles.dropdownItem}
+                        onPress={() => (group.isWallet ? handleWalletAction(item.action) : navigateToScreen(item.screen))}
                         activeOpacity={0.7}
                         disabled={isNavigating || isLoading}
                       >
                         {isNavigating && !group.isWallet ? (
-                          <ActivityIndicator size="small" color="#FF5733" style={GlobalSidebarStyles.navIcon} />
+                          <ActivityIndicator size="small" color={SIDEBAR_ACCENT(isDark)} />
                         ) : (
-                          <FontAwesome5 name={item.icon} size={14} color="#FF5733" style={GlobalSidebarStyles.navIcon} />
+                          <FontAwesome5 name={item.icon} size={13} color={SIDEBAR_ACCENT(isDark)} />
                         )}
-                        <Text style={GlobalSidebarStyles.dropdownItemText}>
+                        <Text style={styles.dropdownItemText}>
                           {isNavigating && !group.isWallet ? 'Loading...' : item.name}
                         </Text>
                       </TouchableOpacity>
@@ -226,7 +217,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
             <View style={{ height: 10 }} />
           </ScrollView>
         </View>
-      </Animated.View>
+      </View>
     </>
   );
 };

@@ -16,6 +16,8 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
+import { useTheme } from '../context/ThemeContext';
+import { getNovelPageStyles } from '../styles/NovelPageStyles';
 
 const { width, height } = Dimensions.get('window');
 
@@ -284,6 +286,8 @@ const NovelSummaryScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params || {};
+  const { isDark, colors } = useTheme();
+  const styles = getNovelPageStyles(isDark);
   
   const [novels, setNovels] = useState([]);
   const [singleNovel, setSingleNovel] = useState(null);

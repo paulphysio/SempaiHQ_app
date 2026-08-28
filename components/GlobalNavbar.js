@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Animated, Dimensions, Alert, Clipboard } from 'react-native';
+import { View, Text, TouchableOpacity, Image, Animated, Alert, Clipboard } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
-import GlobalNavbarStyles from '../styles/GlobalNavbarStyles';
-
-const { width, height } = Dimensions.get('window');
+import { useTheme } from '../context/ThemeContext';
+import { getGlobalNavbarStyles } from '../styles/GlobalNavbarStyles';
 
 const GlobalNavbar = () => {
   const navigation = useNavigation();
@@ -17,8 +16,10 @@ const GlobalNavbar = () => {
   const disconnectWallet = walletContext?.disconnectWallet;
   const setShowModal = walletContext?.setShowModal;
   const isLoading = walletContext?.isLoading;
+  const { isDark, toggleTheme, colors } = useTheme();
+  const styles = getGlobalNavbarStyles(colors, isDark);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
-  
+
   // Animation refs
   const headerPulse = useRef(new Animated.Value(0)).current;
   const fadeInAnim = useRef(new Animated.Value(0)).current;
@@ -26,21 +27,11 @@ const GlobalNavbar = () => {
   const glowAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Initial entrance animation
     Animated.parallel([
-      Animated.timing(fadeInAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideDownAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
+      Animated.timing(fadeInAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(slideDownAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
 
-    // Continuous pulse animation for wallet button
     Animated.loop(
       Animated.sequence([
         Animated.timing(headerPulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
@@ -48,7 +39,6 @@ const GlobalNavbar = () => {
       ])
     ).start();
 
-    // Glow animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
@@ -56,6 +46,19 @@ const GlobalNavbar = () => {
       ])
     ).start();
   }, []);
+
+  // Header surface + wallet-pill gradients follow the active theme, same
+  // pairing as --nav-bg-1/--nav-bg-2 and the orange/blue accent swap in
+  // Navbar.module.css.
+  const surfaceGradient = isDark
+    ? ['rgba(17, 18, 24, 0.95)', 'rgba(11, 11, 20, 0.98)']
+    : ['rgba(253, 251, 212, 0.95)', 'rgba(245, 240, 208, 0.98)'];
+
+  const accentGradient = [colors.accent, colors.accentDeep];
+
+  const walletGradientColors = wallet
+    ? ['rgba(76, 175, 80, 0.3)', 'rgba(76, 175, 80, 0.2)']
+    : [colors.accentSoft, colors.accentSoft];
 
   const toggleWalletMenu = () => {
     if (!wallet && setShowModal) {
@@ -81,143 +84,145 @@ const GlobalNavbar = () => {
   };
 
   return (
-    <Animated.View 
+    <Animated.View
       style={[
-        GlobalNavbarStyles.header,
-        {
-          opacity: fadeInAnim,
-          transform: [{ translateY: slideDownAnim }],
-        }
+        styles.header,
+        { opacity: fadeInAnim, transform: [{ translateY: slideDownAnim }] },
       ]}
     >
-      <LinearGradient
-        colors={['rgba(17, 18, 24, 0.95)', 'rgba(11, 11, 20, 0.98)']}
-        style={GlobalNavbarStyles.gradientOverlay}
-      />
-      <Animated.View 
+      <LinearGradient colors={surfaceGradient} style={styles.gradientOverlay} />
+      <Animated.View
         style={[
-          GlobalNavbarStyles.glowEffect,
-          {
-            opacity: glowAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.3, 0.6],
-            }),
-          }
+          styles.glowEffect,
+          { opacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }) },
         ]}
       />
-      <View style={GlobalNavbarStyles.headerContent}>
-        <TouchableOpacity 
-          style={GlobalNavbarStyles.brand}
+      <View style={styles.headerContent}>
+        <TouchableOpacity
+          style={styles.brand}
           activeOpacity={0.7}
           onPress={() => navigation.navigate('Home')}
         >
-          <Animated.View style={{
-            transform: [{
-              scale: headerPulse.interpolate({
-                inputRange: [0, 1],
-                outputRange: [1, 1.05],
-              })
-            }]
-          }}>
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
+                },
+              ],
+            }}
+          >
             <Image
               source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
-              style={GlobalNavbarStyles.brandLogo}
+              style={styles.brandLogo}
               defaultSource={{ uri: 'https://via.placeholder.com/28x28' }}
             />
           </Animated.View>
-          <Text style={GlobalNavbarStyles.brandText}>SempaiHQ</Text>
+          <Text style={styles.brandText}>SempaiHQ</Text>
         </TouchableOpacity>
-        <View style={GlobalNavbarStyles.headerAuthRow}>
+
+        {/* Theme Toggle Button - always visible beside brand */}
+        <TouchableOpacity
+          onPress={toggleTheme}
+          activeOpacity={0.85}
+          style={styles.themeToggleBtn}
+          accessible
+          accessibilityLabel="Toggle theme"
+          accessibilityHint="Switch between light and dark mode"
+        >
+          <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={13} color={isDark ? colors.gold : colors.accent} />
+        </TouchableOpacity>
+
+        <View style={styles.headerAuthRow}>
           {!session ? (
             <Animated.View
               style={{
-                transform: [{
-                  scale: fadeInAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  })
-                }]
+                transform: [
+                  { scale: fadeInAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) },
+                ],
               }}
             >
               <TouchableOpacity
                 onPress={signIn}
                 activeOpacity={0.85}
-                style={GlobalNavbarStyles.headerSignInBtn}
+                style={styles.headerSignInBtn}
                 accessible
                 accessibilityLabel="Sign in with Google"
               >
                 <LinearGradient
-                  colors={['#FF5733', '#F36316']}
-                  style={GlobalNavbarStyles.signInGradient}
+                  colors={accentGradient}
+                  style={styles.signInGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   <Image
-                    source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png' }}
-                    style={GlobalNavbarStyles.headerSignInIcon}
+                    source={{
+                      uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
+                    }}
+                    style={styles.headerSignInIcon}
                   />
-                  <Text style={GlobalNavbarStyles.headerSignInText}>Sign in</Text>
+                  <Text style={styles.headerSignInText}>Sign in</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
           ) : (
             <>
-              <Animated.View style={{ 
-                transform: [{ scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) }],
-                shadowColor: '#FF5733',
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }),
-                shadowRadius: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [4, 8] }),
-              }}>
+              <Animated.View
+                style={{
+                  transform: [
+                    { scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) },
+                  ],
+                  shadowColor: colors.accent,
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }),
+                  shadowRadius: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [4, 8] }),
+                }}
+              >
                 <TouchableOpacity
                   onPress={toggleWalletMenu}
                   activeOpacity={0.85}
-                  style={GlobalNavbarStyles.headerWalletBtn}
+                  style={styles.headerWalletBtn}
                   accessible
                   accessibilityLabel="Wallet menu"
                   disabled={isLoading}
                 >
                   <LinearGradient
-                    colors={wallet ? ['rgba(76, 175, 80, 0.3)', 'rgba(76, 175, 80, 0.2)'] : ['rgba(243, 99, 22, 0.3)', 'rgba(255, 87, 51, 0.2)']}
-                    style={GlobalNavbarStyles.walletGradient}
+                    colors={walletGradientColors}
+                    style={styles.walletGradient}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                   >
-                    <FontAwesome5 name="wallet" size={12} color="#fff" />
-                    <Text style={GlobalNavbarStyles.headerWalletText}>
-                      {wallet ? `${wallet.publicKey.toString().slice(0,4)}...${wallet.publicKey.toString().slice(-4)}` : 'Connect'}
+                    <FontAwesome5 name="wallet" size={11} color={wallet ? '#4CAF50' : colors.textPrimary} />
+                    <Text style={[styles.headerWalletText, { color: wallet ? '#4CAF50' : colors.textPrimary }]}>
+                      {wallet
+                        ? `${wallet.publicKey.toString().slice(0, 4)}...${wallet.publicKey.toString().slice(-4)}`
+                        : 'Connect'}
                     </Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </Animated.View>
-              
+
               {showWalletMenu && wallet && (
-                <View style={GlobalNavbarStyles.walletDropdown}>
-                  <TouchableOpacity
-                    onPress={copyWalletAddress}
-                    style={GlobalNavbarStyles.walletDropdownItem}
-                  >
-                    <FontAwesome5 name="copy" size={12} color="#FF5733" />
-                    <Text style={GlobalNavbarStyles.walletDropdownText}>Copy Address</Text>
+                <View style={styles.walletDropdown}>
+                  <TouchableOpacity onPress={copyWalletAddress} style={styles.walletDropdownItem}>
+                    <FontAwesome5 name="copy" size={12} color={colors.accent} />
+                    <Text style={styles.walletDropdownText}>Copy Address</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={handleDisconnect}
-                    style={GlobalNavbarStyles.walletDropdownItem}
-                  >
-                    <FontAwesome5 name="sign-out-alt" size={12} color="#FF5733" />
-                    <Text style={GlobalNavbarStyles.walletDropdownText}>Disconnect</Text>
+                  <TouchableOpacity onPress={handleDisconnect} style={styles.walletDropdownItem}>
+                    <FontAwesome5 name="sign-out-alt" size={12} color={colors.accent} />
+                    <Text style={styles.walletDropdownText}>Disconnect</Text>
                   </TouchableOpacity>
                 </View>
               )}
               <TouchableOpacity
                 onPress={signOut}
                 activeOpacity={0.85}
-                style={GlobalNavbarStyles.signOutBtn}
+                style={styles.signOutBtn}
                 accessible
                 accessibilityLabel="Sign out"
               >
-                <FontAwesome5 name="sign-out-alt" size={12} color="#FF5733" />
-                <Text style={GlobalNavbarStyles.signOutText}>Sign out</Text>
+                <FontAwesome5 name="sign-out-alt" size={12} color={colors.accent} />
+                <Text style={styles.signOutText}>Sign out</Text>
               </TouchableOpacity>
             </>
           )}

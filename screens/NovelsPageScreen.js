@@ -21,32 +21,12 @@ import WalletPanel from '../components/WalletPanel';
 import { PublicKey } from '@solana/web3.js';
 import { TREASURY_PUBLIC_KEY, SMP_MINT_ADDRESS } from '../constants';
 import { fetchSmpTokenBalance } from '../utils/solana';
+import { useTheme } from '../context/ThemeContext';
+import { getNovelsStyles } from '../styles/NovelsStyles';
 
 const { width, height } = Dimensions.get('window');
 const isTablet = width >= 768;
 const isDesktop = width >= 1024;
-
-// Kaito Adventure Design System - Japanese Dark-Orange
-const KA_COLORS = {
-  bgPrimary: '#0c0c0c',
-  bgCard: '#141210',
-  bgElevated: '#1a1714',
-  orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
-  orangeSoft: '#e67e22',
-  orangeDim: '#8b4513',
-  gold: '#c9a84c',
-  goldBright: '#ffd700',
-  ivory: '#f5e6d3',
-  ivoryDim: '#c4b5a0',
-  border: '#2d2418',
-  textPrimary: '#f5e6d3',
-  textSecondary: '#a09080',
-  textMuted: '#6b5d4f',
-  success: '#4a7c59',
-  error: '#c41e3a',
-  warning: '#c9a84c',
-};
 
 const API_BASE_URL = 'https://sempaihq.com';
 
@@ -76,389 +56,13 @@ const TAG_OPTIONS = [
 const MIN_WITHDRAWAL = 2500;
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  emberContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: 'none',
-  },
-  ember: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: KA_COLORS.orangePrimary,
-    shadowColor: KA_COLORS.orangeBright,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  scrollContent: {
-    paddingBottom: 240,
-  },
-  // Hero Section
-  heroSection: {
-    padding: isTablet ? 32 : 24,
-    backgroundColor: KA_COLORS.bgCard,
-    borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS.border,
-  },
-  heroContent: {
-    maxWidth: 1200,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  heroTitle: {
-    color: KA_COLORS.gold,
-    fontSize: isTablet ? 36 : 28,
-     
-    letterSpacing: 2,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  heroSubtitle: {
-    color: KA_COLORS.textSecondary,
-    fontSize: isTablet ? 16 : 14,
-    letterSpacing: 1,
-    marginBottom: 24,
-  },
-  // Search Bar
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 20,
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    color: KA_COLORS.ivory,
-    fontSize: 16,
-    letterSpacing: 0.5,
-  },
-  searchPlaceholder: {
-    color: KA_COLORS.textMuted,
-  },
-  clearButton: {
-    padding: 8,
-  },
-  // Tag Filters
-  tagFiltersContainer: {
-    marginBottom: 8,
-  },
-  tagFiltersLabel: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    marginBottom: 12,
-    letterSpacing: 1,
-  },
-  tagFiltersScroll: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  tagChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  tagChipActive: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderColor: KA_COLORS.orangePrimary,
-  },
-  tagChipText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 13,
-    letterSpacing: 0.5,
-  },
-  tagChipTextActive: {
-    color: KA_COLORS.ivory,
-     
-  },
-  clearTagsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.error,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  clearTagsText: {
-    color: KA_COLORS.ivory,
-    fontSize: 13,
-    marginLeft: 6,
-  },
-  // Results Header
-  resultsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: isTablet ? 32 : 24,
-    paddingVertical: 16,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  resultsCount: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  resultsCountHighlight: {
-    color: KA_COLORS.gold,
-     
-  },
-  // Grid Container
-  gridContainer: {
-    paddingHorizontal: isTablet ? 32 : 24,
-    paddingTop: 16,
-  },
-  gridContent: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  // Novel Card
-  novelCard: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 12,
-    marginBottom: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  novelCardTouchable: {
-    width: '100%',
-  },
-  novelCoverContainer: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: 2 / 3,
-    backgroundColor: KA_COLORS.bgElevated,
-  },
-  novelCover: {
-    width: '100%',
-    height: '100%',
-  },
-  novelCoverPlaceholder: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-  },
-  novelCoverPlaceholderText: {
-    color: KA_COLORS.textMuted,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  adultBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: KA_COLORS.error,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  adultBadgeText: {
-    color: KA_COLORS.ivory,
-    fontSize: 11,
-     
-    letterSpacing: 0.5,
-  },
-  novelInfo: {
-    padding: 16,
-    minHeight: 100,
-  },
-  novelTitle: {
-    color: KA_COLORS.ivory,
-    fontSize: isTablet ? 16 : 15,
-     
-    marginBottom: 8,
-    letterSpacing: 0.5,
-    lineHeight: 22,
-    height: 44,
-  },
-  novelMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: KA_COLORS.border,
-  },
-  novelAuthor: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  novelAuthorIcon: {
-    marginRight: 6,
-  },
-  novelAuthorText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  novelViewers: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  novelViewersIcon: {
-    marginRight: 4,
-  },
-  novelViewersText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  // Loading States
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgPrimary,
-    minHeight: 400,
-  },
-  loadingText: {
-    color: KA_COLORS.ivory,
-    fontSize: 16,
-    marginTop: 16,
-    letterSpacing: 1,
-  },
-  // Skeleton Loading
-  skeletonContainer: {
-    paddingHorizontal: isTablet ? 32 : 24,
-    paddingTop: 16,
-  },
-  skeletonGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  skeletonCard: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 12,
-    marginBottom: 20,
-    overflow: 'hidden',
-  },
-  skeletonCover: {
-    width: '100%',
-    aspectRatio: 2 / 3,
-    backgroundColor: KA_COLORS.bgElevated,
-  },
-  skeletonInfo: {
-    padding: 16,
-  },
-  skeletonTitle: {
-    height: 20,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  skeletonMeta: {
-    height: 14,
-    backgroundColor: KA_COLORS.bgElevated,
-    borderRadius: 4,
-    width: '60%',
-  },
-  // Empty State
-  emptyContainer: {
-    padding: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyIcon: {
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    color: KA_COLORS.ivory,
-    fontSize: 20,
-     
-    marginBottom: 12,
-    letterSpacing: 1,
-  },
-  emptyText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-    letterSpacing: 0.5,
-    maxWidth: 400,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.orangePrimary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 24,
-  },
-  emptyButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-    marginLeft: 8,
-    letterSpacing: 1,
-  },
-  // Footer
-  footer: {
-    padding: 24,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: KA_COLORS.border,
-    backgroundColor: KA_COLORS.bgCard,
-  },
-  footerText: {
-    color: KA_COLORS.textMuted,
-    fontSize: 12,
-    letterSpacing: 1,
-  },
-});
-
 const NovelsPageScreen = () => {
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const { isDark, colors } = useTheme();
+  const themedStyles = getNovelsStyles(isDark);
+  
   const [publicKey, setPublicKey] = useState(null);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
   const [balance, setBalance] = useState(0);
@@ -901,53 +505,53 @@ const NovelsPageScreen = () => {
   }, []);
 
   const renderNovelItem = ({ item }) => (
-    <View style={[styles.novelCard, { width: cardWidth }]}>
+    <View style={[themedStyles.novelCard, { width: cardWidth }]}>
       <TouchableOpacity
-        style={styles.novelCardTouchable}
+        style={themedStyles.novelCardTouchable}
         onPress={() => navigation.navigate('NovelDetail', { id: item.id })}
         accessible={true}
         accessibilityLabel={`View novel ${item.title}`}
         activeOpacity={0.8}
       >
-        <View style={styles.novelCoverContainer}>
+        <View style={themedStyles.novelCoverContainer}>
           {item.image ? (
             <Image
               source={{ uri: item.image }}
-              style={styles.novelCover}
+              style={themedStyles.novelCover}
               resizeMode="cover"
               defaultSource={{ uri: FALLBACK_IMAGE }}
             />
           ) : (
-            <View style={styles.novelCoverPlaceholder}>
-              <FontAwesome5 name="book" size={32} color={KA_COLORS.textMuted} />
-              <Text style={styles.novelCoverPlaceholderText}>No Cover</Text>
+            <View style={themedStyles.novelCoverPlaceholder}>
+              <FontAwesome5 name="book" size={32} color={colors.textMuted} />
+              <Text style={themedStyles.novelCoverPlaceholderText}>No Cover</Text>
             </View>
           )}
           {item.tags?.includes('Adult(18+)') && (
-            <View style={styles.adultBadge}>
-              <Text style={styles.adultBadgeText}>18+</Text>
+            <View style={themedStyles.adultBadge}>
+              <Text style={themedStyles.adultBadgeText}>18+</Text>
             </View>
           )}
         </View>
-        <View style={styles.novelInfo}>
-          <Text style={styles.novelTitle} numberOfLines={2}>
+        <View style={themedStyles.novelInfo}>
+          <Text style={themedStyles.novelTitle} numberOfLines={2}>
             {item.title}
           </Text>
-          <View style={styles.novelMeta}>
+          <View style={themedStyles.novelMeta}>
             <TouchableOpacity
-              style={styles.novelAuthor}
+              style={themedStyles.novelAuthor}
               onPress={() => navigation.navigate('WritersProfile', { id: item.user_id })}
               accessible={true}
               accessibilityLabel={`View profile of ${item.users?.name || 'Unknown'}`}
             >
-              <FontAwesome5 name="feather-alt" size={12} color={KA_COLORS.ivory} style={styles.novelAuthorIcon} />
-              <Text style={styles.novelAuthorText} numberOfLines={1}>
+              <FontAwesome5 name="feather-alt" size={12} color={colors.textPrimary} style={themedStyles.novelAuthorIcon} />
+              <Text style={themedStyles.novelAuthorText} numberOfLines={1}>
                 {item.users?.name || 'Unknown'}
               </Text>
             </TouchableOpacity>
-            <View style={styles.novelViewers}>
-              <FontAwesome5 name="eye" size={12} color={KA_COLORS.ivory} style={styles.novelViewersIcon} />
-              <Text style={styles.novelViewersText}>
+            <View style={themedStyles.novelViewers}>
+              <FontAwesome5 name="eye" size={12} color={colors.textPrimary} style={themedStyles.novelViewersIcon} />
+              <Text style={themedStyles.novelViewersText}>
                 {item.viewers_count >= 1000 
                   ? `${(item.viewers_count / 1000).toFixed(1)}k` 
                   : item.viewers_count.toLocaleString()}
@@ -960,25 +564,25 @@ const NovelsPageScreen = () => {
   );
 
   const renderSkeletonCard = () => (
-    <View style={[styles.skeletonCard, { width: cardWidth }]}>
-      <View style={styles.skeletonCover} />
-      <View style={styles.skeletonInfo}>
-        <View style={styles.skeletonTitle} />
-        <View style={styles.skeletonMeta} />
+    <View style={[themedStyles.skeletonCard, { width: cardWidth }]}>
+      <View style={themedStyles.skeletonCover} />
+      <View style={themedStyles.skeletonInfo}>
+        <View style={themedStyles.skeletonTitle} />
+        <View style={themedStyles.skeletonMeta} />
       </View>
     </View>
   );
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <View style={styles.backgroundGradient} />
-        <View style={styles.emberContainer}>
+      <View style={themedStyles.container}>
+        <View style={themedStyles.backgroundGradient} />
+        <View style={themedStyles.emberContainer}>
           {emberAnims.current.map((anim, index) => (
             <Animated.View
               key={index}
               style={[
-                styles.ember,
+                themedStyles.ember,
                 {
                   left: `${Math.random() * 100}%`,
                   opacity: anim,
@@ -995,47 +599,47 @@ const NovelsPageScreen = () => {
           />
         ))}
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={KA_COLORS.orangePrimary} />
-          <Text style={styles.loadingText}>Loading novels...</Text>
+        <View style={themedStyles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={themedStyles.loadingText}>Loading novels...</Text>
         </View>
       </View>
     );
   }
 
   const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <FontAwesome5 name="book-open" size={64} color={KA_COLORS.textMuted} style={styles.emptyIcon} />
-      <Text style={styles.emptyTitle}>No Novels Found</Text>
-      <Text style={styles.emptyText}>
+    <View style={themedStyles.emptyContainer}>
+      <FontAwesome5 name="book-open" size={64} color={colors.textMuted} style={themedStyles.emptyIcon} />
+      <Text style={themedStyles.emptyTitle}>No Novels Found</Text>
+      <Text style={themedStyles.emptyText}>
         {searchQuery || selectedTags.length > 0
           ? 'Try adjusting your search or filters to find what you\'re looking for.'
           : 'There are no novels in the library yet.'}
       </Text>
       {(searchQuery || selectedTags.length > 0) && (
         <TouchableOpacity
-          style={styles.emptyButton}
+          style={themedStyles.emptyButton}
           onPress={() => {
             setSearchQuery('');
             setSelectedTags([]);
           }}
         >
-          <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
-          <Text style={styles.emptyButtonText}>Clear Filters</Text>
+          <FontAwesome5 name="times" size={16} color={colors.textOnAccent} />
+          <Text style={themedStyles.emptyButtonText}>Clear Filters</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 
   return (
-    <View style={styles.container}>
-      <View style={styles.backgroundGradient} />
-      <View style={styles.emberContainer}>
+    <View style={themedStyles.container}>
+      <View style={themedStyles.backgroundGradient} />
+      <View style={themedStyles.emberContainer}>
         {emberAnims.current.map((anim, index) => (
           <Animated.View
             key={index}
             style={[
-              styles.ember,
+              themedStyles.ember,
               {
                 left: `${Math.random() * 100}%`,
                 opacity: anim,
@@ -1055,58 +659,58 @@ const NovelsPageScreen = () => {
 
       <Animated.ScrollView
         style={{ opacity: fadeAnim }}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={themedStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Section */}
-        <View style={styles.heroSection}>
-          <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>Novel Library</Text>
-            <Text style={styles.heroSubtitle}>Discover amazing stories and adventures</Text>
+        <View style={themedStyles.heroSection}>
+          <View style={themedStyles.heroContent}>
+            <Text style={themedStyles.heroTitle}>Novel Library</Text>
+            <Text style={themedStyles.heroSubtitle}>Discover amazing stories and adventures</Text>
             
             {/* Search Bar */}
-            <View style={styles.searchContainer}>
-              <FontAwesome5 name="search" size={16} color={KA_COLORS.textMuted} style={styles.searchIcon} />
+            <View style={themedStyles.searchContainer}>
+              <FontAwesome5 name="search" size={16} color={colors.textMuted} style={themedStyles.searchIcon} />
               <TextInput
-                style={styles.searchInput}
+                style={themedStyles.searchInput}
                 placeholder="Search novels by title or author..."
-                placeholderTextColor={KA_COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity style={styles.clearButton} onPress={() => setSearchQuery('')}>
-                  <FontAwesome5 name="times" size={16} color={KA_COLORS.textMuted} />
+                <TouchableOpacity style={themedStyles.clearButton} onPress={() => setSearchQuery('')}>
+                  <FontAwesome5 name="times" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Tag Filters */}
-            <View style={styles.tagFiltersContainer}>
-              <Text style={styles.tagFiltersLabel}>Filter by Genre:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tagFiltersScroll}>
+            <View style={themedStyles.tagFiltersContainer}>
+              <Text style={themedStyles.tagFiltersLabel}>Filter by Genre:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={themedStyles.tagFiltersScroll}>
                 {selectedTags.length > 0 && (
                   <TouchableOpacity
-                    style={styles.clearTagsButton}
+                    style={themedStyles.clearTagsButton}
                     onPress={() => setSelectedTags([])}
                   >
-                    <FontAwesome5 name="times" size={12} color={KA_COLORS.ivory} />
-                    <Text style={styles.clearTagsText}>Clear All</Text>
+                    <FontAwesome5 name="times" size={12} color={colors.textOnAccent} />
+                    <Text style={themedStyles.clearTagsText}>Clear All</Text>
                   </TouchableOpacity>
                 )}
                 {TAG_OPTIONS.map((tag) => (
                   <TouchableOpacity
                     key={tag.value}
                     style={[
-                      styles.tagChip,
-                      selectedTags.includes(tag.value) && styles.tagChipActive,
+                      themedStyles.tagChip,
+                      selectedTags.includes(tag.value) && themedStyles.tagChipActive,
                     ]}
                     onPress={() => toggleTag(tag.value)}
                   >
                     <Text
                       style={[
-                        styles.tagChipText,
-                        selectedTags.includes(tag.value) && styles.tagChipTextActive,
+                        themedStyles.tagChipText,
+                        selectedTags.includes(tag.value) && themedStyles.tagChipTextActive,
                       ]}
                     >
                       {tag.label}
@@ -1119,18 +723,18 @@ const NovelsPageScreen = () => {
         </View>
 
         {/* Results Header */}
-        <View style={styles.resultsHeader}>
-          <Text style={styles.resultsCount}>
-            Showing <Text style={styles.resultsCountHighlight}>{filteredNovels.length}</Text> novel{filteredNovels.length !== 1 ? 's' : ''}
+        <View style={themedStyles.resultsHeader}>
+          <Text style={themedStyles.resultsCount}>
+            Showing <Text style={themedStyles.resultsCountHighlight}>{filteredNovels.length}</Text> novel{filteredNovels.length !== 1 ? 's' : ''}
           </Text>
         </View>
 
         {/* Novels Grid */}
-        <View style={styles.gridContainer}>
+        <View style={themedStyles.gridContainer}>
           {filteredNovels.length === 0 ? (
             renderEmptyState()
           ) : (
-            <View style={styles.gridContent}>
+            <View style={themedStyles.gridContent}>
               {filteredNovels.map((item) => (
                 <View key={`novel-${item.id}`}>
                   {renderNovelItem({ item })}
@@ -1158,8 +762,8 @@ const NovelsPageScreen = () => {
         />
 
         {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
+        <View style={themedStyles.footer}>
+          <Text style={themedStyles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
         </View>
       </Animated.ScrollView>
     </View>

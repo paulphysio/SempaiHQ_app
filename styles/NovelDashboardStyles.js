@@ -2,6 +2,681 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
+const COLOR = {
+  dark: {
+    bg: '#1A1A2E',
+    bgElevated: '#2a2a2a',
+    bgCard: '#2a2a2a',
+    accent: '#F36316',
+    accentDeep: '#D94F04',
+    accentSoft: 'rgba(255, 87, 51, 0.1)',
+    textPrimary: '#fff',
+    textSecondary: 'rgba(255, 255, 255, 0.7)',
+    textMuted: 'rgba(255, 255, 255, 0.5)',
+    border: '#444',
+    danger: '#dc3545',
+  },
+  light: {
+    bg: '#FDFBD4',
+    bgElevated: '#ffffff',
+    bgCard: '#f5f5f5',
+    accent: '#3b82f6',
+    accentDeep: '#2563eb',
+    accentSoft: 'rgba(59, 130, 246, 0.1)',
+    textPrimary: '#1e293b',
+    textSecondary: 'rgba(30, 41, 59, 0.7)',
+    textMuted: 'rgba(30, 41, 59, 0.5)',
+    border: '#ccc',
+    danger: '#ef4444',
+  },
+};
+
+export const getNovelDashboardStyles = (isDark = true) => {
+  const colors = isDark ? COLOR.dark : COLOR.light;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    navbar: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      backgroundColor: colors.bgElevated,
+      elevation: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    navContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    navLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 8,
+    },
+    navText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+      color: colors.textPrimary,
+    },
+    navRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    themeToggle: {
+      padding: 8,
+    },
+    menuToggle: {
+      padding: 8,
+    },
+    navMenu: {
+      marginTop: 8,
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: colors.bgElevated,
+    },
+    navMenuItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 8,
+    },
+    navMenuText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+      color: colors.textPrimary,
+    },
+    header: {
+      paddingVertical: 16,
+      paddingHorizontal: 20,
+      alignItems: 'center',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.accent,
+    },
+    headerTitle: {
+      fontSize: width < 360 ? 20 : 24,
+      fontFamily: 'Yoruka',
+      color: colors.accent,
+    },
+    headerSubtitle: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginTop: 8,
+      opacity: 0.8,
+      color: colors.textSecondary,
+    },
+    main: {
+      padding: 16,
+      paddingBottom: 80,
+    },
+    connectPrompt: {
+      alignItems: 'center',
+      padding: 24,
+      borderRadius: 12,
+      backgroundColor: colors.accentSoft,
+    },
+    connectIcon: {
+      marginBottom: 16,
+    },
+    connectText: {
+      fontSize: width < 360 ? 16 : 18,
+      fontFamily: 'Yoruka',
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 24,
+      color: colors.textPrimary,
+    },
+    accessDenied: {
+      alignItems: 'center',
+      padding: 24,
+      borderRadius: 12,
+      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    },
+    deniedIcon: {
+      marginBottom: 16,
+    },
+    accessDeniedText: {
+      fontSize: width < 360 ? 16 : 18,
+      fontFamily: 'Yoruka',
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 24,
+      color: colors.textPrimary,
+    },
+    backButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      minHeight: 48,
+    },
+    backButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+    },
+    dashboard: {
+      flex: 1,
+    },
+    formSection: {
+      marginBottom: 24,
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+    },
+    sectionTitle: {
+      fontSize: width < 360 ? 18 : 20,
+      fontFamily: 'Yoruka',
+      color: colors.accent,
+    },
+    novelForm: {
+      backgroundColor: 'transparent',
+    },
+    inputGroup: {
+      marginBottom: 16,
+    },
+    label: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginBottom: 8,
+      color: colors.textPrimary,
+    },
+    input: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      minHeight: 48,
+      borderColor: colors.border,
+      backgroundColor: colors.bgElevated,
+      color: colors.textPrimary,
+    },
+    textarea: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      minHeight: 100,
+      textAlignVertical: 'top',
+      borderColor: colors.border,
+      backgroundColor: colors.bgElevated,
+      color: colors.textPrimary,
+    },
+    imagePreview: {
+      width: 100,
+      height: 100,
+      borderRadius: 8,
+      marginBottom: 12,
+      backgroundColor: colors.bgCard,
+    },
+    placeholderText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginBottom: 12,
+      opacity: 0.7,
+      color: colors.textSecondary,
+    },
+    fileButton: {
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      alignItems: 'center',
+      minHeight: 48,
+    },
+    fileButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+    },
+    tagButton: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      minHeight: 48,
+      justifyContent: 'center',
+      borderColor: colors.border,
+      backgroundColor: colors.bgElevated,
+    },
+    tagButtonText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      opacity: 0.8,
+      color: colors.textPrimary,
+    },
+    chapterSection: {
+      marginTop: 16,
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: colors.accentSoft,
+    },
+    chapterTitle: {
+      fontSize: width < 360 ? 16 : 18,
+      fontFamily: 'Yoruka',
+      color: colors.accent,
+    },
+    checkboxContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 12,
+      padding: 8,
+    },
+    checkboxLabel: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+      color: colors.textPrimary,
+    },
+    dateButton: {
+      borderWidth: 1,
+      borderRadius: 8,
+      padding: 12,
+      minHeight: 48,
+      justifyContent: 'center',
+      borderColor: colors.border,
+      backgroundColor: colors.bgElevated,
+    },
+    dateButtonText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      opacity: 0.8,
+      color: colors.textPrimary,
+    },
+    addChapterButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      minHeight: 48,
+      marginTop: 12,
+    },
+    addChapterButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+    },
+    chapterList: {
+      marginVertical: 16,
+    },
+    chapterItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      backgroundColor: colors.bgCard,
+    },
+    chapterText: {
+      flex: 1,
+    },
+    chapterTitleText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      color: colors.textPrimary,
+      marginBottom: 4,
+    },
+    chapterPreview: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      opacity: 0.7,
+      color: colors.textSecondary,
+    },
+    advanceInfo: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      color: colors.accent,
+      marginTop: 4,
+    },
+    chapterActions: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    actionButton: {
+      padding: 8,
+      minWidth: 40,
+      alignItems: 'center',
+    },
+    submitButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      minHeight: 48,
+      justifyContent: 'center',
+    },
+    submitButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+    },
+    announcementSection: {
+      marginTop: 24,
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.02)',
+    },
+    announcementForm: {
+      backgroundColor: 'transparent',
+    },
+    announcementButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 8,
+      minHeight: 48,
+      justifyContent: 'center',
+    },
+    announcementButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 8,
+    },
+    novelsSection: {
+      marginTop: 24,
+    },
+    noNovels: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      textAlign: 'center',
+      opacity: 0.7,
+      color: colors.textSecondary,
+    },
+    novelsGrid: {
+      paddingBottom: 16,
+    },
+    novelCard: {
+      flexDirection: 'row',
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 12,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      backgroundColor: colors.bgCard,
+    },
+    novelImage: {
+      width: 80,
+      height: 120,
+      borderRadius: 8,
+      marginRight: 12,
+      backgroundColor: colors.bgCard,
+    },
+    novelInfo: {
+      flex: 1,
+    },
+    novelTitle: {
+      fontSize: width < 360 ? 16 : 18,
+      fontFamily: 'Yoruka',
+      color: colors.accent,
+      marginBottom: 4,
+    },
+    novelSummary: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      marginBottom: 4,
+      opacity: 0.7,
+      color: colors.textSecondary,
+    },
+    novelTags: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      marginBottom: 4,
+      color: colors.accent,
+    },
+    novelViewers: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      color: colors.textSecondary,
+    },
+    novelActions: {
+      flexDirection: 'row',
+      marginTop: 8,
+      gap: 8,
+    },
+    editNovelButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      minHeight: 40,
+    },
+    editNovelButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      marginLeft: 4,
+    },
+    deleteButton: {
+      backgroundColor: colors.danger,
+      padding: 8,
+      borderRadius: 8,
+      minHeight: 40,
+      minWidth: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    writersSection: {
+      marginTop: 24,
+    },
+    noWriters: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      textAlign: 'center',
+      opacity: 0.7,
+      color: colors.textSecondary,
+    },
+    writersList: {
+      paddingBottom: 16,
+    },
+    writerItem: {
+      padding: 12,
+      borderRadius: 8,
+      marginBottom: 8,
+      elevation: 2,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+      backgroundColor: colors.bgCard,
+    },
+    writerText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      color: colors.textPrimary,
+    },
+    writerId: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      opacity: 0.7,
+      marginTop: 4,
+      color: colors.textSecondary,
+    },
+    modalContainer: {
+      backgroundColor: colors.bgElevated,
+      padding: 20,
+      borderRadius: 12,
+      width: width * 0.85,
+      alignSelf: 'center',
+      elevation: 5,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+    },
+    modalTitle: {
+      fontSize: width < 360 ? 18 : 20,
+      fontFamily: 'Yoruka',
+      color: colors.textPrimary,
+      marginBottom: 16,
+      textAlign: 'center',
+    },
+    modalText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginBottom: 16,
+      textAlign: 'center',
+      lineHeight: 22,
+      color: colors.textPrimary,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    confirmButton: {
+      backgroundColor: colors.danger,
+      paddingVertical: 12,
+      borderRadius: 8,
+      flex: 1,
+      alignItems: 'center',
+      minHeight: 48,
+    },
+    confirmButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+    },
+    cancelButton: {
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      borderRadius: 8,
+      flex: 1,
+      alignItems: 'center',
+      minHeight: 48,
+    },
+    cancelButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+    },
+    tagList: {
+      maxHeight: 300,
+      paddingVertical: 8,
+    },
+    tagOption: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 8,
+    },
+    tagOptionText: {
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 12,
+      color: colors.textPrimary,
+    },
+    modalCloseButton: {
+      backgroundColor: colors.accent,
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      minHeight: 48,
+      marginTop: 12,
+    },
+    modalCloseButtonText: {
+      color: '#fff',
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+    },
+    disabledButton: {
+      opacity: 0.5,
+    },
+    footer: {
+      paddingVertical: 16,
+      alignItems: 'center',
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.bgElevated,
+    },
+    footerText: {
+      fontSize: width < 360 ? 12 : 14,
+      fontFamily: 'Yoruka',
+      opacity: 0.7,
+      color: colors.textSecondary,
+    },
+    formActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 10,
+    },
+    resetButton: {
+      flexDirection: 'row',
+      backgroundColor: '#555',
+      padding: 10,
+      borderRadius: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      marginLeft: 5,
+    },
+    resetButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontFamily: 'Yoruka',
+      marginLeft: 5,
+    },
+    datePickerContainer: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    datePickerGroup: {
+      flex: 1,
+      minWidth: width < 360 ? 80 : 100,
+      marginBottom: 8,
+    },
+    datePicker: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      backgroundColor: colors.bgElevated,
+      color: colors.textPrimary,
+      paddingVertical: 8,
+      minHeight: 48,
+    },
+    pickerItem: {
+      color: colors.textPrimary,
+      fontSize: width < 360 ? 14 : 16,
+      fontFamily: 'Yoruka',
+    },
+  });
+};
+
+// Keep original styles for backward compatibility
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -44,7 +719,6 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    
   },
   navRight: {
     flexDirection: 'row',
@@ -88,7 +762,6 @@ export const styles = StyleSheet.create({
   headerTitle: {
     fontSize: width < 360 ? 20 : 24,
     fontFamily: 'Yoruka',
-    
   },
   headerSubtitle: {
     fontSize: width < 360 ? 14 : 16,
@@ -98,7 +771,7 @@ export const styles = StyleSheet.create({
   },
   main: {
     padding: 16,
-    paddingBottom: 80, // Extra padding for footer
+    paddingBottom: 80,
   },
   connectPrompt: {
     alignItems: 'center',
@@ -139,14 +812,13 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
-    minHeight: 48, // Touch-friendly height
+    minHeight: 48,
   },
   backButtonText: {
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    
   },
   dashboard: {
     flex: 1,
@@ -160,7 +832,6 @@ export const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: width < 360 ? 18 : 20,
     fontFamily: 'Yoruka',
-    
   },
   novelForm: {
     backgroundColor: 'transparent',
@@ -172,7 +843,6 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginBottom: 8,
-    
   },
   input: {
     borderWidth: 1,
@@ -226,7 +896,6 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    
   },
   tagButton: {
     borderWidth: 1,
@@ -249,7 +918,6 @@ export const styles = StyleSheet.create({
   chapterTitle: {
     fontSize: width < 360 ? 16 : 18,
     fontFamily: 'Yoruka',
-    
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -289,7 +957,6 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    
   },
   chapterList: {
     marginVertical: 16,
@@ -319,7 +986,6 @@ export const styles = StyleSheet.create({
   chapterTitleText: {
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    
     marginBottom: 4,
   },
   chapterPreview: {
@@ -357,7 +1023,6 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    
   },
   announcementSection: {
     marginTop: 24,
@@ -383,7 +1048,6 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
     marginLeft: 8,
-    
   },
   novelsSection: {
     marginTop: 24,
@@ -427,7 +1091,6 @@ export const styles = StyleSheet.create({
   novelTitle: {
     fontSize: width < 360 ? 16 : 18,
     fontFamily: 'Yoruka',
-    
     marginBottom: 4,
   },
   novelSummary: {
@@ -465,7 +1128,6 @@ export const styles = StyleSheet.create({
     fontSize: width < 360 ? 12 : 14,
     fontFamily: 'Yoruka',
     marginLeft: 4,
-    
   },
   deleteButton: {
     backgroundColor: '#dc3545',
@@ -507,7 +1169,6 @@ export const styles = StyleSheet.create({
   writerText: {
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    
   },
   writerId: {
     fontSize: width < 360 ? 12 : 14,
@@ -536,7 +1197,6 @@ export const styles = StyleSheet.create({
   modalTitle: {
     fontSize: width < 360 ? 18 : 20,
     fontFamily: 'Yoruka',
-    
     marginBottom: 16,
     textAlign: 'center',
   },
@@ -564,7 +1224,6 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    
   },
   cancelButton: {
     backgroundColor: '#F36316',
@@ -578,7 +1237,6 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    
   },
   tagList: {
     maxHeight: 300,
@@ -607,7 +1265,6 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
     fontFamily: 'Yoruka',
-    
   },
   disabledButton: {
     opacity: 0.5,
@@ -657,7 +1314,6 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
     marginLeft: 5,
   },
-  // New styles for date pickers
   datePickerContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',

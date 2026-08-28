@@ -385,37 +385,107 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
   },
   badgeOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    maxHeight: 200,
     marginBottom: 20,
   },
   badgeOption: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
     backgroundColor: '#252540',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#444',
+    marginBottom: 8,
+  },
+  badgeOptionSelected: {
+    borderColor: '#F36316',
+    backgroundColor: 'rgba(243, 99, 22, 0.1)',
+  },
+  badgeOptionImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+  },
+  badgeOptionInfo: {
+    flex: 1,
+  },
+  badgeOptionName: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+    fontWeight: 'bold',
+  },
+  badgeOptionDescription: {
+    color: '#aaa',
+    fontSize: 12,
+    fontFamily: 'Yoruka',
+    marginTop: 2,
+  },
+  badgeOptionPrice: {
+    color: '#F36316',
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+    fontWeight: 'bold',
+    marginTop: 4,
   },
   badgeOptionText: {
     color: '#fff',
     fontSize: 14,
     fontFamily: 'Yoruka',
-    
     marginTop: 8,
   },
   badgePrice: {
     color: '#F36316',
     fontSize: 16,
     fontFamily: 'Yoruka',
-    
     marginTop: 4,
+  },
+  currencySelector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  currencyOption: {
+    flex: 1,
+    marginHorizontal: 4,
+    paddingVertical: 10,
+    backgroundColor: '#252540',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+    alignItems: 'center',
+  },
+  currencyOptionSelected: {
+    borderColor: '#F36316',
+    backgroundColor: 'rgba(243, 99, 22, 0.1)',
+  },
+  currencyOptionText: {
+    color: '#aaa',
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+  },
+  currencyOptionTextSelected: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  noBadgesContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  noBadgesText: {
+    color: '#aaa',
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+    marginTop: 12,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   modalButton: {
     paddingHorizontal: 32,
     paddingVertical: 14,
     borderRadius: 8,
-    alignItems: 'center',
   },
   modalButtonText: {
     color: '#fff',

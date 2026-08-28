@@ -23,6 +23,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, WEB_API_BASE_URL } from '../constants';
 import { AnimatedPressable, useCountUp, usePulse, useEntrance, useAnimatedVisibility, useStaggeredEntrance } from '../utils/animations';
+import { useTheme } from '../context/ThemeContext';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 

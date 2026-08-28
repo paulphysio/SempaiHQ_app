@@ -3,27 +3,53 @@ import { StyleSheet, Dimensions } from 'react-native';
 const { width, height } = Dimensions.get('window');
 
 // ---------------------------------------------------------------------------
-// Design tokens — one source of truth for the manga/dark-orange system so
-// values stay consistent across every card, chip, and modal below instead
-// of each block inventing its own radius/shadow/spacing.
+// Design tokens — now using theme context for light/dark mode support
 // ---------------------------------------------------------------------------
 const COLOR = {
-  bg: '#0B0B14',
-  bgElevated: '#111219',
-  bgCard: '#15161F',
-  bgCardAlt: '#1A1B26',
-  accent: '#FF5733',
-  accentDeep: '#F36316',
-  accentGlow: 'rgba(255, 87, 51, 0.35)',
-  accentSoft: 'rgba(255, 87, 51, 0.12)',
-  sakura: '#E94560',
-  gold: '#FFD700',
-  textPrimary: '#FFFFFF',
-  textSecondary: '#C9C9D1',
-  textMuted: '#8A8A99',
-  border: 'rgba(255, 255, 255, 0.08)',
-  borderAccent: 'rgba(255, 87, 51, 0.35)',
-  danger: '#FF6B6B',
+  // Dark mode colors (default)
+  dark: {
+    bg: '#0B0B14',
+    bgElevated: '#111219',
+    bgCard: '#15161F',
+    bgCardAlt: '#1A1B26',
+    accent: '#FF5733',
+    accentDeep: '#F36316',
+    accentGlow: 'rgba(255, 87, 51, 0.35)',
+    accentSoft: 'rgba(255, 87, 51, 0.12)',
+    sakura: '#E94560',
+    gold: '#FFD700',
+    textPrimary: '#FFFFFF',
+    textSecondary: '#C9C9D1',
+    textMuted: '#8A8A99',
+    border: 'rgba(255, 255, 255, 0.08)',
+    borderAccent: 'rgba(255, 87, 51, 0.35)',
+    danger: '#FF6B6B',
+    bgPrimary: '#0d0d0d',
+    bgSecondary: '#141414',
+    inputBg: '#1a1a1a',
+  },
+  // Light mode colors (matching web cream theme exactly)
+  light: {
+    bg: '#FDFBD4',
+    bgElevated: '#f5f0d0',
+    bgCard: '#ffffff',
+    bgCardAlt: '#f8f8e8',
+    accent: '#3b82f6',
+    accentDeep: '#2563eb',
+    accentGlow: 'rgba(59, 130, 246, 0.35)',
+    accentSoft: 'rgba(59, 130, 246, 0.12)',
+    sakura: '#E94560',
+    gold: '#f59e0b',
+    textPrimary: '#1e293b',
+    textSecondary: '#475569',
+    textMuted: '#64748b',
+    border: 'rgba(59, 130, 246, 0.15)',
+    borderAccent: 'rgba(59, 130, 246, 0.35)',
+    danger: '#ef4444',
+    bgPrimary: '#FDFBD4',
+    bgSecondary: '#f5f0d0',
+    inputBg: '#ffffff',
+  },
 };
 
 const RADIUS = { sm: 6, md: 10, lg: 16, xl: 20, pill: 999 };
@@ -38,19 +64,31 @@ const cardShadow = {
   elevation: 6,
 };
 
+const cardShadowLight = {
+  shadowColor: 'rgba(0, 0, 0, 0.1)',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.15,
+  shadowRadius: 8,
+  elevation: 4,
+};
+
 const glowShadow = {
-  shadowColor: COLOR.accent,
+  shadowColor: '#FF5733',
   shadowOffset: { width: 0, height: 4 },
   shadowOpacity: 0.4,
   shadowRadius: 10,
   elevation: 6,
 };
 
-// Poster-card geometry — book-cover proportions (~1:1.45) instead of the
-// old squat landscape thumbnail. CARD_STEP is exported so Home.js can pass
-// the *exact* same number to snapToInterval — previously that was a
-// hardcoded 276 that didn't match the actual (responsive) card width,
-// which is what made the carousel scroll feel misaligned/janky.
+const glowShadowLight = {
+  shadowColor: '#3b82f6',
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.3,
+  shadowRadius: 10,
+  elevation: 6,
+};
+
+// Poster-card geometry
 const CARD_IMAGE_WIDTH = width < 360 ? 128 : width < 420 ? 140 : 152;
 const CARD_IMAGE_HEIGHT = Math.round(CARD_IMAGE_WIDTH * 1.45);
 const CARD_MARGIN = 8;
@@ -58,17 +96,148 @@ const CARD_MARGIN = 8;
 export const CARD_STEP = CARD_IMAGE_WIDTH + CARD_MARGIN * 2;
 export { CARD_IMAGE_WIDTH, CARD_IMAGE_HEIGHT };
 
+// Helper function to get themed styles
+export const getThemedStyles = (isDark = true) => {
+  const colors = isDark ? COLOR.dark : COLOR.light;
+  const shadow = isDark ? cardShadow : cardShadowLight;
+  const glow = isDark ? glowShadow : glowShadowLight;
+
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.bg,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: SPACE.m,
+      paddingVertical: 10,
+      backgroundColor: isDark ? 'rgba(17, 18, 25, 0.94)' : 'rgba(245, 240, 208, 0.94)',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderAccent,
+      zIndex: 1000,
+    },
+    headerRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACE.m,
+    },
+    brand: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACE.s,
+    },
+    brandLogo: {
+      width: 30,
+      height: 30,
+      borderRadius: RADIUS.sm,
+    },
+    brandText: {
+      color: colors.textPrimary,
+      fontSize: 17,
+      letterSpacing: 0.8,
+      fontFamily: FONT,
+    },
+    headerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACE.s,
+    },
+    headerAuthRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACE.s,
+    },
+    headerSignInBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACE.s,
+      paddingVertical: 7,
+      paddingHorizontal: SPACE.m,
+      borderRadius: RADIUS.pill,
+      backgroundColor: 'transparent',
+      borderWidth: 1,
+      borderColor: colors.accent,
+    },
+    headerSignInIcon: {
+      width: 16,
+      height: 16,
+      borderRadius: 2,
+    },
+    headerSignInText: {
+      color: colors.accent,
+      fontSize: 12,
+      letterSpacing: 0.3,
+      fontFamily: FONT,
+    },
+    headerAction: {
+      width: 38,
+      height: 38,
+      borderRadius: RADIUS.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: isDark ? 'rgba(255, 255, 255, 0.04)' : 'rgba(0, 0, 0, 0.04)',
+      borderWidth: 1,
+      borderColor: colors.border,
+      position: 'relative',
+    },
+    headerBadge: {
+      position: 'absolute',
+      top: -3,
+      right: -3,
+      minWidth: 17,
+      height: 17,
+      paddingHorizontal: 3,
+      borderRadius: 9,
+      backgroundColor: colors.accent,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.bgElevated,
+    },
+    headerBadgeText: {
+      color: '#fff',
+      fontSize: 9,
+      fontFamily: FONT,
+    },
+    authLauncher: {
+      backgroundColor: colors.accent,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      borderRadius: RADIUS.lg,
+      ...shadow,
+      borderWidth: 1,
+      borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+    },
+    authDropdown: {
+      position: 'absolute',
+      top: 58,
+      right: 12,
+      width: Math.min(width * 0.82, 280),
+      backgroundColor: colors.bgElevated,
+      borderRadius: RADIUS.lg,
+      padding: SPACE.m,
+      ...shadow,
+      borderWidth: 1,
+      borderColor: colors.border,
+      zIndex: 1001,
+      alignItems: 'center',
+    },
+    authItem: {
+      marginVertical: 6,
+      width: '100%',
+      alignItems: 'center',
+    },
+  });
+};
+
+// Keep the original styles for backward compatibility (dark mode default)
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLOR.bg,
+    backgroundColor: COLOR.dark.bg,
   },
-
-  // -------------------------------------------------------------------------
-  // Header — brand mark, live status actions (announcements/notifications/
-  // wallet/auth), and the sidebar toggle. Sits above everything, blurred-
-  // glass feel via translucent elevated background + bottom accent hairline.
-  // -------------------------------------------------------------------------
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -77,17 +246,14 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: 'rgba(17, 18, 25, 0.94)',
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.borderAccent,
+    borderBottomColor: COLOR.dark.borderAccent,
     zIndex: 1000,
   },
-
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACE.m,
   },
-
-  // Brand and grouped actions
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -99,9 +265,8 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   brandText: {
-    color: COLOR.textPrimary,
+    color: COLOR.dark.textPrimary,
     fontSize: 17,
-    
     letterSpacing: 0.8,
     fontFamily: FONT,
   },
@@ -124,7 +289,7 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: COLOR.accent,
+    borderColor: COLOR.dark.accent,
   },
   headerSignInIcon: {
     width: 16,
@@ -132,9 +297,8 @@ export const styles = StyleSheet.create({
     borderRadius: 2,
   },
   headerSignInText: {
-    color: COLOR.accent,
+    color: COLOR.dark.accent,
     fontSize: 12,
-    
     letterSpacing: 0.3,
     fontFamily: FONT,
   },
@@ -146,7 +310,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.04)',
     borderWidth: 1,
-    borderColor: COLOR.border,
+    borderColor: COLOR.dark.border,
     position: 'relative',
   },
   headerBadge: {
@@ -157,20 +321,19 @@ export const styles = StyleSheet.create({
     height: 17,
     paddingHorizontal: 3,
     borderRadius: 9,
-    backgroundColor: COLOR.accent,
+    backgroundColor: COLOR.dark.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: COLOR.bgElevated,
+    borderColor: COLOR.dark.bgElevated,
   },
   headerBadgeText: {
     color: '#fff',
     fontSize: 9,
-    
     fontFamily: FONT,
   },
   authLauncher: {
-    backgroundColor: COLOR.accent,
+    backgroundColor: COLOR.dark.accent,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: RADIUS.lg,
@@ -183,12 +346,12 @@ export const styles = StyleSheet.create({
     top: 58,
     right: 12,
     width: Math.min(width * 0.82, 280),
-    backgroundColor: COLOR.bgElevated,
+    backgroundColor: COLOR.dark.bgElevated,
     borderRadius: RADIUS.lg,
     padding: SPACE.m,
     ...cardShadow,
     borderWidth: 1,
-    borderColor: COLOR.border,
+    borderColor: COLOR.dark.border,
     zIndex: 1001,
     alignItems: 'center',
   },
@@ -915,7 +1078,7 @@ export const styles = StyleSheet.create({
     height: CARD_IMAGE_HEIGHT,
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
-    backgroundColor: COLOR.bgCardAlt,
+    backgroundColor: 'transparent',
     ...cardShadow,
   },
 
@@ -1039,8 +1202,10 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 3,
     flexShrink: 1,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
 
   writerNameText: {
@@ -1048,7 +1213,8 @@ export const styles = StyleSheet.create({
     fontSize: 11,
     
     fontFamily: FONT,
-    flexShrink: 1,
+    textDecorationLine: 'underline',
+    textDecorationColor: COLOR.accent,
   },
 
   writerIcon: {

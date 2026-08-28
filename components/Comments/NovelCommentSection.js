@@ -15,247 +15,271 @@ import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token'
 import GoogleSignInButton from '../../components/GoogleSignInButton';
 import { EmbeddedWalletContext } from '../../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../../components/GoogleAuthProvider';
+import { useTheme } from '../../context/ThemeContext';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../../constants';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
-// Kaito Adventure Design System
-const KA_COLORS = {
-  bgPrimary: '#0c0c0c',
-  bgCard: '#141210',
-  bgElevated: '#1a1714',
-  orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
-  orangeSoft: '#e67e22',
-  orangeDim: '#8b4513',
-  gold: '#c9a84c',
-  goldBright: '#ffd700',
-  ivory: '#f5e6d3',
-  ivoryDim: '#c4b5a0',
-  border: '#2d2418',
-  textPrimary: '#f5e6d3',
-  textSecondary: '#a09080',
-  textMuted: '#6b5d4f',
-  success: '#4a7c59',
-  error: '#c41e3a',
-  warning: '#c9a84c',
+const COLOR = {
+  dark: {
+    bgPrimary: '#0c0c0c',
+    bgCard: '#141210',
+    bgElevated: '#1a1714',
+    accent: '#cc5500',
+    accentBright: '#ff6b35',
+    accentSoft: '#e67e22',
+    accentDim: '#8b4513',
+    gold: '#c9a84c',
+    goldBright: '#ffd700',
+    ivory: '#f5e6d3',
+    ivoryDim: '#c4b5a0',
+    border: '#2d2418',
+    textPrimary: '#f5e6d3',
+    textSecondary: '#a09080',
+    textMuted: '#6b5d4f',
+    success: '#4a7c59',
+    error: '#c41e3a',
+    warning: '#c9a84c',
+  },
+  light: {
+    bgPrimary: '#FDFBD4',
+    bgCard: '#ffffff',
+    bgElevated: '#f5f5f5',
+    accent: '#3b82f6',
+    accentBright: '#2563eb',
+    accentSoft: 'rgba(59, 130, 246, 0.1)',
+    accentDim: '#1d4ed8',
+    gold: '#f59e0b',
+    goldBright: '#fbbf24',
+    ivory: '#1e293b',
+    ivoryDim: '#64748b',
+    border: '#e2e8f0',
+    textPrimary: '#1e293b',
+    textSecondary: '#475569',
+    textMuted: '#94a3b8',
+    success: '#22c55e',
+    error: '#ef4444',
+    warning: '#f59e0b',
+  },
 };
 
-const styles = StyleSheet.create({
-  commentSection: {
-    padding: 16,
-  },
-  commentSectionContainer: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 8,
-    padding: 16,
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    color: KA_COLORS.gold,
-    fontSize: 20,
-    
-    marginLeft: 8,
-    letterSpacing: 1,
-  },
-  errorMessage: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.error,
-    borderRadius: 4,
-    padding: 12,
-    marginBottom: 16,
-  },
-  errorMessageText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    flex: 1,
-  },
-  clearErrorButton: {
-    padding: 8,
-  },
-  connectContainer: {
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 16,
-    marginBottom: 16,
-  },
-  connectText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  connectButton: {
-    width: '100%',
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  textarea: {
-    backgroundColor: KA_COLORS.bgElevated,
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    padding: 12,
-    borderRadius: 4,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-  },
-  textareaDisabled: {
-    opacity: 0.5,
-  },
-  inputFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  charCounter: {
-    color: KA_COLORS.textMuted,
-    fontSize: 12,
-  },
-  postButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.orangePrimary,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 4,
-  },
-  postButtonDisabled: {
-    backgroundColor: KA_COLORS.orangeDim,
-    opacity: 0.5,
-  },
-  postButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    marginLeft: 8,
-  },
-  commentsContainer: {
-    paddingBottom: 16,
-  },
-  comment: {
-    marginBottom: 12,
-  },
-  commentCard: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 12,
-  },
-  commentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  commentUsername: {
-    color: KA_COLORS.orangePrimary,
-    fontSize: 14,
-    
-  },
-  commentTimestamp: {
-    color: KA_COLORS.textMuted,
-    fontSize: 12,
-  },
-  commentContent: {
-    marginBottom: 8,
-  },
-  commentText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  commentActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 8,
-    marginRight: 12,
-  },
-  actionButtonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 12,
-    marginLeft: 4,
-  },
-  replyInputContainer: {
-    marginTop: 12,
-    marginLeft: 16,
-    borderLeftWidth: 2,
-    borderLeftColor: KA_COLORS.orangePrimary,
-    paddingLeft: 12,
-  },
-  replyInput: {
-    backgroundColor: KA_COLORS.bgElevated,
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    padding: 10,
-    borderRadius: 4,
-    minHeight: 60,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-  },
-  replyActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  replyButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cancelReplyButton: {
-    padding: 8,
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    marginRight: 8,
-  },
-  postReplyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS.orangePrimary,
-    padding: 8,
-    borderRadius: 4,
-  },
-  postReplyButtonDisabled: {
-    backgroundColor: KA_COLORS.orangeDim,
-    opacity: 0.5,
-  },
-  replies: {
-    marginLeft: 16,
-    marginTop: 8,
-  },
-  repliesContainer: {
-    paddingBottom: 8,
-  },
-  noComments: {
-    color: KA_COLORS.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
-    marginVertical: 16,
-  },
-});
+const getCommentStyles = (isDark = true) => {
+  const colors = isDark ? COLOR.dark : COLOR.light;
+
+  return StyleSheet.create({
+    commentSection: {
+      padding: 16,
+    },
+    commentSectionContainer: {
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 8,
+      padding: 16,
+    },
+    titleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 16,
+    },
+    title: {
+      color: colors.gold,
+      fontSize: 20,
+      marginLeft: 8,
+      letterSpacing: 1,
+    },
+    errorMessage: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      backgroundColor: colors.bgElevated,
+      borderWidth: 1,
+      borderColor: colors.error,
+      borderRadius: 4,
+      padding: 12,
+      marginBottom: 16,
+    },
+    errorMessageText: {
+      color: colors.ivory,
+      fontSize: 14,
+      flex: 1,
+    },
+    clearErrorButton: {
+      padding: 8,
+    },
+    connectContainer: {
+      alignItems: 'center',
+      backgroundColor: colors.bgElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 4,
+      padding: 16,
+      marginBottom: 16,
+    },
+    connectText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+      marginBottom: 12,
+    },
+    connectButton: {
+      width: '100%',
+    },
+    inputContainer: {
+      marginBottom: 16,
+    },
+    textarea: {
+      backgroundColor: colors.bgElevated,
+      color: colors.ivory,
+      fontSize: 14,
+      padding: 12,
+      borderRadius: 4,
+      minHeight: 80,
+      textAlignVertical: 'top',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    textareaDisabled: {
+      opacity: 0.5,
+    },
+    inputFooter: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    charCounter: {
+      color: colors.textMuted,
+      fontSize: 12,
+    },
+    postButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      paddingVertical: 8,
+      paddingHorizontal: 16,
+      borderRadius: 4,
+    },
+    postButtonDisabled: {
+      backgroundColor: colors.accentDim,
+      opacity: 0.5,
+    },
+    postButtonText: {
+      color: colors.ivory,
+      fontSize: 14,
+      marginLeft: 8,
+    },
+    commentsContainer: {
+      paddingBottom: 16,
+    },
+    comment: {
+      marginBottom: 12,
+    },
+    commentCard: {
+      backgroundColor: colors.bgElevated,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 4,
+      padding: 12,
+    },
+    commentHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    commentUsername: {
+      color: colors.accent,
+      fontSize: 14,
+    },
+    commentTimestamp: {
+      color: colors.textMuted,
+      fontSize: 12,
+    },
+    commentContent: {
+      marginBottom: 8,
+    },
+    commentText: {
+      color: colors.ivory,
+      fontSize: 14,
+      lineHeight: 20,
+    },
+    commentActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    actionButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 8,
+      marginRight: 12,
+    },
+    actionButtonText: {
+      color: colors.ivory,
+      fontSize: 12,
+      marginLeft: 4,
+    },
+    replyInputContainer: {
+      marginTop: 12,
+      marginLeft: 16,
+      borderLeftWidth: 2,
+      borderLeftColor: colors.accent,
+      paddingLeft: 12,
+    },
+    replyInput: {
+      backgroundColor: colors.bgElevated,
+      color: colors.ivory,
+      fontSize: 14,
+      padding: 10,
+      borderRadius: 4,
+      minHeight: 60,
+      textAlignVertical: 'top',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    replyActions: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    replyButtons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    cancelReplyButton: {
+      padding: 8,
+      backgroundColor: colors.bgCard,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 4,
+      marginRight: 8,
+    },
+    postReplyButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.accent,
+      padding: 8,
+      borderRadius: 4,
+    },
+    postReplyButtonDisabled: {
+      backgroundColor: colors.accentDim,
+      opacity: 0.5,
+    },
+    replies: {
+      marginLeft: 16,
+      marginTop: 8,
+    },
+    repliesContainer: {
+      paddingBottom: 8,
+    },
+    noComments: {
+      color: colors.textMuted,
+      fontSize: 14,
+      textAlign: 'center',
+      marginVertical: 16,
+    },
+  });
+};
 
 const formatUsername = (username) => {
   if (!username) return 'Anonymous';
@@ -277,6 +301,8 @@ const Comment = ({
   newComment,
   handleCommentSubmit,
   novelTitle,
+  colors,
+  styles,
 }) => {
   const isOwner = comment.user_id === currentUserId;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -296,7 +322,7 @@ const Comment = ({
         value={newComment}
         onChangeText={setNewComment}
         placeholder="Type your reply..."
-        placeholderTextColor={KA_COLORS.textMuted}
+        placeholderTextColor={colors.textMuted}
         multiline
         maxLength={500}
       />
@@ -307,14 +333,14 @@ const Comment = ({
             style={styles.cancelReplyButton}
             onPress={cancelReply}
           >
-            <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
+            <FontAwesome5 name="times" size={16} color={colors.ivory} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.postReplyButton, !newComment && styles.postReplyButtonDisabled]}
             onPress={handleCommentSubmit}
             disabled={!newComment}
           >
-            <FontAwesome5 name="paper-plane" size={16} color={KA_COLORS.ivory} />
+            <FontAwesome5 name="paper-plane" size={16} color={colors.ivory} />
           </TouchableOpacity>
         </View>
       </View>
@@ -344,7 +370,7 @@ const Comment = ({
             <FontAwesome5
               name="reply"
               size={16}
-              color={replyingTo === comment.id ? KA_COLORS.orangePrimary : KA_COLORS.ivory}
+              color={replyingTo === comment.id ? colors.accent : colors.ivory}
             />
           </TouchableOpacity>
           {replies.length > 0 && (
@@ -355,7 +381,7 @@ const Comment = ({
               <FontAwesome5
                 name={areRepliesVisible[comment.id] ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color={KA_COLORS.ivory}
+                color={colors.ivory}
               />
               <Text style={styles.actionButtonText}>({replies.length})</Text>
             </TouchableOpacity>
@@ -365,7 +391,7 @@ const Comment = ({
               style={styles.actionButton}
               onPress={() => deleteComment(comment.id)}
             >
-              <FontAwesome5 name="trash" size={16} color={KA_COLORS.error} />
+              <FontAwesome5 name="trash" size={16} color={colors.error} />
             </TouchableOpacity>
           )}
         </View>
@@ -390,6 +416,8 @@ const Comment = ({
                 newComment={newComment}
                 handleCommentSubmit={handleCommentSubmit}
                 novelTitle={novelTitle}
+                colors={colors}
+                styles={styles}
               />
             )}
             keyExtractor={(item) => `reply-${item.id}`}
@@ -403,6 +431,9 @@ const Comment = ({
 
 const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const { wallet } = useContext(EmbeddedWalletContext);
+  const { isDark, colors } = useTheme();
+  const styles = getCommentStyles(isDark);
+  
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
@@ -416,7 +447,6 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const DAILY_REWARD_LIMIT = 10;
   const MIN_COMMENT_LENGTH = 2;
   const { session } = useGoogleAuth();
-  const subscriptionRef = useRef(null);
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
@@ -506,35 +536,9 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   useEffect(() => {
     fetchComments();
 
-    const channelName = `comments-${novelId}`;
-    
-    if (subscriptionRef.current) {
-      supabase.removeChannel(subscriptionRef.current);
-      subscriptionRef.current = null;
-    }
-    
-    const subscription = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'comments',
-          filter: `novel_id=eq.${novelId}`,
-        },
-        fetchComments
-      )
-      .subscribe();
-    
-    subscriptionRef.current = subscription;
-
-    return () => {
-      if (subscriptionRef.current) {
-        supabase.removeChannel(subscriptionRef.current);
-        subscriptionRef.current = null;
-      }
-    };
+    // Disabled real-time subscription due to multiple subscription errors
+    // Comments will be refreshed manually or on component remount
+    // If real-time updates are needed, consider polling or a different approach
   }, [novelId]);
 
   const deleteComment = async (commentId) => {
@@ -743,7 +747,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
     <View style={styles.commentSection}>
       <View style={styles.commentSectionContainer}>
         <View style={styles.titleContainer}>
-          <FontAwesome5 name="comment" size={20} color={KA_COLORS.gold} />
+          <FontAwesome5 name="comment" size={20} color={colors.gold} />
           <Text style={styles.title}>Comments</Text>
         </View>
         {error && (
@@ -753,7 +757,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
               style={styles.clearErrorButton}
               onPress={() => setError(null)}
             >
-              <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={16} color={colors.ivory} />
             </TouchableOpacity>
           </View>
         )}
@@ -769,7 +773,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
             value={newComment}
             onChangeText={setNewComment}
             placeholder="Add your comment..."
-            placeholderTextColor={KA_COLORS.textMuted}
+            placeholderTextColor={colors.textMuted}
             multiline
             editable={isWalletConnected}
             maxLength={500}
@@ -781,7 +785,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
               onPress={handleCommentSubmit}
               disabled={!isWalletConnected || !newComment}
             >
-              <FontAwesome5 name="paper-plane" size={16} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="paper-plane" size={16} color={colors.ivory} />
               <Text style={styles.postButtonText}>Post</Text>
             </TouchableOpacity>
           </View>
@@ -803,6 +807,8 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
               newComment={newComment}
               handleCommentSubmit={handleCommentSubmit}
               novelTitle={novelTitle}
+              colors={colors}
+              styles={styles}
             />
           )}
           keyExtractor={(item) => `comment-${item.id}`}

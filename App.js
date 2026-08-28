@@ -39,6 +39,7 @@ import SignIn from './components/SignIn';
 import { GoogleAuthProvider } from './components/GoogleAuthProvider';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SystemUiContext } from './context/SystemUiContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import WalletScreen from './screens/WalletScreen';
 import GlobalNavbar from './components/GlobalNavbar';
 import GlobalBottomNav from './components/GlobalBottomNav';
@@ -59,6 +60,8 @@ import ProfileScreen from './screens/ProfileScreen';
 import DownloadScreen from './screens/DownloadScreen';
 import KaitoLeaderboardScreen from './screens/KaitoLeaderboardScreen';
 import AddGifScreen from './screens/AddGifScreen';
+import BadgesScreen from './screens/BadgesScreen';
+import CreatorDashboardScreen from './screens/CreatorDashboardScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -129,17 +132,19 @@ const MainApp = () => {
   return (
     <SafeAreaProvider>
       <SystemUiContext.Provider value={{ isSystemUiVisible, setIsSystemUiVisible }}>
-        <AuthProvider>
-          <GoogleAuthProvider>
-            <EmbeddedWalletProvider>
-              <NavigationProvider>
-                <ErrorBoundary>
-                  <AppContent setIsStatusBarHidden={setIsStatusBarHidden} />
-                </ErrorBoundary>
-              </NavigationProvider>
-            </EmbeddedWalletProvider>
-          </GoogleAuthProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <GoogleAuthProvider>
+              <EmbeddedWalletProvider>
+                <NavigationProvider>
+                  <ErrorBoundary>
+                    <AppContent setIsStatusBarHidden={setIsStatusBarHidden} />
+                  </ErrorBoundary>
+                </NavigationProvider>
+              </EmbeddedWalletProvider>
+            </GoogleAuthProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </SystemUiContext.Provider>
       <StatusBar style="light" hidden={isStatusBarHidden} />
     </SafeAreaProvider>
@@ -285,6 +290,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="NovelSummary" component={NovelSummaryScreen} />
             <Stack.Screen name="NovelDashboard" component={NovelDashboardScreen} />
             <Stack.Screen name="MangaDashboard" component={MangaDashboardScreen} />
+            <Stack.Screen name="CreatorDashboard" component={CreatorDashboardScreen} />
             <Stack.Screen name="MangaPage" component={MangaPageScreen} />
             <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
             <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
@@ -307,6 +313,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="Download" component={DownloadScreen} />
             <Stack.Screen name="KaitoLeaderboard" component={KaitoLeaderboardScreen} />
             <Stack.Screen name="AddGif" component={AddGifScreen} />
+            <Stack.Screen name="Badges" component={BadgesScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -25,15 +25,16 @@ serve(async (req) => {
     if (typeof jwtBody?.email !== "string") throw new Error("JWT missing email");
 
     const body = await req.json();
-    const { novelId, planType, signature, userPublicKey, currency } = body ?? {};
+    const { novelId, writerId, badgeId, planType, signature, userPublicKey, currency } = body ?? {};
 
-    console.log("[benefactor-payment] Received fields:", { novelId, planType, signature, userPublicKey, currency });
+    console.log("[benefactor-payment] Received fields:", { novelId, writerId, badgeId, planType, signature, userPublicKey, currency });
 
     const isMissing = (v: unknown) =>
       v === null || v === undefined || (typeof v === "string" && v.trim().length === 0);
 
-    if (isMissing(novelId) || isMissing(planType) || isMissing(signature) || isMissing(userPublicKey)) {
-      throw new Error("Missing required fields (novelId, planType, signature, userPublicKey)");
+    // writerId is required, novelId is optional (for backward compatibility)
+    if (isMissing(writerId) || isMissing(planType) || isMissing(signature) || isMissing(userPublicKey)) {
+      throw new Error("Missing required fields (writerId, planType, signature, userPublicKey)");
     }
 
     // Pricing tiers (SMP test mode - small amounts)
@@ -55,26 +56,28 @@ serve(async (req) => {
       durationDays: tier.durationDays,
     });
 
-    // Fetch user and novel data to get the writer (author)
-    const [userResult, novelResult] = await Promise.all([
-      supabaseAdmin.from("users").select("id").eq("email", jwtBody.email).maybeSingle(),
-      supabaseAdmin.from("novels").select("id, user_id, chaptertitles").eq("id", novelId).maybeSingle()
-    ]);
-
+    // Fetch user data
+    const userResult = await supabaseAdmin.from("users").select("id").eq("email", jwtBody.email).maybeSingle();
     const userData = throwOnError(userResult);
     if (!userData) throw new Error(`User not found for email ${jwtBody.email}`);
 
-    const novel = throwOnError(novelResult);
-    if (!novel) throw new Error("Novel not found");
+    // Use writerId from request, or derive from novelId for backward compatibility
+    let finalWriterId = writerId;
+    if (!finalWriterId && novelId) {
+      const novelResult = await supabaseAdmin.from("novels").select("id, user_id").eq("id", novelId).maybeSingle();
+      const novel = throwOnError(novelResult);
+      if (!novel) throw new Error("Novel not found");
+      finalWriterId = novel.user_id;
+    }
 
-    const writerId = novel.user_id;
+    if (!finalWriterId) throw new Error("Writer ID not provided and could not be derived from novel");
 
     // Check if user already has an active subscription to this writer
     const { data: existingSubscription } = await supabaseAdmin
       .from("writer_subscriptions")
       .select("*")
       .eq("benefactor_wallet", userPublicKey)
-      .eq("writer_id", writerId)
+      .eq("writer_id", finalWriterId)
       .eq("is_active", true)
       .maybeSingle();
 
@@ -95,7 +98,7 @@ serve(async (req) => {
       .from("writer_subscriptions")
       .insert({
         benefactor_wallet: userPublicKey,
-        writer_id: writerId,
+        writer_id: finalWriterId,
         plan_type: planType,
         chapters_unlocked: tier.chapters,
         chapters_remaining: tier.chapters,
@@ -116,7 +119,7 @@ serve(async (req) => {
           .from("writer_subscriptions")
           .select("*")
           .eq("benefactor_wallet", userPublicKey)
-          .eq("writer_id", writerId)
+          .eq("writer_id", finalWriterId)
           .eq("transaction_id", signature)
           .maybeSingle();
         
@@ -130,6 +133,24 @@ serve(async (req) => {
         }
       }
       throw new Error(`Failed to record subscription: ${subscriptionError.message}`);
+    }
+
+    // Record badge purchase if badgeId is provided
+    if (badgeId) {
+      const { error: badgeError } = await supabaseAdmin
+        .from("user_badges")
+        .insert({
+          user_id: userData.id,
+          badge_id: badgeId,
+          acquired_at: new Date().toISOString(),
+        });
+
+      if (badgeError) {
+        console.warn("[benefactor-payment] Failed to record badge purchase:", badgeError.message);
+        // Don't fail the transaction if badge recording fails
+      } else {
+        console.log("[benefactor-payment] Badge recorded:", badgeId);
+      }
     }
 
     // Update user's benefactor status
@@ -173,14 +194,15 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[benefactor-payment] Success - ${tier.name} writer subscription activated for user ${userData.id}, writer ${writerId}`);
+    console.log(`[benefactor-payment] Success - ${tier.name} writer subscription activated for user ${userData.id}, writer ${finalWriterId}`);
     return Response.json({ 
       success: true, 
       signature,
       plan_type: planType,
       chapters_unlocked: tier.chapters,
       expires_at: expiresAt,
-      writer_id: writerId,
+      writer_id: finalWriterId,
+      badge_id: badgeId,
     });
 
   } catch (error: any) {

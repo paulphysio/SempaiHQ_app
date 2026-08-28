@@ -23,10 +23,11 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
-import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP } from '../styles/HomeStyles';
+import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
 import CinematicCardOverlay from '../components/CinematicCardOverlay';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const Home = () => {
   const navigation = useNavigation();
   const { wallet, isWalletConnected, disconnectWallet, createEmbeddedWallet, retrieveEmbeddedWallet } = useContext(EmbeddedWalletContext);
   const { session, signIn, signOut } = useGoogleAuth();
+  const { isDark, colors, toggleTheme } = useTheme();
 
   // State for UI and data
   const [menuOpen, setMenuOpen] = useState(false);
@@ -79,6 +81,9 @@ const Home = () => {
   const [walletPassword, setWalletPassword] = useState('');
   const [walletPassword2, setWalletPassword2] = useState('');
   const [walletModalError, setWalletModalError] = useState(null);
+
+  // Get themed styles
+  const themedStyles = getThemedStyles(isDark);
 
   // Animation refs
   const slideAnim = useRef(new Animated.Value(280)).current;
@@ -490,9 +495,9 @@ const Home = () => {
       try {
         const { data: novelsData, error } = await supabase
           .from('novels')
-          .select('id, title, image, summary, user_id, tags, viewers_count, show_in_home')
+          .select('id, title, image, summary, user_id, tags, viewers_count')
           .eq('is_visible', true)
-          .eq('show_in_home', true);
+          .eq('featured', true);
 
         if (error) {
           throw new Error(`Failed to fetch novels: ${error.message}`);
@@ -532,7 +537,6 @@ const Home = () => {
         }, {});
 
         const enrichedNovels = (novelsData || [])
-          .filter(n => n?.show_in_home !== false)
           .map(novel => {
             const ratings = ratingsMap[novel.id] || [];
             const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
@@ -571,9 +575,9 @@ const Home = () => {
       try {
         const { data: mangaData, error } = await supabase
           .from('manga')
-          .select('id, title, cover_image, summary, user_id, status, tags, viewers_count, show_in_home')
+          .select('id, title, cover_image, summary, user_id, status, tags, viewers_count')
           .eq('is_visible', true)
-          .eq('show_in_home', true)
+          .eq('featured', true)
           .in('status', ['ongoing', 'completed'])
           .limit(5);
 
@@ -628,7 +632,6 @@ const Home = () => {
         }, {});
 
         const enrichedManga = (mangaData || [])
-          .filter(m => m?.show_in_home !== false)
           .map(manga => {
           const ratings = ratingsMap[manga.id] || [];
           const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
@@ -758,6 +761,15 @@ const Home = () => {
     handleNavigation(hasRole ? 'CreatorsProfile' : 'EditProfile', { id: userId });
   };
 
+  // Creator profile navigation
+  const handleCreatorProfileNavigation = (creatorId) => {
+    if (!creatorId) {
+      console.warn('No creator ID provided');
+      return;
+    }
+    handleNavigation('CreatorsProfile', { id: creatorId });
+  };
+
   // Dashboard navigation
   const handleDashboardNavigation = () => {
     if ((isWriter && isArtist) || isSuperuser) {
@@ -845,34 +857,41 @@ const Home = () => {
               style={styles.contentImage}
               defaultSource={{ uri: 'https://via.placeholder.com/260x340' }}
             />
-            <View style={styles.rankBadge}>
+            <View style={[styles.rankBadge, { backgroundColor: colors.accent }]}>
               <Text style={styles.rankBadgeText}>{index + 1}</Text>
             </View>
-            <View style={styles.ratingFloatBadge}>
-              <FontAwesome5 name="star" size={9} color={HOME_COLORS.gold} />
-              <Text style={styles.ratingFloatText}>{item.averageRating}</Text>
+            <View style={[styles.ratingFloatBadge, { backgroundColor: colors.bgElevated }]}>
+              <FontAwesome5 name="star" size={9} color={colors.gold} />
+              <Text style={[styles.ratingFloatText, { color: colors.textPrimary }]}>{item.averageRating}</Text>
             </View>
             {item.isAdult && (
-              <View style={styles.adultRibbon}>
+              <View style={[styles.adultRibbon, { backgroundColor: colors.danger }]}>
                 <Text style={styles.adultWarning}>18+</Text>
               </View>
             )}
           </View>
 
           <View style={styles.contentInfo}>
-            <Text style={styles.contentTitle} numberOfLines={2}>{item.title}</Text>
+            <Text style={[styles.contentTitle, { color: colors.textPrimary }]} numberOfLines={2}>{item.title}</Text>
             <View style={styles.contentStats}>
               {hasWriterCredit ? (
-                <View style={styles.writerName}>
-                  <FontAwesome5 name="feather-alt" size={10} color={HOME_COLORS.accent} style={styles.writerIcon} />
-                  <Text style={styles.writerNameText} numberOfLines={1}>{item.writer.name}</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.writerName}
+                  activeOpacity={0.7}
+                  onPress={() => handleCreatorProfileNavigation(item.user_id)}
+                  accessible={true}
+                  accessibilityLabel={`View ${item.writer.name}'s profile`}
+                  accessibilityHint="Navigates to creator profile"
+                >
+                  <FontAwesome5 name="feather-alt" size={10} color={colors.accent} style={styles.writerIcon} />
+                  <Text style={[styles.writerNameText, { color: colors.textSecondary }]} numberOfLines={1}>{item.writer.name}</Text>
+                </TouchableOpacity>
               ) : (
                 <View />
               )}
               <View style={styles.statChip}>
-                <FontAwesome5 name="eye" size={10} color={HOME_COLORS.textMuted} />
-                <Text style={styles.viewers}>{item.viewers}</Text>
+                <FontAwesome5 name="eye" size={10} color={colors.textMuted} />
+                <Text style={[styles.viewers, { color: colors.textMuted }]}>{item.viewers}</Text>
               </View>
             </View>
           </View>
@@ -883,22 +902,22 @@ const Home = () => {
 
   // Render announcement item
   const renderAnnouncementItem = ({ item }) => (
-    <View style={styles.announcementCard}>
-      <Text style={styles.announcementTitle}>{item.title}</Text>
-      <Text style={styles.announcementMessage} numberOfLines={3}>{item.message}</Text>
+    <View style={[styles.announcementCard, { backgroundColor: colors.bgCard }]}>
+      <Text style={[styles.announcementTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+      <Text style={[styles.announcementMessage, { color: colors.textSecondary }]} numberOfLines={3}>{item.message}</Text>
       <View style={styles.announcementDetails}>
         {item.novels && (
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => navigation.navigate('NovelDetail', { id: item.novels.id })}
           >
-            <Text style={styles.announcementLink}>{item.novels.title}</Text>
+            <Text style={[styles.announcementLink, { color: colors.accent }]}>{item.novels.title}</Text>
           </TouchableOpacity>
         )}
         {item.users?.wallet_address && (
-          <Text style={styles.announcementAuthor}>By: {item.users.wallet_address.slice(0, 6)}...</Text>
+          <Text style={[styles.announcementAuthor, { color: colors.textMuted }]}>By: {item.users.wallet_address.slice(0, 6)}...</Text>
         )}
-        <Text style={styles.announcementDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
+        <Text style={[styles.announcementDate, { color: colors.textMuted }]}>{new Date(item.created_at).toLocaleDateString()}</Text>
       </View>
     </View>
   );
@@ -907,7 +926,7 @@ const Home = () => {
   const renderNotificationItem = ({ item }) => (
     <TouchableOpacity
       activeOpacity={0.7}
-      style={styles.notificationItem}
+      style={[styles.notificationItem, { backgroundColor: colors.bgCard }]}
       onPress={() => {
         if (item.novel_id) {
           navigation.navigate('NovelDetail', { id: item.novel_id });
@@ -917,8 +936,8 @@ const Home = () => {
       accessibilityLabel={item.message}
       accessibilityHint="View notification details"
     >
-      <Text style={styles.notificationMessage}>{item.message}</Text>
-      <Text style={styles.notificationDetails}>
+      <Text style={[styles.notificationMessage, { color: colors.textPrimary }]}>{item.message}</Text>
+      <Text style={[styles.notificationDetails, { color: colors.textMuted }]}>
         {item.novel_title} • {new Date(item.created_at).toLocaleDateString()}
       </Text>
     </TouchableOpacity>
@@ -949,6 +968,7 @@ const Home = () => {
         style={[
           styles.featureCard,
           {
+            backgroundColor: colors.bgCard,
             opacity: fadeAnims[index],
             transform: [
               { translateY: fadeAnims[index].interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) },
@@ -978,11 +998,15 @@ const Home = () => {
             style={[styles.featureImage, item.title === 'Google Sign-In' && styles.googleSignInImage]}
             defaultSource={require('../assets/default-feature.png')}
           />
-          <LinearGradient colors={HOME_GRADIENTS.featureImage} style={styles.featureImageGradient} pointerEvents="none" />
+          <LinearGradient 
+            colors={isDark ? HOME_GRADIENTS.featureImage : ['transparent', 'rgba(59, 130, 246, 0.3)', 'rgba(59, 130, 246, 0.6)']} 
+            style={styles.featureImageGradient} 
+            pointerEvents="none" 
+          />
           <View style={styles.featureOverlay}>
-            <Text style={styles.featureTitle} numberOfLines={1}>{item.title}</Text>
+            <Text style={[styles.featureTitle, { color: colors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
             {item.requiresWallet && (
-              <View style={styles.premiumBadge}>
+              <View style={[styles.premiumBadge, { backgroundColor: colors.accent }]}>
                 <FontAwesome5 name="lock" size={9} color="#fff" />
                 <Text style={styles.premiumBadgeText}>Wallet</Text>
               </View>
@@ -997,13 +1021,13 @@ const Home = () => {
   const SectionHeader = ({ title, onSeeAll }) => (
     <View style={styles.sectionHeaderRow}>
       <View style={styles.sectionHeaderLeft}>
-        <View style={styles.sectionAccentBar} />
-        <Text style={styles.sectionTitle}>{title}</Text>
+        <View style={[styles.sectionAccentBar, { backgroundColor: colors.accent }]} />
+        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>{title}</Text>
       </View>
       {onSeeAll && (
         <AnimatedPressable style={styles.sectionSeeAll} onPress={onSeeAll} scaleTo={0.93}>
-          <Text style={styles.sectionSeeAllText}>See all</Text>
-          <FontAwesome5 name="chevron-right" size={9} color={HOME_COLORS.textSecondary} />
+          <Text style={[styles.sectionSeeAllText, { color: colors.textSecondary }]}>See all</Text>
+          <FontAwesome5 name="chevron-right" size={9} color={colors.textSecondary} />
         </AnimatedPressable>
       )}
     </View>
@@ -1156,11 +1180,11 @@ const Home = () => {
   const walletLabel = walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : 'Connect';
 
   return (
-    <View style={styles.container}>
+    <View style={themedStyles.container}>
       {/* Background animations */}
       <View style={[styles.backgroundAnimation, { zIndex: -1, pointerEvents: 'none' }]}>
         <LinearGradient
-          colors={['rgba(0, 0, 0, 0.8)', 'rgba(243, 99, 22, 0.3)']}
+          colors={isDark ? ['rgba(0, 0, 0, 0.8)', 'rgba(243, 99, 22, 0.3)'] : ['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.2)']}
           style={styles.gradientLayer}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -1178,7 +1202,7 @@ const Home = () => {
           ]}
         >
           <LinearGradient
-            colors={['rgba(243, 99, 22, 0.4)', 'transparent']}
+            colors={isDark ? ['rgba(243, 99, 22, 0.4)', 'transparent'] : ['rgba(59, 130, 246, 0.3)', 'transparent']}
             style={styles.waveGradient}
             start={{ x: 0.5, y: 0.5 }}
             end={{ x: 1, y: 1 }}
@@ -1253,7 +1277,16 @@ const Home = () => {
           </View>
 
           <AnimatedPressable style={styles.menuButton} onPress={toggleMenu} accessible accessibilityLabel="Open menu" scaleTo={0.88}>
-            <FontAwesome5 name="bars" size={16} color="#fff" />
+            <FontAwesome5 name="bars" size={16} color={colors.textPrimary} />
+          </AnimatedPressable>
+          <AnimatedPressable 
+            style={[styles.menuButton, { marginLeft: 8 }]} 
+            onPress={toggleTheme} 
+            accessible 
+            accessibilityLabel="Toggle theme" 
+            scaleTo={0.88}
+          >
+            <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={16} color={colors.textPrimary} />
           </AnimatedPressable>
         </View>
       </View> */}
@@ -1264,22 +1297,26 @@ const Home = () => {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         bounces={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
         scrollEventThrottle={16}
+        onScroll={({ nativeEvent }) => {
+          scrollY.setValue(nativeEvent.contentOffset.y);
+        }}
       >
         <Animated.View
           style={[
             styles.heroSection,
-            { opacity: heroParallaxOpacity, transform: [{ translateY: heroParallaxTranslate }] },
+            {
+              opacity: heroParallaxOpacity,
+              transform: [{ translateY: heroParallaxTranslate }],
+              backgroundColor: isDark ? 'rgba(233, 69, 96, 0.16)' : 'rgba(59, 130, 246, 0.08)',
+              borderBottomColor: isDark ? 'rgba(233, 69, 96, 0.3)' : 'rgba(59, 130, 246, 0.15)',
+            },
           ]}
         >
           <Animated.Text
             style={[
               styles.heroEyebrow,
-              { opacity: heroTextAnim },
+              { opacity: heroTextAnim, color: isDark ? colors.gold : colors.accent },
             ]}
           >
             Novels • Manga • On-chain rewards
@@ -1289,6 +1326,7 @@ const Home = () => {
               styles.heroTitle,
               {
                 opacity: heroTextAnim,
+                color: colors.textPrimary,
                 transform: [{ translateY: heroTextAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) }],
               },
             ]}
@@ -1297,7 +1335,7 @@ const Home = () => {
           </Animated.Text>
           <View style={styles.heroButtons}>
             <AnimatedPressable
-              style={styles.heroButton}
+              style={[styles.heroButton, { backgroundColor: colors.accent, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
               onPress={() => handleNavigation('NovelsPage', {})}
               accessible={true}
               accessibilityLabel="Explore novels"
@@ -1307,7 +1345,7 @@ const Home = () => {
               <Text style={styles.heroButtonText}>Novels</Text>
             </AnimatedPressable>
             <AnimatedPressable
-              style={styles.heroButton}
+              style={[styles.heroButton, { backgroundColor: colors.accent, borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
               onPress={() => handleNavigation('MangaPage', {})}
               accessible={true}
               accessibilityLabel="Explore manga"
