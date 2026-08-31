@@ -75,5 +75,11 @@ credentials.json
 # Add APK files
 *.apk
 dapp-store/*.apk
+*.aab
+*.ipa
+
+# Local Android signing/export tools
+/pepk.jar
+/assets/sprites.zip
 
 dapp-store/node_modules/

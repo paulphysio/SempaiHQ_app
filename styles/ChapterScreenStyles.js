@@ -246,6 +246,13 @@ export const getChapterScreenStyles = (isDark = true) => {
       borderColor: c.gold,
       marginTop: SPACE.sm,
     },
+    badgesButtonText: {
+      color: c.textPrimary,
+      fontSize: 14,
+      fontFamily: FONT,
+      letterSpacing: 0.6,
+      fontWeight: '600',
+    },
 
     // ------------------------------------------------------------- header
     header: {
@@ -482,6 +489,15 @@ export const getChapterScreenStyles = (isDark = true) => {
     adUnlockButton: {
       backgroundColor: c.bgElevated,
       borderColor: c.accentBright,
+    },
+
+    // ------------------------------------------------------ small balance
+    smallBalanceContainer: {
+      marginTop: SPACE.md,
+      marginBottom: SPACE.lg,
+      alignItems: 'center',
+      width: '100%',
+      maxWidth: 420,
     },
 
     // ------------------------------------------------------ read actions
@@ -1201,9 +1217,72 @@ export const getChapterScreenStyles = (isDark = true) => {
     },
     chapterListItemText: {
       color: c.textPrimary,
-      fontSize: 13,
+    },
+
+    // ------------------------------------------------------- payment animation
+    paymentAnimationOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: SPACE.xl,
+    },
+    paymentAnimationContainer: {
+      backgroundColor: c.bgCard,
+      borderRadius: RADIUS.lg,
+      padding: SPACE.xl * 2,
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: c.accent,
+      ...cardShadow(c, 0.5, 20, 10),
+      width: width * 0.8,
+      maxWidth: 350,
+    },
+    paymentAnimationRing: {
+      position: 'absolute',
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      borderWidth: 3,
+      borderColor: c.accent,
+      backgroundColor: 'transparent',
+    },
+    paymentAnimationRing2: {
+      width: 140,
+      height: 140,
+      borderRadius: 70,
+      borderWidth: 2,
+      borderColor: c.accentBright,
+    },
+    paymentIcon: {
+      marginBottom: SPACE.lg,
+    },
+    paymentAnimationText: {
+      fontSize: 18,
       fontFamily: FONT,
-      letterSpacing: 0.2,
+      color: c.textPrimary,
+      fontWeight: '700',
+      marginBottom: SPACE.md,
+      textAlign: 'center',
+    },
+    paymentProgressBar: {
+      width: '100%',
+      height: 4,
+      backgroundColor: c.bgElevated,
+      borderRadius: 2,
+      marginBottom: SPACE.md,
+      overflow: 'hidden',
+    },
+    paymentProgressFill: {
+      height: '100%',
+      backgroundColor: c.accent,
+      borderRadius: 2,
+    },
+    paymentAnimationSubtext: {
+      fontSize: 14,
+      fontFamily: FONT,
+      color: c.textSecondary,
+      textAlign: 'center',
     },
   });
 };

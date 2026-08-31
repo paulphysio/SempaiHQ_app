@@ -354,7 +354,7 @@ const MangaPageScreen = () => {
         </TouchableOpacity>
         <View style={styles.mangaMeta}>
           <TouchableOpacity
-            onPress={() => navigation.navigate('WritersProfile', { userId: item.user_id })}
+            onPress={() => navigation.navigate('CreatorsProfile', { userId: item.user_id })}
             style={styles.artistLink}
           >
             <Icon name="paint-brush" size={16} color="#fff" />

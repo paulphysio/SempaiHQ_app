@@ -23,369 +23,350 @@ import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token'
 import { AMETHYST_MINT_ADDRESS, SMP_DECIMALS, RPC_URL } from '../constants';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
+import { useTheme } from '../context/ThemeContext';
 import { formatNumber } from '../utils/formatNumber';
 
 const { width, height } = Dimensions.get('window');
 
-// Kaito Adventure Design System - Japanese Dark-Orange
-const KA_COLORS = {
-  bgPrimary: '#0c0c0c',
-  bgCard: '#141210',
-  bgElevated: '#1a1714',
-  orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
-  orangeSoft: '#e67e22',
-  orangeDim: '#8b4513',
-  gold: '#c9a84c',
-  goldBright: '#ffd700',
-  ivory: '#f5e6d3',
-  ivoryDim: '#c4b5a0',
-  border: '#2d2418',
-  textPrimary: '#f5e6d3',
-  textSecondary: '#a09080',
-  textMuted: '#6b5d4f',
+const getThemedStyles = (colors, isDark) => {
+  const c = colors;
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.bgPrimary,
+    },
+    backgroundGradient: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: c.bgPrimary,
+    },
+    emberContainer: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      pointerEvents: 'none',
+    },
+    ember: {
+      position: 'absolute',
+      width: 3,
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: c.accent,
+      shadowColor: c.accentBright,
+      shadowOffset: { width: 0, height: 0 },
+      shadowOpacity: 0.8,
+      shadowRadius: 6,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 16,
+      paddingBottom: 100,
+    },
+    centerContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: height * 0.5,
+    },
+    connectPrompt: {
+      alignItems: 'center',
+      padding: 40,
+    },
+    promptIcon: {
+      marginBottom: 20,
+    },
+    promptText: {
+      color: c.textSecondary,
+      fontSize: 16,
+      textAlign: 'center',
+      letterSpacing: 1,
+      lineHeight: 24,
+      marginBottom: 20,
+    },
+    title: {
+      color: c.textPrimary,
+      fontSize: 32,
+      textAlign: 'center',
+      letterSpacing: 3,
+      textShadowColor: c.accent,
+      textShadowOffset: { width: 0, height: 2 },
+      textShadowRadius: 8,
+      marginBottom: 8,
+    },
+    subtitle: {
+      color: c.textSecondary,
+      fontSize: 14,
+      textAlign: 'center',
+      letterSpacing: 2,
+      textTransform: 'uppercase',
+      marginBottom: 24,
+    },
+    card: {
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      padding: 20,
+      position: 'relative',
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.6,
+      shadowRadius: 16,
+      elevation: 8,
+      marginBottom: 16,
+    },
+    cardTopBorder: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 2,
+      backgroundColor: c.accent,
+    },
+    cardCorner: {
+      position: 'absolute',
+      width: 12,
+      height: 12,
+      borderColor: c.accentDim,
+      borderStyle: 'solid',
+      opacity: 0.5,
+    },
+    cardCornerTL: { top: 8, left: 8, borderWidth: 2, borderBottomWidth: 0, borderRightWidth: 0 },
+    cardCornerTR: { top: 8, right: 8, borderWidth: 2, borderBottomWidth: 0, borderLeftWidth: 0 },
+    cardCornerBL: { bottom: 8, left: 8, borderWidth: 2, borderTopWidth: 0, borderRightWidth: 0 },
+    cardCornerBR: { bottom: 8, right: 8, borderWidth: 2, borderTopWidth: 0, borderLeftWidth: 0 },
+    balanceCard: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      padding: 16,
+      marginBottom: 16,
+    },
+    balanceItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    balanceText: {
+      color: c.gold,
+      fontSize: 14,
+      letterSpacing: 1,
+    },
+    walletInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      marginBottom: 16,
+    },
+    walletText: {
+      color: c.gold,
+      fontSize: 13,
+      marginLeft: 8,
+      letterSpacing: 1,
+    },
+    divider: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginVertical: 16,
+    },
+    dividerLine: {
+      flex: 1,
+      height: 1,
+      backgroundColor: c.border,
+    },
+    dividerText: {
+      color: c.textMuted,
+      fontSize: 12,
+      marginHorizontal: 12,
+      letterSpacing: 3,
+      textTransform: 'uppercase',
+    },
+    inputGroup: {
+      marginBottom: 20,
+    },
+    inputLabel: {
+      color: c.textPrimary,
+      fontSize: 14,
+      letterSpacing: 2,
+      marginBottom: 8,
+      textShadowColor: c.accent,
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 4,
+    },
+    input: {
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      color: c.textPrimary,
+      fontSize: 14,
+      letterSpacing: 1,
+    },
+    textarea: {
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      color: c.textPrimary,
+      fontSize: 14,
+      letterSpacing: 1,
+      minHeight: 100,
+      textAlignVertical: 'top',
+    },
+    inputWithButton: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    verifyButton: {
+      backgroundColor: c.accent,
+      borderWidth: 1,
+      borderColor: c.accentBright,
+      borderRadius: 4,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 100,
+    },
+    buttonText: {
+      color: c.textPrimary,
+      fontSize: 14,
+      letterSpacing: 1,
+    },
+    imageGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 16,
+    },
+    imageLabel: {
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      paddingHorizontal: 20,
+      paddingVertical: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    previewImage: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      borderWidth: 2,
+      borderColor: c.accentDim,
+    },
+    alert: {
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderRadius: 4,
+      padding: 16,
+      marginBottom: 16,
+    },
+    alertError: {
+      borderColor: '#c41e3a',
+    },
+    alertSuccess: {
+      borderColor: '#4a7c59',
+    },
+    alertInfo: {
+      borderColor: c.gold,
+    },
+    alertText: {
+      color: c.textPrimary,
+      fontSize: 14,
+      letterSpacing: 1,
+      textAlign: 'center',
+    },
+    submitButton: {
+      backgroundColor: c.accent,
+      borderWidth: 1,
+      borderColor: c.accentBright,
+      borderRadius: 4,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      alignItems: 'center',
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 12,
+      shadowColor: c.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.5,
+      shadowRadius: 8,
+      elevation: 6,
+    },
+    placeholder: {
+      color: c.textMuted,
+      fontSize: 14,
+      textAlign: 'center',
+      fontStyle: 'italic',
+      letterSpacing: 1,
+    },
+    toggleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: c.bgElevated,
+      borderWidth: 1,
+      borderColor: c.border,
+      borderRadius: 4,
+      padding: 16,
+    },
+    toggleLabel: {
+      color: c.textPrimary,
+      fontSize: 14,
+      letterSpacing: 1,
+      flex: 1,
+    },
+    toggleSwitch: {
+      width: 50,
+      height: 28,
+      backgroundColor: c.textMuted,
+      borderRadius: 14,
+      padding: 2,
+      justifyContent: 'center',
+    },
+    toggleSwitchOn: {
+      backgroundColor: c.accent,
+    },
+    toggleKnob: {
+      width: 24,
+      height: 24,
+      backgroundColor: c.textPrimary,
+      borderRadius: 12,
+    },
+    toggleKnobOn: {
+      transform: [{ translateX: 22 }],
+    },
+    toggleDescription: {
+      color: c.textSecondary,
+      fontSize: 12,
+      marginTop: 8,
+      letterSpacing: 1,
+    },
+  });
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: KA_COLORS.bgPrimary,
-  },
-  emberContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    pointerEvents: 'none',
-  },
-  ember: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: KA_COLORS.orangePrimary,
-    shadowColor: KA_COLORS.orangeBright,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: height * 0.5,
-  },
-  connectPrompt: {
-    alignItems: 'center',
-    padding: 40,
-  },
-  promptIcon: {
-    marginBottom: 20,
-  },
-  promptText: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 16,
-    textAlign: 'center',
-    letterSpacing: 1,
-    lineHeight: 24,
-    marginBottom: 20,
-  },
-  title: {
-    color: KA_COLORS.ivory,
-    fontSize: 32,
-     
-    textAlign: 'center',
-    letterSpacing: 3,
-    textShadowColor: KA_COLORS.orangePrimary,
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 24,
-  },
-  card: {
-    backgroundColor: KA_COLORS.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 20,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 16,
-    elevation: 8,
-    marginBottom: 16,
-  },
-  cardTopBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: KA_COLORS.orangePrimary,
-  },
-  cardCorner: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderColor: KA_COLORS.orangeDim,
-    borderStyle: 'solid',
-    opacity: 0.5,
-  },
-  cardCornerTL: { top: 8, left: 8, borderWidth: 2, borderBottomWidth: 0, borderRightWidth: 0 },
-  cardCornerTR: { top: 8, right: 8, borderWidth: 2, borderBottomWidth: 0, borderLeftWidth: 0 },
-  cardCornerBL: { bottom: 8, left: 8, borderWidth: 2, borderTopWidth: 0, borderRightWidth: 0 },
-  cardCornerBR: { bottom: 8, right: 8, borderWidth: 2, borderTopWidth: 0, borderLeftWidth: 0 },
-  balanceCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 16,
-    marginBottom: 16,
-  },
-  balanceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  balanceText: {
-    color: KA_COLORS.gold,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  walletInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  walletText: {
-    color: KA_COLORS.gold,
-    fontSize: 13,
-    marginLeft: 8,
-    letterSpacing: 1,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: KA_COLORS.border,
-  },
-  dividerText: {
-    color: KA_COLORS.textMuted,
-    fontSize: 12,
-    marginHorizontal: 12,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 2,
-    marginBottom: 8,
-    textShadowColor: KA_COLORS.orangePrimary,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
-  },
-  input: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  textarea: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  inputWithButton: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  verifyButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderWidth: 1,
-    borderColor: KA_COLORS.orangeBright,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 100,
-  },
-  buttonText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  imageGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  imageLabel: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  previewImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: KA_COLORS.orangeDim,
-  },
-  alert: {
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderRadius: 4,
-    padding: 16,
-    marginBottom: 16,
-  },
-  alertError: {
-    borderColor: '#c41e3a',
-  },
-  alertSuccess: {
-    borderColor: '#4a7c59',
-  },
-  alertInfo: {
-    borderColor: KA_COLORS.gold,
-  },
-  alertText: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
-  submitButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
-    borderWidth: 1,
-    borderColor: KA_COLORS.orangeBright,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
-    shadowColor: KA_COLORS.orangePrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  placeholder: {
-    color: KA_COLORS.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    letterSpacing: 1,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: KA_COLORS.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS.border,
-    borderRadius: 4,
-    padding: 16,
-  },
-  toggleLabel: {
-    color: KA_COLORS.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-    flex: 1,
-  },
-  toggleSwitch: {
-    width: 50,
-    height: 28,
-    backgroundColor: KA_COLORS.textMuted,
-    borderRadius: 14,
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleSwitchOn: {
-    backgroundColor: KA_COLORS.orangePrimary,
-  },
-  toggleKnob: {
-    width: 24,
-    height: 24,
-    backgroundColor: KA_COLORS.ivory,
-    borderRadius: 12,
-  },
-  toggleKnobOn: {
-    transform: [{ translateX: 22 }],
-  },
-  toggleDescription: {
-    color: KA_COLORS.textSecondary,
-    fontSize: 12,
-    marginTop: 8,
-    letterSpacing: 1,
-  },
-});
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -393,6 +374,9 @@ const EditProfileScreen = () => {
   const navigation = useNavigation();
   const { wallet: embeddedWallet } = useContext(EmbeddedWalletContext);
   const { session } = useGoogleAuth();
+  const { colors, isDark } = useTheme();
+  
+  const themedStyles = getThemedStyles(colors, isDark);
   
   const [userId, setUserId] = useState(null);
   const [isCreator, setIsCreator] = useState(false);
@@ -804,10 +788,10 @@ const EditProfileScreen = () => {
 
   if (!walletReady && !session) {
     return (
-      <View style={styles.container}>
-        <View style={styles.centerContainer}>
-          <FontAwesome5 name="wallet" size={48} color={KA_COLORS.orangePrimary} style={styles.promptIcon} />
-          <Text style={styles.promptText}>Please sign in and connect your wallet.</Text>
+      <View style={themedStyles.container}>
+        <View style={themedStyles.centerContainer}>
+          <FontAwesome5 name="wallet" size={48} color={colors.accent} style={themedStyles.promptIcon} />
+          <Text style={themedStyles.promptText}>Please sign in and connect your wallet.</Text>
           <GoogleSignInButton />
         </View>
       </View>
@@ -815,14 +799,14 @@ const EditProfileScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.backgroundGradient} />
-      <View style={styles.emberContainer}>
+    <View style={themedStyles.container}>
+      <View style={themedStyles.backgroundGradient} />
+      <View style={themedStyles.emberContainer}>
         {emberAnims.current.map((anim, index) => (
           <Animated.View
             key={index}
             style={[
-              styles.ember,
+              themedStyles.ember,
               {
                 left: `${Math.random() * 100}%`,
                 opacity: anim,
@@ -840,103 +824,103 @@ const EditProfileScreen = () => {
         ))}
       </View>
       
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView style={themedStyles.scrollView} contentContainerStyle={themedStyles.scrollContent}>
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] }}>
-          <Text style={styles.title}>EDIT PROFILE</Text>
-          <Text style={styles.subtitle}>武士道 • Bushido</Text>
+          <Text style={themedStyles.title}>EDIT PROFILE</Text>
+          <Text style={themedStyles.subtitle}>武士道 • Bushido</Text>
           
-          <View style={styles.card}>
-            <View style={styles.cardTopBorder} />
-            <View style={[styles.cardCorner, styles.cardCornerTL]} />
-            <View style={[styles.cardCorner, styles.cardCornerTR]} />
-            <View style={[styles.cardCorner, styles.cardCornerBL]} />
-            <View style={[styles.cardCorner, styles.cardCornerBR]} />
+          <View style={themedStyles.card}>
+            <View style={themedStyles.cardTopBorder} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
             
-            <View style={styles.balanceCard}>
-              <View style={styles.balanceItem}>
-                <FontAwesome5 name="gem" size={20} color={KA_COLORS.gold} />
-                <Text style={styles.balanceText}>Amethyst: {formatNumber(balance)}</Text>
+            <View style={themedStyles.balanceCard}>
+              <View style={themedStyles.balanceItem}>
+                <FontAwesome5 name="gem" size={20} color={colors.gold} />
+                <Text style={themedStyles.balanceText}>Amethyst: {formatNumber(balance)}</Text>
               </View>
-              <View style={styles.balanceItem}>
-                <FontAwesome5 name="bolt" size={20} color={KA_COLORS.gold} />
-                <Text style={styles.balanceText}>Multiplier: {rewardAmount}</Text>
+              <View style={themedStyles.balanceItem}>
+                <FontAwesome5 name="bolt" size={20} color={colors.gold} />
+                <Text style={themedStyles.balanceText}>Multiplier: {rewardAmount}</Text>
               </View>
             </View>
 
             {!session ? (
-              <View style={styles.connectPrompt}>
-                <Text style={styles.promptText}>Sign in to edit your profile</Text>
+              <View style={themedStyles.connectPrompt}>
+                <Text style={themedStyles.promptText}>Sign in to edit your profile</Text>
                 <GoogleSignInButton />
               </View>
             ) : (
-              <View style={styles.walletInfo}>
-                <FontAwesome5 name="wallet" size={14} color={KA_COLORS.gold} />
-                <Text style={styles.walletText}>{formatUsername(embeddedWallet?.publicKey?.toString() || '')}</Text>
+              <View style={themedStyles.walletInfo}>
+                <FontAwesome5 name="wallet" size={14} color={colors.gold} />
+                <Text style={themedStyles.walletText}>{formatUsername(embeddedWallet?.publicKey?.toString() || '')}</Text>
               </View>
             )}
 
             {referralMessage && (
-              <View style={[styles.alert, styles.alertInfo]}>
-                <Text style={styles.alertText}>{referralMessage}</Text>
+              <View style={[themedStyles.alert, themedStyles.alertInfo]}>
+                <Text style={themedStyles.alertText}>{referralMessage}</Text>
               </View>
             )}
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.cardTopBorder} />
-            <View style={[styles.cardCorner, styles.cardCornerTL]} />
-            <View style={[styles.cardCorner, styles.cardCornerTR]} />
-            <View style={[styles.cardCorner, styles.cardCornerBL]} />
-            <View style={[styles.cardCorner, styles.cardCornerBR]} />
+          <View style={themedStyles.card}>
+            <View style={themedStyles.cardTopBorder} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
+            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
             
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                <FontAwesome5 name="user" size={16} color={KA_COLORS.orangePrimary} /> USERNAME
+            <View style={themedStyles.inputGroup}>
+              <Text style={themedStyles.inputLabel}>
+                <FontAwesome5 name="user" size={16} color={colors.accent} /> USERNAME
               </Text>
               <TextInput
-                style={styles.input}
+                style={themedStyles.input}
                 value={name}
                 onChangeText={setName}
                 placeholder="Enter your username"
-                placeholderTextColor={KA_COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 editable={walletReady && !isSaving}
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                <FontAwesome5 name="envelope" size={16} color={KA_COLORS.orangePrimary} /> EMAIL
+            <View style={themedStyles.inputGroup}>
+              <Text style={themedStyles.inputLabel}>
+                <FontAwesome5 name="envelope" size={16} color={colors.accent} /> EMAIL
               </Text>
               <TextInput
-                style={styles.input}
+                style={themedStyles.input}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="Enter your email"
-                placeholderTextColor={KA_COLORS.textMuted}
+                placeholderTextColor={colors.textMuted}
                 keyboardType="email-address"
                 editable={walletReady && !isSaving}
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                <FontAwesome5 name="twitter" size={16} color={KA_COLORS.orangePrimary} /> X USERNAME
+            <View style={themedStyles.inputGroup}>
+              <Text style={themedStyles.inputLabel}>
+                <FontAwesome5 name="twitter" size={16} color={colors.accent} /> X USERNAME
               </Text>
               {xAccount && twitterVerified ? (
-                <Text style={[styles.alertText, { color: KA_COLORS.gold, textAlign: 'left' }]}>Verified: @{xAccount}</Text>
+                <Text style={[themedStyles.alertText, { color: colors.gold, textAlign: 'left' }]}>Verified: @{xAccount}</Text>
               ) : (
-                <View style={styles.inputWithButton}>
+                <View style={themedStyles.inputWithButton}>
                   <TextInput
-                    style={[styles.input, { flex: 1 }]}
+                    style={[themedStyles.input, { flex: 1 }]}
                     value={twitterInput}
                     onChangeText={setTwitterInput}
                     placeholder="e.g., @username or https://x.com/username"
-                    placeholderTextColor={KA_COLORS.textMuted}
+                    placeholderTextColor={colors.textMuted}
                     editable={walletReady && !isVerifying && !isSaving}
                   />
                   <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                     <TouchableOpacity
-                      style={styles.verifyButton}
+                      style={themedStyles.verifyButton}
                       onPress={() => {
                         animateButton();
                         validateTwitterUsername();
@@ -944,9 +928,9 @@ const EditProfileScreen = () => {
                       disabled={!walletReady || isVerifying || isSaving || !twitterInput}
                     >
                       {isVerifying ? (
-                        <ActivityIndicator size="small" color={KA_COLORS.ivory} />
+                        <ActivityIndicator size="small" color={colors.textPrimary} />
                       ) : (
-                        <Text style={styles.buttonText}>VERIFY</Text>
+                        <Text style={themedStyles.buttonText}>VERIFY</Text>
                       )}
                     </TouchableOpacity>
                   </Animated.View>
@@ -955,95 +939,95 @@ const EditProfileScreen = () => {
             </View>
 
             {twitterError && (
-              <View style={[styles.alert, styles.alertError]}>
-                <Text style={styles.alertText}>{twitterError}</Text>
+              <View style={[themedStyles.alert, themedStyles.alertError]}>
+                <Text style={themedStyles.alertText}>{twitterError}</Text>
               </View>
             )}
             {twitterVerified && xAccount && (
-              <View style={[styles.alert, styles.alertSuccess]}>
-                <Text style={styles.alertText}>X username @{xAccount} verified!</Text>
+              <View style={[themedStyles.alert, themedStyles.alertSuccess]}>
+                <Text style={themedStyles.alertText}>X username @{xAccount} verified!</Text>
               </View>
             )}
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>
-                <FontAwesome5 name="camera" size={16} color={KA_COLORS.orangePrimary} /> PROFILE IMAGE
+            <View style={themedStyles.inputGroup}>
+              <Text style={themedStyles.inputLabel}>
+                <FontAwesome5 name="camera" size={16} color={colors.accent} /> PROFILE IMAGE
               </Text>
-              <View style={styles.imageGroup}>
+              <View style={themedStyles.imageGroup}>
                 <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
                   <TouchableOpacity
-                    style={styles.imageLabel}
+                    style={themedStyles.imageLabel}
                     onPress={() => {
                       animateButton();
                       handleImageChange();
                     }}
                     disabled={!walletReady || isSaving}
                   >
-                    <FontAwesome5 name="pen" size={16} color={KA_COLORS.ivory} />
-                    <Text style={styles.buttonText}>UPLOAD</Text>
+                    <FontAwesome5 name="pen" size={16} color={colors.textPrimary} />
+                    <Text style={themedStyles.buttonText}>UPLOAD</Text>
                   </TouchableOpacity>
                 </Animated.View>
                 {imageUrl && (
-                  <Image source={{ uri: imageUrl }} style={styles.previewImage} />
+                  <Image source={{ uri: imageUrl }} style={themedStyles.previewImage} />
                 )}
               </View>
             </View>
           </View>
 
           {isCreator && (
-            <View style={styles.card}>
-              <View style={styles.cardTopBorder} />
-              <View style={[styles.cardCorner, styles.cardCornerTL]} />
-              <View style={[styles.cardCorner, styles.cardCornerTR]} />
-              <View style={[styles.cardCorner, styles.cardCornerBL]} />
-              <View style={[styles.cardCorner, styles.cardCornerBR]} />
+            <View style={themedStyles.card}>
+              <View style={themedStyles.cardTopBorder} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
               
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>CREATOR</Text>
-                <View style={styles.dividerLine} />
+              <View style={themedStyles.divider}>
+                <View style={themedStyles.dividerLine} />
+                <Text style={themedStyles.dividerText}>CREATOR</Text>
+                <View style={themedStyles.dividerLine} />
               </View>
               
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <FontAwesome5 name="book" size={16} color={KA_COLORS.orangePrimary} /> BIO
+              <View style={themedStyles.inputGroup}>
+                <Text style={themedStyles.inputLabel}>
+                  <FontAwesome5 name="book" size={16} color={colors.accent} /> BIO
                 </Text>
                 <TextInput
-                  style={styles.textarea}
+                  style={themedStyles.textarea}
                   value={bio}
                   onChangeText={setBio}
                   placeholder="Tell us about yourself"
-                  placeholderTextColor={KA_COLORS.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   multiline
                   numberOfLines={4}
                   editable={walletReady && !isSaving}
                 />
               </View>
               
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <FontAwesome5 name="discord" size={16} color={KA_COLORS.orangePrimary} /> DISCORD
+              <View style={themedStyles.inputGroup}>
+                <Text style={themedStyles.inputLabel}>
+                  <FontAwesome5 name="discord" size={16} color={colors.accent} /> DISCORD
                 </Text>
                 <TextInput
-                  style={styles.input}
+                  style={themedStyles.input}
                   value={discord}
                   onChangeText={setDiscord}
                   placeholder="e.g., user#1234"
-                  placeholderTextColor={KA_COLORS.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   editable={walletReady && !isSaving}
                 />
               </View>
               
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <FontAwesome5 name="globe" size={16} color={KA_COLORS.orangePrimary} /> WEBSITE
+              <View style={themedStyles.inputGroup}>
+                <Text style={themedStyles.inputLabel}>
+                  <FontAwesome5 name="globe" size={16} color={colors.accent} /> WEBSITE
                 </Text>
                 <TextInput
-                  style={styles.input}
+                  style={themedStyles.input}
                   value={website}
                   onChangeText={setWebsite}
                   placeholder="e.g., https://yourwebsite.com"
-                  placeholderTextColor={KA_COLORS.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   editable={walletReady && !isSaving}
                 />
               </View>
@@ -1051,19 +1035,18 @@ const EditProfileScreen = () => {
           )}
 
           {error && (
-            <View style={[styles.alert, styles.alertError]}>
-              <Text style={styles.alertText}>{error}</Text>
+            <View style={[themedStyles.alert, themedStyles.alertError]}>
+              <Text style={themedStyles.alertText}>{error}</Text>
             </View>
           )}
           {success && (
-            <View style={[styles.alert, styles.alertSuccess]}>
-              <Text style={styles.alertText}>{success}</Text>
+            <View style={[themedStyles.alert, themedStyles.alertSuccess]}>
+              <Text style={themedStyles.alertText}>{success}</Text>
             </View>
           )}
 
           <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-            <TouchableOpacity
-              style={styles.submitButton}
+            <TouchableOpacity style={themedStyles.submitButton}
               onPress={() => {
                 animateButton();
                 handleSubmit();
@@ -1071,11 +1054,11 @@ const EditProfileScreen = () => {
               disabled={!walletReady || isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator size="small" color={KA_COLORS.ivory} />
+                <ActivityIndicator size="small" color={colors.textPrimary} />
               ) : (
                 <>
-                  <FontAwesome5 name="save" size={16} color={KA_COLORS.ivory} />
-                  <Text style={styles.buttonText}>SAVE CHANGES</Text>
+                  <FontAwesome5 name="save" size={20} color={colors.textPrimary} />
+                  <Text style={themedStyles.buttonText}>SAVE CHANGES</Text>
                 </>
               )}
             </TouchableOpacity>

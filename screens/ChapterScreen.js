@@ -14,6 +14,7 @@ import {
   Linking,
   Alert,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { Video } from 'expo-av';
 import Tts from 'react-native-tts';
@@ -26,6 +27,7 @@ import * as SecureStore from 'expo-secure-store';
 import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, createTransferInstruction, createBurnInstruction } from '@solana/spl-token';
 import {
   RPC_URL,
+  FALLBACK_RPC_URL,
   SMP_MINT_ADDRESS,
   USDC_MINT_ADDRESS,
   SKR_MINT_ADDRESS,
@@ -44,7 +46,11 @@ import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
 
 const { height } = Dimensions.get('window');
 
-const connection = new Connection(RPC_URL, 'confirmed');
+// Create connection with fallback logic
+const connection = new Connection(RPC_URL, 'confirmed', {
+  confirmTransactionInitialTimeout: 60000,
+});
+
 const MIN_ATA_SOL = 0.00103928;
 const MIN_USER_SOL = 0.001;
 
@@ -309,6 +315,9 @@ const ChapterScreen = () => {
   const embersData = useRef([]);
   const embersInitialized = useRef(false);
 
+  // Calculate if user has insufficient SMP balance
+  const hasInsufficientSmp = smpBalance < (SMP_READ_COST / 10 ** SMP_DECIMALS);
+
   // Ad unlock system
   const [hasUsedAdUnlockToday, setHasUsedAdUnlockToday] = useState(false);
   const [showAdOption, setShowAdOption] = useState(false);
@@ -320,11 +329,58 @@ const ChapterScreen = () => {
   const [showBenefactorOption, setShowBenefactorOption] = useState(false);
   const [showBenefactorModal, setShowBenefactorModal] = useState(false);
   const [selectedBenefactorToken, setSelectedBenefactorToken] = useState('USDC');
+  const [hasWriterBadge, setHasWriterBadge] = useState(false);
   const [autopayEnabled, setAutopayEnabled] = useState(false);
+  const [autopayPreferenceLoaded, setAutopayPreferenceLoaded] = useState(false);
   const [solBalance, setSolBalance] = useState(0);
   const [usdcBalance, setUsdcBalance] = useState(0);
   const [showPlanDetailsModal, setShowPlanDetailsModal] = useState(false);
   const [selectedPlanDetails, setSelectedPlanDetails] = useState(null);
+  
+  // Payment animation
+  const [showPaymentAnimation, setShowPaymentAnimation] = useState(false);
+  const paymentAnimationProgress = useRef(new Animated.Value(0)).current;
+  const paymentPulseAnimation = useRef(new Animated.Value(1)).current;
+
+  // Animate payment processing
+  useEffect(() => {
+    if (showPaymentAnimation) {
+      // Reset animations
+      paymentAnimationProgress.setValue(0);
+      paymentPulseAnimation.setValue(1);
+      
+      // Create pulse animation
+      const pulseAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(paymentPulseAnimation, {
+            toValue: 1.2,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(paymentPulseAnimation, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      
+      // Create progress animation
+      const progressAnimation = Animated.timing(paymentAnimationProgress, {
+        toValue: 1,
+        duration: 3000,
+        useNativeDriver: false,
+      });
+      
+      pulseAnimation.start();
+      progressAnimation.start();
+      
+      return () => {
+        pulseAnimation.stop();
+        progressAnimation.stop();
+      };
+    }
+  }, [showPaymentAnimation]);
   const planAnimations = useRef([
     new Animated.Value(0),
     new Animated.Value(0),
@@ -490,38 +546,48 @@ const ChapterScreen = () => {
 
   const fetchSmpBalanceOnChain = useCallback(async (retryCount = 3, retryDelay = 1000) => {
     if (!activeWalletAddress || !activePublicKey) return 0;
-    for (let attempt = 1; attempt <= retryCount; attempt++) {
-      try {
-        const smpMint = new PublicKey(SMP_MINT_ADDRESS);
-        const ataAddress = await getAssociatedTokenAddress(smpMint, activePublicKey);
-        const ataInfo = await connection.getAccountInfo(ataAddress);
-        if (!ataInfo) {
-          console.log('[fetchSmpBalanceOnChain] No ATA found for SMP, returning 0');
-          setSmpBalance(0);
-          return 0;
-        }
-        const balance = Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SMP_DECIMALS;
-        console.log('[fetchSmpBalanceOnChain] SMP balance:', balance);
-        setSmpBalance(balance);
-        return balance;
-      } catch (error) {
-        console.error(`[fetchSmpBalanceOnChain] Attempt ${attempt} error:`, error.message);
+    
+    const rpcUrls = [RPC_URL, FALLBACK_RPC_URL];
+    let lastError = null;
+    
+    for (const rpcUrl of rpcUrls) {
+      for (let attempt = 1; attempt <= retryCount; attempt++) {
+        try {
+          const fallbackConnection = new Connection(rpcUrl, 'confirmed');
+          const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+          const ataAddress = await getAssociatedTokenAddress(smpMint, activePublicKey);
+          const ataInfo = await fallbackConnection.getAccountInfo(ataAddress);
+          if (!ataInfo) {
+            console.log(`[fetchSmpBalanceOnChain] No ATA found for SMP on ${rpcUrl}, returning 0`);
+            setSmpBalance(0);
+            return 0;
+          }
+          const balance = Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SMP_DECIMALS;
+          console.log(`[fetchSmpBalanceOnChain] SMP balance from ${rpcUrl}:`, balance);
+          setSmpBalance(balance);
+          return balance;
+        } catch (error) {
+          lastError = error;
+          console.error(`[fetchSmpBalanceOnChain] Attempt ${attempt} error on ${rpcUrl}:`, error.message);
 
-        // Handle RPC authorization issues gracefully
-        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-          console.warn('[fetchSmpBalanceOnChain] RPC authorization issue, using fallback balance 0');
-          setSmpBalance(0);
-          return 0;
-        }
+          // Handle RPC authorization issues gracefully
+          if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+            console.warn('[fetchSmpBalanceOnChain] RPC authorization issue, trying next RPC');
+            break; // Try next RPC
+          }
 
-        if (attempt === retryCount) {
-          setError('Unable to fetch SMP balance.');
-          setTimeout(() => setError(null), 5000);
-          return 0;
+          if (attempt === retryCount) {
+            console.warn(`[fetchSmpBalanceOnChain] All attempts failed on ${rpcUrl}, trying next RPC`);
+            break; // Try next RPC
+          }
+          await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
         }
-        await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
       }
     }
+    
+    // All RPCs failed
+    setError('Unable to fetch SMP balance.');
+    setTimeout(() => setError(null), 5000);
     return 0;
   }, [activeWalletAddress, activePublicKey]);
 
@@ -569,52 +635,72 @@ const ChapterScreen = () => {
 
   const fetchAmethystBalance = useCallback(async () => {
     if (!activeWalletAddress || !activePublicKey) return 0;
-    try {
-      const amethystMint = new PublicKey(AMETHYST_MINT_ADDRESS);
-      const ataAddress = await getAssociatedTokenAddress(amethystMint, activePublicKey);
-      const ataInfo = await connection.getAccountInfo(ataAddress);
-      const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** AMETHYST_DECIMALS : 0;
-      console.log('[fetchAmethystBalance] Balance:', balance);
-      setAmethystBalance(balance);
-      return balance;
-    } catch (error) {
-      console.error('[fetchAmethystBalance] Error:', error.message);
+    
+    const rpcUrls = [RPC_URL, FALLBACK_RPC_URL];
+    let lastError = null;
+    
+    for (const rpcUrl of rpcUrls) {
+      try {
+        const fallbackConnection = new Connection(rpcUrl, 'confirmed');
+        const amethystMint = new PublicKey(AMETHYST_MINT_ADDRESS);
+        const ataAddress = await getAssociatedTokenAddress(amethystMint, activePublicKey);
+        const ataInfo = await fallbackConnection.getAccountInfo(ataAddress);
+        const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** AMETHYST_DECIMALS : 0;
+        console.log(`[fetchAmethystBalance] Balance from ${rpcUrl}:`, balance);
+        setAmethystBalance(balance);
+        return balance;
+      } catch (error) {
+        lastError = error;
+        console.error(`[fetchAmethystBalance] Error on ${rpcUrl}:`, error.message);
 
-      // Don't show error to user for RPC issues, just log it
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        console.warn('[fetchAmethystBalance] RPC authorization issue, using fallback balance 0');
-        setAmethystBalance(0);
-      } else {
-        setError('Failed to fetch Amethyst balance.');
-        setTimeout(() => setError(null), 5000);
+        // Don't show error to user for RPC issues, just log it and try next RPC
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          console.warn('[fetchAmethystBalance] RPC authorization issue, trying next RPC');
+          continue;
+        }
+        console.warn(`[fetchAmethystBalance] Failed on ${rpcUrl}, trying next RPC`);
       }
-      return 0;
     }
+    
+    // All RPCs failed
+    console.error('[fetchAmethystBalance] All RPCs failed:', lastError);
+    setAmethystBalance(0);
+    return 0;
   }, [activeWalletAddress, activePublicKey]);
 
   const fetchSkrBalance = useCallback(async () => {
     if (!activeWalletAddress || !activePublicKey) return 0;
-    try {
-      const skrMint = new PublicKey(SKR_MINT_ADDRESS);
-      const ataAddress = await getAssociatedTokenAddress(skrMint, activePublicKey);
-      const ataInfo = await connection.getAccountInfo(ataAddress);
-      const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SKR_DECIMALS : 0;
-      console.log('[fetchSkrBalance] Balance:', balance);
-      setSkrBalance(balance);
-      return balance;
-    } catch (error) {
-      console.error('[fetchSkrBalance] Error:', error.message);
+    
+    const rpcUrls = [RPC_URL, FALLBACK_RPC_URL];
+    let lastError = null;
+    
+    for (const rpcUrl of rpcUrls) {
+      try {
+        const fallbackConnection = new Connection(rpcUrl, 'confirmed');
+        const skrMint = new PublicKey(SKR_MINT_ADDRESS);
+        const ataAddress = await getAssociatedTokenAddress(skrMint, activePublicKey);
+        const ataInfo = await fallbackConnection.getAccountInfo(ataAddress);
+        const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SKR_DECIMALS : 0;
+        console.log(`[fetchSkrBalance] Balance from ${rpcUrl}:`, balance);
+        setSkrBalance(balance);
+        return balance;
+      } catch (error) {
+        lastError = error;
+        console.error(`[fetchSkrBalance] Error on ${rpcUrl}:`, error.message);
 
-      // Don't show error to user for RPC issues, just log it
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        console.warn('[fetchSkrBalance] RPC authorization issue, using fallback balance 0');
-        setSkrBalance(0);
-      } else {
-        setError('Failed to fetch SKR balance.');
-        setTimeout(() => setError(null), 5000);
+        // Don't show error to user for RPC issues, just log it and try next RPC
+        if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          console.warn('[fetchSkrBalance] RPC authorization issue, trying next RPC');
+          continue;
+        }
+        console.warn(`[fetchSkrBalance] Failed on ${rpcUrl}, trying next RPC`);
       }
-      return 0;
     }
+    
+    // All RPCs failed
+    console.error('[fetchSkrBalance] All RPCs failed:', lastError);
+    setSkrBalance(0);
+    return 0;
   }, [activeWalletAddress, activePublicKey]);
 
   const fetchUserData = useCallback(async () => {
@@ -688,7 +774,32 @@ const ChapterScreen = () => {
         }
       }
 
-      setShowBenefactorOption(!benefactorAccess);
+      // Check for writer badge access
+      if (novel?.user_id) {
+        const { data: userBadges, error: badgeError } = await supabase
+          .from('user_badges')
+          .select('badge_id')
+          .eq('user_id', data.id)
+          .maybeSingle();
+
+        if (!badgeError && userBadges) {
+          const { data: badge, error: badgeDetailError } = await supabase
+            .from('badges')
+            .select('writer_id')
+            .eq('id', userBadges.badge_id)
+            .single();
+
+          if (!badgeDetailError && badge && badge.writer_id === novel.user_id) {
+            setHasWriterBadge(true);
+          } else {
+            setHasWriterBadge(false);
+          }
+        } else {
+          setHasWriterBadge(false);
+        }
+      }
+
+      setShowBenefactorOption(!benefactorAccess && !hasWriterBadge);
 
       // Fetch autopay preference
       if (data.id) {
@@ -699,6 +810,7 @@ const ChapterScreen = () => {
           .single();
         setAutopayEnabled(autopayData?.autopay_enabled || false);
       }
+      setAutopayPreferenceLoaded(true);
     } catch (error) {
       console.error('[fetchUserData] Error:', error.message);
       setError('Failed to load user data.');
@@ -1182,26 +1294,30 @@ const ChapterScreen = () => {
   // Autopay functionality
   const handleAutopayUnlock = useCallback(async () => {
     if (!activeWalletAddress || !autopayEnabled || smpBalance < (SMP_READ_COST / 10 ** SMP_DECIMALS)) return;
+    // Autopay should not work on advance chapters
+    if (isAdvanceChapter) return;
 
     try {
       setIsProcessing(true);
+      setShowPaymentAnimation(true);
       // Trigger SMP payment for chapter unlock
       console.log('[Autopay] Automatically unlocking chapter with SMP');
-      await processChapterPayment('SINGLE', 'SMP');
+      await processChapterPayment(chapterId, 'SINGLE', 'SMP');
     } catch (error) {
       console.error('[Autopay] Error:', error);
       setError(`Autopay failed: ${error.message}`);
       setTimeout(() => setError(null), 5000);
     } finally {
       setIsProcessing(false);
+      setShowPaymentAnimation(false);
     }
-  }, [activeWalletAddress, autopayEnabled, smpBalance, processChapterPayment]);
+  }, [activeWalletAddress, autopayEnabled, smpBalance, isAdvanceChapter, processChapterPayment, chapterId]);
 
   useEffect(() => {
-    if (isLocked && autopayEnabled && smpBalance >= (SMP_READ_COST / 10 ** SMP_DECIMALS) && !isProcessing && userId) {
+    if (!loading && novel && pricesAreLive && autopayPreferenceLoaded && isLocked && autopayEnabled && smpBalance >= (SMP_READ_COST / 10 ** SMP_DECIMALS) && !isProcessing && userId && !isAdvanceChapter) {
       handleAutopayUnlock();
     }
-  }, [isLocked, autopayEnabled, smpBalance, isProcessing, userId, handleAutopayUnlock]);
+  }, [loading, novel, pricesAreLive, autopayPreferenceLoaded, isLocked, autopayEnabled, smpBalance, isProcessing, userId, isAdvanceChapter, handleAutopayUnlock]);
 
   // Share functionality
   const handleShare = useCallback(async () => {
@@ -1357,6 +1473,10 @@ const ChapterScreen = () => {
 
   const checkChapterPayment = useCallback(async (chapterNum) => {
     if (!activeWalletAddress || !novelId) return false;
+    if (chapterNum === undefined || chapterNum === null || isNaN(chapterNum)) {
+      console.error('[checkChapterPayment] Invalid chapter number:', chapterNum);
+      return false;
+    }
     try {
       const { data, error } = await supabase
         .from('chapter_payments')
@@ -1382,6 +1502,15 @@ const ChapterScreen = () => {
       setCanUnlockNextThree(true);
       return;
     }
+
+    // Guard against invalid novel_id (string "null" or invalid UUID)
+    if (!novelData.id || novelData.id === 'null' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(novelData.id)) {
+      console.error('[checkAccess] Invalid novel ID:', novelData.id);
+      setIsLocked(true);
+      setCanUnlockNextThree(true);
+      return;
+    }
+
     try {
       // First 3 chapters (0, 1, 2) are free for all users
       if (chapterNum >= 0 && chapterNum <= 2) {
@@ -1391,9 +1520,7 @@ const ChapterScreen = () => {
         setIsUnlockedViaSubscription(false);
         return;
       }
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(novelData.id)) {
-        throw new Error('Invalid novel ID format');
-      }
+
       const advanceInfo = novelData.advance_chapters?.find((c) => c.index === chapterNum) || {
         is_advance: false,
         free_release_date: null,
@@ -1424,7 +1551,33 @@ const ChapterScreen = () => {
         }
       }
 
-      // Check for writer subscription access
+      // Check for writer badge access (benefactor)
+      if (userId && novelData.user_id) {
+        const { data: userBadges, error: badgeError } = await supabase
+          .from('user_badges')
+          .select('badge_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!badgeError && userBadges) {
+          // Get the badge details to check if it's for this writer
+          const { data: badge, error: badgeDetailError } = await supabase
+            .from('badges')
+            .select('writer_id')
+            .eq('id', userBadges.badge_id)
+            .single();
+
+          if (!badgeDetailError && badge && badge.writer_id === novelData.user_id) {
+            // User has the writer's badge, grant access
+            setIsLocked(false);
+            setCanUnlockNextThree(true);
+            setIsUnlockedViaSubscription(true);
+            return;
+          }
+        }
+      }
+
+      // Check for writer subscription access (legacy benefactor system)
       const subscriptionData = await checkBenefactorAccess();
       if (subscriptionData) {
         // Check if this chapter has already been accessed under this subscription
@@ -1533,19 +1686,30 @@ const ChapterScreen = () => {
   const processChapterPayment = useCallback(
     async (targetChapterId, paymentType = 'SINGLE', currency = 'SMP') => {
       console.log('[processChapterPayment] Active Wallet Address:', activeWalletAddress);
+      console.log('[processChapterPayment] Target Chapter ID:', targetChapterId);
+      
       if (!activeWalletAddress || !novelId || !targetChapterId || !activePublicKey || !wallet || !signAndSendTransaction) {
         setError('Please connect your wallet and try again.');
         return false;
       }
 
+      // Validate chapterId is a valid number
+      const parsedChapterId = parseInt(targetChapterId, 10);
+      if (isNaN(parsedChapterId)) {
+        console.error('[processChapterPayment] Invalid chapter ID:', targetChapterId);
+        setError('Invalid chapter ID.');
+        return false;
+      }
+
       setIsProcessing(true);
+      setShowPaymentAnimation(true);
       setError(null);
       setSuccessMessage('');
       setWarningMessage('');
 
       try {
         // Check if already paid
-        const isPaid = await checkChapterPayment(parseInt(targetChapterId, 10));
+        const isPaid = await checkChapterPayment(parsedChapterId);
         if (isPaid && paymentType === 'SINGLE') {
           console.log('[processChapterPayment] Chapter already paid');
           setIsLocked(false);
@@ -1653,7 +1817,7 @@ const ChapterScreen = () => {
         const requestBody = {
           walletAddress: activeWalletAddress,
           novelId,
-          chapterId: targetChapterId,
+          chapterId: parsedChapterId,
           paymentType,
           currency,
           signature,
@@ -1727,6 +1891,7 @@ const ChapterScreen = () => {
         return false;
       } finally {
         setIsProcessing(false);
+        setShowPaymentAnimation(false);
       }
     },
     [activeWalletAddress, activePublicKey, novelId, smpBalance, smpPrice, solPrice, navigation, signAndSendTransaction, checkChapterPayment, wallet, fetchSmpBalanceOnChain]
@@ -2073,139 +2238,110 @@ const ChapterScreen = () => {
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.lockedMessage}>Loading chapter...</Text>
         </View>
-      ) : isLocked && isAdvanceChapter ? (
-        <View>
-          <UBBadge type="writer" size="large" showLabel={false} />
-          <Text style={styles.lockedMessage}>{releaseDateMessage}</Text>
-          <Text style={styles.lockedSubMessage}>Unlock with a Subscription</Text>
-          {!pricesAreLive && (
-            <Text style={styles.priceStaleNote}>Live pricing unavailable — SOL/SMP prices shown may be stale</Text>
-          )}
-          <View style={styles.paymentGrid}>
-            {[
-              { type: '3CHAPTERS', currency: 'SOL', price: threeChaptersSol, usd: 3 },
-              { type: 'FULL', currency: 'SOL', price: fullChaptersSol, usd: 15 },
-              { type: '3CHAPTERS', currency: 'USDC', price: threeChaptersUsdc, usd: 3 },
-              { type: 'FULL', currency: 'USDC', price: fullChaptersUsdc, usd: 15 },
-              { type: '3CHAPTERS', currency: 'SMP', price: threeChaptersSmp, usd: 3 },
-              { type: 'FULL', currency: 'SMP', price: fullChaptersSmp, usd: 15 },
-            ].map(({ type, currency, price, usd }) => (
-              <TouchableOpacity
-                key={`${type}-${currency}`}
-                style={[
-                  styles.paymentButton,
-                  type === 'FULL' ? styles.fullChaptersButton : styles.threeChaptersButton,
-                  (type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && price === 'N/A')
-                    ? styles.disabledButton
-                    : null,
-                ]}
-                onPress={() => {
-                  setTransactionDetails({ subscriptionType: type, currency, displayAmount: price, usd });
-                  setShowTransactionPopup(true);
-                }}
-                disabled={(type === '3CHAPTERS' && !canUnlockNextThree) || (currency !== 'USDC' && price === 'N/A')}
-              >
-                <FontAwesome5
-                  name={type === 'FULL' ? 'crown' : 'rocket'}
-                  size={20}
-                  color={colors.textPrimary}
-                  style={styles.buttonIcon}
-                />
-                <Text style={styles.paymentButtonText}>
-                  {type === 'FULL' ? 'All Chapters' : '3 Chapters'} ({currency})
-                </Text>
-                <Text style={styles.paymentPrice}>
-                  ${usd} / {price} {currency}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
       ) : isLocked ? (
         <View style={styles.lockedContainer}>
           <UBBadge type="writer" size="large" showLabel={false} />
           <Text style={styles.lockedMessage}>Read this Chapter</Text>
 
-          {/* Ad unlock option */}
-          {showAdOption && (
-            <View style={styles.adUnlockContainer}>
-              <Text style={styles.lockedSubMessage}>You don't have enough SMP. Watch an ad to unlock for free!</Text>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.adUnlockButton]}
-                onPress={handleAdBasedUnlock}
-                disabled={isProcessing || hasUsedAdUnlockToday}
-              >
-                <FontAwesome5 name="video" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.actionButtonText}>
-                  {hasUsedAdUnlockToday ? 'Ad Unlock Used Today' : 'Watch Ad - Free Unlock'}
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.lockedSubMessage}>One chapter per day</Text>
-            </View>
-          )}
-
-          <View style={styles.actionButtonsContainer}>
-            <TouchableOpacity
-              style={styles.smpButton}
-              onPress={() => processChapterPayment(chapterId, 'SINGLE', 'SMP')}
-              disabled={isProcessing}
-            >
-              <FontAwesome5 name="gem" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-              <Text style={styles.smpButtonText}>
-                Read with {(SMP_READ_COST / 10 ** SMP_DECIMALS).toLocaleString()} SMP (Earn Points)
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.getSmpButton}
-              onPress={() => {
-                const rampUrl = `https://buy.ramp.network/?hostApiKey=${WEB_API_BASE_URL}&defaultAsset=SOL`;
-                Linking.openURL(rampUrl).catch(err => console.error('Failed to open URL:', err));
-              }}
-            >
-              <FontAwesome5 name="shopping-cart" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-              <Text style={styles.getSmpButtonText}>Get Tokens</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Benefactor subscription option */}
-          {showBenefactorOption && !benefactorAccess && (
-            <View style={styles.benefactorContainer}>
-              <AutopaySettings onAutopayToggle={(enabled) => setAutopayEnabled(enabled)} />
-              <TouchableOpacity
-                style={[styles.actionButton, styles.badgesButton]}
-                onPress={() => navigation.navigate('Badges', { writerId: novel?.user_id })}
-                disabled={isProcessing}
-              >
-                <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
-                <Text style={styles.actionButtonText}>Buy Badges</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.actionButton, styles.benefactorButton]}
-                onPress={() => setShowBenefactorModal(true)}
-                disabled={isProcessing}
-              >
-                <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
-                <Text style={styles.actionButtonText}>Subscribe to Writer</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Benefactor status */}
-          {benefactorAccess && (
-            <View style={styles.benefactorStatus}>
-              <FontAwesome5 name="star" size={16} color={colors.gold} style={styles.buttonIcon} />
-              <Text style={styles.benefactorStatusText}>
-                Writer Subscription: {benefactorAccess.plan_type?.toUpperCase()} Plan
-              </Text>
-              {benefactorAccess.plan_type !== 'gold' && (
-                <Text style={styles.benefactorStatusText}>
-                  {benefactorAccess.chapters_remaining}/{benefactorAccess.chapters_unlocked} chapters remaining
-                </Text>
+          {/* For advance chapters, show benefactor options */}
+          {isAdvanceChapter ? (
+            <>
+              {showBenefactorOption && !hasWriterBadge && !benefactorAccess && (
+                <View style={styles.benefactorContainer}>
+                  <Text style={styles.lockedSubMessage}>This is an advance chapter</Text>
+                  <Text style={styles.lockedSubMessage}>Buy the writer's badge to access advance chapters</Text>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.badgesButton]}
+                    onPress={() => navigation.navigate('Badges', { writerId: novel?.user_id })}
+                    disabled={isProcessing}
+                  >
+                    <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
+                    <Text style={styles.badgesButtonText}>Buy Writer's Badge</Text>
+                  </TouchableOpacity>
+                </View>
               )}
-              <Text style={styles.benefactorExpiryText}>
-                Expires: {new Date(benefactorAccess.expires_at).toLocaleDateString()}
-              </Text>
-            </View>
+
+              {/* Benefactor badge status */}
+              {hasWriterBadge && (
+                <View style={styles.benefactorStatus}>
+                  <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
+                  <Text style={styles.benefactorStatusText}>
+                    Writer's Badge Holder
+                  </Text>
+                </View>
+              )}
+
+              {/* Benefactor subscription status (legacy) */}
+              {benefactorAccess && (
+                <View style={styles.benefactorStatus}>
+                  <FontAwesome5 name="star" size={16} color={colors.gold} style={styles.buttonIcon} />
+                  <Text style={styles.benefactorStatusText}>
+                    Writer Subscription: {benefactorAccess.plan_type?.toUpperCase()} Plan
+                  </Text>
+                  {benefactorAccess.plan_type !== 'gold' && (
+                    <Text style={styles.benefactorStatusText}>
+                      {benefactorAccess.chapters_remaining}/{benefactorAccess.chapters_unlocked} chapters remaining
+                    </Text>
+                  )}
+                  <Text style={styles.benefactorStatusText}>
+                    Expires: {new Date(benefactorAccess.expires_at).toLocaleDateString()}
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {/* For regular chapters, show payment options */}
+              {/* Ad unlock option */}
+              {showAdOption && (
+                <View style={styles.adUnlockContainer}>
+                  <Text style={styles.lockedSubMessage}>You don't have enough SMP. Watch an ad to unlock for free!</Text>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.adUnlockButton]}
+                    onPress={handleAdBasedUnlock}
+                    disabled={isProcessing || hasUsedAdUnlockToday}
+                  >
+                    <FontAwesome5 name="video" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
+                    <Text style={styles.actionButtonText}>
+                      {hasUsedAdUnlockToday ? 'Ad Unlock Used Today' : 'Watch Ad - Free Unlock'}
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={styles.lockedSubMessage}>One chapter per day</Text>
+                </View>
+              )}
+
+              {/* Small balance check and autopay options */}
+              {hasInsufficientSmp && !showAdOption && (
+                <View style={styles.smallBalanceContainer}>
+                  <Text style={styles.lockedSubMessage}>Low SMP balance detected</Text>
+                  <Text style={styles.lockedSubMessage}>Enable autopay to automatically unlock chapters</Text>
+                  <AutopaySettings onAutopayToggle={(enabled) => setAutopayEnabled(enabled)} />
+                </View>
+              )}
+
+              <View style={styles.actionButtonsContainer}>
+                <TouchableOpacity
+                  style={styles.smpButton}
+                  onPress={() => processChapterPayment(chapterId, 'SINGLE', 'SMP')}
+                  disabled={isProcessing}
+                >
+                  <FontAwesome5 name="gem" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
+                  <Text style={styles.smpButtonText}>
+                    Read with {(SMP_READ_COST / 10 ** SMP_DECIMALS).toLocaleString()} SMP (Earn Points)
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.getSmpButton}
+                  onPress={() => {
+                    const rampUrl = `https://buy.ramp.network/?hostApiKey=${WEB_API_BASE_URL}&defaultAsset=SOL`;
+                    Linking.openURL(rampUrl).catch(err => console.error('Failed to open URL:', err));
+                  }}
+                >
+                  <FontAwesome5 name="shopping-cart" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
+                  <Text style={styles.getSmpButtonText}>Get Tokens</Text>
+                </TouchableOpacity>
+              </View>
+            </>
           )}
         </View>
       ) : (
@@ -2428,6 +2564,61 @@ const ChapterScreen = () => {
             </View>
             <Text style={styles.modalNote}>This transaction will be processed securely.</Text>
           </View>
+        </View>
+      </Modal>
+
+      {/* Payment Processing Animation Modal */}
+      <Modal
+        visible={showPaymentAnimation}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPaymentAnimation(false)}
+      >
+        <View style={styles.paymentAnimationOverlay}>
+          <Animated.View style={[
+            styles.paymentAnimationContainer,
+            {
+              transform: [{ scale: paymentPulseAnimation }]
+            }
+          ]}>
+            <Animated.View style={[
+              styles.paymentAnimationRing,
+              {
+                transform: [{ scale: paymentPulseAnimation }],
+                opacity: paymentPulseAnimation.interpolate({
+                  inputRange: [1, 1.2],
+                  outputRange: [0.8, 0]
+                })
+              }
+            ]} />
+            <Animated.View style={[
+              styles.paymentAnimationRing,
+              styles.paymentAnimationRing2,
+              {
+                transform: [{ scale: paymentPulseAnimation }],
+                opacity: paymentPulseAnimation.interpolate({
+                  inputRange: [1, 1.2],
+                  outputRange: [0.6, 0]
+                })
+              }
+            ]} />
+            <FontAwesome5 name="gem" size={40} color={colors.accent} style={styles.paymentIcon} />
+            <Text style={styles.paymentAnimationText}>Processing Payment</Text>
+            <Animated.View style={styles.paymentProgressBar}>
+              <Animated.View 
+                style={[
+                  styles.paymentProgressFill,
+                  {
+                    width: paymentAnimationProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0%', '100%']
+                    })
+                  }
+                ]}
+              />
+            </Animated.View>
+            <Text style={styles.paymentAnimationSubtext}>Unlocking chapter with SMP...</Text>
+          </Animated.View>
         </View>
       </Modal>
 

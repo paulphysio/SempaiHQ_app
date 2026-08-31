@@ -540,7 +540,7 @@ const NovelsPageScreen = () => {
           <View style={themedStyles.novelMeta}>
             <TouchableOpacity
               style={themedStyles.novelAuthor}
-              onPress={() => navigation.navigate('WritersProfile', { id: item.user_id })}
+              onPress={() => navigation.navigate('CreatorsProfile', { id: item.user_id })}
               accessible={true}
               accessibilityLabel={`View profile of ${item.users?.name || 'Unknown'}`}
             >

@@ -398,6 +398,28 @@ export const getNovelPageStyles = (isDark = true) => {
       alignItems: 'center',
       backgroundColor: c.bgElevated,
     },
+    chapterHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+      marginBottom: SPACE.sm,
+    },
+    chapterNumber: {
+      color: c.textPrimary,
+      fontSize: 15,
+      fontFamily: FONT,
+      fontWeight: '600',
+      letterSpacing: 0.3,
+    },
+    chapterIcons: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: SPACE.sm,
+    },
+    chapterIcon: {
+      marginLeft: SPACE.sm,
+    },
     chapterTitle: {
       color: c.textPrimary,
       fontSize: 14,

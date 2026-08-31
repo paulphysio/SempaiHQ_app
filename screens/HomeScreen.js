@@ -1389,7 +1389,7 @@ const Home = () => {
 
             {/* Manga section */}
             <View style={styles.section}>
-              <SectionHeader title="Featured Manga" onSeeAll={() => handleNavigation('MangaPage', {})} />
+              <SectionHeader title="Featured Media" onSeeAll={() => handleNavigation('MangaPage', {})} />
               {loading ? (
                 <CarouselSkeleton />
               ) : manga.length === 0 ? (

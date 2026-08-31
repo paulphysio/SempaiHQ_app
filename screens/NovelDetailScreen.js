@@ -40,6 +40,7 @@ const NovelDetailScreen = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showConnectPopup, setShowConnectPopup] = useState(false);
   const [viewCountError, setViewCountError] = useState(null);
+  const [unlockedChapters, setUnlockedChapters] = useState([]);
   const menuAnim = useRef(new Animated.Value(280)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const contentFade = useRef(new Animated.Value(0)).current;
@@ -184,6 +185,34 @@ const NovelDetailScreen = () => {
     }
   }, [id, isWalletConnected, activePublicKey]);
 
+  const fetchUnlockedChapters = useCallback(async () => {
+    if (!isWalletConnected || !activePublicKey) {
+      setUnlockedChapters([]);
+      return;
+    }
+
+    try {
+      // Fetch unlocked chapters from chapter_payments table
+      const { data: payments, error: paymentsError } = await supabase
+        .from('chapter_payments')
+        .select('chapter_number')
+        .eq('wallet_address', activePublicKey)
+        .eq('novel_id', id);
+
+      if (paymentsError) {
+        console.error('Error fetching unlocked chapters:', paymentsError);
+        setUnlockedChapters([]);
+        return;
+      }
+
+      const unlockedChapterIds = payments?.map(p => p.chapter_number.toString()) || [];
+      setUnlockedChapters(unlockedChapterIds);
+    } catch (error) {
+      console.error('Error in fetchUnlockedChapters:', error.message);
+      setUnlockedChapters([]);
+    }
+  }, [id, isWalletConnected, activePublicKey]);
+
   useEffect(() => {
     if (viewCountError) {
       const timer = setTimeout(() => setViewCountError(null), 5000);
@@ -194,7 +223,8 @@ const NovelDetailScreen = () => {
   useEffect(() => {
     fetchNovel();
     updateViewCount();
-  }, [fetchNovel, updateViewCount]);
+    fetchUnlockedChapters();
+  }, [fetchNovel, updateViewCount, fetchUnlockedChapters]);
 
   const handleNavigation = (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
@@ -207,6 +237,15 @@ const NovelDetailScreen = () => {
 
   const renderChapterItem = ({ item: [chapterId, title] }) => {
     const scaleAnim = new Animated.Value(1);
+    const chapterNum = parseInt(chapterId, 10);
+
+    // Check if chapter is advance (advance_chapters is an array of objects with index and is_advance fields)
+    const advanceChapterInfo = novel?.advance_chapters?.find(
+      (ch) => ch.index === chapterNum
+    );
+    const isAdvanceChapter = advanceChapterInfo?.is_advance === true;
+    // Check if chapter is unlocked by user or is one of the first 3 free chapters
+    const isUnlocked = unlockedChapters.includes(chapterId) || chapterNum < 3;
 
     const onPressIn = () => {
       Animated.spring(scaleAnim, {
@@ -234,7 +273,19 @@ const NovelDetailScreen = () => {
       >
         <Animated.View style={[styles.chapterContent, { transform: [{ scale: scaleAnim }] }]}>
           <View style={styles.chapterGradient}>
-            <Text style={styles.chapterNumber}>Chapter {parseInt(chapterId) + 1}</Text>
+            <View style={styles.chapterHeader}>
+              <Text style={styles.chapterNumber}>Chapter {chapterNum + 1}</Text>
+              <View style={styles.chapterIcons}>
+                {isAdvanceChapter && (
+                  <FontAwesome5 name="star" size={14} color={colors.gold} style={styles.chapterIcon} />
+                )}
+                {!isUnlocked ? (
+                  <FontAwesome5 name="lock" size={14} color={colors.accent} style={styles.chapterIcon} />
+                ) : (
+                  <FontAwesome5 name="lock-open" size={14} color={colors.success} style={styles.chapterIcon} />
+                )}
+              </View>
+            </View>
             <Text style={styles.chapterTitle}>{sanitizeText(title)}</Text>
             <View style={styles.chapterAccent} />
           </View>

@@ -18,6 +18,7 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { getProfileStyles } from '../styles/ProfileStyles';
+import AutopaySettings from '../components/AutopaySettings';
 
 const { width, height } = Dimensions.get('window');
 
@@ -348,7 +349,11 @@ const ProfileScreen = () => {
                 <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
                 <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
                 <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-                
+
+                <Text style={themedStyles.sectionTitle}>SETTINGS</Text>
+
+                <AutopaySettings walletAddress={activeWalletAddress} />
+
                 <View style={themedStyles.actions}>
                   <TouchableOpacity
                     style={themedStyles.actionButton}
