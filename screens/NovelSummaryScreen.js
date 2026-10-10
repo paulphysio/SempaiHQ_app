@@ -16,6 +16,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
+import { getNovel, isErrorNetworkError } from '../services/offlineCache';
 import { useTheme } from '../context/ThemeContext';
 import { getNovelPageStyles } from '../styles/NovelPageStyles';
 
@@ -326,13 +327,21 @@ const NovelSummaryScreen = () => {
       try {
         if (id) {
           // Fetch single novel summary
-          const { data, error } = await supabase
+          let { data, error } = await supabase
             .from('novels')
             .select('id, title, summary, image')
             .eq('id', id)
             .single();
 
-          if (error) throw error;
+          const isNetworkError = isErrorNetworkError(error);
+          // failed to fetch from network, try cache
+          if(isNetworkError){
+            console.log(`[NovelSummaryScreen] could not load novel summary ${id} from network, trying from cache`);
+            data = getNovel(id);
+            console.log(`[NovelSummaryScreen] novel summary ${id} ${data ? "loaded successfully" : "not cached"}`);
+          }
+          else if (error) throw error;
+
           setSingleNovel(data);
         } else {
           // Fetch all novels with summaries

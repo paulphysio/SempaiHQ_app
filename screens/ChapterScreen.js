@@ -15,11 +15,13 @@ import {
   Alert,
   ActivityIndicator,
   Share,
+  TextInput,
 } from 'react-native';
 import { Video } from 'expo-av';
 import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
+import { getNovel, getNovelChapters, isErrorNetworkError } from '../services/offlineCache';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -825,12 +827,21 @@ const ChapterScreen = () => {
       return;
     }
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('novels')
         .select('id, title, chaptertitles, chaptercontents, advance_chapters, user_id')
         .eq('id', id)
         .single();
-      if (error) throw new Error(error.message);
+      
+      const isNetworkError = isErrorNetworkError(error);
+      // failed to fetch from network, try cache
+      if(isNetworkError){
+        console.log(`[ChapterScreen] could not load novel ${id} from network, trying from cache`);
+        data = getNovel(id);
+        console.log(`[ChapterScreen] novel ${id} ${data ? "loaded successfully" : "not cached"}`);
+      }
+      else if (error) throw new Error(error.message);
+
       if (!data || !data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
       setNovel(data);
       setAdvanceInfo(
@@ -1485,7 +1496,11 @@ const ChapterScreen = () => {
         .eq('novel_id', novelId)
         .eq('chapter_number', chapterNum)
         .single();
-      if (error && error.code !== 'PGRST116') throw new Error(error.message);
+      if(isErrorNetworkError(error)){
+        const novelChapters = getNovelChapters(id) ?? [];
+        data = novelChapters.find(({ chapter_number }) => chapter_number == chapterNum);
+      }
+      else if (error && error.code !== 'PGRST116') throw new Error(error.message);
       return !!data;
     } catch (error) {
       console.error('[checkChapterPayment] Error:', error.message);

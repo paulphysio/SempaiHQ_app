@@ -23,6 +23,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
+import { getCachedNovels, isErrorNetworkError } from '../services/offlineCache';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
@@ -515,21 +516,21 @@ const Home = () => {
         if(enrichedNovels) return enrichedNovels;
       }
 
-        if (error) {
-          throw new Error(`Failed to fetch novels: ${error.message}`);
-        }
+      if (error) {
+        throw new Error(`Failed to fetch novels: ${error.message}`);
+      }
       if (!enrichedNovels?.length) {
         return [];
       }
 
-        const { data: ratingsData, error: ratingsError } = await supabase
-          .from('chapter_ratings')
+      const { data: ratingsData, error: ratingsError } = await supabase
+        .from('chapter_ratings')
         .select('content_id, averageRating:rating.avg()')
-          .eq('content_type', 'novel');
-
-        if (ratingsError) {
-          throw new Error(`Failed to fetch novel ratings: ${ratingsError.message}`);
-        }
+        .eq('content_type', 'novel');
+        
+      if (ratingsError) {
+        throw new Error(`Failed to fetch novel ratings: ${ratingsError.message}`);
+      }
       const ratingsMap = new Map(ratingsData.map((rating) => [rating.content_id, rating]));
 
       for(let novel of enrichedNovels){
@@ -568,7 +569,7 @@ const Home = () => {
     const fetchManga = async () => {
       setLoading(true);
       try {
-        const { data: mangaData, error } = await supabase
+        let { data: mangaData, error } = await supabase
           .from('manga')
           .select('id, title, cover_image, summary, user_id, status, tags, viewers_count')
           .eq('is_visible', true)
@@ -576,7 +577,13 @@ const Home = () => {
           .in('status', ['ongoing', 'completed'])
           .limit(5);
 
-        if (error) {
+        // failed to fetch from network, show empty array
+        if(isErrorNetworkError(error)){
+          console.log("[HomeScreen] could not fetch manga from network, skipping");
+          mangaData = [];
+        }
+
+        if (!mangaData && error) {
           throw new Error(`Failed to fetch manga: ${error.message}`);
         }
         if (!mangaData?.length) {

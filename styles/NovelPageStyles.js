@@ -355,6 +355,7 @@ export const getNovelPageStyles = (isDark = true) => {
     // -------------------------------------------------------- summary link
     summaryLinkContainer: {
       padding: SPACE.lg,
+      rowGap: SPACE.sm,
       backgroundColor: c.bgCard,
       borderBottomWidth: 1,
       borderBottomColor: c.border,
@@ -366,7 +367,7 @@ export const getNovelPageStyles = (isDark = true) => {
       paddingVertical: SPACE.md,
       paddingHorizontal: SPACE.lg,
       borderRadius: RADIUS.sm,
-      alignSelf: 'flex-start',
+      alignSelf: 'center',
       ...cardShadow(c, isDark ? 0.35 : 0.18, 10, 5),
     },
     summaryLinkText: {

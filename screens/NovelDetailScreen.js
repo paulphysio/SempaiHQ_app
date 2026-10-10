@@ -14,6 +14,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
+import { deleteNovel, getNovel, getNovelChapters, isErrorNetworkError, isNovelSaved, saveNovel, saveNovelChapters } from '../services/offlineCache';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
@@ -35,6 +36,8 @@ const NovelDetailScreen = () => {
   const styles = getNovelPageStyles(isDark);
   
   const [novel, setNovel] = useState(null);
+  const [novelChapters, setNovelChapters] = useState(null);
+  const [isSavedOffline, setIsSavedOffline] = useState(isNovelSaved(id));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -106,20 +109,29 @@ const NovelDetailScreen = () => {
   const fetchNovel = useCallback(async () => {
     try {
       console.log('[NovelDetailScreen] Fetching novel with id:', id);
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('novels')
         .select('*')
         .eq('id', id)
         .eq('is_visible', true)
         .single();
+      
+      const isNetworkError = isErrorNetworkError(error);
+      // failed to fetch from network, try cache
+      if(isNetworkError){
+        console.log(`[NovelDetailScreen] could not load ${id} from network, trying from cache`);
+        data = getNovel(id);
+        console.log(`[NovelDetailScreen] novel ${id} ${data ? "loaded successfully" : "not cached"}`);
+      }
 
-      if (error) {
+      if (!data && error) {
         console.error('[NovelDetailScreen] Novel fetch error:', error);
         throw new Error('Novel not found');
       }
       
       console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
+      if(isSavedOffline && !isNetworkError) await saveNovel(data);
       Animated.timing(contentFade, {
         toValue: 1,
         duration: 500,
@@ -183,7 +195,7 @@ const NovelDetailScreen = () => {
       console.error('Error in updateViewCount:', error.message);
       setViewCountError('An unexpected error occurred while updating view count.');
     }
-  }, [id, isWalletConnected, activePublicKey]);
+  }, [id, isWalletConnected, activePublicKey, isSavedOffline]);
 
   const fetchUnlockedChapters = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
@@ -193,17 +205,28 @@ const NovelDetailScreen = () => {
 
     try {
       // Fetch unlocked chapters from chapter_payments table
-      const { data: payments, error: paymentsError } = await supabase
+      let { data: payments, error: paymentsError } = await supabase
         .from('chapter_payments')
         .select('chapter_number')
         .eq('wallet_address', activePublicKey)
         .eq('novel_id', id);
 
-      if (paymentsError) {
+      const isNetworkError = isErrorNetworkError(paymentsError);
+      // failed to fetch from network, try cache
+      if(isNetworkError){
+        console.log(`[NovelDetailScreen] could not load unlocked chapters ${id} from network, trying from cache`);
+        data = getNovelChapters(id);
+        console.log(`[NovelDetailScreen] unlocked chapters ${id} ${payments ? "loaded successfully" : "not cached"}`);
+      }
+
+      if (!payments && paymentsError) {
         console.error('Error fetching unlocked chapters:', paymentsError);
         setUnlockedChapters([]);
         return;
       }
+
+      if(isSavedOffline && !isNetworkError) saveNovelChapters(payments);
+      setNovelChapters(payments);
 
       const unlockedChapterIds = payments?.map(p => p.chapter_number.toString()) || [];
       setUnlockedChapters(unlockedChapterIds);
@@ -211,7 +234,7 @@ const NovelDetailScreen = () => {
       console.error('Error in fetchUnlockedChapters:', error.message);
       setUnlockedChapters([]);
     }
-  }, [id, isWalletConnected, activePublicKey]);
+  }, [id, isWalletConnected, activePublicKey, isSavedOffline]);
 
   useEffect(() => {
     if (viewCountError) {
@@ -225,6 +248,25 @@ const NovelDetailScreen = () => {
     updateViewCount();
     fetchUnlockedChapters();
   }, [fetchNovel, updateViewCount, fetchUnlockedChapters]);
+
+  const handleSaveOffline = useCallback(async () => {
+    if(isSavedOffline){
+      deleteNovel(id);
+      setIsSavedOffline(false);
+      return;
+    }
+
+    try{
+      if(!novel) return;
+      await saveNovel(novel);
+      if(novelChapters) saveNovelChapters(novelChapters)
+      setIsSavedOffline(true);
+    }
+    catch(error){
+      console.error('[NovelDetailScreen] could not save novel:', error);
+      setError(error.message);
+    }
+  }, [isSavedOffline, novel, novelChapters]);
 
   const handleNavigation = (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
@@ -343,8 +385,19 @@ const NovelDetailScreen = () => {
             accessible={true}
             accessibilityLabel="View novel summary"
           >
-            <FontAwesome5 name="book-open" size={16} color={colors.accent} />
+            <FontAwesome5 name="book-open" size={16} color={colors.textPrimary} />
             <Text style={styles.summaryLinkText}>View Novel Summary</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.summaryLink}
+            onPress={handleSaveOffline}
+            accessible={true}
+            accessibilityLabel={isSavedOffline ? "Delete from Downloads" : "Save Offline"}
+          >
+            <FontAwesome5 name={isSavedOffline ? "trash" : "arrow-circle-down"} size={16} color={colors.textPrimary} />
+            <Text style={styles.summaryLinkText}>
+              {isSavedOffline ? "Delete from Downloads" : "Save Offline"}
+            </Text>
           </TouchableOpacity>
         </View>
 

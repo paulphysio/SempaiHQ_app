@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
+import { isErrorNetworkError } from '../../services/offlineCache';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import GoogleSignInButton from '../../components/GoogleSignInButton';
@@ -503,7 +504,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
 
   const fetchComments = async () => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('comments')
         .select(`
           id,
@@ -518,7 +519,8 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
         .eq('novel_id', novelId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (isErrorNetworkError(error)) data = [];
+      else if (error) throw error;
 
       const enrichedComments = data.map((comment) => ({
         ...comment,
