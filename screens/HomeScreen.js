@@ -490,68 +490,63 @@ const Home = () => {
 
   // Fetch novels
   useEffect(() => {
-    const fetchNovel = async () => {
-      setLoading(true);
-      try {
-        const { data: novelsData, error } = await supabase
-          .from('novels')
-          .select('id, title, image, summary, user_id, tags, viewers_count')
-          .eq('is_visible', true)
-          .eq('featured', true);
+    const fetchNovelInfo = async () => {
+      let { data: enrichedNovels, error } = await supabase
+        .from("novels")
+        .select(`
+          id,
+          title,
+          image,
+          summary,
+          user_id,
+          tags,
+          viewers_count,
+          viewers:viewers_count,
+          writer:users (name, isWriter)
+        `)
+        .eq("is_visible", true)
+        .eq("featured", true);
+
+      // failed to fetch from network, try cache
+      if(isErrorNetworkError(error)){
+        console.log("[HomeScreen] could not fetch novels from network, trying from cache");
+        enrichedNovels = getCachedNovels();
+        console.log(`[HomeScreen] novel ${enrichedNovels ? "loaded successfully" : "not cached"}`);
+        if(enrichedNovels) return enrichedNovels;
+      }
 
         if (error) {
           throw new Error(`Failed to fetch novels: ${error.message}`);
         }
-        if (!novelsData?.length) {
-          setNovels([]);
-          return;
-        }
-
-        const userIds = [...new Set(novelsData.map(novel => novel.user_id).filter(id => id))];
-        const { data: usersData, error: usersError } = await supabase
-          .from('users')
-          .select('id, name, isWriter')
-          .in('id', userIds);
-
-        if (usersError) {
-          throw new Error(`Failed to fetch users: ${usersError.message}`);
-        }
-
-        const usersMap = usersData.reduce((acc, user) => {
-          acc[user.id] = { name: user.name || 'Unknown', isWriter: user.isWriter || false };
-          return acc;
-        }, {});
+      if (!enrichedNovels?.length) {
+        return [];
+      }
 
         const { data: ratingsData, error: ratingsError } = await supabase
           .from('chapter_ratings')
-          .select('content_id, rating')
+        .select('content_id, averageRating:rating.avg()')
           .eq('content_type', 'novel');
 
         if (ratingsError) {
           throw new Error(`Failed to fetch novel ratings: ${ratingsError.message}`);
         }
+      const ratingsMap = new Map(ratingsData.map((rating) => [rating.content_id, rating]));
 
-        const ratingsMap = ratingsData.reduce((acc, rating) => {
-          acc[rating.content_id] = (acc[rating.content_id] || []).concat(rating.rating);
-          return acc;
-        }, {});
+      for(let novel of enrichedNovels){
+        novel.averageRating = (ratingsMap.get(novel.id)?.averageRating ?? 0).toFixed(2);
+        novel.isAdult = novel.tags?.includes("Adult(18+)") || false;
+      }
 
-        const enrichedNovels = (novelsData || [])
-          .map(novel => {
-            const ratings = ratingsMap[novel.id] || [];
-            const averageRating = ratings.length ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length : 0;
-            return {
-              ...novel,
-              id: novel.id || `temp-${Math.random()}`,
-              writer: usersMap[novel.user_id] || { name: 'Unknown', isWriter: false },
-              viewers: novel.viewers_count || 0,
-              averageRating: averageRating.toFixed(2),
-              isAdult: novel.tags?.includes('Adult(18+)') || false,
-            };
-          });
+      return enrichedNovels;
+    }
 
+    const fetchNovel = async () => {
+      setLoading(true);
+      try {
+        const enrichedNovels = await fetchNovelInfo();
+        enrichedNovels.sort((a, b) => b.viewers - a.viewers);
         if (isMounted.current) {
-          setNovels(enrichedNovels.sort((a, b) => b.viewers - a.viewers).slice(0, 6));
+          setNovels(enrichedNovels.slice(0, 6));
         }
       } catch (err) {
         console.error('fetchNovels error:', err.message);
