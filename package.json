@@ -88,10 +88,10 @@
     "react-native-tts": "^4.1.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
-    "tweetnacl": "^1.0.3",
     "react-native-web": "~0.19.13",
-    "react-native-webview": "^14.0.1",
-    "text-encoding": "^0.7.0"
+    "react-native-webview": "13.12.5",
+    "text-encoding": "^0.7.0",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
@@ -118,7 +118,13 @@
           "react-native-system-navigation-bar",
           "react-native-vector-icons",
           "react-native-chart-kit",
-          "react-native-emoji-selector"
+          "react-native-emoji-selector",
+          "jest"
+        ]
+      },
+      "install": {
+        "exclude": [
+          "jest"
         ]
       }
     }

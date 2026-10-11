@@ -65,7 +65,6 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
         { name: 'Import Wallet', screen: 'WalletImport', icon: 'wallet' },
         { name: 'Mint', screen: 'Mint', icon: 'coins' },
         { name: 'Marketplace', screen: 'Marketplace', icon: 'shopping-cart' },
-        { name: 'Wallet Migration', screen: 'WalletMigration', icon: 'exchange-alt' },
       ],
     },
     {

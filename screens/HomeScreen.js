@@ -1070,7 +1070,6 @@ const Home = () => {
           { name: 'Swap', screen: 'Swap', icon: 'exchange-alt' },
           { name: 'Mint', screen: 'Mint', icon: 'coins' },
           { name: 'Marketplace', screen: 'Marketplace', icon: 'shopping-cart' },
-          { name: 'Wallet Migration', screen: 'WalletMigration', icon: 'exchange-alt' },
         ],
       },
       {

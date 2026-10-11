@@ -37,6 +37,7 @@ credentials.json
 *.tsbuildinfo
 
 # Expo-specific
+.expo-shared/
 .expo/
 dist/
 web-build/
