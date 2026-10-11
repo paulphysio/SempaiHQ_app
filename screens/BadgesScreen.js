@@ -246,7 +246,7 @@ const BadgesScreen = () => {
       alert('Please select a badge');
       return;
     }
-    
+
     if (!wallet || !wallet.publicKey) {
       alert('Please connect your wallet first');
       return;
@@ -260,19 +260,32 @@ const BadgesScreen = () => {
     setIsProcessing(true);
 
     try {
+      // Check for existing active subscription before payment
+      const { data: existingSubscription } = await supabase
+        .from('writer_subscriptions')
+        .select('*')
+        .eq('benefactor_wallet', activeWalletAddress)
+        .eq('writer_id', selectedBadge.writer_id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existingSubscription) {
+        throw new Error('You already have an active subscription to this writer. Please wait for it to expire.');
+      }
+
       const badgePrice = selectedBadge.price || 0;
       let paymentAmount = 0;
       let paymentMint = null;
 
       if (selectedCurrency === 'USDC') {
         paymentMint = new PublicKey(USDC_MINT_ADDRESS);
-        paymentAmount = Math.floor(badgePrice * 1e6);
+        paymentAmount = Math.round(badgePrice * 1e6);
       } else if (selectedCurrency === 'SOL') {
         const currentSolPrice = solPrice || 150; // Fallback if price not loaded
-        paymentAmount = Math.floor((badgePrice / currentSolPrice) * 1e9);
+        paymentAmount = Math.round((badgePrice / currentSolPrice) * 1e9);
       } else if (selectedCurrency === 'SKR') {
         paymentMint = new PublicKey(SKR_MINT_ADDRESS);
-        paymentAmount = Math.floor(badgePrice * 1e6);
+        paymentAmount = Math.round(badgePrice * 1e6);
       } else {
         throw new Error('Invalid currency');
       }
@@ -280,7 +293,7 @@ const BadgesScreen = () => {
       // Comprehensive balance checking BEFORE transaction
       if (!paymentMint) {
         // SOL balance check
-        const solBalance = await connection.getBalance(wallet.publicKey);
+        const solBalance = await connection.getBalance(activePublicKey);
         const requiredLamports = paymentAmount + 10000; // Add buffer for transaction fee
         if (solBalance < requiredLamports) {
           throw new Error(`Insufficient SOL balance. You have ${(solBalance / 1e9).toFixed(4)} SOL but need ${(requiredLamports / 1e9).toFixed(4)} SOL. Please use USDC or SKR instead.`);
@@ -288,7 +301,7 @@ const BadgesScreen = () => {
       } else {
         // Token balance check
         try {
-          const userAta = getAssociatedTokenAddressSync(paymentMint, wallet.publicKey);
+          const userAta = getAssociatedTokenAddressSync(paymentMint, activePublicKey);
           const ataInfo = await connection.getAccountInfo(userAta);
           if (!ataInfo) {
             throw new Error(`No ${selectedCurrency} account found. Please use SOL instead.`);
@@ -310,10 +323,10 @@ const BadgesScreen = () => {
 
       // Build transaction
       const instructions = [];
+      const treasuryWallet = new PublicKey('4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H');
 
       if (!paymentMint) {
         // SOL transfer to treasury
-        const treasuryWallet = new PublicKey('4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H');
         instructions.push(
           SystemProgram.transfer({
             fromPubkey: activePublicKey,
@@ -324,8 +337,15 @@ const BadgesScreen = () => {
       } else {
         // Token transfer to treasury
         const userAta = getAssociatedTokenAddressSync(paymentMint, activePublicKey);
-        const treasuryWallet = new PublicKey('4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H');
         const treasuryAta = getAssociatedTokenAddressSync(paymentMint, treasuryWallet, true);
+
+        // Check if treasury ATA exists, create if needed
+        const treasuryAtaInfo = await connection.getAccountInfo(treasuryAta);
+        if (!treasuryAtaInfo) {
+          // Need to create treasury ATA first - this requires the treasury owner to do it
+          // For now, throw an error if it doesn't exist
+          throw new Error(`Treasury ${selectedCurrency} account not found. Please contact support.`);
+        }
 
         instructions.push(
           createTransferInstruction(userAta, treasuryAta, activePublicKey, paymentAmount)
@@ -344,10 +364,10 @@ const BadgesScreen = () => {
 
       // Confirm transaction
       let retryCount = 0;
-      const maxRetries = 3;
+      const confirmMaxRetries = 3;
       let confirmation;
 
-      while (retryCount < maxRetries) {
+      while (retryCount < confirmMaxRetries) {
         try {
           confirmation = await connection.confirmTransaction(
             { signature, blockhash, lastValidBlockHeight },
@@ -356,7 +376,7 @@ const BadgesScreen = () => {
           break;
         } catch (confirmError) {
           retryCount++;
-          if (retryCount >= maxRetries) {
+          if (retryCount >= confirmMaxRetries) {
             throw new Error('Transaction confirmation failed');
           }
           await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
@@ -372,7 +392,7 @@ const BadgesScreen = () => {
         throw new Error('Transaction failed on blockchain');
       }
 
-      // Call benefactor-payment edge function
+      // Call benefactor-payment edge function with retry logic
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
@@ -383,27 +403,48 @@ const BadgesScreen = () => {
       // Map badge type to plan type
       const planType = selectedBadge.type || 'blue'; // Default to blue if no type specified
 
-      const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/benefactor-payment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          writerId: selectedBadge.writer_id,
-          badgeId: selectedBadge.id,
-          planType,
-          signature,
-          userPublicKey: activeWalletAddress,
-          currency: selectedCurrency,
-        }),
-      });
+      let edgeFunctionSuccess = false;
+      let edgeFunctionError = null;
+      const maxRetries = 3;
 
-      const data = await response.json();
+      for (let retry = 0; retry < maxRetries; retry++) {
+        try {
+          const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/benefactor-payment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              writerId: selectedBadge.writer_id,
+              badgeId: selectedBadge.id,
+              planType,
+              signature,
+              userPublicKey: activeWalletAddress,
+              currency: selectedCurrency,
+            }),
+          });
 
-      if (!response.ok) {
-        console.error('[BadgesScreen] Edge function error:', data.error);
-        throw new Error(data.error || 'Failed to record purchase');
+          const data = await response.json();
+
+          if (!response.ok) {
+            console.error('[BadgesScreen] Edge function error:', data.error);
+            throw new Error(data.error || 'Failed to record purchase');
+          }
+
+          edgeFunctionSuccess = true;
+          break;
+        } catch (edgeError) {
+          edgeFunctionError = edgeError;
+          console.error(`[BadgesScreen] Edge function attempt ${retry + 1} failed:`, edgeError.message);
+          if (retry < maxRetries - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (retry + 1)));
+          }
+        }
+      }
+
+      if (!edgeFunctionSuccess) {
+        throw new Error(`Payment sent but failed to record. Transaction signature: ${signature}. Please contact support with this signature.`);
       }
 
       // Refresh user badges and balances

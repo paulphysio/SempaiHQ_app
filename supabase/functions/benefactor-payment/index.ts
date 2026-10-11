@@ -1,9 +1,11 @@
+// @ts-nocheck - Deno edge function with Deno-specific imports
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { decodeBase64 } from "jsr:@std/encoding/base64";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const solanaRpcUrl = Deno.env.get("SOLANA_RPC_URL") || "https://api.devnet.solana.com";
+const treasuryWallet = Deno.env.get("TREASURY_WALLET") || "4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 function throwOnError({ data, error }: any) {
@@ -14,6 +16,39 @@ function throwOnError({ data, error }: any) {
   return data;
 }
 
+async function verifyPayment({ signature, payer, mint, minRaw }: {
+  signature: string; payer: string; mint: string | null; minRaw: bigint;
+}): Promise<void> {
+  const res = await fetch(solanaRpcUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0", id: 1, method: "getTransaction",
+      params: [signature, { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0 }],
+    }),
+  });
+  const { result: tx } = await res.json();
+  if (!tx || tx.meta?.err) throw new Error("Payment transaction not found or failed");
+
+  const keys = tx.transaction.message.accountKeys;
+  if (keys[0].pubkey !== payer) throw new Error("Payer mismatch");
+  const blockTime = tx.blockTime || 0;
+  if (Date.now() / 1000 - blockTime > 600) throw new Error("Transaction too old");
+
+  let received = 0n;
+  if (!mint) {
+    const i = keys.findIndex((k: any) => k.pubkey === treasuryWallet);
+    if (i < 0) throw new Error("Treasury not in transaction");
+    received = BigInt(tx.meta.postBalances[i]) - BigInt(tx.meta.preBalances[i]);
+  } else {
+    const sum = (arr: any[]) => arr
+      .filter((b) => b.owner === treasuryWallet && b.mint === mint)
+      .reduce((a: bigint, b: any) => a + BigInt(b.uiTokenAmount.amount), 0n);
+    received = sum(tx.meta.postTokenBalances ?? []) - sum(tx.meta.preTokenBalances ?? []);
+  }
+  if (received < minRaw) throw new Error("Insufficient payment amount");
+}
+
 serve(async (req) => {
   try {
     console.log("[benefactor-payment] Request received");
@@ -21,8 +56,9 @@ serve(async (req) => {
     const jwt = req.headers.get("authorization")?.replace(/^Bearer /, "");
     if (!jwt) throw new Error("Authorization header missing");
 
-    const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(jwt.split(".")[1])));
-    if (typeof jwtBody?.email !== "string") throw new Error("JWT missing email");
+    // Verify JWT with Supabase instead of manual parsing
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(jwt);
+    if (authError || !user) throw new Error("Invalid or expired JWT");
 
     const body = await req.json();
     const { novelId, writerId, badgeId, planType, signature, userPublicKey, currency } = body ?? {};
@@ -33,33 +69,15 @@ serve(async (req) => {
       v === null || v === undefined || (typeof v === "string" && v.trim().length === 0);
 
     // writerId is required, novelId is optional (for backward compatibility)
-    if (isMissing(writerId) || isMissing(planType) || isMissing(signature) || isMissing(userPublicKey)) {
-      throw new Error("Missing required fields (writerId, planType, signature, userPublicKey)");
+    if (isMissing(writerId) || isMissing(signature) || isMissing(userPublicKey)) {
+      throw new Error("Missing required fields (writerId, signature, userPublicKey)");
     }
 
-    // Pricing tiers (SMP test mode - small amounts)
-    const pricingTiers: Record<string, { price: number; chapters: number; name: string; durationDays: number }> = {
-      blue: { price: 1, chapters: 3, name: "Blue", durationDays: 14 },
-      iron: { price: 2, chapters: 6, name: "Iron", durationDays: 14 },
-      silver: { price: 3, chapters: 10, name: "Silver", durationDays: 14 },
-      gold: { price: 5, chapters: 999, name: "Gold", durationDays: 30 }, // 999 = unlimited, 30 days
-    };
-
-    const tier = pricingTiers[planType];
-    if (!tier) {
-      throw new Error("Invalid plan type");
-    }
-
-    console.log("[benefactor-payment] Payment details:", {
-      tier: tier.name,
-      price: tier.price,
-      durationDays: tier.durationDays,
-    });
-
-    // Fetch user data
-    const userResult = await supabaseAdmin.from("users").select("id").eq("email", jwtBody.email).maybeSingle();
+    // Fetch user data and verify wallet address matches
+    const userResult = await supabaseAdmin.from("users").select("id, wallet_address").eq("email", user.email).maybeSingle();
     const userData = throwOnError(userResult);
-    if (!userData) throw new Error(`User not found for email ${jwtBody.email}`);
+    if (!userData) throw new Error(`User not found for email ${user.email}`);
+    if (userData.wallet_address !== userPublicKey) throw new Error("Wallet address does not match authenticated user");
 
     // Use writerId from request, or derive from novelId for backward compatibility
     let finalWriterId = writerId;
@@ -72,6 +90,53 @@ serve(async (req) => {
 
     if (!finalWriterId) throw new Error("Writer ID not provided and could not be derived from novel");
 
+    // Fetch badge if provided to get pricing and type
+    let finalPlanType = planType;
+    let finalBadgeId = badgeId;
+    let tier: { price: number; chapters: number; name: string; durationDays: number };
+
+    if (badgeId) {
+      const badgeResult = await supabaseAdmin.from("badges").select("id, type, price, writer_id").eq("id", badgeId).maybeSingle();
+      const badge = throwOnError(badgeResult);
+      if (!badge) throw new Error("Badge not found");
+      if (badge.writer_id !== finalWriterId) throw new Error("Badge does not belong to this writer");
+      finalPlanType = badge.type;
+      finalBadgeId = badge.id;
+    }
+
+    // Pricing tiers
+    const pricingTiers: Record<string, { price: number; chapters: number; name: string; durationDays: number }> = {
+      blue: { price: 1, chapters: 3, name: "Blue", durationDays: 14 },
+      iron: { price: 2, chapters: 6, name: "Iron", durationDays: 14 },
+      silver: { price: 3, chapters: 10, name: "Silver", durationDays: 14 },
+      gold: { price: 5, chapters: 999, name: "Gold", durationDays: 30 },
+    };
+
+    tier = pricingTiers[finalPlanType];
+    if (!tier) {
+      throw new Error("Invalid plan type");
+    }
+
+    console.log("[benefactor-payment] Payment details:", {
+      tier: tier.name,
+      price: tier.price,
+      durationDays: tier.durationDays,
+    });
+
+    // Verify payment on-chain
+    const mint = currency === 'USDC' ? Deno.env.get("USDC_MINT_ADDRESS") :
+                currency === 'SKR' ? Deno.env.get("SKR_MINT_ADDRESS") : null;
+    const minRaw = BigInt(Math.round(tier.price * (mint ? 1_000_000 : 1_000_000_000)));
+
+    await verifyPayment({
+      signature,
+      payer: userPublicKey,
+      mint,
+      minRaw,
+    });
+
+    console.log("[benefactor-payment] Payment verified successfully");
+
     // Check if user already has an active subscription to this writer
     const { data: existingSubscription } = await supabaseAdmin
       .from("writer_subscriptions")
@@ -83,11 +148,7 @@ serve(async (req) => {
 
     if (existingSubscription) {
       console.log("[benefactor-payment] User already has active subscription to this writer");
-      return Response.json({ 
-        success: true, 
-        signature,
-        message: "You already have an active subscription to this writer"
-      });
+      throw new Error("You already have an active subscription to this writer. Please wait for it to expire or contact support.");
     }
 
     // Calculate expiration date
@@ -156,7 +217,7 @@ serve(async (req) => {
     // Update user's benefactor status
     const { data: currentUserData } = await supabaseAdmin
       .from("users")
-      .select("is_benefactor, benefactor_level, total_benefactor_payments")
+      .select("is_benefactor, benefactor_level, benefactor_since, total_benefactor_payments")
       .eq("id", userData.id)
       .maybeSingle();
 
@@ -182,7 +243,7 @@ serve(async (req) => {
           benefactor_level: newLevel,
           benefactor_since: currentUserData.benefactor_since || new Date().toISOString(),
           total_benefactor_payments: newTotalPayments,
-          current_writer_subscription: planType,
+          current_writer_subscription: finalPlanType,
           current_writer_subscription_expires: expiresAt,
         })
         .eq("id", userData.id);
@@ -190,19 +251,19 @@ serve(async (req) => {
       if (updateError) {
         console.warn("[benefactor-payment] Failed to update benefactor status:", updateError.message);
       } else {
-        console.log("[benefactor-payment] Updated benefactor status:", { level: newLevel, total: newTotalPayments, currentSubscription: planType });
+        console.log("[benefactor-payment] Updated benefactor status:", { level: newLevel, total: newTotalPayments, currentSubscription: finalPlanType });
       }
     }
 
     console.log(`[benefactor-payment] Success - ${tier.name} writer subscription activated for user ${userData.id}, writer ${finalWriterId}`);
-    return Response.json({ 
-      success: true, 
+    return Response.json({
+      success: true,
       signature,
-      plan_type: planType,
+      plan_type: finalPlanType,
       chapters_unlocked: tier.chapters,
       expires_at: expiresAt,
       writer_id: finalWriterId,
-      badge_id: badgeId,
+      badge_id: finalBadgeId,
     });
 
   } catch (error: any) {

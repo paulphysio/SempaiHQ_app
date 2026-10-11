@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome5';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const BenefactorBadge = ({ level = 'bronze', size = 'small', showLabel = false }) => {
   const getBadgeConfig = (level) => {
-    switch (level.toLowerCase()) {
+    const normalizedLevel = (level || 'bronze').toLowerCase();
+    switch (normalizedLevel) {
       case 'platinum':
         return {
           icon: 'crown',
@@ -73,7 +74,7 @@ const BenefactorBadge = ({ level = 'bronze', size = 'small', showLabel = false }
           },
         ]}
       >
-        <Icon
+        <FontAwesome5
           name={config.icon}
           size={sizeStyle.iconSize}
           color={config.color}
@@ -105,9 +106,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    
     marginTop: 4,
-    fontFamily: ' Yoruka',
+    fontFamily: 'Yoruka',
   },
 });
 

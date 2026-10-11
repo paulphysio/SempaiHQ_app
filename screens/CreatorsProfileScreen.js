@@ -670,10 +670,9 @@ const { width, height } = Dimensions.get('window');
 
       {/* Badge Purchase Modal */}
       <Modal
-        visible={showBadgePurchaseModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBadgePurchaseModal(false)}
+        isVisible={showBadgePurchaseModal}
+        onBackdropPress={() => setShowBadgePurchaseModal(false)}
+        onBackButtonPress={() => setShowBadgePurchaseModal(false)}
       >
         <View style={themedStyles.modalOverlay}>
           <View style={themedStyles.modalContent}>

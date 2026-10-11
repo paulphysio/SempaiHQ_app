@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-nati
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { styles, KA_COLORS } from '../../styles/KaitoAdventureStyles';
 
-const ActionBar = ({ toggleModal, startCombat, travel, currentTown, towns, player, countdown, queuedCountdown, formatCountdown }) => (
+const ActionBar = ({ toggleModal, startCombat, startWave, travel, currentTown, towns, player, countdown, queuedCountdown, formatCountdown }) => (
   <View style={actionBarStyles.commandBar}>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={actionBarStyles.commandGrid}>
       <TouchableOpacity style={[actionBarStyles.btn, actionBarStyles.btnPrimary]} onPress={() => toggleModal('craft')}>
@@ -14,6 +14,11 @@ const ActionBar = ({ toggleModal, startCombat, travel, currentTown, towns, playe
       <TouchableOpacity style={[actionBarStyles.btn, actionBarStyles.btnDanger]} onPress={startCombat}>
         <Icon name="gavel" size={16} color="#e08a96" style={actionBarStyles.btnIcon} />
         <Text style={actionBarStyles.btnText}>Combat</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[actionBarStyles.btn, actionBarStyles.btnWave]} onPress={startWave}>
+        <Icon name="water" size={16} color={KA_COLORS.orangeBright} style={actionBarStyles.btnIcon} />
+        <Text style={actionBarStyles.btnText}>Wave</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={[actionBarStyles.btn, actionBarStyles.btnSuccess]} onPress={() => toggleModal('market')}>
@@ -100,6 +105,10 @@ const actionBarStyles = StyleSheet.create({
   btnSuccess: {
     borderColor: KA_COLORS.success,
     backgroundColor: 'rgba(74, 124, 89, 0.12)',
+  },
+  btnWave: {
+    borderColor: KA_COLORS.orangeBright,
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
   },
   btnText: {
     fontSize: 10,

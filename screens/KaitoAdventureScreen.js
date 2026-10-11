@@ -52,6 +52,8 @@ import TravelModal from '../components/KaitoAdventure/modals/TravelModal';
 import GuideModal from '../components/KaitoAdventure/modals/GuideModal';
 import LeaderboardModal from '../components/KaitoAdventure/modals/LeaderboardModal';
 import CombatModal from '../components/KaitoAdventure/modals/CombatModal';
+import WaveModal from '../components/KaitoAdventure/modals/WaveModal';
+import NexusTransitionModal from '../components/KaitoAdventure/modals/NexusTransitionModal';
 
 // ---- Constants Section ----
 const avatarImages = {
@@ -115,7 +117,7 @@ const defaultPlayer = {
     { name: "Spicy Sake", ingredients: ["Water", "Pepper"], type: "sell", baseGold: 20 },
     { name: "Mist Potion", ingredients: ["Mist Essence", "Herbs"], type: "sell", baseGold: 20 },
     { name: "Golden Elixir", ingredients: ["Golden Herb", "Mist Essence"], type: "sell", baseGold: 50 },
-    { name: "Weak Healing Potion", ingredients: ["Water", "Herbs"], type: "heal", healPercent: 0.3, sellValue: 15 },
+    { name: "Weak Healing Potion", ingredients: ["Water", "Shadow Root"], type: "heal", healPercent: 0.3, sellValue: 15 },
     { name: "Medium Healing Potion", ingredients: ["Water", "Mist Essence"], type: "heal", healPercent: 0.4, sellValue: 25 },
     { name: "Strong Healing Potion", ingredients: ["Mist Essence", "Shadow Root"], type: "heal", healPercent: 0.5, sellValue: 40 },
     { name: "Lucky Gather Potion", ingredients: ["Herbs", "Golden Herb"], type: "gather", effect: { rareChanceBoost: 0.1, duration: 300000 } },
@@ -246,6 +248,7 @@ const KaitoAdventureScreen = () => {
     market: false,
     gather: false,
     combat: false,
+    wave: false,
     leaderboard: false,
     quests: false,
     daily: false,
@@ -268,6 +271,11 @@ const KaitoAdventureScreen = () => {
   const [queuedCountdown, setQueuedCountdown] = useState(null);
   const [combatState, setCombatState] = useState(null);
   const [combatResult, setCombatResult] = useState(null);
+  const [waveState, setWaveState] = useState(null);
+  const [waveResult, setWaveResult] = useState(null);
+  const [waveCount, setWaveCount] = useState(0);
+  const [waveEnemies, setWaveEnemies] = useState([]);
+  const [currentWaveEnemy, setCurrentWaveEnemy] = useState(null);
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [leaderboardTab, setLeaderboardTab] = useState('level'); // 'level' or 'gold'
   const [leaderboardLastFetch, setLeaderboardLastFetch] = useState(null); // Track last fetch to prevent overwrites
@@ -282,9 +290,52 @@ const KaitoAdventureScreen = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   // Pre-combat "your health is low" confirmation
   const [lowHealthWarning, setLowHealthWarning] = useState(false);
+  // Light/dark mode toggle
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  // Nexus transition state
+  const [showNexusTransition, setShowNexusTransition] = useState(false);
+  const [nexusMode, setNexusMode] = useState('combat');
   const { session } = useGoogleAuth();
 
   const toggleMenu = () => setMenuOpen((prev) => !prev);
+  const toggleTheme = () => setIsDarkMode((prev) => !prev);
+
+  // Handle nexus transition completion
+  const handleNexusComplete = useCallback(() => {
+    setShowNexusTransition(false);
+    
+    if (nexusMode === 'combat') {
+      startCombat();
+    } else if (nexusMode === 'wave') {
+      const firstEnemy = generateWaveEnemy(1);
+      setCurrentWaveEnemy(firstEnemy);
+      setWaveCount(1);
+      setWaveResult(null);
+
+      const levelScaleHealth = 1 + (player.level - 1) * 0.08;
+      const levelScaleDamage = 1 + (player.level - 1) * 0.05;
+      const weatherMod = weather.effect === 'rain' ? 0.9 : weather.effect === 'storm' ? 0.8 : 1;
+
+      const scaledEnemyHealth = Math.round(firstEnemy.health * levelScaleHealth * weatherMod);
+
+      setWaveState({
+        playerHealth: player.health > player.max_health ? player.max_health : player.health,
+        enemy: {
+          ...firstEnemy,
+          health: scaledEnemyHealth,
+          max_health: scaledEnemyHealth,
+          damage: Math.round(firstEnemy.damage * levelScaleDamage * weatherMod),
+          gold: Math.round(firstEnemy.gold * levelScaleHealth),
+        },
+        enemyHealth: scaledEnemyHealth,
+        enemyMaxHealth: scaledEnemyHealth,
+        isAttacking: false,
+        log: player.health <= 0 ? ["You're at 0 health! Craft a potion quickly!"] : [],
+      });
+      setModals((prev) => ({ ...prev, wave: true }));
+      setGameMessage(`Wave 1 started against ${firstEnemy.name}!`);
+    }
+  }, [nexusMode, startCombat, player, weather, generateWaveEnemy]);
 
   // ---- Persistence and Supabase Sync ----
   useEffect(() => {
@@ -989,8 +1040,10 @@ const KaitoAdventureScreen = () => {
       setLowHealthWarning(true);
       return;
     }
-    startCombat();
-  }, [player.health, player.max_health, startCombat]);
+    // Trigger nexus transition before combat
+    setNexusMode('combat');
+    setShowNexusTransition(true);
+  }, [player.health, player.max_health]);
 
   const attackEnemy = useCallback(
     (skillName = "Basic Attack") => {
@@ -1180,6 +1233,140 @@ const KaitoAdventureScreen = () => {
     },
     [combatState, player.recipes, player.skills, player.inventory, player.max_health, getAvailableIngredients]
   );
+
+  // Wave mode functions
+  const startWave = useCallback(() => {
+    const healthPct = player.max_health > 0 ? player.health / player.max_health : 1;
+    if (player.health > 0 && healthPct <= LOW_HEALTH_WARNING_THRESHOLD) {
+      setLowHealthWarning(true);
+      return;
+    }
+
+    // Trigger nexus transition before wave
+    setNexusMode('wave');
+    setShowNexusTransition(true);
+  }, [player.health, player.max_health]);
+
+  const waveAttack = useCallback(
+    (skillName = "Basic Attack") => {
+      if (!waveState || waveState.isAttacking) return;
+      setWaveState((prev) => prev ? { ...prev, isAttacking: true } : prev);
+      setTimeout(() => {
+        setWaveState((prev) => {
+          if (!prev) return null;
+          const skill =
+            player.skills.find((s) => s.name === skillName) || {
+              name: "Basic Attack",
+              effect: { damage: 10 },
+              level: 1,
+            };
+          const weaponDamage = player.equipment?.weapon
+            ? player.recipes.find((r) => r.name === player.equipment.weapon)?.bonus.damage || 0
+            : 0;
+          const traitBonus = player.trait === "warrior" ? 5 : 0;
+          const baseDamage = skill.effect.damage || 10;
+          const scaledDamage = baseDamage * (1 + (skill.level - 1) * 0.05);
+          const cappedDamage = Math.min(scaledDamage, 50);
+          const totalDamage = Math.round(cappedDamage + weaponDamage + traitBonus);
+          const newEnemyHealth = Math.max(prev.enemyHealth - totalDamage, 0);
+          const attackMessage = `Kaito uses ${skill.name} for ${totalDamage} damage!`;
+
+          if (newEnemyHealth <= 0) {
+            const baseXP = prev.enemy.name === "Bandit" ? 20 : prev.enemy.name === "Shadow Ninja" ? 25 : 30;
+            const xpGain = baseXP + (player.level - 1) * 2;
+            setPlayer((p) => ({
+              ...p,
+              gold: p.gold + prev.enemy.gold,
+              stats: { ...p.stats, enemiesDefeated: p.stats.enemiesDefeated + 1 },
+            }));
+            updateXP(xpGain);
+            setGameMessage(`Wave enemy defeated! +${prev.enemy.gold} gold (+${xpGain} XP)`);
+            setWaveResult({
+              type: "win",
+              message: `Defeated ${prev.enemy.name}!`,
+            });
+            return null;
+          }
+
+          return {
+            ...prev,
+            enemyHealth: newEnemyHealth,
+            log: [...prev.log, attackMessage],
+            isAttacking: false,
+          };
+        });
+      }, 1000);
+    },
+    [waveState, player.skills, player.equipment, player.recipes, player.trait, updateXP]
+  );
+
+  const craftWavePotion = useCallback(
+    (potionName) => {
+      if (!waveState || waveState.isAttacking) return;
+      setWaveState((prev) => prev ? { ...prev, isAttacking: true } : prev);
+      setTimeout(() => {
+        setPlayer((prev) => {
+          const recipe = prev.recipes.find((r) => r.name === potionName && r.type === "heal");
+          if (!recipe) {
+            setGameMessage("No such healing potion recipe!");
+            setWaveState((prevState) => prevState ? { ...prevState, isAttacking: false } : prevState);
+            return prev;
+          }
+          const available = getAvailableIngredients;
+          const hasEnough = recipe.ingredients.every((ing) => {
+            const item = available.find((i) => i.name === ing);
+            return item && item.owned && item.quantity > 0;
+          });
+          if (!hasEnough) {
+            setGameMessage("Not enough ingredients to craft this potion!");
+            setWaveState((prevState) => prevState ? { ...prevState, isAttacking: false } : prevState);
+            return prev;
+          }
+          const healBonus = prev.skills.some((s) => s.name === "Potent Mix")
+            ? prev.skills.find((s) => s.name === "Potent Mix").effect.healBonus
+            : 0;
+          const newInventory = prev.inventory
+            .map((item) =>
+              recipe.ingredients.includes(item.name)
+                ? { ...item, quantity: item.quantity - 1 }
+                : item
+            )
+            .filter((item) => item.quantity > 0);
+          const healAmount = Math.round(prev.max_health * recipe.healPercent) + healBonus;
+          const newHealth = Math.min(prev.health + healAmount, prev.max_health);
+          setGameMessage(`Crafted and used ${potionName} to heal ${healAmount} HP!`);
+          setWaveState((prevState) => prevState ? {
+            ...prevState,
+            playerHealth: newHealth,
+            log: [...prevState.log, `Kaito crafts and uses ${potionName} to heal ${healAmount} HP`],
+            isAttacking: false,
+          } : prevState);
+          return { ...prev, health: newHealth, inventory: newInventory };
+        });
+      }, 1000);
+    },
+    [waveState, player.recipes, player.skills, player.inventory, player.max_health, getAvailableIngredients]
+  );
+
+  const generateWaveEnemy = useCallback((waveNumber) => {
+    const enemyTypes = [
+      { name: "Bandit", health: 80, damage: 10, gold: 10, drop: "Shadow Root", dropChance: 0.2 },
+      { name: "Shadow Ninja", health: 60, damage: 15, gold: 15, drop: "Mist Essence", dropChance: 0.3 },
+      { name: "Golem", health: 120, damage: 8, gold: 20, drop: "Iron Ore", dropChance: 0.25 },
+    ];
+    
+    const baseEnemy = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+    const healthScale = 1 + (waveNumber - 1) * 0.15;
+    const damageScale = 1 + (waveNumber - 1) * 0.1;
+    
+    return {
+      ...baseEnemy,
+      health: Math.round(baseEnemy.health * healthScale),
+      max_health: Math.round(baseEnemy.health * healthScale),
+      damage: Math.round(baseEnemy.damage * damageScale),
+      gold: Math.round(baseEnemy.gold * (1 + waveNumber * 0.1)),
+    };
+  }, []);
 
   useEffect(() => {
     const checkBuffExpiration = () => {
@@ -1754,44 +1941,13 @@ const KaitoAdventureScreen = () => {
     switch (item.type) {
       case 'navbar':
         return (
-          <View style={styles.navbar}>
-            <TouchableOpacity
-              style={styles.navbarBrand}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Image
-                source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/kaito-adventure/logo.png' }}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <Text style={styles.logoText}>Sempai HQ</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={toggleMenu} style={styles.menuToggle}>
-              <Icon name={menuOpen ? 'times' : 'bars'} size={24} color="#ff6200" />
-            </TouchableOpacity>
-            {menuOpen && (
-              <View style={styles.navLinks}>
-                <TouchableOpacity
-                  style={styles.navLink}
-                  onPress={() => navigation.navigate('Home')}
-                >
-                  <Icon name="home" size={20} color="#ff6200" style={styles.navIcon} />
-                  <Text style={styles.navLinkText}>Home</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.navLink}
-                  onPress={() => navigation.navigate('Profile')}
-                >
-                  <Icon name="user" size={20} color="#ff6200" style={styles.navIcon} />
-                  <Text style={styles.navLinkText}>Profile</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.navLink, styles.navLinkActive]}>
-                  <Icon name="gamepad" size={20} color="#ff6200" style={styles.navIcon} />
-                  <Text style={styles.navLinkText}>Game</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+          <Navbar
+            menuOpen={menuOpen}
+            toggleMenu={toggleMenu}
+            onNavigate={(screen) => navigation.navigate(screen)}
+            isDarkMode={isDarkMode}
+            toggleTheme={toggleTheme}
+          />
         );
       case 'leaderboardButton':
         return (
@@ -2199,6 +2355,7 @@ const KaitoAdventureScreen = () => {
     >
       <CombatModal
         combat={combatState}
+        combatResult={combatResult}
         player={player}
         enemy={combatState?.enemy}
         combatMessage={combatState?.log?.slice(-1)?.[0] || ''}
@@ -2209,6 +2366,26 @@ const KaitoAdventureScreen = () => {
         combatUseSkill={attackEnemy}
         combatFlee={() => toggleModal('combat')}
         toggleModal={toggleModal}
+      />
+    </ModalWrapper>
+  );
+  const renderWaveModal = () => (
+    <ModalWrapper
+      show={modals.wave}
+      onHide={() => toggleModal('wave')}
+      title="Wave Mode"
+      fullscreen
+    >
+      <WaveModal
+        waveState={waveState}
+        waveResult={waveResult}
+        player={player}
+        waveAttack={waveAttack}
+        craftWavePotion={craftWavePotion}
+        toggleModal={toggleModal}
+        waveCount={waveCount}
+        setWaveCount={setWaveCount}
+        setCurrentWaveEnemy={setCurrentWaveEnemy}
       />
     </ModalWrapper>
   );
@@ -2422,6 +2599,7 @@ const KaitoAdventureScreen = () => {
       <ActionBar
         toggleModal={toggleModal}
         startCombat={handleCombatPress}
+        startWave={startWave}
         travel={travel}
         currentTown={currentTown}
         towns={towns}
@@ -2435,6 +2613,7 @@ const KaitoAdventureScreen = () => {
       {renderMarketModal()}
       {renderGatherModal()}
       {renderCombatModal()}
+      {renderWaveModal()}
       {renderLeaderboardModal()}
       {renderQuestsModal()}
       {renderDailyModal()}
@@ -2448,6 +2627,11 @@ const KaitoAdventureScreen = () => {
       {renderGuildModal()}
       {renderGuideModal()}
       {renderLowHealthWarning()}
+      <NexusTransitionModal
+        visible={showNexusTransition}
+        mode={nexusMode}
+        onComplete={handleNexusComplete}
+      />
     </SafeAreaView>
   );
 };

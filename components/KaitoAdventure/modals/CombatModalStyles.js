@@ -29,6 +29,8 @@ const KA_COLORS = {
   bgInput:        '#0f0e0d',
   orangePrimary:  '#cc5500',
   orangeBright:   '#ff6b35',
+  orangeSoft:     '#e67e22',
+  orangeDim:      '#8b4513',
   redAccent:      '#c41e3a',
   redDeep:        '#8b0000',
   gold:           '#c9a84c',
@@ -812,13 +814,13 @@ const CombatModal = ({ combat, combatResult, player, enemy, combatAttack, craftC
           {/* Fighters */}
           <View style={[StyleSheet.absoluteFill, styles.fightersContainer]} pointerEvents="none">
             <View style={[styles.fighter, styles.playerFighter, { left: `${playerPos}%` }]}>
-              <SpriteAnimator character="kaito" animation={playerAnimation} size={120} />
+              <SpriteAnimator character="kaito" animation={playerAnimation} size={160} />
             </View>
             <View style={[styles.fighter, styles.enemyFighter, { left: `${enemyPos}%` }]}>
               <SpriteAnimator
                 character={combatState?.enemy?.name || 'bandit'}
                 animation={enemyAnimation}
-                size={120}
+                size={160}
               />
             </View>
           </View>
@@ -1050,7 +1052,7 @@ const styles = StyleSheet.create({
   distanceText: { fontSize: 6, minWidth: 20, textAlign: 'right' },
 
   fightingStage: {
-    height: 110,
+    height: 180,
     backgroundColor: KA_COLORS.bgCard,
     borderRadius: 4,
     borderWidth: 1,
@@ -1105,13 +1107,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: KA_COLORS.border,
     padding: 6, borderRadius: 4,
   },
-  jpActionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  jpActionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'space-between' },
 
   jpActionBtn: {
-    flex: 1, minWidth: '30%', paddingVertical: 6,
+    width: '23%',
+    paddingVertical: 8,
     backgroundColor: KA_COLORS.bgInput,
-    borderWidth: 1, borderColor: KA_COLORS.border,
-    borderRadius: 4, alignItems: 'center', gap: 2,
+    borderWidth: 2, borderColor: KA_COLORS.border,
+    borderRadius: 6, alignItems: 'center', gap: 2,
   },
   actionBtnTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   jpActionLabel: { fontSize: 10, color: KA_COLORS.ivory },
@@ -1119,14 +1122,14 @@ const styles = StyleSheet.create({
   actionReady:   { opacity: 1 },
   actionCooling: { opacity: 0.45 },
 
-  jpAttackBtn: { borderColor: KA_COLORS.redAccent,  backgroundColor: 'rgba(196,30,58,0.15)' },
-  jpMoveBtn:   { borderColor: KA_COLORS.success,    backgroundColor: 'rgba(74,124,89,0.15)' },
-  jpBlockBtn:  { borderColor: KA_COLORS.gold,        backgroundColor: 'rgba(201,168,76,0.15)' },
-  jpDodgeBtn:  { borderColor: '#60a5fa',             backgroundColor: 'rgba(96,165,250,0.15)' },
-  jpSkillBtn:  { borderColor: '#f59e0b',             backgroundColor: 'rgba(245,158,11,0.15)' },
-  jpPotionBtn: { borderColor: '#a78bfa',             backgroundColor: 'rgba(167,139,250,0.15)' },
-  activeBtnBlock: { borderColor: '#4169e1', backgroundColor: 'rgba(65,105,225,0.3)' },
-  activeBtnDodge: { borderColor: '#32cd32', backgroundColor: 'rgba(50,205,50,0.3)'  },
+  jpAttackBtn: { borderColor: KA_COLORS.orangePrimary,  backgroundColor: 'rgba(204,85,0,0.25)' },
+  jpMoveBtn:   { borderColor: KA_COLORS.orangeBright,   backgroundColor: 'rgba(255,107,53,0.2)' },
+  jpBlockBtn:  { borderColor: KA_COLORS.gold,             backgroundColor: 'rgba(201,168,76,0.2)' },
+  jpDodgeBtn:  { borderColor: KA_COLORS.orangeSoft,       backgroundColor: 'rgba(230,126,34,0.2)' },
+  jpSkillBtn:  { borderColor: KA_COLORS.orangeBright,     backgroundColor: 'rgba(255,107,53,0.25)' },
+  jpPotionBtn: { borderColor: KA_COLORS.orangeDim,        backgroundColor: 'rgba(139,69,19,0.25)' },
+  activeBtnBlock: { borderColor: KA_COLORS.orangeBright, backgroundColor: 'rgba(255,107,53,0.35)' },
+  activeBtnDodge: { borderColor: KA_COLORS.orangePrimary, backgroundColor: 'rgba(204,85,0,0.35)'  },
 
   hintBar: { marginTop: 5, alignItems: 'center' },
   hintText: { fontSize: 5, color: KA_COLORS.textSecondary },

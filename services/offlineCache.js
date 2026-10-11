@@ -2,11 +2,14 @@
 
 import { File, Directory, Paths } from "expo-file-system/next";
 
+const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
+
 /**
  * @param {any} error
  */
 export function isErrorNetworkError(error) {
-  return error?.message?.toLowerCase().includes("network request failed");
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes("network request failed");
 }
 
 /**
@@ -52,6 +55,7 @@ function getNovelCache(id) {
 export function getCachedNovels() {
   const novels = [];
   for (let path of novelsCacheDirectory.list()) {
+    if (!(path instanceof Directory)) continue;
     const novel = getNovel(path.name);
     if (!novel) continue;
 
@@ -82,11 +86,18 @@ export function getCachedNovels() {
  * @param {!{ id: string; image: string }} novel
  */
 export async function saveNovel(novel) {
-  const { cacheDirectory, dataFile, imageFile } = getNovelCache(novel.id);
-  cacheDirectory.create();
+  try {
+    const { cacheDirectory, dataFile, imageFile } = getNovelCache(novel.id);
+    cacheDirectory.create();
 
-  dataFile.write(JSON.stringify(novel));
-  if (novel.image) await downloadOrOverwriteFileAsync(novel.image, imageFile);
+    dataFile.write(JSON.stringify(novel));
+    if (novel.image && novel.image !== FALLBACK_IMAGE) {
+      await downloadOrOverwriteFileAsync(novel.image, imageFile);
+    }
+  } catch (error) {
+    console.error('[offlineCache] could not save novel:', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
 }
 
 /**
@@ -101,7 +112,7 @@ export function getNovel(id) {
     return novel;
   } catch (e) {
     console.error(e);
-    console.error(`could not load novel ${id} from cache: {e?.message}`);
+    console.error(`could not load novel ${id} from cache: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   }
 }
@@ -132,28 +143,18 @@ export function getNovelChapters(id) {
   } catch (e) {
     console.error(e);
     console.error(
-      `could not load chapters for novel ${id} from cache: {e?.message}`,
+      `could not load chapters for novel ${id} from cache: ${e instanceof Error ? e.message : String(e)}`,
     );
     return null;
   }
 }
 
 /**
- * @param {!{ novel_id: string }[]} chapters
+ * @param {!string} novelId
+ * @param {!any[]} chapters
  */
-export function saveNovelChapters(chapters) {
-  const novelChaptersMap = new Map();
-  for (let chapter of chapters) {
-    let novelChapters = novelChaptersMap.get(chapter.novel_id);
-    if (!novelChapters) {
-      novelChapters = [];
-      novelChaptersMap.set(chapter.novel_id, []);
-    }
-    novelChapters.push(chapter);
-  }
-
-  for (let [novelId, novelChapters] of novelChaptersMap) {
-    const { chaptersFile } = getNovelCache(novelId);
-    chaptersFile.write(JSON.stringify(novelChapters));
-  }
+export function saveNovelChapters(novelId, chapters) {
+  const { cacheDirectory, chaptersFile } = getNovelCache(novelId);
+  if (!cacheDirectory.exists) cacheDirectory.create();
+  chaptersFile.write(JSON.stringify(chapters));
 }

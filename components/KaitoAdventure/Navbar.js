@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { styles, KA_COLORS } from '../../styles/KaitoAdventureStyles';
 
-const Navbar = ({ menuOpen, toggleMenu, onNavigate }) => (
+const Navbar = ({ menuOpen, toggleMenu, onNavigate, isDarkMode, toggleTheme }) => (
   <View style={navbarStyles.container}>
     {/* Top amber accent line */}
     <View style={navbarStyles.accentLine} />
@@ -19,6 +19,10 @@ const Navbar = ({ menuOpen, toggleMenu, onNavigate }) => (
 
       <TouchableOpacity onPress={toggleMenu} style={navbarStyles.menuButton}>
         <Icon name={menuOpen ? 'times' : 'bars'} size={20} color={KA_COLORS.textSecondary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={toggleTheme} style={navbarStyles.themeButton}>
+        <Icon name={isDarkMode ? 'sun' : 'moon'} size={16} color={KA_COLORS.orangeBright} />
       </TouchableOpacity>
 
       <View style={[navbarStyles.navLinks, menuOpen ? navbarStyles.navLinksOpen : navbarStyles.navLinksClosed]}>
@@ -82,6 +86,10 @@ const navbarStyles = StyleSheet.create({
   },
   menuButton: {
     padding: 8,
+  },
+  themeButton: {
+    padding: 8,
+    marginLeft: 4,
   },
   navLinks: {
     flexDirection: 'row',

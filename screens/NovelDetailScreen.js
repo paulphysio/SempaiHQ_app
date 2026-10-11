@@ -77,13 +77,6 @@ const NovelDetailScreen = () => {
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey || null;
 
-  const sanitizeText = (text) => {
-    if (!text) return '';
-    return text.replace(/[<>&"']/g, (char) =>
-      ({ '<': '<', '>': '>', '&': '&', '"': '"', "'": "'" }[char])
-    );
-  };
-
   const toggleMenu = () => {
     const toValue = menuOpen ? 280 : 0;
     Animated.parallel([
@@ -115,7 +108,7 @@ const NovelDetailScreen = () => {
         .eq('id', id)
         .eq('is_visible', true)
         .single();
-      
+
       const isNetworkError = isErrorNetworkError(error);
       // failed to fetch from network, try cache
       if(isNetworkError){
@@ -128,7 +121,7 @@ const NovelDetailScreen = () => {
         console.error('[NovelDetailScreen] Novel fetch error:', error);
         throw new Error('Novel not found');
       }
-      
+
       console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
       if(isSavedOffline && !isNetworkError) await saveNovel(data);
@@ -143,7 +136,7 @@ const NovelDetailScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isSavedOffline]);
 
   const updateViewCount = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
@@ -215,7 +208,7 @@ const NovelDetailScreen = () => {
       // failed to fetch from network, try cache
       if(isNetworkError){
         console.log(`[NovelDetailScreen] could not load unlocked chapters ${id} from network, trying from cache`);
-        data = getNovelChapters(id);
+        payments = getNovelChapters(id);
         console.log(`[NovelDetailScreen] unlocked chapters ${id} ${payments ? "loaded successfully" : "not cached"}`);
       }
 
@@ -225,7 +218,7 @@ const NovelDetailScreen = () => {
         return;
       }
 
-      if(isSavedOffline && !isNetworkError) saveNovelChapters(payments);
+      if(isSavedOffline && !isNetworkError) saveNovelChapters(id, payments);
       setNovelChapters(payments);
 
       const unlockedChapterIds = payments?.map(p => p.chapter_number.toString()) || [];
@@ -259,14 +252,14 @@ const NovelDetailScreen = () => {
     try{
       if(!novel) return;
       await saveNovel(novel);
-      if(novelChapters) saveNovelChapters(novelChapters)
+      if(novelChapters) saveNovelChapters(id, novelChapters)
       setIsSavedOffline(true);
     }
     catch(error){
       console.error('[NovelDetailScreen] could not save novel:', error);
       setError(error.message);
     }
-  }, [isSavedOffline, novel, novelChapters]);
+  }, [isSavedOffline, novel, novelChapters, id]);
 
   const handleNavigation = (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
@@ -328,7 +321,7 @@ const NovelDetailScreen = () => {
                 )}
               </View>
             </View>
-            <Text style={styles.chapterTitle}>{sanitizeText(title)}</Text>
+            <Text style={styles.chapterTitle}>{title}</Text>
             <View style={styles.chapterAccent} />
           </View>
         </Animated.View>
@@ -354,7 +347,7 @@ const NovelDetailScreen = () => {
       <View style={styles.novelContainer}>
         <View style={styles.novelHeaderGradient}>
           <View style={styles.novelHeader}>
-            <Text style={styles.novelTitle}>{sanitizeText(novel.title)}</Text>
+            <Text style={styles.novelTitle}>{novel.title}</Text>
             <View style={styles.novelImageWrapper}>
               <Image
                 source={{ uri: novel.image || FALLBACK_IMAGE }}
@@ -372,7 +365,7 @@ const NovelDetailScreen = () => {
             </View>
             <Text style={styles.novelIntro}>
               Dive into the chapters of{' '}
-              <Text style={styles.highlight}>{sanitizeText(novel.title)}</Text>:
+              <Text style={styles.highlight}>{novel.title}</Text>:
             </Text>
           </View>
         </View>
@@ -414,7 +407,7 @@ const NovelDetailScreen = () => {
       {novel.id && novel.title && (
         <NovelCommentSection
           novelId={novel.id}
-          novelTitle={sanitizeText(novel.title)}
+          novelTitle={novel.title}
         />
       )}
       <View style={styles.footer}>

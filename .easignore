@@ -65,10 +65,10 @@ LICENSE
 # Assets that might be large
 assets/videos/
 assets/large-assets/
-*.mp4
-*.mov
-*.avi
-*.mkv
+# *.mp4  # Commented out - needed for ad video
+# *.mov
+# *.avi
+# *.mkv
 
 # Build artifacts
 build/

@@ -27,6 +27,33 @@ const KA_COLORS = {
   dangerSoft: '#8b3a3a',
 };
 
+// Light mode color variants
+const KA_COLORS_LIGHT = {
+  bgPrimary: '#f5f0e8',
+  bgCard: '#fff8f0',
+  bgElevated: '#ffffff',
+  bgInput: '#f0e8dc',
+  orangePrimary: '#cc5500',
+  orangeBright: '#ff6b35',
+  orangeSoft: '#e67e22',
+  orangeDim: '#8b4513',
+  redAccent: '#c41e3a',
+  redDeep: '#8b0000',
+  gold: '#c9a84c',
+  goldBright: '#ffd700',
+  ivory: '#2a2520',
+  ivoryDim: '#4a4540',
+  ink: '#e8e0d8',
+  border: '#d4c8b8',
+  textPrimary: '#2a2520',
+  textSecondary: '#5a5048',
+  textMuted: '#8a8078',
+  success: '#4a7c59',
+  successBright: '#6ab77a',
+  danger: '#c41e3a',
+  dangerSoft: '#8b3a3a',
+};
+
 const styles = StyleSheet.create({
   // App Shell
   app: {
