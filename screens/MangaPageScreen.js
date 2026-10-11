@@ -20,6 +20,7 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import { fetchSmpTokenBalance } from '../utils/solana';
+import { callSignedEdgeFunction } from '../utils/walletSignature';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { styles } from '../styles/MangaPageStyles';
 
@@ -54,6 +55,7 @@ const MangaPageScreen = () => {
   const navigation = useNavigation();
   const walletContext = React.useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const secretKey = walletContext?.secretKey;
   const isWalletConnected = !!wallet?.publicKey;
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -161,17 +163,22 @@ const MangaPageScreen = () => {
       if (offChainBalance < amount) {
         throw new Error(`Insufficient off-chain balance: ${offChainBalance.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP.`);
       }
-      // Make withdrawal request
-      const apiUrl = `${API_BASE_URL}/api/withdraw-smp`;
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user.id,
-          walletAddress: wallet.publicKey.toString(),
-          amount,
-        }),
-      });
+      // Make withdrawal request with wallet signature authentication
+      const edgeUrl = `https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/withdraw-smp`;
+
+      // Get private key from wallet context for signing
+      const privateKey = secretKey;
+      if (!privateKey) {
+        throw new Error('Wallet private key not available. Please reconnect your wallet.');
+      }
+
+      // Call with wallet signature authentication
+      const response = await callSignedEdgeFunction(
+        edgeUrl,
+        'withdraw',
+        { walletAddress: wallet.publicKey.toString(), amount },
+        privateKey
+      );
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage;

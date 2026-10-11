@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   Modal,
   View,
@@ -13,11 +13,16 @@ import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../services/supabaseClient';
 import { getUserDetails } from '../utils/userManagement';
 import { fetchSolBalance } from '../utils/solana';
+import { callSignedEdgeFunction } from '../utils/walletSignature';
+import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 
 const MAX_CLAIMS = 500;
 const MINIMUM_SOL_FOR_AIRDROP = 0.005; // 0.5 USD worth of SOL (assuming 1 SOL = $100)
 
 const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
+  const walletContext = useContext(EmbeddedWalletContext);
+  const wallet = walletContext?.wallet;
+  const secretKey = walletContext?.secretKey;
   const [claimCount, setClaimCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
@@ -118,19 +123,37 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
     }
   }, [visible, checkEligibility]);
 
-  // Default onTokenClaim implementation
+  // Default onTokenClaim implementation with wallet signature authentication
   const defaultOnTokenClaim = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('airdrop-function/airdrop', {
-        body: JSON.stringify({ user_id: userId }),
-        method: 'POST',
-      });
-      if (error) {
-        throw new Error(error.message || 'Failed to claim airdrop');
+      // Get wallet address and private key
+      const walletAddress = wallet?.publicKey;
+      const privateKey = secretKey;
+
+      if (!walletAddress || !privateKey) {
+        throw new Error('Wallet not connected. Please connect your wallet first.');
       }
+
+      const edgeUrl = `https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/airdrop-function`;
+
+      // Call with wallet signature authentication
+      const response = await callSignedEdgeFunction(
+        edgeUrl,
+        'airdrop',
+        { walletAddress },
+        privateKey
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Failed to claim airdrop');
+      }
+
       if (!data.signature) {
         throw new Error('No transaction signature returned');
       }
+
       return data.signature;
     } catch (err) {
       throw new Error(err.message);

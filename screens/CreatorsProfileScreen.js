@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
+import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { getProfileStyles } from '../styles/ProfileStyles';
@@ -384,7 +385,7 @@ const { width, height } = Dimensions.get('window');
 
       const planType = selectedBadge.type || 'blue';
 
-      const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/benefactor-payment', {
+      const response = await safeFetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/benefactor-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

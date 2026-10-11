@@ -22,6 +22,7 @@ import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { getNovel, getNovelChapters, isErrorNetworkError } from '../services/offlineCache';
+import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -1851,7 +1852,7 @@ const ChapterScreen = () => {
 
             console.log('[processChapterPayment] Calling edge function at:', functionUrl);
 
-            const response = await fetch(functionUrl, {
+            const response = await safeFetch(functionUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',

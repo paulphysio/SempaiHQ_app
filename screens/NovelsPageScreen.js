@@ -21,6 +21,7 @@ import WalletPanel from '../components/WalletPanel';
 import { PublicKey } from '@solana/web3.js';
 import { TREASURY_PUBLIC_KEY, SMP_MINT_ADDRESS } from '../constants';
 import { fetchSmpTokenBalance } from '../utils/solana';
+import { callSignedEdgeFunction } from '../utils/walletSignature';
 import { useTheme } from '../context/ThemeContext';
 import { getNovelsStyles } from '../styles/NovelsStyles';
 
@@ -60,6 +61,7 @@ const NovelsPageScreen = () => {
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const secretKey = walletContext?.secretKey;
   const { isDark, colors } = useTheme();
   const themedStyles = getNovelsStyles(isDark);
   
@@ -278,37 +280,26 @@ const NovelsPageScreen = () => {
         );
       }
 
-      // Make the withdrawal request which will check Treasury's on-chain balance
-
-      // Call the Deno Edge Function for withdrawal
+      // Make the withdrawal request with wallet signature authentication
       const edgeUrl = `https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/withdraw-smp`;
       console.log('Making withdrawal request to:', edgeUrl, {
-        userId: user.id,
         walletAddress: publicKey,
         amount
       });
 
-      // Get the user's Supabase access token for authorization
-      let accessToken = null;
-      if (supabase.auth.getSession) {
-        const sessionRes = await supabase.auth.getSession();
-        accessToken = sessionRes?.data?.session?.access_token;
-      } else if (supabase.auth.session) {
-        accessToken = supabase.auth.session()?.access_token;
+      // Get private key from wallet context for signing
+      const privateKey = secretKey;
+      if (!privateKey) {
+        throw new Error('Wallet private key not available. Please reconnect your wallet.');
       }
 
-      const response = await fetch(edgeUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-        body: JSON.stringify({
-          userId: user.id,
-          walletAddress: publicKey,
-          amount
-        }),
-      });
+      // Call with wallet signature authentication
+      const response = await callSignedEdgeFunction(
+        edgeUrl,
+        'withdraw',
+        { walletAddress: publicKey, amount },
+        privateKey
+      );
 
       const result = await response.json();
       if (!response.ok || result.error) {

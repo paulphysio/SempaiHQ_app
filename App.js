@@ -48,7 +48,6 @@ import NavigationLoadingOverlay from './components/NavigationLoadingOverlay';
 import FeedScreen from './screens/FeedScreen';
 import RampScreen from './screens/RampScreen';
 import MarketplaceScreen from './screens/MarketplaceScreen';
-import WalletMigrationScreen from './screens/WalletMigrationScreen';
 import MintScreen from './screens/MintScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import AdminScreen from './screens/AdminScreen';
@@ -300,7 +299,6 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="FeedScreen" component={FeedScreen} />
             <Stack.Screen name="Ramp" component={RampScreen} />
             <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
-            <Stack.Screen name="WalletMigration" component={WalletMigrationScreen} />
             <Stack.Screen name="WalletImport" component={WalletImportScreen} />
             <Stack.Screen name="Mint" component={MintScreen} />
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
