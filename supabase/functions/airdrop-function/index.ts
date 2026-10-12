@@ -7,7 +7,10 @@ import bs58 from "npm:bs58@5.0.0";
 
 // Constants
 const SMP_MINT_ADDRESS = new PublicKey("SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor");
-const RPC_URL = "https://mainnet.helius-rpc.com/?api-key=ad8457f8-9c51-4122-95d4-91b15728ea90";
+const HELIUS_API_KEY = Deno.env.get("HELIUS_API_KEY");
+const RPC_URL = HELIUS_API_KEY
+  ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+  : "https://api.mainnet-beta.solana.com";
 const connection = new Connection(RPC_URL, "confirmed");
 const AIRDROP_WALLET_KEYPAIR = Deno.env.get("AIRDROP_WALLET_KEYPAIR");
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://xqeimsncmnqsiowftdmz.supabase.co";
