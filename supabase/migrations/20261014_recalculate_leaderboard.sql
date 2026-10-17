@@ -124,26 +124,26 @@ BEGIN
             u.email,
             u.name,
             u.wallet_address,
-            COALESCE(cr.total_chapters, 0) as chapters_read,
-            COALESCE(ad.amethyst_count, 0) as amethyst_count,
-            (COALESCE(cr.total_chapters, 0) * 100) as base_points,
-            CASE 
+            (COALESCE(cr.total_chapters, 0)::BIGINT) as chapters_read,
+            (COALESCE(ad.amethyst_count, 0)::BIGINT) as amethyst_count,
+            ((COALESCE(cr.total_chapters, 0) * 100)::BIGINT) as base_points,
+            (CASE 
                 WHEN COALESCE(ad.amethyst_count, 0) >= 5000000 THEN 250
                 WHEN COALESCE(ad.amethyst_count, 0) >= 1000000 THEN 200
                 WHEN COALESCE(ad.amethyst_count, 0) >= 500000 THEN 170
                 WHEN COALESCE(ad.amethyst_count, 0) >= 250000 THEN 150
                 WHEN COALESCE(ad.amethyst_count, 0) >= 100000 THEN 120
                 ELSE 0
-            END as amethyst_bonus,
-            (COALESCE(cr.total_chapters, 0) * 100) + 
-            CASE 
+            END)::BIGINT as amethyst_bonus,
+            ((COALESCE(cr.total_chapters, 0) * 100)::BIGINT + 
+            (CASE 
                 WHEN COALESCE(ad.amethyst_count, 0) >= 5000000 THEN 250
                 WHEN COALESCE(ad.amethyst_count, 0) >= 1000000 THEN 200
                 WHEN COALESCE(ad.amethyst_count, 0) >= 500000 THEN 170
                 WHEN COALESCE(ad.amethyst_count, 0) >= 250000 THEN 150
                 WHEN COALESCE(ad.amethyst_count, 0) >= 100000 THEN 120
                 ELSE 0
-            END as effective_points
+            END)::BIGINT) as effective_points
         FROM users u
         LEFT JOIN combined_reading cr ON u.id = cr.user_id
         LEFT JOIN amethyst_data ad ON u.id = ad.user_id
