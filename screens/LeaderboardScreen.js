@@ -34,88 +34,25 @@ const LeaderboardScreen = () => {
       setLoading(true);
       setError(null);
 
-      // Query users and their weekly_points/balance
-      const { data: users, error: usersError } = await supabase
-        .from("users")
-        .select("id, email, wallet_address, weekly_points, amethyst_count, balance")
-        .or("weekly_points.gt.0,balance.gt.0")
-        .order("weekly_points", { ascending: false, nullsFirst: false })
-        .limit(50);
+      // Call the SQL function with the selected time frame
+      const { data: leaderboardData, error: rpcError } = await supabase
+        .rpc('get_leaderboard_data', { p_timeframe: timeFrame });
 
-      if (usersError) throw usersError;
+      if (rpcError) throw rpcError;
 
-      // Get unlocked chapters count and cached Amethyst balances for each user
-      const data = await Promise.all(
-        (users || []).map(async (user) => {
-          // Count unlocked story chapters
-          const { data: storyChapters } = await supabase
-            .from("unlocked_story_chapters")
-            .select("chapters_unlocked_count")
-            .eq("user_id", user.id);
-
-          // Count unlocked manga chapters
-          const { data: mangaChapters } = await supabase
-            .from("unlocked_manga_chapters")
-            .select("id")
-            .eq("user_id", user.id);
-
-          const storyCount = storyChapters?.reduce((sum, chapter) => sum + (chapter.chapters_unlocked_count || 1), 0) || 0;
-          const mangaCount = mangaChapters?.length || 0;
-          const totalUnlockedChapters = storyCount + mangaCount;
-
-          // Get cached Amethyst balance from database
-          const { data: amethystData } = await supabase
-            .from("amethyst_balances")
-            .select("amethyst_balance")
-            .eq("user_id", user.id)
-            .single();
-
-          const cachedAmethystBalance = Number(amethystData?.amethyst_balance) || 0;
-
-          return {
-            ...user,
-            total_points_read: totalUnlockedChapters,
-            cached_amethyst_balance: cachedAmethystBalance
-          };
-        })
-      );
-
-      // Process readers with Amethyst multiplier using cached balances
-      const processedReaders = (data || []).map(user => {
-        const weeklyPoints = Number(user.weekly_points) || 0;
-        const totalChaptersUnlocked = Number(user.total_points_read) || 0;
-        const amethystCount = Number(user.cached_amethyst_balance) || 0;
-
-        const basePoints = weeklyPoints > 0 ? weeklyPoints : (Number(user.balance) || 0);
-
-        let amethystBonus = 0;
-
-        if (amethystCount >= 5000000) amethystBonus = 250;
-        else if (amethystCount >= 1000000) amethystBonus = 200;
-        else if (amethystCount >= 500000) amethystBonus = 170;
-        else if (amethystCount >= 250000) amethystBonus = 150;
-        else if (amethystCount >= 100000) amethystBonus = 120;
-
-        const effectivePoints = basePoints + amethystBonus;
-
-        return {
-          id: user.id,
-          email: user.email,
-          walletAddress: user.wallet_address,
-          weeklyPoints: basePoints,
-          totalPointsRead: totalChaptersUnlocked,
-          amethystCount: amethystCount,
-          multiplierBonus: amethystBonus,
-          effectivePoints: effectivePoints,
-          rank: 0
-        };
-      });
-
-      // Assign ranks
-      processedReaders.sort((a, b) => b.effectivePoints - a.effectivePoints);
-      processedReaders.forEach((reader, index) => {
-        reader.rank = index + 1;
-      });
+      // Process the data
+      const processedReaders = (leaderboardData || []).map((user, index) => ({
+        id: user.user_id,
+        email: user.email,
+        name: user.name,
+        walletAddress: user.wallet_address,
+        weeklyPoints: user.base_points,
+        amethystCount: user.amethyst_count,
+        effectivePoints: user.effective_points,
+        totalPointsRead: user.chapters_read,
+        multiplierBonus: user.amethyst_bonus,
+        rank: index + 1
+      }));
 
       setReaders(processedReaders);
     } catch (err) {
@@ -178,6 +115,10 @@ const LeaderboardScreen = () => {
     const handle = reader.email.split('@')[0];
     return handle.length > 16 ? `${handle.slice(0, 16)}…` : handle;
   };
+
+  useEffect(() => {
+    fetchLeaderboard();
+  }, [timeFrame]);
 
   if (loading) {
     return (
