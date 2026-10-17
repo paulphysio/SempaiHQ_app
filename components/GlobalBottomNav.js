@@ -233,7 +233,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
             <TouchableOpacity
               activeOpacity={0.7}
               style={themedStyles.bottomNavButton}
-              onPress={() => handleNavigation('SwapScreen')}
+              onPress={() => handleNavigation('Swap')}
               accessible={true}
               accessibilityLabel="Swap tokens"
               disabled={isNavigating}
@@ -257,7 +257,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
             <TouchableOpacity
               activeOpacity={0.7}
               style={themedStyles.bottomNavButton}
-              onPress={() => handleNavigation('LeaderboardScreen')}
+              onPress={() => handleNavigation('Leaderboard')}
               accessible={true}
               accessibilityLabel="View leaderboard"
               disabled={isNavigating}
