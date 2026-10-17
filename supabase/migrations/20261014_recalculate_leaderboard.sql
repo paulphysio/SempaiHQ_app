@@ -147,7 +147,7 @@ BEGIN
         FROM users u
         LEFT JOIN combined_reading cr ON u.id = cr.user_id
         LEFT JOIN amethyst_data ad ON u.id = ad.user_id
-        WHERE COALESCE(cr.total_chapters, 0) > 0 OR COALESCE(ad.amethyst_count, 0) > 0
+        WHERE COALESCE(cr.total_chapters, 0) > 0
         ORDER BY effective_points DESC
         LIMIT 50
     ', time_filter);

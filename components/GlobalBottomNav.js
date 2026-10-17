@@ -10,7 +10,7 @@ import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 
 const { width } = Dimensions.get('window');
 
-const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcementCount = 0 }) => {
+const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
@@ -18,21 +18,17 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
   const activeWalletAddress = wallet?.publicKey?.toString();
   const { isDark, colors } = useTheme();
   const themedStyles = getGlobalBottomNavStyles(isDark);
-  
+
   const [showNotifications, setShowNotifications] = useState(false);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [announcements, setAnnouncements] = useState([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
-  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
-  
+
   // Animation refs
   const fadeInAnim = useRef(new Animated.Value(0)).current;
   const slideUpAnim = useRef(new Animated.Value(50)).current;
   const menuPulseAnim = useRef(new Animated.Value(0)).current;
   const notifPulseAnim = useRef(new Animated.Value(0)).current;
-  const announcePulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Initial entrance animation
@@ -59,15 +55,6 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
       ).start();
     }
 
-    if (announcementCount > 0) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(announcePulseAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-          Animated.timing(announcePulseAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
-        ])
-      ).start();
-    }
-
     // Menu button pulse (very subtle)
     Animated.loop(
       Animated.sequence([
@@ -75,16 +62,11 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
         Animated.timing(menuPulseAnim, { toValue: 0, duration: 2500, useNativeDriver: true }),
       ])
     ).start();
-  }, [unreadCount, announcementCount]);
+  }, [unreadCount]);
 
   const handleNotifications = () => {
     setShowNotifications(true);
     fetchNotifications();
-  };
-
-  const handleAnnouncements = () => {
-    setShowAnnouncements(true);
-    fetchAnnouncements();
   };
 
   const handleNavigation = (screenName) => {
@@ -95,7 +77,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
 
   const fetchNotifications = async () => {
     if (!isWalletConnected || !activeWalletAddress) return;
-    
+
     setLoadingNotifications(true);
     try {
       // First get the user ID from wallet address
@@ -131,30 +113,6 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
       setNotifications([]);
     } finally {
       setLoadingNotifications(false);
-    }
-  };
-
-  const fetchAnnouncements = async () => {
-    setLoadingAnnouncements(true);
-    try {
-      const { data: announcementData, error: announcementError } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (announcementError) {
-        console.error('Error fetching announcements:', announcementError);
-        setAnnouncements([]);
-        return;
-      }
-
-      setAnnouncements(announcementData || []);
-    } catch (error) {
-      console.error('Error in fetchAnnouncements:', error);
-      setAnnouncements([]);
-    } finally {
-      setLoadingAnnouncements(false);
     }
   };
 
@@ -271,60 +229,53 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
             </View>
           </Animated.View>
 
-          <Animated.View
-            style={{
-              transform: [{
-                scale: announcementCount > 0 ? announcePulseAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [1, 1.06],
-                }) : 1,
-              }],
-              shadowColor: announcementCount > 0 ? colors.accentDeep : 'transparent',
-              shadowOffset: { width: 0, height: 0 },
-              shadowOpacity: announcementCount > 0 ? announcePulseAnim.interpolate({ inputRange: [0, 1], outputRange: [0.15, 0.35] }) : 0,
-              shadowRadius: announcementCount > 0 ? announcePulseAnim.interpolate({ inputRange: [0, 1], outputRange: [2, 5] }) : 0,
-            }}
-          >
-            <View style={themedStyles.announcementToggleWrapper}>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={themedStyles.bottomNavButton}
-                onPress={handleAnnouncements}
-                accessible={true}
-                accessibilityLabel="View announcements"
+          <View style={themedStyles.navButtonWrapper}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={themedStyles.bottomNavButton}
+              onPress={() => handleNavigation('SwapScreen')}
+              accessible={true}
+              accessibilityLabel="Swap tokens"
+              disabled={isNavigating}
+            >
+              <LinearGradient
+                colors={[colors.accentSoft, colors.accentGlow]}
+                style={themedStyles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
               >
-                <LinearGradient
-                  colors={announcementCount > 0 ? [colors.accentDeep, colors.accent] : [colors.accentSoft, colors.accentGlow]}
-                  style={themedStyles.buttonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <FontAwesome5 
-                    name="bell" 
-                    size={width < 480 ? 20 : 22} 
-                    color={announcementCount > 0 ? '#fff' : colors.accentDeep}
-                  />
-                  {announcementCount > 0 && (
-                    <Animated.View 
-                      style={[
-                        themedStyles.announcementBadge,
-                        {
-                          transform: [{
-                            scale: announcePulseAnim.interpolate({
-                              inputRange: [0, 1],
-                              outputRange: [1, 1.1],
-                            })
-                          }]
-                        }
-                      ]}
-                    >
-                      <Text style={themedStyles.badgeText}>{announcementCount}</Text>
-                    </Animated.View>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </Animated.View>
+                <FontAwesome5
+                  name="exchange-alt"
+                  size={width < 480 ? 20 : 22}
+                  color={colors.accent}
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          <View style={themedStyles.navButtonWrapper}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={themedStyles.bottomNavButton}
+              onPress={() => handleNavigation('LeaderboardScreen')}
+              accessible={true}
+              accessibilityLabel="View leaderboard"
+              disabled={isNavigating}
+            >
+              <LinearGradient
+                colors={[colors.accentSoft, colors.accentGlow]}
+                style={themedStyles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <FontAwesome5
+                  name="trophy"
+                  size={width < 480 ? 20 : 22}
+                  color={colors.accent}
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
 
@@ -357,47 +308,6 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0, announcement
                     <Text style={themedStyles.notificationMessage}>{notif.message}</Text>
                     <Text style={themedStyles.notificationDate}>
                       {new Date(notif.created_at).toLocaleDateString()}
-                    </Text>
-                  </View>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Announcements Modal */}
-      <Modal
-        visible={showAnnouncements}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowAnnouncements(false)}
-      >
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <View style={themedStyles.modalHeader}>
-              <Text style={themedStyles.modalTitle}>Announcements</Text>
-              <TouchableOpacity onPress={() => setShowAnnouncements(false)}>
-                <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={themedStyles.modalBody}>
-              {loadingAnnouncements ? (
-                <Text style={themedStyles.modalText}>Loading announcements...</Text>
-              ) : announcements.length === 0 ? (
-                <Text style={themedStyles.modalText}>No announcements found.</Text>
-              ) : (
-                announcements.map((announcement) => (
-                  <View key={announcement.id} style={themedStyles.notificationItem}>
-                    <Text style={themedStyles.announcementTitle}>{announcement.title}</Text>
-                    <Text style={themedStyles.notificationMessage}>{announcement.message}</Text>
-                    {announcement.release_date && (
-                      <Text style={themedStyles.notificationDate}>
-                        Release: {new Date(announcement.release_date).toLocaleDateString()}
-                      </Text>
-                    )}
-                    <Text style={themedStyles.notificationDate}>
-                      Created: {new Date(announcement.created_at).toLocaleDateString()}
                     </Text>
                   </View>
                 ))
