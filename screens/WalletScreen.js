@@ -34,7 +34,7 @@ const TOKEN_MINTS = {
 
 const NexusScreen = () => {
   const navigation = useNavigation();
-  const { wallet, signAndSendTransaction } = useContext(EmbeddedWalletContext);
+  const { wallet, signAndSendTransaction, setShowModal } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
   const [amount, setAmount] = useState('');
@@ -358,7 +358,7 @@ const NexusScreen = () => {
               <Text style={styles.connectPromptText}>Please connect your wallet to send tokens.</Text>
               <TouchableOpacity
                 style={styles.connectButton}
-                onPress={() => navigation.navigate('ConnectWallet')}
+                onPress={() => setShowModal(true)}
               >
                 <Text style={styles.connectButtonText}>Connect Wallet</Text>
               </TouchableOpacity>

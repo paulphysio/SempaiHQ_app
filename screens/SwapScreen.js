@@ -182,7 +182,7 @@ function useTokenPrices() {
 
 const SwapScreen = () => {
   const navigation = useNavigation();
-  const { wallet, signAndSendTransaction, signTransactionOnly } = useContext(EmbeddedWalletContext);
+  const { wallet, signAndSendTransaction, signTransactionOnly, setShowModal } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
 
@@ -531,7 +531,7 @@ const SwapScreen = () => {
               <Text style={styles.connectPromptText}>
                 Connect to view live balances, real-time USDC pricing, and start swapping.
               </Text>
-              <AnimatedPressable style={styles.connectButton} onPress={() => navigation.navigate('ConnectWallet')}>
+              <AnimatedPressable style={styles.connectButton} onPress={() => setShowModal(true)}>
                 <Text style={styles.connectButtonText}>Connect Wallet</Text>
               </AnimatedPressable>
             </View>
