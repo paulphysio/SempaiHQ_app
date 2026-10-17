@@ -122,6 +122,9 @@ export const getGlobalBottomNavStyles = (isDark = true) => {
     notificationWrapper: {
       position: 'relative',
     },
+    navButtonWrapper: {
+      position: 'relative',
+    },
     notificationBadge: {
       position: 'absolute',
       top: -2,
@@ -143,26 +146,6 @@ export const getGlobalBottomNavStyles = (isDark = true) => {
       color: c.textPrimary,
       fontSize: 9,
       fontFamily: FONT,
-    },
-    announcementToggleWrapper: {
-      position: 'relative',
-    },
-    announcementBadge: {
-      position: 'absolute',
-      top: -2,
-      right: -2,
-      backgroundColor: c.accentDeep,
-      borderRadius: RADIUS.xs,
-      minWidth: 14,
-      height: 14,
-      justifyContent: 'center',
-      alignItems: 'center',
-      borderWidth: 1.5,
-      borderColor: c.bg,
-      shadowColor: c.accentDeep,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.4,
-      shadowRadius: 4,
     },
     modalOverlay: {
       flex: 1,
