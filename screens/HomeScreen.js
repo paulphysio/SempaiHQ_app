@@ -568,6 +568,7 @@ const Home = () => {
         if (cachedNovels && cachedNovels.length > 0) {
           console.log('[HomeScreen] Network error, showing cached novels');
           cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
+          console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
           if (isMounted.current) {
             setNovels(cachedNovels.slice(0, 6));
             setError('Showing cached content (offline mode)');
@@ -587,6 +588,11 @@ const Home = () => {
     };
     fetchNovel();
   }, []);
+
+  // Debug novels state changes
+  useEffect(() => {
+    console.log('[HomeScreen] Novels state changed:', novels.length, novels.map(n => n.title));
+  }, [novels]);
 
   // Fetch manga
   useEffect(() => {
