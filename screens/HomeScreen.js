@@ -516,7 +516,7 @@ const Home = () => {
         if(enrichedNovels) return enrichedNovels;
       }
 
-      if (error) {
+      if (error && !isErrorNetworkError(error)) {
         throw new Error(`Failed to fetch novels: ${error.message}`);
       }
       if (!enrichedNovels?.length) {
@@ -555,7 +555,7 @@ const Home = () => {
       setLoading(true);
       try {
         const enrichedNovels = await fetchNovelInfo();
-        enrichedNovels.sort((a, b) => b.viewers - a.viewers);
+        enrichedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
         if (isMounted.current) {
           setNovels(enrichedNovels.slice(0, 6));
         }
@@ -566,6 +566,7 @@ const Home = () => {
         console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
         if (cachedNovels && cachedNovels.length > 0) {
           console.log('[HomeScreen] Network error, showing cached novels');
+          cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
           if (isMounted.current) {
             setNovels(cachedNovels.slice(0, 6));
             setError('Showing cached content (offline mode)');
