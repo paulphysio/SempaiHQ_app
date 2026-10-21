@@ -9,7 +9,14 @@ const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
  */
 export function isErrorNetworkError(error) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.toLowerCase().includes("network request failed");
+  const lowerMessage = message.toLowerCase();
+  return lowerMessage.includes("network request failed") ||
+         lowerMessage.includes("network error") ||
+         lowerMessage.includes("fetch failed") ||
+         lowerMessage.includes("econnrefused") ||
+         lowerMessage.includes("enotfound") ||
+         lowerMessage.includes("timeout") ||
+         lowerMessage.includes("failed to fetch");
 }
 
 /**

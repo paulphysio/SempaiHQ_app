@@ -551,9 +551,19 @@ const Home = () => {
         }
       } catch (err) {
         console.error('fetchNovels error:', err.message);
-        if (isMounted.current) {
-          setError(`Failed to fetch novels: ${err.message}`);
-          setNovels([]);
+        // Try to load from cache as fallback
+        const cachedNovels = getCachedNovels();
+        if (cachedNovels && cachedNovels.length > 0) {
+          console.log('[HomeScreen] Network error, showing cached novels');
+          if (isMounted.current) {
+            setNovels(cachedNovels.slice(0, 6));
+            setError('Showing cached content (offline mode)');
+          }
+        } else {
+          if (isMounted.current) {
+            setError(`Failed to fetch novels: ${err.message}`);
+            setNovels([]);
+          }
         }
       } finally {
         if (isMounted.current) {
@@ -580,7 +590,8 @@ const Home = () => {
         // failed to fetch from network, show empty array
         if(isErrorNetworkError(error)){
           console.log("[HomeScreen] could not fetch manga from network, skipping");
-          mangaData = [];
+          setManga([]);
+          return;
         }
 
         if (!mangaData && error) {
@@ -592,6 +603,7 @@ const Home = () => {
         }
 
         const userIds = [...new Set(mangaData.map(manga => manga.user_id).filter(id => id))];
+
         const { data: usersData, error: usersError } = await supabase
           .from('users')
           .select('id, name, isArtist')
