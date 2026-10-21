@@ -1028,6 +1028,16 @@ const ChapterScreen = () => {
     }
   }, [userId, novelId, chapterId, activeWalletAddress, checkAdUnlockEligibility]);
 
+  // Auto-play video when modal opens
+  useEffect(() => {
+    if (showVideoAd && videoRef.current) {
+      console.log('[Video Ad] Modal opened, starting playback');
+      videoRef.current.playAsync().catch(err => {
+        console.error('[Video Ad] Failed to play:', err);
+      });
+    }
+  }, [showVideoAd]);
+
   // Benefactor access check
   const checkBenefactorAccess = useCallback(async () => {
     if (!activeWalletAddress || !novelId) return null;
@@ -2661,7 +2671,13 @@ const ChapterScreen = () => {
               style={styles.video}
               useNativeControls
               resizeMode="contain"
+              shouldPlay={true}
+              isLooping={false}
               onEnd={handleVideoAdEnd}
+              onLoad={() => {
+                console.log('[Video Ad] Video loaded, starting playback');
+                videoRef.current?.playAsync();
+              }}
               onError={(error) => {
                 console.error('[Video Ad] Error:', error);
                 setError('Failed to load video ad');
