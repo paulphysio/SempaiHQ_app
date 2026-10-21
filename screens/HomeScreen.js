@@ -553,6 +553,7 @@ const Home = () => {
         console.error('fetchNovels error:', err.message);
         // Try to load from cache as fallback
         const cachedNovels = getCachedNovels();
+        console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
         if (cachedNovels && cachedNovels.length > 0) {
           console.log('[HomeScreen] Network error, showing cached novels');
           if (isMounted.current) {
@@ -560,8 +561,9 @@ const Home = () => {
             setError('Showing cached content (offline mode)');
           }
         } else {
+          console.log('[HomeScreen] No cached novels available');
           if (isMounted.current) {
-            setError(`Failed to fetch novels: ${err.message}`);
+            setError('No internet connection and no cached content. Please save novels for offline reading first.');
             setNovels([]);
           }
         }
