@@ -76,10 +76,8 @@ export function getCachedNovels() {
       isAdult: novel.tags?.includes("Adult(18+)") || false,
       viewers_count: novel.viewers_count,
       viewers: novel.viewers_count,
-
-      // TODO: placeholder
-      averageRating: "-",
-      writer: {
+      averageRating: novel.averageRating || "-",
+      writer: novel.writer || {
         name: "-",
         isWriter: true,
       },
@@ -90,14 +88,24 @@ export function getCachedNovels() {
 }
 
 /**
- * @param {!{ id: string; image: string }} novel
+ * @param {!{ id: string; image: string } novel
  */
 export async function saveNovel(novel) {
   try {
     const { cacheDirectory, dataFile, imageFile } = getNovelCache(novel.id);
     cacheDirectory.create();
 
-    dataFile.write(JSON.stringify(novel));
+    // Add default values for fields that might be missing
+    const novelToSave = {
+      ...novel,
+      averageRating: novel.averageRating || "-",
+      writer: novel.writer || {
+        name: "-",
+        isWriter: true,
+      },
+    };
+
+    dataFile.write(JSON.stringify(novelToSave));
     if (novel.image && novel.image !== FALLBACK_IMAGE) {
       await downloadOrOverwriteFileAsync(novel.image, imageFile);
     }
