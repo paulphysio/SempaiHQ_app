@@ -61,11 +61,13 @@ function getNovelCache(id) {
 
 export function getCachedNovels() {
   const novels = [];
+  console.log('[getCachedNovels] Starting cache retrieval');
   for (let path of novelsCacheDirectory.list()) {
     if (!(path instanceof Directory)) continue;
     const novel = getNovel(path.name);
     if (!novel) continue;
 
+    console.log('[getCachedNovels] Found cached novel:', novel.title);
     novels.push({
       id: novel.id,
       title: novel.title,
@@ -75,7 +77,7 @@ export function getCachedNovels() {
       tags: novel.tags,
       isAdult: novel.tags?.includes("Adult(18+)") || false,
       viewers_count: novel.viewers_count,
-      viewers: novel.viewers_count,
+      viewers: novel.viewers_count || novel.viewers_count,
       averageRating: novel.averageRating || "-",
       writer: novel.writer || {
         name: "-",
@@ -84,6 +86,7 @@ export function getCachedNovels() {
     });
   }
 
+  console.log('[getCachedNovels] Returning novels:', novels.length);
   return novels;
 }
 
