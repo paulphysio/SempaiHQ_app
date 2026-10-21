@@ -1008,7 +1008,6 @@ export const getChapterScreenStyles = (isDark = true) => {
       height: '100%',
       backgroundColor: '#FF6B00',
     },
-    },
 
     // ------------------------------------------------------- benefactor modal
     benefactorModalContent: {
