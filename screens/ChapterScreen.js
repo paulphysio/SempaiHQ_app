@@ -17,7 +17,7 @@ import {
   Share,
   TextInput,
 } from 'react-native';
-import { Video } from 'expo-av';
+import { Video, ResizeMode, Audio } from 'expo-av';
 import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
@@ -326,6 +326,7 @@ const ChapterScreen = () => {
   const [showAdOption, setShowAdOption] = useState(false);
   const [showVideoAd, setShowVideoAd] = useState(false);
   const videoRef = useRef(null);
+  const [status, setStatus] = useState({});
 
   // Benefactor subscription system
   const [benefactorAccess, setBenefactorAccess] = useState(null);
@@ -1032,9 +1033,12 @@ const ChapterScreen = () => {
   useEffect(() => {
     if (showVideoAd && videoRef.current) {
       console.log('[Video Ad] Modal opened, starting playback');
-      videoRef.current.playAsync().catch(err => {
-        console.error('[Video Ad] Failed to play:', err);
-      });
+      // Add a small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        videoRef.current?.playAsync().catch(err => {
+          console.error('[Video Ad] Failed to play:', err);
+        });
+      }, 500);
     }
   }, [showVideoAd]);
 
@@ -2667,17 +2671,13 @@ const ChapterScreen = () => {
             <Text style={styles.modalSubtitle}>Please watch the ad to unlock this chapter for free</Text>
             <Video
               ref={videoRef}
-              source={{ uri: AD_VIDEO_URI }}
+              source={AD_VIDEO_URI}
               style={styles.video}
               useNativeControls
-              resizeMode="contain"
-              shouldPlay={true}
+              resizeMode={ResizeMode.CONTAIN}
               isLooping={false}
+              onPlaybackStatusUpdate={status => setStatus(() => status)}
               onEnd={handleVideoAdEnd}
-              onLoad={() => {
-                console.log('[Video Ad] Video loaded, starting playback');
-                videoRef.current?.playAsync();
-              }}
               onError={(error) => {
                 console.error('[Video Ad] Error:', error);
                 setError('Failed to load video ad');
