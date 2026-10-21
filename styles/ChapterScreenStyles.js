@@ -960,11 +960,54 @@ export const getChapterScreenStyles = (isDark = true) => {
     },
     video: {
       width: '100%',
-      height: 210,
+      height: Dimensions.get('window').height * 0.7,
       marginTop: SPACE.md,
       borderRadius: RADIUS.sm,
       overflow: 'hidden',
       backgroundColor: c.bg,
+    },
+    fullScreenVideoContainer: {
+      flex: 1,
+      backgroundColor: '#000',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    fullScreenVideo: {
+      width: '100%',
+      height: '100%',
+    },
+    fullScreenCloseButton: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 50 : 20,
+      right: 20,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 20,
+      padding: 10,
+      zIndex: 10,
+    },
+    videoProgressContainer: {
+      position: 'absolute',
+      top: Platform.OS === 'ios' ? 120 : 60,
+      left: 20,
+      right: 20,
+      zIndex: 10,
+    },
+    videoProgressText: {
+      color: '#fff',
+      fontSize: 14,
+      marginBottom: 8,
+      textAlign: 'center',
+    },
+    progressBar: {
+      height: 4,
+      backgroundColor: 'rgba(255, 255, 255, 0.3)',
+      borderRadius: 2,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: '#FF6B00',
+    },
     },
 
     // ------------------------------------------------------- benefactor modal

@@ -16,6 +16,7 @@ import {
   ActivityIndicator,
   Share,
   TextInput,
+  Platform,
 } from 'react-native';
 import { Video, ResizeMode, Audio } from 'expo-av';
 import Tts from 'react-native-tts';
@@ -327,6 +328,8 @@ const ChapterScreen = () => {
   const [showVideoAd, setShowVideoAd] = useState(false);
   const videoRef = useRef(null);
   const [status, setStatus] = useState({});
+  const [watchDuration, setWatchDuration] = useState(0);
+  const [adWatched, setAdWatched] = useState(false);
 
   // Benefactor subscription system
   const [benefactorAccess, setBenefactorAccess] = useState(null);
@@ -1033,6 +1036,8 @@ const ChapterScreen = () => {
   useEffect(() => {
     if (showVideoAd && videoRef.current) {
       console.log('[Video Ad] Modal opened, starting playback');
+      setWatchDuration(0);
+      setAdWatched(false);
       // Add a small delay to ensure the modal is fully rendered
       setTimeout(() => {
         videoRef.current?.playAsync().catch(err => {
@@ -2655,36 +2660,53 @@ const ChapterScreen = () => {
       {/* Video Ad Modal */}
       <Modal
         visible={showVideoAd}
-        transparent
         animationType="fade"
         onRequestClose={() => setShowVideoAd(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.videoAdContainer}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowVideoAd(false)}
-            >
-              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Watch Ad to Unlock</Text>
-            <Text style={styles.modalSubtitle}>Please watch the ad to unlock this chapter for free</Text>
-            <Video
-              ref={videoRef}
-              source={AD_VIDEO_URI}
-              style={styles.video}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping={false}
-              onPlaybackStatusUpdate={status => setStatus(() => status)}
-              onEnd={handleVideoAdEnd}
-              onError={(error) => {
-                console.error('[Video Ad] Error:', error);
-                setError('Failed to load video ad');
-                setShowVideoAd(false);
-              }}
-            />
+        <View style={styles.fullScreenVideoContainer}>
+          <TouchableOpacity
+            style={styles.fullScreenCloseButton}
+            onPress={() => setShowVideoAd(false)}
+          >
+            <FontAwesome5 name="times" size={24} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.videoProgressContainer}>
+            <Text style={styles.videoProgressText}>
+              {Math.min(Math.floor(watchDuration), 30)} / 30s
+            </Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${Math.min((watchDuration / 30) * 100, 100)}%` }]} />
+            </View>
           </View>
+          <Video
+            ref={videoRef}
+            source={AD_VIDEO_URI}
+            style={styles.fullScreenVideo}
+            useNativeControls
+            resizeMode={ResizeMode.CONTAIN}
+            isLooping={false}
+            onPlaybackStatusUpdate={status => {
+              setStatus(() => status);
+              // Track watch duration
+              if (status.isPlaying && !adWatched) {
+                const currentDuration = status.positionMillis / 1000; // Convert to seconds
+                setWatchDuration(currentDuration);
+
+                // Check if 30 seconds reached
+                if (currentDuration >= 30 && !adWatched) {
+                  setAdWatched(true);
+                  console.log('[Video Ad] 30 seconds watched, unlocking chapter');
+                  handleVideoAdEnd();
+                }
+              }
+            }}
+            onEnd={handleVideoAdEnd}
+            onError={(error) => {
+              console.error('[Video Ad] Error:', error);
+              setError('Failed to load video ad');
+              setShowVideoAd(false);
+            }}
+          />
         </View>
       </Modal>
 
