@@ -64,6 +64,7 @@ const Home = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [novelsLoading, setNovelsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -552,7 +553,7 @@ const Home = () => {
     }
 
     const fetchNovel = async () => {
-      setLoading(true);
+      setNovelsLoading(true);
       try {
         const enrichedNovels = await fetchNovelInfo();
         enrichedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
@@ -580,7 +581,7 @@ const Home = () => {
         }
       } finally {
         if (isMounted.current) {
-          setLoading(false);
+          setNovelsLoading(false);
         }
       }
     };
@@ -590,7 +591,6 @@ const Home = () => {
   // Fetch manga
   useEffect(() => {
     const fetchManga = async () => {
-      setLoading(true);
       try {
         let { data: mangaData, error } = await supabase
           .from('manga')
@@ -604,6 +604,7 @@ const Home = () => {
         if(isErrorNetworkError(error)){
           console.log("[HomeScreen] could not fetch manga from network, skipping");
           setManga([]);
+          setLoading(false);
           return;
         }
 
@@ -612,6 +613,7 @@ const Home = () => {
         }
         if (!mangaData?.length) {
           setManga([]);
+          setLoading(false);
           return;
         }
 
@@ -676,15 +678,13 @@ const Home = () => {
 
         if (isMounted.current) {
           setManga(enrichedManga);
+          setLoading(false);
         }
       } catch (err) {
         console.error('Error fetching manga:', err.message);
         if (isMounted.current) {
           setError(`Failed to fetch manga: ${err.message}`);
           setManga([]);
-        }
-      } finally {
-        if (isMounted.current) {
           setLoading(false);
         }
       }
@@ -1392,7 +1392,7 @@ const Home = () => {
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
-              {loading ? (
+              {novelsLoading ? (
                 <CarouselSkeleton />
               ) : novels.length === 0 ? (
                 <Text style={styles.noContent}>No novels available.</Text>
