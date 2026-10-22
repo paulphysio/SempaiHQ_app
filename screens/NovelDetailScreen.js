@@ -332,6 +332,7 @@ const NovelDetailScreen = () => {
 
     try{
       if(!novel) return;
+      console.log('[NovelDetailScreen] Saving offline with unlockedChapters:', unlockedChapters);
       // Save novel with only unlocked chapters (first 3 + any unlocked)
       await saveNovelForOfflineReading(novel, unlockedChapters);
       setIsSavedOffline(true);
