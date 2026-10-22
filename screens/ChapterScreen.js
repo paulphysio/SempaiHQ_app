@@ -2072,8 +2072,11 @@ const ChapterScreen = () => {
       setIsLocked(true);
 
       const chapterNum = parseInt(chapterId, 10);
+      console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected);
+      
       // First 3 chapters (indices 0, 1, 2) are free - no wallet required
       if (!isWalletConnected && chapterNum > 2) {
+        console.log('[ChapterScreen] Chapter beyond 2 without wallet, setting error');
         setError('Connect your wallet to read Chapter 3 and beyond.');
         setLoading(false);
         return;
