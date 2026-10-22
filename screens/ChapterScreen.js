@@ -2077,19 +2077,41 @@ const ChapterScreen = () => {
   }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected, isOnline]);
 
   useEffect(() => {
-    if (novel && chapterId && isWalletConnected && activeWalletAddress && !recentlyUnlocked) {
+    if (novel && chapterId && !recentlyUnlocked) {
       const chapterNum = parseInt(chapterId, 10);
       if (isNaN(chapterNum)) {
         setError('Invalid chapter number');
         return;
       }
-      checkAccess(activeWalletAddress, novel, chapterNum);
-      checkHasReadChapter(chapterId);
+
+      // First 3 chapters (indices 0, 1, 2) are free - unlock immediately even without wallet
+      if (chapterNum >= 0 && chapterNum <= 2) {
+        console.log('[ChapterScreen] First 3 chapters are free, unlocking:', chapterNum);
+        setIsLocked(false);
+        setCanUnlockNextThree(true);
+        setIsAdvanceChapter(false);
+        setIsUnlockedViaSubscription(false);
+        setReadingMode('free');
+        checkHasReadChapter(chapterId);
+        return;
+      }
+
+      // Only check access for chapters beyond 2 if wallet is connected
+      if (isWalletConnected && activeWalletAddress) {
+        checkAccess(activeWalletAddress, novel, chapterNum);
+        checkHasReadChapter(chapterId);
+      }
     }
   }, [novel, activeWalletAddress, chapterId, checkAccess, checkHasReadChapter, isWalletConnected, recentlyUnlocked]);
 
   useEffect(() => {
     if (!loading && novel && !isLocked && readingMode === 'paid' && isWalletConnected && !hasReadChapter) {
+      const chapterNum = parseInt(chapterId, 10);
+      // Don't process payment for first 3 chapters (indices 0, 1, 2)
+      if (chapterNum >= 0 && chapterNum <= 2) {
+        console.log('[ChapterScreen] First 3 chapters are free, skipping payment');
+        return;
+      }
       processChapterPayment(chapterId);
     }
   }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter]);
@@ -2349,7 +2371,7 @@ const ChapterScreen = () => {
           <Text style={styles.messageText}>{successMessage || error || warningMessage}</Text>
         </View>
       )}
-      {!isWalletConnected && parseInt(chapterId, 10) > 0 ? (
+      {!isWalletConnected && parseInt(chapterId, 10) > 2 ? (
         <View style={styles.lockedContainer}>
           <FontAwesome5 name="wallet" size={48} color={colors.accent} style={styles.lockIcon} />
           <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
