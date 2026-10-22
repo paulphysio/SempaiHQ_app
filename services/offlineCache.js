@@ -201,17 +201,30 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
     const { cacheDirectory, dataFile, imageFile, chaptersFile } = getNovelCache(novel.id);
     cacheDirectory.create();
 
+    console.log('[saveNovelForOfflineReading] Chapter titles keys:', Object.keys(novel.chaptertitles || {}));
+    console.log('[saveNovelForOfflineReading] Unlocked chapter IDs:', unlockedChapterIds);
+
     // Always save first 3 chapters
     const firstThreeChapters = [];
     for (let i = 1; i <= 3; i++) {
       const chapterNum = i.toString();
-      if (novel.chaptertitles?.[chapterNum]) {
+      // Try both string and integer keys
+      const title1 = novel.chaptertitles?.[chapterNum];
+      const title2 = novel.chaptertitles?.[i];
+      const title = title1 || title2;
+      
+      if (title) {
+        const content1 = novel.chaptercontents?.[chapterNum];
+        const content2 = novel.chaptercontents?.[i];
+        const content = content1 || content2 || '';
+        
         firstThreeChapters.push({
           chapter_number: chapterNum,
-          title: novel.chaptertitles[chapterNum],
-          content: novel.chaptercontents?.[chapterNum] || '',
+          title: title,
+          content: content,
           is_unlocked: true,
         });
+        console.log(`[saveNovelForOfflineReading] Saved chapter ${chapterNum}: ${title}`);
       }
     }
 
@@ -219,17 +232,29 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
     const otherUnlockedChapters = [];
     unlockedChapterIds.forEach(chapterNum => {
       const num = parseInt(chapterNum, 10);
-      if (num > 3 && novel.chaptertitles?.[chapterNum]) {
-        otherUnlockedChapters.push({
-          chapter_number: chapterNum,
-          title: novel.chaptertitles[chapterNum],
-          content: novel.chaptercontents?.[chapterNum] || '',
-          is_unlocked: true,
-        });
+      if (num > 3) {
+        const title1 = novel.chaptertitles?.[chapterNum];
+        const title2 = novel.chaptertitles?.[num];
+        const title = title1 || title2;
+        
+        if (title) {
+          const content1 = novel.chaptercontents?.[chapterNum];
+          const content2 = novel.chaptercontents?.[num];
+          const content = content1 || content2 || '';
+          
+          otherUnlockedChapters.push({
+            chapter_number: chapterNum,
+            title: title,
+            content: content,
+            is_unlocked: true,
+          });
+          console.log(`[saveNovelForOfflineReading] Saved unlocked chapter ${chapterNum}: ${title}`);
+        }
       }
     });
 
     const allChapters = [...firstThreeChapters, ...otherUnlockedChapters];
+    console.log(`[saveNovelForOfflineReading] Total chapters saved: ${allChapters.length}`);
 
     // Save novel metadata
     const novelToSave = {
