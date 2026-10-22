@@ -161,36 +161,65 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
     const fileId = novel.id;
     const filePath = getSmpDirectory() + fileId + '.smp';
 
+    console.log('\n=== SAVE OFFLINE START ===');
+    console.log('Novel ID:', novel.id);
+    console.log('Novel Title:', novel.title);
+    console.log('User ID:', userId);
+    console.log('File Path:', filePath);
+    console.log('File Directory:', getSmpDirectory());
+
     // Extract chapters to save (first 3 + unlocked)
     const chaptersToSave = [];
     const chaptertitles = novel.chaptertitles || {};
     const chaptercontents = novel.chaptercontents || {};
 
+    console.log('\n--- CHAPTERS TO SAVE ---');
+    console.log('Total chaptertitles available:', Object.keys(chaptertitles).length);
+    console.log('Total chaptercontents available:', Object.keys(chaptercontents).length);
+    console.log('Unlocked chapters provided:', unlockedChapters.length, unlockedChapters);
+
     // Always save first 3 chapters (indices 0, 1, 2)
+    console.log('\nFirst 3 chapters (always free):');
     for (let i = 0; i < 3; i++) {
       const chapterId = String(i);
       if (chaptercontents[chapterId]) {
-        chaptersToSave.push({
+        const chapter = {
           chapter_number: chapterId,
           title: chaptertitles[chapterId] || `Chapter ${i + 1}`,
           content: chaptercontents[chapterId],
           is_unlocked: true
-        });
+        };
+        chaptersToSave.push(chapter);
+        console.log(`  ✓ Chapter ${chapterId}: "${chapter.title}"`);
+        console.log(`    Content length: ${chapter.content.length} characters`);
+        console.log(`    Content preview: ${chapter.content.substring(0, 100)}...`);
+      } else {
+        console.log(`  ✗ Chapter ${chapterId}: NOT FOUND in chaptercontents`);
       }
     }
 
     // Save additional unlocked chapters
+    console.log('\nAdditional unlocked chapters:');
     for (const chapterId of unlockedChapters) {
       const chapterNum = parseInt(chapterId, 10);
       if (chapterNum > 2 && chaptercontents[chapterId]) {
-        chaptersToSave.push({
+        const chapter = {
           chapter_number: chapterId,
           title: chaptertitles[chapterId] || `Chapter ${chapterNum + 1}`,
           content: chaptercontents[chapterId],
           is_unlocked: true
-        });
+        };
+        chaptersToSave.push(chapter);
+        console.log(`  ✓ Chapter ${chapterId}: "${chapter.title}"`);
+        console.log(`    Content length: ${chapter.content.length} characters`);
+        console.log(`    Content preview: ${chapter.content.substring(0, 100)}...`);
+      } else {
+        console.log(`  ✗ Chapter ${chapterId}: NOT FOUND in chaptercontents`);
       }
     }
+
+    console.log('\n--- DATA PREPARATION ---');
+    console.log('Total chapters to save:', chaptersToSave.length);
 
     // Prepare data structure
     const data = {
@@ -215,27 +244,47 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
       encrypted: true
     };
 
+    console.log('Data structure prepared with keys:', Object.keys(data));
+    console.log('Novel object keys:', Object.keys(data.novel));
+
     // Encrypt and save
     const jsonData = JSON.stringify(data);
+    console.log('JSON data length:', jsonData.length, 'characters');
+
     const encryptedData = await encryptData(jsonData, key);
+    console.log('Encrypted data length:', encryptedData.length, 'characters');
+
     await FileSystem.writeAsStringAsync(filePath, encryptedData, {
       encoding: FileSystem.EncodingType.UTF8
     });
+    console.log('✓ File written successfully to:', filePath);
 
     // Download and save image (not encrypted for performance)
     if (novel.image && novel.image !== FALLBACK_IMAGE) {
       try {
         const imagePath = getSmpDirectory() + fileId + '.jpg';
+        console.log('\n--- IMAGE SAVE ---');
+        console.log('Image URL:', novel.image);
+        console.log('Image Path:', imagePath);
         await FileSystem.downloadAsync(novel.image, imagePath);
+        console.log('✓ Image downloaded successfully');
       } catch (imageError) {
         console.warn('[saveNovelForOffline] Failed to download image:', imageError);
         // Don't fail the save if image download fails
       }
     }
 
-    console.log(`[saveNovelForOffline] Saved novel "${novel.title}" with ${chaptersToSave.length} chapters`);
+    console.log('\n=== SAVE OFFLINE COMPLETE ===');
+    console.log(`✓ Saved novel "${novel.title}" with ${chaptersToSave.length} chapters`);
+    console.log(`✓ File location: ${filePath}`);
+    console.log(`✓ Image location: ${getSmpDirectory() + fileId + '.jpg'}`);
+    console.log('========================\n');
   } catch (error) {
-    console.error('[saveNovelForOffline] Failed to save novel:', error);
+    console.error('\n=== SAVE OFFLINE FAILED ===');
+    console.error('Error:', error);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('========================\n');
     throw error;
   }
 }
