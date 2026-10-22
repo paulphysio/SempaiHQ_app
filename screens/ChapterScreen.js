@@ -912,6 +912,15 @@ const ChapterScreen = () => {
       }
 
       // Online - fetch from network
+      // For chapters beyond 2 without wallet, don't fetch content - show connect wallet instead
+      const chapterNum = parseInt(chapter, 10);
+      if (chapterNum > 2 && !isWalletConnected) {
+        console.log('[ChapterScreen] Chapter beyond 2 without wallet, skipping fetch');
+        // Let the UI show the connect wallet message
+        setLoading(false);
+        return;
+      }
+
       let { data, error } = await supabase
         .from('novels')
         .select('id, title, chaptertitles, chaptercontents, advance_chapters, user_id')
