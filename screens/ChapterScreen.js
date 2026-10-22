@@ -21,6 +21,7 @@ import {
 import { Video, ResizeMode, Audio } from 'expo-av';
 import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import * as Network from 'expo-network';
 import { supabase } from '../services/supabaseClient';
 import { getNovel, getNovelChapters, isErrorNetworkError } from '../services/offlineCache';
 import { safeFetch } from '../utils/urlValidation';
@@ -315,6 +316,7 @@ const ChapterScreen = () => {
   const [isAdvanceChapter, setIsAdvanceChapter] = useState(false);
   const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isOnline, setIsOnline] = useState(null);
   const emberAnims = useRef([]);
   const embersData = useRef([]);
   const embersInitialized = useRef(false);
@@ -449,6 +451,28 @@ const ChapterScreen = () => {
     } catch (error) {
       console.error('Error initializing ember particles:', error);
     }
+  }, []);
+
+  // Check network status
+  useEffect(() => {
+    const checkNetworkStatus = async () => {
+      try {
+        const networkState = await Network.getNetworkStateAsync();
+        const online = networkState.isConnected && networkState.type !== 'none';
+        setIsOnline(online);
+        console.log('[ChapterScreen] Network status:', online ? 'online' : 'offline');
+      } catch (error) {
+        console.error('[ChapterScreen] Error checking network status:', error);
+        setIsOnline(true);
+      }
+    };
+
+    checkNetworkStatus();
+    const interval = setInterval(checkNetworkStatus, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const isWalletConnected = !!wallet?.publicKey;
@@ -712,6 +736,13 @@ const ChapterScreen = () => {
 
   const fetchUserData = useCallback(async () => {
     if (!activeWalletAddress) return;
+
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      console.log('[ChapterScreen] Offline - skipping user data fetch');
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('users')
@@ -823,7 +854,7 @@ const ChapterScreen = () => {
       setError('Failed to load user data.');
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, fetchSmpBalanceOnChain, fetchAmethystBalance, novelId, chapterId, benefactorAccess]);
+  }, [activeWalletAddress, fetchSmpBalanceOnChain, fetchAmethystBalance, novelId, chapterId, benefactorAccess, isOnline]);
 
   const fetchNovel = useCallback(async (id, chapter) => {
     if (!id) {
@@ -832,12 +863,30 @@ const ChapterScreen = () => {
       return;
     }
     try {
+      // If offline or status unknown, try cache first
+      if (isOnline === false || isOnline === null) {
+        console.log('[ChapterScreen] Offline - loading novel from cache');
+        const cachedNovel = getNovel(id);
+        if (cachedNovel) {
+          console.log('[ChapterScreen] Novel loaded from cache:', cachedNovel.title);
+          setNovel(cachedNovel);
+          setLoading(false);
+          return;
+        } else {
+          console.log('[ChapterScreen] Novel not in cache');
+          setError('Novel not available offline. Please save it for offline reading first.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Online - fetch from network
       let { data, error } = await supabase
         .from('novels')
         .select('id, title, chaptertitles, chaptercontents, advance_chapters, user_id')
         .eq('id', id)
         .single();
-      
+
       const isNetworkError = isErrorNetworkError(error);
       // failed to fetch from network, try cache
       if(isNetworkError){
@@ -861,19 +910,21 @@ const ChapterScreen = () => {
         setIsAuthor(true);
       }
 
-      // Fetch author's note for this chapter
-      const chapterNum = parseInt(chapter, 10);
-      const { data: chapterData, error: chapterError } = await supabase
-        .from('novel_chapters')
-        .select('author_note')
-        .eq('novel_id', id)
-        .eq('chapter_number', chapterNum)
-        .maybeSingle();
+      // Fetch author's note for this chapter (skip if offline)
+      if (isOnline === true) {
+        const chapterNum = parseInt(chapter, 10);
+        const { data: chapterData, error: chapterError } = await supabase
+          .from('novel_chapters')
+          .select('author_note')
+          .eq('novel_id', id)
+          .eq('chapter_number', chapterNum)
+          .maybeSingle();
 
-      if (!chapterError && chapterData) {
-        setAuthorNote(chapterData.author_note || '');
-      } else {
-        setAuthorNote('');
+        if (!chapterError && chapterData) {
+          setAuthorNote(chapterData.author_note || '');
+        } else {
+          setAuthorNote('');
+        }
       }
     } catch (error) {
       console.error('[fetchNovel] Error:', error.message);
@@ -882,7 +933,7 @@ const ChapterScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, isOnline]);
 
   const handleSaveAuthorNote = async () => {
     try {
@@ -1980,7 +2031,7 @@ const ChapterScreen = () => {
       ]);
     };
     initialize();
-  }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected]);
+  }, [novelId, chapterId, fetchNovel, fetchUserData, fetchPrices, isWalletConnected, isOnline]);
 
   useEffect(() => {
     if (novel && chapterId && isWalletConnected && activeWalletAddress && !recentlyUnlocked) {
