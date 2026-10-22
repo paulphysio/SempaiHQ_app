@@ -573,14 +573,14 @@ const Home = () => {
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
-              setError('Showing cached content (offline mode)');
+              setError(null); // Clear error so novels display
             }
           } catch (sortError) {
             console.error('[HomeScreen] Error sorting cached novels:', sortError);
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
-              setError('Showing cached content (offline mode)');
+              setError(null); // Clear error so novels display
             }
           }
         } else {
