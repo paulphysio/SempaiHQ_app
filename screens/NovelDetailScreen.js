@@ -363,17 +363,17 @@ const NovelDetailScreen = () => {
     }
   }, [isSavedOffline, novel, unlockedChapters, id]);
 
-  const handleNavigation = (screen, params) => {
+  const handleNavigation = async (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
     console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
-    
+
     // First 3 chapters (indices 0, 1, 2) are ALWAYS free - no wallet check needed
     if (chapterNum !== null && chapterNum <= 2) {
       console.log('[NovelDetailScreen] First 3 chapters are free, allowing navigation');
       navigation.navigate(screen, params);
       return;
     }
-    
+
     // For chapters beyond 2, check wallet connection if online
     if (chapterNum !== null && chapterNum > 2 && isWalletConnected !== false) {
       if (isOnline === false || isOnline === null) {
