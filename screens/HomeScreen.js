@@ -18,7 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
-import Network from 'expo-network';
+import * as Network from 'expo-network';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
