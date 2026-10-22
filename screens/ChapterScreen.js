@@ -914,6 +914,8 @@ const ChapterScreen = () => {
       // Online - fetch from network
       // For chapters beyond 2 without wallet, don't fetch content - show connect wallet instead
       const chapterNum = parseInt(chapter, 10);
+      console.log('[ChapterScreen] Fetching chapter:', chapter, 'parsed:', chapterNum, 'isWalletConnected:', isWalletConnected);
+      
       if (chapterNum > 2 && !isWalletConnected) {
         console.log('[ChapterScreen] Chapter beyond 2 without wallet, skipping fetch');
         // Let the UI show the connect wallet message
