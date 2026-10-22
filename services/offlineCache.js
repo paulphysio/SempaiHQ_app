@@ -92,7 +92,11 @@ export function getCachedNovels() {
 }
 
 /**
- * @param {!{ id: string; image: string; averageRating?: string; writer?: object } novel
+ * @param {Object} novel
+ * @param {string} novel.id
+ * @param {string} novel.image
+ * @param {string} [novel.averageRating]
+ * @param {Object} [novel.writer]
  */
 export async function saveNovel(novel) {
   try {
