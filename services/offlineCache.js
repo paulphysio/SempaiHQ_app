@@ -158,6 +158,9 @@ export function getNovel(id) {
   if (!dataFile.exists) return null;
   try {
     const novel = JSON.parse(dataFile.text());
+    console.log('[getNovel] Loaded novel keys:', Object.keys(novel));
+    console.log('[getNovel] Has offline_chapters:', !!novel.offline_chapters);
+    console.log('[getNovel] offline_chapters count:', novel.offline_chapters?.length || 0);
     if (novel.image && imageFile.exists) novel.image = imageFile.uri;
     return novel;
   } catch (e) {

@@ -180,7 +180,8 @@ const NovelDetailScreen = () => {
       setNovel(data);
       if(isSavedOffline && !isNetworkError) {
         try {
-          await saveNovel(data);
+          // Use saveNovelForOfflineReading to preserve chapter content if already saved
+          await saveNovelForOfflineReading(data, unlockedChapters);
         } catch (saveError) {
           console.warn('[NovelDetailScreen] Auto-save failed (non-critical):', saveError instanceof Error ? saveError.message : String(saveError));
           // Don't throw - novel is still displayed, just not cached
