@@ -883,8 +883,22 @@ const ChapterScreen = () => {
               setError('This chapter is not available offline. Only first 3 chapters and unlocked chapters are saved for offline reading.');
             }
           } else {
-            console.log('[ChapterScreen] No offline chapters in cache');
-            setError('Novel saved without chapter content. Please re-save to include chapters.');
+            // Fallback: Check if chapter content exists in original chaptercontents (old cache format)
+            if (cachedNovel.chaptercontents?.[chapter]) {
+              console.log('[ChapterScreen] Chapter found in old cache format');
+              // Check if it's one of the first 3 chapters
+              const chapterNum = parseInt(chapter, 10);
+              if (chapterNum <= 3) {
+                console.log('[ChapterScreen] First 3 chapters available in old cache');
+                setIsLocked(false);
+              } else {
+                console.log('[ChapterScreen] Chapter > 3 not available in old cache');
+                setError('This chapter is not available offline. Please re-save the novel to include unlocked chapters.');
+              }
+            } else {
+              console.log('[ChapterScreen] No offline chapters in cache');
+              setError('Novel saved without chapter content. Please re-save to include chapters.');
+            }
           }
 
           setLoading(false);
