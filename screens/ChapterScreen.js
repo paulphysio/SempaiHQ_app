@@ -2082,11 +2082,19 @@ const ChapterScreen = () => {
       if (isOnline === false || isOnline === null) {
         console.log('[ChapterScreen] Offline mode, checking cache');
         const cachedNovel = getNovel(novelId);
+        console.log('[ChapterScreen] Cached novel:', cachedNovel ? 'found' : 'not found');
         if (cachedNovel) {
-          console.log('[ChapterScreen] Novel found in cache');
+          console.log('[ChapterScreen] Cached novel keys:', Object.keys(cachedNovel));
+          console.log('[ChapterScreen] Has offline_chapters:', !!cachedNovel.offline_chapters);
+          console.log('[ChapterScreen] offline_chapters:', cachedNovel.offline_chapters);
+          console.log('[ChapterScreen] Has chaptercontents:', !!cachedNovel.chaptercontents);
+          console.log('[ChapterScreen] chaptercontents keys:', Object.keys(cachedNovel.chaptercontents || {}));
+          
           // Check if chapter is in offline_chapters
           if (cachedNovel.offline_chapters) {
             const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === chapterId);
+            console.log('[ChapterScreen] Looking for chapter:', chapterId, 'in offline_chapters');
+            console.log('[ChapterScreen] Found offline chapter:', offlineChapter ? 'yes' : 'no');
             if (offlineChapter && offlineChapter.content) {
               console.log('[ChapterScreen] Chapter available in offline cache');
               setLoading(false);
