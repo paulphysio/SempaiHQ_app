@@ -128,8 +128,8 @@ const NovelDetailScreen = () => {
     try {
       console.log('[NovelDetailScreen] Fetching novel with id:', id);
 
-      // If offline or status unknown, try cache first
-      if (isOnline === false || isOnline === null) {
+      // If offline, try cache first
+      if (isOnline === false) {
         console.log('[NovelDetailScreen] Offline - loading novel from cache');
         const cachedData = await getNovelForOffline(id, userId);
         if (cachedData) {
@@ -265,7 +265,7 @@ const NovelDetailScreen = () => {
     }
 
     // Skip if offline
-    if (isOnline === false || isOnline === null) {
+    if (isOnline === false) {
       console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
       const cachedData = await getNovelForOffline(id, userId);
       if (cachedData && cachedData.chapters) {

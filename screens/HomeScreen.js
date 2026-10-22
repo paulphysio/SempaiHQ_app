@@ -284,9 +284,9 @@ const Home = () => {
   useEffect(() => {
     const syncWallet = async () => {
       try {
-        // Skip wallet sync if offline or status unknown
-        if (isOnline === false || isOnline === null) {
-          console.log('[HomeScreen] Offline/status unknown - skipping wallet sync');
+        // Skip wallet sync if offline
+        if (isOnline === false) {
+          console.log('[HomeScreen] Offline - skipping wallet sync');
           return;
         }
 
@@ -414,9 +414,9 @@ const Home = () => {
 
     const fetchAnnouncements = async () => {
       try {
-        // Skip if offline or status unknown
-        if (isOnline === false || isOnline === null) {
-          console.log('[HomeScreen] Offline/status unknown - skipping announcements fetch');
+        // Skip if offline
+        if (isOnline === false) {
+          console.log('[HomeScreen] Offline - skipping announcements fetch');
           return;
         }
 
@@ -512,9 +512,9 @@ const Home = () => {
 
     const fetchNotifications = async () => {
       try {
-        // Skip if offline or status unknown
-        if (isOnline === false || isOnline === null) {
-          console.log('[HomeScreen] Offline/status unknown - skipping notifications fetch');
+        // Skip if offline
+        if (isOnline === false) {
+          console.log('[HomeScreen] Offline - skipping notifications fetch');
           return;
         }
 
@@ -616,7 +616,7 @@ const Home = () => {
       setNovelsLoading(true);
       try {
         // If offline or status unknown, load from cache directly
-        if (isOnline === false || isOnline === null) {
+        if (isOnline === false) {
           console.log('[HomeScreen] Offline/status unknown - loading novels from cache');
           const cachedNovels = await getCachedNovelsOffline(userId || 'guest');
           console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
@@ -701,7 +701,7 @@ const Home = () => {
     const fetchManga = async () => {
       try {
         // Skip manga fetch if offline or status unknown
-        if (isOnline === false || isOnline === null) {
+        if (isOnline === false) {
           console.log('[HomeScreen] Offline/status unknown - skipping manga fetch');
           setManga([]);
           setLoading(false);

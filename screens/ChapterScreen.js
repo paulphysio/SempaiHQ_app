@@ -738,7 +738,7 @@ const ChapterScreen = () => {
     if (!activeWalletAddress) return;
 
     // Skip if offline
-    if (isOnline === false || isOnline === null) {
+    if (isOnline === false) {
       console.log('[ChapterScreen] Offline - skipping user data fetch');
       return;
     }
@@ -864,7 +864,7 @@ const ChapterScreen = () => {
     }
     try {
       // If offline or status unknown, try cache first
-      if (isOnline === false || isOnline === null) {
+      if (isOnline === false) {
         console.log('[ChapterScreen] Offline - loading novel from cache');
         const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
@@ -916,7 +916,7 @@ const ChapterScreen = () => {
 
       if (!data || !data.chaptercontents?.[chapter]) {
         // If offline, check if chapter is in cached .smp file
-        if (isOnline === false || isOnline === null) {
+        if (isOnline === false) {
           const cachedData = await getNovelForOffline(id, userId || 'guest');
           if (cachedData) {
             const chapter = cachedData.chapters.find(c => c.chapter_number === chapter);
@@ -2073,7 +2073,7 @@ const ChapterScreen = () => {
       console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected, 'isOnline:', isOnline);
       
       // If offline, only allow chapters that are saved
-      if (isOnline === false || isOnline === null) {
+      if (isOnline === false) {
         console.log('[ChapterScreen] Offline mode, checking cache');
         const cachedData = await getNovelForOffline(novelId, userId || 'guest');
         if (cachedData) {
