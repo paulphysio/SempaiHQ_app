@@ -188,6 +188,12 @@ export function saveNovelChapters(novelId, chapters) {
 /**
  * Save novel with only unlocked chapters and their content for offline reading
  * @param {Object} novel - The novel object with chaptertitles and chaptercontents
+ * @param {string} novel.id
+ * @param {string} novel.image
+ * @param {Object} [novel.chaptertitles]
+ * @param {Object} [novel.chaptercontents]
+ * @param {string} [novel.averageRating]
+ * @param {Object} [novel.writer]
  * @param {string[]} unlockedChapterIds - Array of unlocked chapter numbers (as strings)
  */
 export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
