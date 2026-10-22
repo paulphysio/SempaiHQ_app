@@ -869,11 +869,15 @@ const ChapterScreen = () => {
         const cachedNovel = getNovel(id);
         if (cachedNovel) {
           console.log('[ChapterScreen] Novel loaded from cache:', cachedNovel.title);
+          console.log('[ChapterScreen] Has offline_chapters:', !!cachedNovel.offline_chapters);
+          console.log('[ChapterScreen] offline_chapters count:', cachedNovel.offline_chapters?.length || 0);
           setNovel(cachedNovel);
 
           // Check if chapter is in offline_chapters
           if (cachedNovel.offline_chapters) {
+            console.log('[ChapterScreen] Looking for chapter in offline_chapters:', chapter);
             const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === chapter);
+            console.log('[ChapterScreen] Found offline chapter:', offlineChapter ? 'yes' : 'no');
             if (offlineChapter && offlineChapter.content) {
               console.log('[ChapterScreen] Chapter loaded from offline cache');
               // Unlock the chapter since it's available offline
