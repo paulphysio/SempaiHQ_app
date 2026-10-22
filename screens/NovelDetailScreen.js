@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
+import * as Network from 'expo-network';
 import { supabase } from '../services/supabaseClient';
 import { deleteNovel, getNovel, getNovelChapters, isErrorNetworkError, isNovelSaved, saveNovel, saveNovelChapters } from '../services/offlineCache';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -44,6 +45,7 @@ const NovelDetailScreen = () => {
   const [showConnectPopup, setShowConnectPopup] = useState(false);
   const [viewCountError, setViewCountError] = useState(null);
   const [unlockedChapters, setUnlockedChapters] = useState([]);
+  const [isOnline, setIsOnline] = useState(null);
   const menuAnim = useRef(new Animated.Value(280)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const contentFade = useRef(new Animated.Value(0)).current;
@@ -99,9 +101,59 @@ const NovelDetailScreen = () => {
     if (menuOpen) toggleMenu();
   };
 
+  // Check network status
+  useEffect(() => {
+    const checkNetworkStatus = async () => {
+      try {
+        const networkState = await Network.getNetworkStateAsync();
+        const online = networkState.isConnected && networkState.type !== 'none';
+        setIsOnline(online);
+        console.log('[NovelDetailScreen] Network status:', online ? 'online' : 'offline');
+      } catch (error) {
+        console.error('[NovelDetailScreen] Error checking network status:', error);
+        setIsOnline(true);
+      }
+    };
+
+    checkNetworkStatus();
+    const interval = setInterval(checkNetworkStatus, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
   const fetchNovel = useCallback(async () => {
     try {
       console.log('[NovelDetailScreen] Fetching novel with id:', id);
+
+      // If offline or status unknown, try cache first
+      if (isOnline === false || isOnline === null) {
+        console.log('[NovelDetailScreen] Offline - loading novel from cache');
+        const cachedNovel = getNovel(id);
+        if (cachedNovel) {
+          console.log('[NovelDetailScreen] Novel loaded from cache:', cachedNovel.title);
+          setNovel(cachedNovel);
+          const cachedChapters = getNovelChapters(id);
+          if (cachedChapters) {
+            setNovelChapters(cachedChapters);
+          }
+          Animated.timing(contentFade, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }).start();
+          setLoading(false);
+          return;
+        } else {
+          console.log('[NovelDetailScreen] Novel not in cache');
+          setError('Novel not available offline. Please save it for offline reading first.');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Online - fetch from network
       let { data, error } = await supabase
         .from('novels')
         .select('*')
@@ -136,11 +188,17 @@ const NovelDetailScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, isSavedOffline]);
+  }, [id, isSavedOffline, isOnline]);
 
   const updateViewCount = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
       console.log('No wallet connected, skipping view count update');
+      return;
+    }
+
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      console.log('[NovelDetailScreen] Offline - skipping view count update');
       return;
     }
 
@@ -188,11 +246,23 @@ const NovelDetailScreen = () => {
       console.error('Error in updateViewCount:', error.message);
       setViewCountError('An unexpected error occurred while updating view count.');
     }
-  }, [id, isWalletConnected, activePublicKey, isSavedOffline]);
+  }, [id, isWalletConnected, activePublicKey, isSavedOffline, isOnline]);
 
   const fetchUnlockedChapters = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
       setUnlockedChapters([]);
+      return;
+    }
+
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
+      const cachedChapters = getNovelChapters(id);
+      if (cachedChapters) {
+        setNovelChapters(cachedChapters);
+        const unlockedChapterIds = cachedChapters?.map(p => p.chapter_number.toString()) || [];
+        setUnlockedChapters(unlockedChapterIds);
+      }
       return;
     }
 
@@ -227,7 +297,7 @@ const NovelDetailScreen = () => {
       console.error('Error in fetchUnlockedChapters:', error.message);
       setUnlockedChapters([]);
     }
-  }, [id, isWalletConnected, activePublicKey, isSavedOffline]);
+  }, [id, isWalletConnected, activePublicKey, isSavedOffline, isOnline]);
 
   useEffect(() => {
     if (viewCountError) {
