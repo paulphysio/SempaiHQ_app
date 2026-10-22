@@ -138,6 +138,7 @@ const NovelDetailScreen = () => {
           // Chapters are now in cachedData.chapters
           if (cachedData.chapters && cachedData.chapters.length > 0) {
             console.log('[NovelDetailScreen] Loaded', cachedData.chapters.length, 'chapters from cache');
+            setNovelChapters(cachedData.chapters);
           }
           Animated.timing(contentFade, {
             toValue: 1,
@@ -169,6 +170,7 @@ const NovelDetailScreen = () => {
         const cachedData = await getNovelForOffline(id, userId);
         if (cachedData) {
           data = cachedData.novel;
+          setNovelChapters(cachedData.chapters);
           console.log(`[NovelDetailScreen] novel ${id} loaded successfully from cache`);
         }
       }
@@ -717,7 +719,7 @@ const NovelDetailScreen = () => {
       )}
 
       <FlatList
-        data={novel.chaptertitles ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0]) - parseInt(b[0])) : []}
+        data={novelChapters ? novelChapters.map(c => [c.chapter_number, c.title]) : (novel.chaptertitles ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0]) - parseInt(b[0])) : [])}
         renderItem={renderChapterItem}
         keyExtractor={([chapterId]) => `chapter-${chapterId}`}
         numColumns={1}
