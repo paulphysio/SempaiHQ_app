@@ -1614,6 +1614,16 @@ const ChapterScreen = () => {
     // Reset to locked state while checking access
     setIsLocked(true);
 
+    // First 3 chapters (1, 2, 3) are free for all users - no wallet required
+    if (chapterNum >= 1 && chapterNum <= 3) {
+      console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
+      setIsLocked(false);
+      setCanUnlockNextThree(true);
+      setIsAdvanceChapter(false);
+      setIsUnlockedViaSubscription(false);
+      return;
+    }
+
     if (!walletAddress || !novelData?.id || chapterNum === undefined) {
       setIsLocked(true);
       setCanUnlockNextThree(true);
@@ -1629,8 +1639,9 @@ const ChapterScreen = () => {
     }
 
     try {
-      // First 3 chapters (0, 1, 2) are free for all users
-      if (chapterNum >= 0 && chapterNum <= 2) {
+      // First 3 chapters (1, 2, 3) are free for all users - no wallet required
+      if (chapterNum >= 1 && chapterNum <= 3) {
+        console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setIsAdvanceChapter(false);
@@ -2050,8 +2061,9 @@ const ChapterScreen = () => {
       setIsLocked(true);
 
       const chapterNum = parseInt(chapterId, 10);
-      if (!isWalletConnected && chapterNum > 0) {
-        setError('Connect your wallet to read Chapter 2 and beyond.');
+      // First 3 chapters (1, 2, 3) are free - no wallet required
+      if (!isWalletConnected && chapterNum > 3) {
+        setError('Connect your wallet to read Chapter 4 and beyond.');
         setLoading(false);
         return;
       }
