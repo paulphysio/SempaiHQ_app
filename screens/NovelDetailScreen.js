@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as Network from 'expo-network';
 import { supabase } from '../services/supabaseClient';
-import { deleteNovel, getNovel, getNovelChapters, isErrorNetworkError, isNovelSaved, saveNovel, saveNovelChapters } from '../services/offlineCache';
+import { deleteNovel, getNovel, getNovelChapters, isErrorNetworkError, isNovelSaved, saveNovel, saveNovelChapters, saveNovelForOfflineReading } from '../services/offlineCache';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
@@ -325,15 +325,15 @@ const NovelDetailScreen = () => {
 
     try{
       if(!novel) return;
-      await saveNovel(novel);
-      if(novelChapters) saveNovelChapters(id, novelChapters)
+      // Save novel with only unlocked chapters (first 3 + any unlocked)
+      await saveNovelForOfflineReading(novel, unlockedChapters);
       setIsSavedOffline(true);
     }
     catch(error){
       console.error('[NovelDetailScreen] could not save novel:', error);
       setError(error.message);
     }
-  }, [isSavedOffline, novel, novelChapters, id]);
+  }, [isSavedOffline, novel, unlockedChapters, id]);
 
   const handleNavigation = (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;

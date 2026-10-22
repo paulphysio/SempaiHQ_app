@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
+import * as Network from 'expo-network';
 import { supabase } from '../../services/supabaseClient';
 import { isErrorNetworkError } from '../../services/offlineCache';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -434,7 +435,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const { wallet } = useContext(EmbeddedWalletContext);
   const { isDark, colors } = useTheme();
   const styles = getCommentStyles(isDark);
-  
+
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
@@ -444,6 +445,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const [error, setError] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [balance, setBalance] = useState(0);
+  const [isOnline, setIsOnline] = useState(null);
   const COMMENT_COOLDOWN = 60 * 1000;
   const DAILY_REWARD_LIMIT = 10;
   const MIN_COMMENT_LENGTH = 2;
@@ -451,6 +453,27 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
+
+  // Check network status
+  useEffect(() => {
+    const checkNetworkStatus = async () => {
+      try {
+        const networkState = await Network.getNetworkStateAsync();
+        const online = networkState.isConnected && networkState.type !== 'none';
+        setIsOnline(online);
+      } catch (error) {
+        console.error('[NovelCommentSection] Error checking network status:', error);
+        setIsOnline(true);
+      }
+    };
+
+    checkNetworkStatus();
+    const interval = setInterval(checkNetworkStatus, 5000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   const fetchAmethystBalance = async () => {
     if (!isWalletConnected || !activePublicKey) {
@@ -536,6 +559,12 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   };
 
   useEffect(() => {
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      console.log('[NovelCommentSection] Offline - skipping comments fetch');
+      return;
+    }
+
     fetchComments();
 
     // Disabled real-time subscription due to multiple subscription errors

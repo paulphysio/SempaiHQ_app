@@ -111,10 +111,12 @@ export async function saveNovel(novel) {
         name: "-",
         isWriter: true,
       },
+      // Store the local image path for offline use
+      image: imageFile.uri,
     };
 
     dataFile.write(JSON.stringify(novelToSave));
-    if (novel.image && novel.image !== FALLBACK_IMAGE) {
+    if (novel.image && novel.image !== FALLBACK_IMAGE && novel.image !== imageFile.uri) {
       await downloadOrOverwriteFileAsync(novel.image, imageFile);
     }
   } catch (error) {
@@ -181,4 +183,74 @@ export function saveNovelChapters(novelId, chapters) {
   const { cacheDirectory, chaptersFile } = getNovelCache(novelId);
   if (!cacheDirectory.exists) cacheDirectory.create();
   chaptersFile.write(JSON.stringify(chapters));
+}
+
+/**
+ * Save novel with only unlocked chapters and their content for offline reading
+ * @param {Object} novel - The novel object with chaptertitles and chaptercontents
+ * @param {string[]} unlockedChapterIds - Array of unlocked chapter numbers (as strings)
+ */
+export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
+  try {
+    const { cacheDirectory, dataFile, imageFile, chaptersFile } = getNovelCache(novel.id);
+    cacheDirectory.create();
+
+    // Always save first 3 chapters
+    const firstThreeChapters = [];
+    for (let i = 1; i <= 3; i++) {
+      const chapterNum = i.toString();
+      if (novel.chaptertitles?.[chapterNum]) {
+        firstThreeChapters.push({
+          chapter_number: chapterNum,
+          title: novel.chaptertitles[chapterNum],
+          content: novel.chaptercontents?.[chapterNum] || '',
+          is_unlocked: true,
+        });
+      }
+    }
+
+    // Add other unlocked chapters
+    const otherUnlockedChapters = [];
+    unlockedChapterIds.forEach(chapterNum => {
+      const num = parseInt(chapterNum, 10);
+      if (num > 3 && novel.chaptertitles?.[chapterNum]) {
+        otherUnlockedChapters.push({
+          chapter_number: chapterNum,
+          title: novel.chaptertitles[chapterNum],
+          content: novel.chaptercontents?.[chapterNum] || '',
+          is_unlocked: true,
+        });
+      }
+    });
+
+    const allChapters = [...firstThreeChapters, ...otherUnlockedChapters];
+
+    // Save novel metadata
+    const novelToSave = {
+      ...novel,
+      averageRating: novel.averageRating || "-",
+      writer: novel.writer || {
+        name: "-",
+        isWriter: true,
+      },
+      image: imageFile.uri,
+      // Store chapter data directly in novel for offline reading
+      offline_chapters: allChapters,
+    };
+
+    dataFile.write(JSON.stringify(novelToSave));
+
+    // Save image
+    if (novel.image && novel.image !== FALLBACK_IMAGE && novel.image !== imageFile.uri) {
+      await downloadOrOverwriteFileAsync(novel.image, imageFile);
+    }
+
+    // Save chapters separately
+    chaptersFile.write(JSON.stringify(allChapters));
+
+    console.log(`[offlineCache] Saved ${allChapters.length} chapters for offline reading`);
+  } catch (error) {
+    console.error('[offlineCache] could not save novel for offline reading:', error instanceof Error ? error.message : String(error));
+    throw error;
+  }
 }
