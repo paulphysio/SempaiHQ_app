@@ -137,6 +137,8 @@ const NovelDetailScreen = () => {
           const cachedChapters = getNovelChapters(id);
           if (cachedChapters) {
             setNovelChapters(cachedChapters);
+          } else {
+            console.log('[NovelDetailScreen] Chapters not in cache, novel details only');
           }
           Animated.timing(contentFade, {
             toValue: 1,
@@ -262,6 +264,8 @@ const NovelDetailScreen = () => {
         setNovelChapters(cachedChapters);
         const unlockedChapterIds = cachedChapters?.map(p => p.chapter_number.toString()) || [];
         setUnlockedChapters(unlockedChapterIds);
+      } else {
+        console.log('[NovelDetailScreen] Chapters not in cache - novel was cached without chapter data');
       }
       return;
     }

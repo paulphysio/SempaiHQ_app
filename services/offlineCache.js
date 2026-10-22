@@ -161,6 +161,7 @@ export function isNovelSaved(id) {
  */
 export function getNovelChapters(id) {
   const { chaptersFile } = getNovelCache(id);
+  if (!chaptersFile.exists) return null;
   try {
     return JSON.parse(chaptersFile.text());
   } catch (e) {
