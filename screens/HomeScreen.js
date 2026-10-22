@@ -25,6 +25,7 @@ import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
 import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, clearAllSmpFiles, isNovelSavedOffline } from '../services/offlineCache';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
@@ -227,10 +228,31 @@ const Home = () => {
     }
   }, [unreadCount]);
 
-  // Clear old cache on app startup
-  useEffect(() => {
-    clearOldCache();
+  // Get stored user ID from AsyncStorage (works offline)
+  const getStoredUserId = useCallback(async () => {
+    try {
+      const storedUserStr = await AsyncStorage.getItem('supabase.auth.user');
+      if (storedUserStr) {
+        const storedUser = JSON.parse(storedUserStr);
+        return storedUser.id;
+      }
+    } catch (e) {
+      console.log('[HomeScreen] Could not read stored user from AsyncStorage');
+    }
+    return null;
   }, []);
+
+  // Restore user ID from storage on mount (works offline)
+  useEffect(() => {
+    (async () => {
+      const storedUserId = await getStoredUserId();
+      if (storedUserId && !userId) {
+        console.log('[HomeScreen] Restored user ID from storage:', storedUserId);
+        setUserId(storedUserId);
+      }
+    })();
+    clearOldCache();
+  }, [getStoredUserId, userId]);
 
   // Wallet dropdown handlers
   const toggleWalletMenu = () => {
