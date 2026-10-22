@@ -2370,7 +2370,7 @@ const ChapterScreen = () => {
           <FontAwesome5 name="book" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
-      {(successMessage || (error && isWalletConnected) || warningMessage) && (
+      {(successMessage || error || warningMessage) && (
         <View
           style={[
             styles.messageContainer,
