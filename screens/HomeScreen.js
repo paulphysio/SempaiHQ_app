@@ -66,7 +66,7 @@ const Home = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [novelsLoading, setNovelsLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(null); // null = unknown, will be set on check
   const [error, setError] = useState(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -279,9 +279,9 @@ const Home = () => {
   useEffect(() => {
     const syncWallet = async () => {
       try {
-        // Skip wallet sync if offline
-        if (!isOnline) {
-          console.log('[HomeScreen] Offline - skipping wallet sync');
+        // Skip wallet sync if offline or status unknown
+        if (isOnline === false || isOnline === null) {
+          console.log('[HomeScreen] Offline/status unknown - skipping wallet sync');
           return;
         }
 
@@ -404,9 +404,9 @@ const Home = () => {
 
     const fetchAnnouncements = async () => {
       try {
-        // Skip if offline
-        if (!isOnline) {
-          console.log('[HomeScreen] Offline - skipping announcements fetch');
+        // Skip if offline or status unknown
+        if (isOnline === false || isOnline === null) {
+          console.log('[HomeScreen] Offline/status unknown - skipping announcements fetch');
           return;
         }
 
@@ -502,9 +502,9 @@ const Home = () => {
 
     const fetchNotifications = async () => {
       try {
-        // Skip if offline
-        if (!isOnline) {
-          console.log('[HomeScreen] Offline - skipping notifications fetch');
+        // Skip if offline or status unknown
+        if (isOnline === false || isOnline === null) {
+          console.log('[HomeScreen] Offline/status unknown - skipping notifications fetch');
           return;
         }
 
@@ -597,9 +597,9 @@ const Home = () => {
     const fetchNovel = async () => {
       setNovelsLoading(true);
       try {
-        // If offline, load from cache directly
-        if (!isOnline) {
-          console.log('[HomeScreen] Offline - loading novels from cache');
+        // If offline or status unknown, load from cache directly
+        if (isOnline === false || isOnline === null) {
+          console.log('[HomeScreen] Offline/status unknown - loading novels from cache');
           const cachedNovels = getCachedNovels();
           console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
           if (cachedNovels && cachedNovels.length > 0) {
@@ -671,7 +671,7 @@ const Home = () => {
       }
     };
     fetchNovel();
-  }, [isOnline]);
+  }, [isOnline, session]);
 
   // Debug novels state changes
   useEffect(() => {
@@ -682,9 +682,9 @@ const Home = () => {
   useEffect(() => {
     const fetchManga = async () => {
       try {
-        // Skip manga fetch if offline
-        if (!isOnline) {
-          console.log('[HomeScreen] Offline - skipping manga fetch');
+        // Skip manga fetch if offline or status unknown
+        if (isOnline === false || isOnline === null) {
+          console.log('[HomeScreen] Offline/status unknown - skipping manga fetch');
           setManga([]);
           setLoading(false);
           return;
