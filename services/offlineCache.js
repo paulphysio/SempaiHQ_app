@@ -272,6 +272,15 @@ export async function getNovelForOffline(novelId, userId) {
     return data;
   } catch (error) {
     console.error('[getNovelForOffline] Failed to load novel:', error);
+    // If decryption fails, the file might be corrupted or encrypted with a different key
+    // Delete the corrupted file so it can be re-saved
+    try {
+      const filePath = getSmpDirectory() + novelId + '.smp';
+      await FileSystem.deleteAsync(filePath, { idempotent: true });
+      console.log('[getNovelForOffline] Deleted corrupted .smp file');
+    } catch (deleteError) {
+      // Ignore delete errors
+    }
     return null;
   }
 }
