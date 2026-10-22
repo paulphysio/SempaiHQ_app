@@ -202,7 +202,11 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
     console.log('\nAdditional unlocked chapters:');
     for (const chapterId of unlockedChapters) {
       const chapterNum = parseInt(chapterId, 10);
-      if (chapterNum > 2 && chaptercontents[chapterId]) {
+      if (chapterNum <= 2) {
+        console.log(`  - Chapter ${chapterId}: Skipped (already in first 3 free chapters)`);
+        continue;
+      }
+      if (chaptercontents[chapterId]) {
         const chapter = {
           chapter_number: chapterId,
           title: chaptertitles[chapterId] || `Chapter ${chapterNum + 1}`,
