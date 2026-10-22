@@ -121,6 +121,20 @@ export async function saveNovel(novel) {
     const { cacheDirectory, dataFile, imageFile } = getNovelCache(novel.id);
     cacheDirectory.create();
 
+    // Check if novel already exists in cache to preserve offline_chapters
+    let existingOfflineChapters = null;
+    if (dataFile.exists) {
+      try {
+        const existingNovel = JSON.parse(dataFile.text());
+        if (existingNovel.offline_chapters) {
+          existingOfflineChapters = existingNovel.offline_chapters;
+          console.log('[saveNovel] Preserving existing offline_chapters:', existingOfflineChapters.length);
+        }
+      } catch (e) {
+        console.warn('[saveNovel] Could not read existing cache, will overwrite');
+      }
+    }
+
     // Add default values for fields that might be missing
     const novelToSave = {
       ...novel,
@@ -131,6 +145,8 @@ export async function saveNovel(novel) {
       },
       // Store the local image path for offline use
       image: imageFile.uri,
+      // Preserve offline_chapters if they exist
+      offline_chapters: existingOfflineChapters || novel.offline_chapters,
     };
 
     dataFile.write(JSON.stringify(novelToSave));
