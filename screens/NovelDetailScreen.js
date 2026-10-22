@@ -337,16 +337,22 @@ const NovelDetailScreen = () => {
 
   const handleNavigation = (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
+    console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
     
     // If offline and chapter is in cache, allow navigation even without wallet
     if (chapterNum && (!isWalletConnected && chapterNum > 1)) {
       if (isOnline === false || isOnline === null) {
+        console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
         // Check if chapter is available in offline cache
         const cachedNovel = getNovel(id);
+        console.log('[NovelDetailScreen] Cached novel:', cachedNovel ? 'found' : 'not found');
+        
         if (cachedNovel) {
           // Check if chapter is in offline_chapters (new format)
           if (cachedNovel.offline_chapters) {
+            console.log('[NovelDetailScreen] Checking offline_chapters for chapter', params.chapterId);
             const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === params.chapterId);
+            console.log('[NovelDetailScreen] Offline chapter found:', offlineChapter ? 'yes' : 'no');
             if (offlineChapter && offlineChapter.content) {
               console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
               navigation.navigate(screen, params);
@@ -354,13 +360,17 @@ const NovelDetailScreen = () => {
             }
           }
           // Check if chapter is in first 3 (old format)
-          if (chapterNum <= 3 && cachedNovel.chaptercontents?.[params.chapterId]) {
+          console.log('[NovelDetailScreen] Checking old cache format for chapter', params.chapterId);
+          const chapterContent = cachedNovel.chaptercontents?.[params.chapterId];
+          console.log('[NovelDetailScreen] Chapter content in old cache:', chapterContent ? 'found' : 'not found');
+          if (chapterNum <= 3 && chapterContent) {
             console.log('[NovelDetailScreen] First 3 chapters available offline, allowing navigation');
             navigation.navigate(screen, params);
             return;
           }
         }
       }
+      console.log('[NovelDetailScreen] Chapter not available offline, showing connect popup');
       setShowConnectPopup(true);
     } else {
       navigation.navigate(screen, params);
