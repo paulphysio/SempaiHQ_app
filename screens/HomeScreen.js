@@ -24,7 +24,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
-import { getCachedNovels, isErrorNetworkError, saveNovel } from '../services/offlineCache';
+import { getCachedNovels, isErrorNetworkError, saveNovel, isNovelSaved } from '../services/offlineCache';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
@@ -589,8 +589,14 @@ const Home = () => {
       // Auto-cache novels for offline use
       for(let novel of enrichedNovels){
         try {
-          await saveNovel(novel);
-          console.log(`[HomeScreen] Auto-cached novel: ${novel.title}`);
+          // Check if novel is already cached
+          const isCached = await isNovelSaved(novel.id);
+          if (!isCached) {
+            await saveNovel(novel);
+            console.log(`[HomeScreen] Auto-cached novel: ${novel.title}`);
+          } else {
+            console.log(`[HomeScreen] Novel already cached: ${novel.title}`);
+          }
         } catch(cacheError) {
           console.error(`[HomeScreen] Failed to cache novel ${novel.title}:`, cacheError);
         }

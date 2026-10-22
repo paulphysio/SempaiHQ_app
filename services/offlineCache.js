@@ -33,8 +33,19 @@ function getOrCreateDirectory(...path) {
  * @param {!File} destination
  */
 async function downloadOrOverwriteFileAsync(url, destination) {
-  if (destination.exists) destination.delete();
-  return File.downloadFileAsync(url, destination);
+  try {
+    if (destination.exists) {
+      destination.delete();
+    }
+    return File.downloadFileAsync(url, destination);
+  } catch (error) {
+    // If file already exists and delete failed, try to just use the existing file
+    if (destination.exists) {
+      console.log('[downloadOrOverwriteFileAsync] File already exists, using existing file');
+      return;
+    }
+    throw error;
+  }
 }
 
 export const offlineCacheDirectory = getOrCreateDirectory(
