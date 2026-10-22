@@ -37,14 +37,21 @@ async function downloadOrOverwriteFileAsync(url, destination) {
     if (destination.exists) {
       destination.delete();
     }
-    return File.downloadFileAsync(url, destination);
+    // Add timeout to prevent indefinite hanging
+    const downloadPromise = File.downloadFileAsync(url, destination);
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Download timeout')), 30000)
+    );
+    await Promise.race([downloadPromise, timeoutPromise]);
   } catch (error) {
     // If file already exists and delete failed, try to just use the existing file
     if (destination.exists) {
       console.log('[downloadOrOverwriteFileAsync] File already exists, using existing file');
       return;
     }
-    throw error;
+    // If timeout or other error, log but don't throw - allow caching to continue without image
+    console.error('[downloadOrOverwriteFileAsync] Download failed:', error instanceof Error ? error.message : String(error));
+    // Don't throw - allow novel to be cached even if image download fails
   }
 }
 
@@ -127,8 +134,15 @@ export async function saveNovel(novel) {
     };
 
     dataFile.write(JSON.stringify(novelToSave));
+    
+    // Try to download image, but don't fail if it times out
     if (novel.image && novel.image !== FALLBACK_IMAGE && novel.image !== imageFile.uri) {
-      await downloadOrOverwriteFileAsync(novel.image, imageFile);
+      try {
+        await downloadOrOverwriteFileAsync(novel.image, imageFile);
+      } catch (imageError) {
+        console.warn('[offlineCache] Image download failed, novel saved without image:', imageError instanceof Error ? imageError.message : String(imageError));
+        // Don't throw - novel is still saved, just without the image
+      }
     }
   } catch (error) {
     console.error('[offlineCache] could not save novel:', error instanceof Error ? error.message : String(error));
@@ -288,9 +302,14 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
 
     dataFile.write(JSON.stringify(novelToSave));
 
-    // Save image
+    // Save image (with timeout handling)
     if (novel.image && novel.image !== FALLBACK_IMAGE && novel.image !== imageFile.uri) {
-      await downloadOrOverwriteFileAsync(novel.image, imageFile);
+      try {
+        await downloadOrOverwriteFileAsync(novel.image, imageFile);
+      } catch (imageError) {
+        console.warn('[offlineCache] Image download failed in saveNovelForOfflineReading:', imageError instanceof Error ? imageError.message : String(imageError));
+        // Don't throw - novel and chapters are still saved, just without the image
+      }
     }
 
     // Save chapters separately

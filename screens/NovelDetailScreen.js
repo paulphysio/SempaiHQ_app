@@ -178,7 +178,14 @@ const NovelDetailScreen = () => {
 
       console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
-      if(isSavedOffline && !isNetworkError) await saveNovel(data);
+      if(isSavedOffline && !isNetworkError) {
+        try {
+          await saveNovel(data);
+        } catch (saveError) {
+          console.warn('[NovelDetailScreen] Auto-save failed (non-critical):', saveError instanceof Error ? saveError.message : String(saveError));
+          // Don't throw - novel is still displayed, just not cached
+        }
+      }
       Animated.timing(contentFade, {
         toValue: 1,
         duration: 500,
@@ -331,7 +338,13 @@ const NovelDetailScreen = () => {
     }
     catch(error){
       console.error('[NovelDetailScreen] could not save novel:', error);
-      setError(error.message);
+      // Don't show error for image download failures - novel content is still saved
+      if (error.message && error.message.includes('timeout')) {
+        console.warn('[NovelDetailScreen] Image download timed out, novel saved without image');
+        setIsSavedOffline(true); // Still mark as saved since content is cached
+      } else {
+        setError(error.message);
+      }
     }
   }, [isSavedOffline, novel, unlockedChapters, id]);
 
