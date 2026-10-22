@@ -61,11 +61,13 @@ function getNovelCache(id) {
 
 export function getCachedNovels() {
   const novels = [];
+  console.log('[getCachedNovels] Starting cache retrieval');
   for (let path of novelsCacheDirectory.list()) {
     if (!(path instanceof Directory)) continue;
     const novel = getNovel(path.name);
     if (!novel) continue;
 
+    console.log('[getCachedNovels] Found:', novel.title);
     const { imageFile } = getNovelCache(path.name);
     novels.push({
       id: novel.id,
@@ -85,6 +87,7 @@ export function getCachedNovels() {
     });
   }
 
+  console.log('[getCachedNovels] Returning', novels.length, 'novels');
   return novels;
 }
 

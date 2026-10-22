@@ -569,6 +569,7 @@ const Home = () => {
           console.log('[HomeScreen] Network error, showing cached novels');
           try {
             cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
+            console.log('[HomeScreen] Setting novels state with', cachedNovels.slice(0, 6).length, 'novels');
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
@@ -597,6 +598,11 @@ const Home = () => {
     };
     fetchNovel();
   }, []);
+
+  // Debug novels state changes
+  useEffect(() => {
+    console.log('[HomeScreen] Novels state changed:', novels.length, novels.map(n => n.title));
+  }, [novels]);
 
   // Fetch manga
   useEffect(() => {
@@ -1402,6 +1408,7 @@ const Home = () => {
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
+              {console.log('[HomeScreen] Render - loading:', novelsLoading, 'novels:', novels.length)}
               {novelsLoading ? (
                 <CarouselSkeleton />
               ) : novels.length === 0 ? (
