@@ -208,7 +208,8 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
         averageRating: novel.averageRating,
         writer: novel.writer,
         user_id: novel.user_id,
-        image: novel.image
+        image: novel.image,
+        chaptertitles: novel.chaptertitles || {}
       },
       chapters: chaptersToSave,
       encrypted: true
