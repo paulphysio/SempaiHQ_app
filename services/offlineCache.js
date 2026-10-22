@@ -201,8 +201,8 @@ export function saveNovelChapters(novelId, chapters) {
  * @param {Object} novel - The novel object with chaptertitles and chaptercontents
  * @param {string} novel.id
  * @param {string} novel.image
- * @param {Object} [novel.chaptertitles]
- * @param {Object} [novel.chaptercontents]
+ * @param {Object<string, string>} [novel.chaptertitles] - Object mapping chapter numbers to titles
+ * @param {Object<string, string>} [novel.chaptercontents] - Object mapping chapter numbers to content
  * @param {string} [novel.averageRating]
  * @param {Object} [novel.writer]
  * @param {string[]} unlockedChapterIds - Array of unlocked chapter numbers (as strings)
@@ -212,7 +212,12 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
     const { cacheDirectory, dataFile, imageFile, chaptersFile } = getNovelCache(novel.id);
     cacheDirectory.create();
 
-    console.log('[saveNovelForOfflineReading] Chapter titles keys:', Object.keys(novel.chaptertitles || {}));
+    /** @type {Object<string, string>} */
+    const chaptertitles = novel.chaptertitles || {};
+    /** @type {Object<string, string>} */
+    const chaptercontents = novel.chaptercontents || {};
+
+    console.log('[saveNovelForOfflineReading] Chapter titles keys:', Object.keys(chaptertitles));
     console.log('[saveNovelForOfflineReading] Unlocked chapter IDs:', unlockedChapterIds);
 
     // Always save first 3 chapters (indices 0, 1, 2)
@@ -220,13 +225,13 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
     for (let i = 0; i <= 2; i++) {
       const chapterNum = i.toString();
       // Try both string and integer keys
-      const title1 = novel.chaptertitles?.[chapterNum];
-      const title2 = novel.chaptertitles?.[i];
+      const title1 = chaptertitles[chapterNum];
+      const title2 = chaptertitles[i];
       const title = title1 || title2;
       
       if (title) {
-        const content1 = novel.chaptercontents?.[chapterNum];
-        const content2 = novel.chaptercontents?.[i];
+        const content1 = chaptercontents[chapterNum];
+        const content2 = chaptercontents[i];
         const content = content1 || content2 || '';
         
         firstThreeChapters.push({
@@ -240,17 +245,18 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
     }
 
     // Add other unlocked chapters (beyond index 2)
+    /** @type {Array<{chapter_number: string, title: string, content: string, is_unlocked: boolean}>} */
     const otherUnlockedChapters = [];
     unlockedChapterIds.forEach(chapterNum => {
       const num = parseInt(chapterNum, 10);
       if (num > 2) {
-        const title1 = novel.chaptertitles?.[chapterNum];
-        const title2 = novel.chaptertitles?.[num];
+        const title1 = chaptertitles[chapterNum];
+        const title2 = chaptertitles[num];
         const title = title1 || title2;
         
         if (title) {
-          const content1 = novel.chaptercontents?.[chapterNum];
-          const content2 = novel.chaptercontents?.[num];
+          const content1 = chaptercontents[chapterNum];
+          const content2 = chaptercontents[num];
           const content = content1 || content2 || '';
           
           otherUnlockedChapters.push({
