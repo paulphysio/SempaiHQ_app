@@ -339,8 +339,15 @@ const NovelDetailScreen = () => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
     console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
     
-    // If offline and chapter is in cache, allow navigation even without wallet
-    if (chapterNum && (!isWalletConnected && chapterNum > 1)) {
+    // First 3 chapters are ALWAYS free - no wallet check needed
+    if (chapterNum && chapterNum <= 3) {
+      console.log('[NovelDetailScreen] First 3 chapters are free, allowing navigation');
+      navigation.navigate(screen, params);
+      return;
+    }
+    
+    // For chapters beyond 3, check wallet connection if online
+    if (chapterNum && chapterNum > 1 && isWalletConnected !== false) {
       if (isOnline === false || isOnline === null) {
         console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
         // Check if chapter is available in offline cache
@@ -359,7 +366,7 @@ const NovelDetailScreen = () => {
               return;
             }
           }
-          // Check if chapter is in first 3 (old format)
+          // Check if chapter is in first 3 (old format) - redundant but kept for safety
           console.log('[NovelDetailScreen] Checking old cache format for chapter', params.chapterId);
           const chapterContent = cachedNovel.chaptercontents?.[params.chapterId];
           console.log('[NovelDetailScreen] Chapter content in old cache:', chapterContent ? 'found' : 'not found');
@@ -370,11 +377,14 @@ const NovelDetailScreen = () => {
           }
         }
       }
-      console.log('[NovelDetailScreen] Chapter not available offline, showing connect popup');
-      setShowConnectPopup(true);
-    } else {
-      navigation.navigate(screen, params);
+      if (!isWalletConnected) {
+        console.log('[NovelDetailScreen] Wallet not connected, showing connect popup');
+        setShowConnectPopup(true);
+        return;
+      }
     }
+    
+    navigation.navigate(screen, params);
   };
 
   const renderChapterItem = ({ item: [chapterId, title] }) => {
