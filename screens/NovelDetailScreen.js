@@ -131,15 +131,13 @@ const NovelDetailScreen = () => {
       // If offline or status unknown, try cache first
       if (isOnline === false || isOnline === null) {
         console.log('[NovelDetailScreen] Offline - loading novel from cache');
-        const cachedNovel = getNovel(id);
-        if (cachedNovel) {
-          console.log('[NovelDetailScreen] Novel loaded from cache:', cachedNovel.title);
-          setNovel(cachedNovel);
-          const cachedChapters = getNovelChapters(id);
-          if (cachedChapters) {
-            setNovelChapters(cachedChapters);
-          } else {
-            console.log('[NovelDetailScreen] Chapters not in cache, novel details only');
+        const cachedData = await getNovelForOffline(id, userId);
+        if (cachedData) {
+          console.log('[NovelDetailScreen] Novel loaded from cache:', cachedData.novel.title);
+          setNovel(cachedData.novel);
+          // Chapters are now in cachedData.chapters
+          if (cachedData.chapters && cachedData.chapters.length > 0) {
+            console.log('[NovelDetailScreen] Loaded', cachedData.chapters.length, 'chapters from cache');
           }
           Animated.timing(contentFade, {
             toValue: 1,
@@ -271,10 +269,10 @@ const NovelDetailScreen = () => {
     // Skip if offline
     if (isOnline === false || isOnline === null) {
       console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
-      const cachedChapters = getNovelChapters(id);
-      if (cachedChapters) {
-        setNovelChapters(cachedChapters);
-        const unlockedChapterIds = cachedChapters?.map(p => p.chapter_number.toString()) || [];
+      const cachedData = await getNovelForOffline(id, userId);
+      if (cachedData && cachedData.chapters) {
+        setNovelChapters(cachedData.chapters);
+        const unlockedChapterIds = cachedData.chapters.map(p => p.chapter_number.toString()) || [];
         setUnlockedChapters(unlockedChapterIds);
       } else {
         console.log('[NovelDetailScreen] Chapters not in cache - novel was cached without chapter data');
@@ -294,8 +292,11 @@ const NovelDetailScreen = () => {
       // failed to fetch from network, try cache
       if(isNetworkError){
         console.log(`[NovelDetailScreen] could not load unlocked chapters ${id} from network, trying from cache`);
-        payments = getNovelChapters(id);
-        console.log(`[NovelDetailScreen] unlocked chapters ${id} ${payments ? "loaded successfully" : "not cached"}`);
+        const cachedData = await getNovelForOffline(id, userId);
+        if (cachedData && cachedData.chapters) {
+          payments = cachedData.chapters;
+          console.log(`[NovelDetailScreen] unlocked chapters ${id} loaded successfully from cache`);
+        }
       }
 
       if (!payments && paymentsError) {
@@ -304,7 +305,6 @@ const NovelDetailScreen = () => {
         return;
       }
 
-      if(isSavedOffline && !isNetworkError) saveNovelChapters(id, payments);
       setNovelChapters(payments);
 
       const unlockedChapterIds = payments?.map(p => p.chapter_number.toString()) || [];
@@ -379,27 +379,14 @@ const NovelDetailScreen = () => {
       if (isOnline === false || isOnline === null) {
         console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
         // Check if chapter is available in offline cache
-        const cachedNovel = getNovel(id);
-        console.log('[NovelDetailScreen] Cached novel:', cachedNovel ? 'found' : 'not found');
-        
-        if (cachedNovel) {
-          // Check if chapter is in offline_chapters (new format)
-          if (cachedNovel.offline_chapters) {
-            console.log('[NovelDetailScreen] Checking offline_chapters for chapter', params.chapterId);
-            const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === params.chapterId);
-            console.log('[NovelDetailScreen] Offline chapter found:', offlineChapter ? 'yes' : 'no');
-            if (offlineChapter && offlineChapter.content) {
-              console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
-              navigation.navigate(screen, params);
-              return;
-            }
-          }
-          // Check if chapter is in first 3 (old format) - redundant but kept for safety
-          console.log('[NovelDetailScreen] Checking old cache format for chapter', params.chapterId);
-          const chapterContent = cachedNovel.chaptercontents?.[params.chapterId];
-          console.log('[NovelDetailScreen] Chapter content in old cache:', chapterContent ? 'found' : 'not found');
-          if (chapterNum <= 2 && chapterContent) {
-            console.log('[NovelDetailScreen] First 3 chapters available offline, allowing navigation');
+        const cachedData = await getNovelForOffline(id, userId);
+        console.log('[NovelDetailScreen] Cached novel:', cachedData ? 'found' : 'not found');
+
+        if (cachedData && cachedData.chapters) {
+          const offlineChapter = cachedData.chapters.find(c => c.chapter_number === params.chapterId);
+          console.log('[NovelDetailScreen] Offline chapter found:', offlineChapter ? 'yes' : 'no');
+          if (offlineChapter && offlineChapter.content) {
+            console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
             navigation.navigate(screen, params);
             return;
           }

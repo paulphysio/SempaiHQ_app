@@ -16,7 +16,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
-import { getNovel, isErrorNetworkError } from '../services/offlineCache';
+import { getNovelForOffline, isErrorNetworkError } from '../services/offlineCache';
 import { useTheme } from '../context/ThemeContext';
 import { getNovelPageStyles } from '../styles/NovelPageStyles';
 
@@ -337,8 +337,11 @@ const NovelSummaryScreen = () => {
           // failed to fetch from network, try cache
           if(isNetworkError){
             console.log(`[NovelSummaryScreen] could not load novel summary ${id} from network, trying from cache`);
-            data = getNovel(id);
-            console.log(`[NovelSummaryScreen] novel summary ${id} ${data ? "loaded successfully" : "not cached"}`);
+            const cachedData = await getNovelForOffline(id, 'guest');
+            if (cachedData) {
+              data = cachedData.novel;
+              console.log(`[NovelSummaryScreen] novel summary ${id} loaded successfully from cache`);
+            }
           }
           else if (error) throw error;
 

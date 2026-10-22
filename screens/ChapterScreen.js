@@ -1606,8 +1606,10 @@ const ChapterScreen = () => {
         .eq('chapter_number', chapterNum)
         .single();
       if(isErrorNetworkError(error)){
-        const novelChapters = getNovelChapters(id) ?? [];
-        data = novelChapters.find(({ chapter_number }) => chapter_number == chapterNum);
+        const cachedData = await getNovelForOffline(novelId, userId || 'guest');
+        if (cachedData && cachedData.chapters) {
+          data = cachedData.chapters.find(({ chapter_number }) => chapter_number == chapterNum);
+        }
       }
       else if (error && error.code !== 'PGRST116') throw new Error(error.message);
       return !!data;
