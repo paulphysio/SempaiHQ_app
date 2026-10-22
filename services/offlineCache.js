@@ -115,6 +115,7 @@ export function getCachedNovels() {
  * @param {string} novel.image
  * @param {string} [novel.averageRating]
  * @param {Object} [novel.writer]
+ * @param {Array<{chapter_number: string, title: string, content: string, is_unlocked: boolean}>} [novel.offline_chapters]
  */
 export async function saveNovel(novel) {
   try {
