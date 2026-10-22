@@ -23,7 +23,7 @@ import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Network from 'expo-network';
 import { supabase } from '../services/supabaseClient';
-import { getNovel, getNovelChapters, isErrorNetworkError } from '../services/offlineCache';
+import { getNovelForOffline, isErrorNetworkError } from '../services/offlineCache';
 import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
@@ -866,45 +866,14 @@ const ChapterScreen = () => {
       // If offline or status unknown, try cache first
       if (isOnline === false || isOnline === null) {
         console.log('[ChapterScreen] Offline - loading novel from cache');
-        const cachedNovel = getNovel(id);
-        if (cachedNovel) {
-          console.log('[ChapterScreen] Novel loaded from cache:', cachedNovel.title);
-          console.log('[ChapterScreen] Has offline_chapters:', !!cachedNovel.offline_chapters);
-          console.log('[ChapterScreen] offline_chapters count:', cachedNovel.offline_chapters?.length || 0);
-          setNovel(cachedNovel);
-
-          // Check if chapter is in offline_chapters
-          if (cachedNovel.offline_chapters) {
-            console.log('[ChapterScreen] Looking for chapter in offline_chapters:', chapter);
-            const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === chapter);
-            console.log('[ChapterScreen] Found offline chapter:', offlineChapter ? 'yes' : 'no');
-            if (offlineChapter && offlineChapter.content) {
-              console.log('[ChapterScreen] Chapter loaded from offline cache');
-              // Unlock the chapter since it's available offline
-              setIsLocked(false);
-            } else {
-              console.log('[ChapterScreen] Chapter not available offline (not in saved chapters)');
-              setError('This chapter is not available offline. Only first 3 chapters and unlocked chapters are saved for offline reading.');
-            }
-          } else {
-            // Fallback: Check if chapter content exists in original chaptercontents (old cache format)
-            if (cachedNovel.chaptercontents?.[chapter]) {
-              console.log('[ChapterScreen] Chapter found in old cache format');
-              // Check if it's one of the first 3 chapters (indices 0, 1, 2)
-              const chapterNum = parseInt(chapter, 10);
-              if (chapterNum <= 2) {
-                console.log('[ChapterScreen] First 3 chapters available in old cache');
-                setIsLocked(false);
-              } else {
-                console.log('[ChapterScreen] Chapter > 2 not available in old cache');
-                setError('This chapter is not available offline. Please re-save the novel to include unlocked chapters.');
-              }
-            } else {
-              console.log('[ChapterScreen] No offline chapters in cache');
-              setError('Novel saved without chapter content. Please re-save to include chapters.');
-            }
+        const cachedData = await getNovelForOffline(id, userId || 'guest');
+        if (cachedData) {
+          console.log('[ChapterScreen] Novel loaded from cache:', cachedData.novel.title);
+          setNovel(cachedData.novel);
+          // Chapters are now in cachedData.chapters
+          if (cachedData.chapters && cachedData.chapters.length > 0) {
+            console.log('[ChapterScreen] Loaded', cachedData.chapters.length, 'chapters from cache');
           }
-
           setLoading(false);
           return;
         } else {
@@ -937,12 +906,35 @@ const ChapterScreen = () => {
       // failed to fetch from network, try cache
       if(isNetworkError){
         console.log(`[ChapterScreen] could not load novel ${id} from network, trying from cache`);
-        data = getNovel(id);
-        console.log(`[ChapterScreen] novel ${id} ${data ? "loaded successfully" : "not cached"}`);
+        const cachedData = await getNovelForOffline(id, userId || 'guest');
+        if (cachedData) {
+          data = cachedData.novel;
+          console.log(`[ChapterScreen] novel ${id} loaded successfully from cache`);
+        }
       }
       else if (error) throw new Error(error.message);
 
-      if (!data || !data.chaptercontents?.[chapter]) throw new Error('Chapter not found');
+      if (!data || !data.chaptercontents?.[chapter]) {
+        // If offline, check if chapter is in cached .smp file
+        if (isOnline === false || isOnline === null) {
+          const cachedData = await getNovelForOffline(id, userId || 'guest');
+          if (cachedData) {
+            const chapter = cachedData.chapters.find(c => c.chapter_number === chapter);
+            if (chapter && chapter.content) {
+              console.log('[ChapterScreen] Chapter found in offline cache');
+              data = cachedData.novel;
+              data.chaptercontents = {};
+              data.chaptercontents[chapter] = chapter.content;
+            } else {
+              throw new Error('Chapter not available offline');
+            }
+          } else {
+            throw new Error('Chapter not found');
+          }
+        } else {
+          throw new Error('Chapter not found');
+        }
+      }
       setNovel(data);
       setAdvanceInfo(
         data.advance_chapters?.find((c) => c.index === parseInt(chapter)) || {
@@ -2081,37 +2073,33 @@ const ChapterScreen = () => {
       // If offline, only allow chapters that are saved
       if (isOnline === false || isOnline === null) {
         console.log('[ChapterScreen] Offline mode, checking cache');
-        const cachedNovel = getNovel(novelId);
-        console.log('[ChapterScreen] Cached novel:', cachedNovel ? 'found' : 'not found');
-        if (cachedNovel) {
-          console.log('[ChapterScreen] Cached novel keys:', Object.keys(cachedNovel));
-          console.log('[ChapterScreen] Has offline_chapters:', !!cachedNovel.offline_chapters);
-          console.log('[ChapterScreen] offline_chapters:', cachedNovel.offline_chapters);
-          console.log('[ChapterScreen] Has chaptercontents:', !!cachedNovel.chaptercontents);
-          console.log('[ChapterScreen] chaptercontents keys:', Object.keys(cachedNovel.chaptercontents || {}));
-          
-          // Check if chapter is in offline_chapters
-          if (cachedNovel.offline_chapters) {
-            const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === chapterId);
-            console.log('[ChapterScreen] Looking for chapter:', chapterId, 'in offline_chapters');
-            console.log('[ChapterScreen] Found offline chapter:', offlineChapter ? 'yes' : 'no');
-            if (offlineChapter && offlineChapter.content) {
-              console.log('[ChapterScreen] Chapter available in offline cache');
-              setLoading(false);
-              return;
-            }
-          }
-          // Check if chapter is in first 3 (old cache format)
-          if (chapterNum <= 2 && cachedNovel.chaptercontents?.[chapterId]) {
-            console.log('[ChapterScreen] First 3 chapters available in old cache');
+        const cachedData = await getNovelForOffline(novelId, userId || 'guest');
+        if (cachedData) {
+          console.log('[ChapterScreen] Cached novel found:', cachedData.novel.title);
+          // Check if chapter is in the saved chapters
+          const chapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
+          if (chapter && chapter.content) {
+            console.log('[ChapterScreen] Chapter available in offline cache, unlocking:', chapterNum);
+            setIsLocked(false);
+            setCanUnlockNextThree(true);
+            setIsAdvanceChapter(false);
+            setIsUnlockedViaSubscription(false);
+            setReadingMode('free');
+            setNovel(cachedData.novel);
+            setLoading(false);
+            return;
+          } else {
+            console.log('[ChapterScreen] Chapter not in saved chapters');
+            setError('This chapter is not available offline. Please save the novel while online to access this chapter.');
             setLoading(false);
             return;
           }
+        } else {
+          console.log('[ChapterScreen] Novel not in cache');
+          setError('Novel not available offline. Please save it for offline reading first.');
+          setLoading(false);
+          return;
         }
-        console.log('[ChapterScreen] Chapter not available offline');
-        setError('This chapter is not available offline. Please save the novel while online to access this chapter.');
-        setLoading(false);
-        return;
       }
       
       // Online - fetch from network
@@ -2132,19 +2120,25 @@ const ChapterScreen = () => {
         return;
       }
 
-      // If offline and chapter is in offline_chapters, unlock immediately
-      if ((isOnline === false || isOnline === null) && novel.offline_chapters) {
-        const offlineChapter = novel.offline_chapters.find(c => c.chapter_number === chapterId);
-        if (offlineChapter && offlineChapter.content) {
-          console.log('[ChapterScreen] Chapter in offline cache, unlocking:', chapterNum);
-          setIsLocked(false);
-          setCanUnlockNextThree(true);
-          setIsAdvanceChapter(false);
-          setIsUnlockedViaSubscription(false);
-          setReadingMode('free');
-          checkHasReadChapter(chapterId);
-          return;
-        }
+      // If offline and chapter is in saved chapters, unlock immediately
+      if ((isOnline === false || isOnline === null) && novel) {
+        // Load from cache to check chapter availability
+        (async () => {
+          const cachedData = await getNovelForOffline(novelId, userId || 'guest');
+          if (cachedData) {
+            const chapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
+            if (chapter && chapter.content) {
+              console.log('[ChapterScreen] Chapter in offline cache, unlocking:', chapterNum);
+              setIsLocked(false);
+              setCanUnlockNextThree(true);
+              setIsAdvanceChapter(false);
+              setIsUnlockedViaSubscription(false);
+              setReadingMode('free');
+              checkHasReadChapter(chapterId);
+              return;
+            }
+          }
+        })();
       }
 
       // First 3 chapters (indices 0, 1, 2) are free - unlock immediately even without wallet

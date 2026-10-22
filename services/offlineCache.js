@@ -1,8 +1,14 @@
 // @ts-check
 
-import { File, Directory, Paths } from "expo-file-system/next";
+import * as Crypto from 'expo-crypto';
+import * as FileSystem from 'expo-file-system';
+import * as SecureStore from 'expo-secure-store';
+import CryptoJS from 'crypto-js';
 
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
+const SMP_DIRECTORY = 'smp-novels';
+const KEY_VERSION = 'v1';
+const KEY_PREFIX = 'smp_encryption_key_';
 
 /**
  * @param {any} error
@@ -20,327 +26,339 @@ export function isErrorNetworkError(error) {
 }
 
 /**
- * @param {...!(string | Directory | File)} path
+ * Generate encryption key from user ID
+ * @param {string} userId - User ID to derive key from
+ * @returns {Promise<string>} - Hex string of the encryption key
  */
-function getOrCreateDirectory(...path) {
-  const directory = new Directory(...path);
-  if (!directory.exists) directory.create();
-  return directory;
-}
-
-/**
- * @param {!string} url
- * @param {!File} destination
- */
-async function downloadOrOverwriteFileAsync(url, destination) {
-  try {
-    if (destination.exists) {
-      destination.delete();
-    }
-    // Add timeout to prevent indefinite hanging
-    const downloadPromise = File.downloadFileAsync(url, destination);
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Download timeout')), 30000)
-    );
-    await Promise.race([downloadPromise, timeoutPromise]);
-  } catch (error) {
-    // If file already exists and delete failed, try to just use the existing file
-    if (destination.exists) {
-      console.log('[downloadOrOverwriteFileAsync] File already exists, using existing file');
-      return;
-    }
-    // If timeout or other error, log but don't throw - allow caching to continue without image
-    console.error('[downloadOrOverwriteFileAsync] Download failed:', error instanceof Error ? error.message : String(error));
-    // Don't throw - allow novel to be cached even if image download fails
+async function generateUserKey(userId) {
+  if (!userId) {
+    // Generate a random key for guest users
+    const randomBytes = await Crypto.getRandomBytesAsync(32);
+    return Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
   }
-}
 
-export const offlineCacheDirectory = getOrCreateDirectory(
-  Paths.cache,
-  "offline-cache",
-);
-const novelsCacheDirectory = getOrCreateDirectory(
-  offlineCacheDirectory,
-  "novels",
-);
+  // Derive key from user ID using SHA-256 (crypto-js)
+  const keyStorageKey = `${KEY_PREFIX}${KEY_VERSION}_${userId}`;
+
+  try {
+    // Check if we already have a key stored
+    const existingKey = await SecureStore.getItemAsync(keyStorageKey);
+    if (existingKey) {
+      return existingKey;
+    }
+  } catch (e) {
+    // SecureStore might not be available, continue to generate
+  }
+
+  // Generate key from user ID using crypto-js
+  const key = CryptoJS.SHA256(userId + KEY_VERSION).toString();
+
+  // Store the key for future use
+  try {
+    await SecureStore.setItemAsync(keyStorageKey, key);
+  } catch (e) {
+    // SecureStore might not be available, that's okay
+  }
+
+  return key;
+}
 
 /**
- * @param {!string} id
+ * Encrypt data using AES encryption (crypto-js)
+ * @param {string} data - JSON string to encrypt
+ * @param {string} key - Encryption key (hex string)
+ * @returns {Promise<string>} - Encrypted data (IV:encrypted format)
  */
-function getNovelCache(id) {
-  const cacheDirectory = new Directory(novelsCacheDirectory, id);
-  return {
-    cacheDirectory,
-    dataFile: new File(cacheDirectory, "data.json"),
-    chaptersFile: new File(cacheDirectory, "chapters.json"),
-    imageFile: new File(cacheDirectory, "image.jpg"),
-  };
-}
+async function encryptData(data, key) {
+  try {
+    // Generate random IV using expo-crypto
+    const ivBytes = await Crypto.getRandomBytesAsync(16);
+    const ivWordArray = CryptoJS.lib.WordArray.create(ivBytes);
 
-export function getCachedNovels() {
-  const novels = [];
-  console.log('[getCachedNovels] Starting cache retrieval');
-  for (let path of novelsCacheDirectory.list()) {
-    if (!(path instanceof Directory)) continue;
-    const novel = getNovel(path.name);
-    if (!novel) continue;
-
-    console.log('[getCachedNovels] Found cached novel:', novel.title);
-    const { imageFile } = getNovelCache(path.name);
-    novels.push({
-      id: novel.id,
-      title: novel.title,
-      image: imageFile.uri,
-      summary: novel.summary,
-      user_id: novel.user_id,
-      tags: novel.tags,
-      isAdult: novel.tags?.includes("Adult(18+)") || false,
-      viewers_count: novel.viewers_count,
-      viewers: novel.viewers_count || novel.viewers_count,
-      averageRating: novel.averageRating || "-",
-      writer: novel.writer || {
-        name: "-",
-        isWriter: true,
-      },
+    // Encrypt using AES-CBC with crypto-js
+    const encrypted = CryptoJS.AES.encrypt(data, key, {
+      iv: ivWordArray,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
     });
-  }
 
-  console.log('[getCachedNovels] Returning novels:', novels.length);
-  return novels;
-}
+    // Combine IV and encrypted data
+    const ivHex = CryptoJS.enc.Hex.stringify(ivWordArray);
+    const encryptedData = encrypted.toString();
+    const combined = ivHex + ':' + encryptedData;
 
-/**
- * @param {Object} novel
- * @param {string} novel.id
- * @param {string} novel.image
- * @param {string} [novel.averageRating]
- * @param {Object} [novel.writer]
- * @param {Array<{chapter_number: string, title: string, content: string, is_unlocked: boolean}>} [novel.offline_chapters]
- */
-export async function saveNovel(novel) {
-  try {
-    const { cacheDirectory, dataFile, imageFile } = getNovelCache(novel.id);
-    cacheDirectory.create();
-
-    // Check if novel already exists in cache to preserve offline_chapters
-    let existingOfflineChapters = null;
-    if (dataFile.exists) {
-      try {
-        const existingNovel = JSON.parse(dataFile.text());
-        if (existingNovel.offline_chapters) {
-          existingOfflineChapters = existingNovel.offline_chapters;
-          console.log('[saveNovel] Preserving existing offline_chapters:', existingOfflineChapters.length);
-        }
-      } catch (e) {
-        console.warn('[saveNovel] Could not read existing cache, will overwrite');
-      }
-    }
-
-    // Add default values for fields that might be missing
-    const novelToSave = {
-      ...novel,
-      averageRating: novel.averageRating || "-",
-      writer: novel.writer || {
-        name: "-",
-        isWriter: true,
-      },
-      // Store the local image path for offline use
-      image: imageFile.uri,
-      // Preserve offline_chapters if they exist
-      offline_chapters: existingOfflineChapters || novel.offline_chapters,
-    };
-
-    dataFile.write(JSON.stringify(novelToSave));
-    
-    // Try to download image, but don't fail if it times out
-    if (novel.image && novel.image !== FALLBACK_IMAGE && novel.image !== imageFile.uri) {
-      try {
-        await downloadOrOverwriteFileAsync(novel.image, imageFile);
-      } catch (imageError) {
-        console.warn('[offlineCache] Image download failed, novel saved without image:', imageError instanceof Error ? imageError.message : String(imageError));
-        // Don't throw - novel is still saved, just without the image
-      }
-    }
+    return combined;
   } catch (error) {
-    console.error('[offlineCache] could not save novel:', error instanceof Error ? error.message : String(error));
-    throw error;
+    console.error('[encryptData] Encryption failed:', error);
+    throw new Error('Failed to encrypt data');
   }
 }
 
 /**
- * @param {!string} id
+ * Decrypt data using AES encryption (crypto-js)
+ * @param {string} encryptedData - Encrypted data (IV:encrypted format)
+ * @param {string} key - Encryption key (hex string)
+ * @returns {Promise<string>} - Decrypted JSON string
  */
-export function getNovel(id) {
-  const { dataFile, imageFile } = getNovelCache(id);
-  if (!dataFile.exists) return null;
+async function decryptData(encryptedData, key) {
   try {
-    const novel = JSON.parse(dataFile.text());
-    console.log('[getNovel] Loaded novel keys:', Object.keys(novel));
-    console.log('[getNovel] Has offline_chapters:', !!novel.offline_chapters);
-    console.log('[getNovel] offline_chapters count:', novel.offline_chapters?.length || 0);
-    if (novel.image && imageFile.exists) novel.image = imageFile.uri;
-    return novel;
-  } catch (e) {
-    console.error(e);
-    console.error(`could not load novel ${id} from cache: ${e instanceof Error ? e.message : String(e)}`);
-    return null;
+    // Split IV and encrypted data
+    const parts = encryptedData.split(':');
+    if (parts.length !== 2) {
+      throw new Error('Invalid encrypted data format');
+    }
+
+    const ivHex = parts[0];
+    const encrypted = parts[1];
+
+    // Convert IV to WordArray
+    const iv = CryptoJS.enc.Hex.parse(ivHex);
+
+    // Decrypt using AES-CBC
+    const decrypted = CryptoJS.AES.decrypt(encrypted, key, {
+      iv: iv,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+
+    const decryptedStr = decrypted.toString(CryptoJS.enc.Utf8);
+
+    if (!decryptedStr) {
+      throw new Error('Decryption failed - invalid key or corrupted data');
+    }
+
+    return decryptedStr;
+  } catch (error) {
+    console.error('[decryptData] Decryption failed:', error);
+    throw new Error('Failed to decrypt data');
   }
 }
 
 /**
- * @param {!string} id
+ * Get the .smp file storage directory
+ * @returns {string} - Directory path
  */
-export function deleteNovel(id) {
-  const { cacheDirectory } = getNovelCache(id);
-  cacheDirectory.delete();
+function getSmpDirectory() {
+  return FileSystem.documentDirectory + SMP_DIRECTORY + '/';
 }
 
 /**
- * @param {!string} id
+ * Ensure the .smp directory exists
  */
-export function isNovelSaved(id) {
-  const { cacheDirectory } = getNovelCache(id);
-  return cacheDirectory.exists;
-}
-
-/**
- * @param {!string} id
- */
-export function getNovelChapters(id) {
-  const { chaptersFile } = getNovelCache(id);
-  if (!chaptersFile.exists) return null;
-  try {
-    return JSON.parse(chaptersFile.text());
-  } catch (e) {
-    console.error(e);
-    console.error(
-      `could not load chapters for novel ${id} from cache: ${e instanceof Error ? e.message : String(e)}`,
-    );
-    return null;
+async function ensureSmpDirectory() {
+  const dir = getSmpDirectory();
+  const dirInfo = await FileSystem.getInfoAsync(dir);
+  if (!dirInfo.exists) {
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   }
 }
 
 /**
- * @param {!string} novelId
- * @param {!any[]} chapters
+ * Save a novel for offline reading in encrypted .smp format
+ * @param {Object} novel - Novel object with metadata
+ * @param {Array<string>} unlockedChapters - Array of unlocked chapter IDs
+ * @param {string} userId - User ID for encryption key
  */
-export function saveNovelChapters(novelId, chapters) {
-  const { cacheDirectory, chaptersFile } = getNovelCache(novelId);
-  if (!cacheDirectory.exists) cacheDirectory.create();
-  chaptersFile.write(JSON.stringify(chapters));
-}
-
-/**
- * Save novel with only unlocked chapters and their content for offline reading
- * @param {Object} novel - The novel object with chaptertitles and chaptercontents
- * @param {string} novel.id
- * @param {string} novel.image
- * @param {Object<string, string>} [novel.chaptertitles] - Object mapping chapter numbers to titles
- * @param {Object<string, string>} [novel.chaptercontents] - Object mapping chapter numbers to content
- * @param {string} [novel.averageRating]
- * @param {Object} [novel.writer]
- * @param {string[]} unlockedChapterIds - Array of unlocked chapter numbers (as strings)
- * @param {boolean} [saveOnlyFirstThree] - If true, only save first 3 chapters (for auto-cache)
- */
-export async function saveNovelForOfflineReading(novel, unlockedChapterIds, saveOnlyFirstThree = false) {
+export async function saveNovelForOffline(novel, unlockedChapters, userId) {
   try {
-    const { cacheDirectory, dataFile, imageFile, chaptersFile } = getNovelCache(novel.id);
-    cacheDirectory.create();
+    await ensureSmpDirectory();
 
-    /** @type {Object<string, string>} */
+    const key = await generateUserKey(userId);
+    const fileId = novel.id;
+    const filePath = getSmpDirectory() + fileId + '.smp';
+
+    // Extract chapters to save (first 3 + unlocked)
+    const chaptersToSave = [];
     const chaptertitles = novel.chaptertitles || {};
-    /** @type {Object<string, string>} */
     const chaptercontents = novel.chaptercontents || {};
 
-    console.log('[saveNovelForOfflineReading] Chapter titles keys:', Object.keys(chaptertitles));
-    console.log('[saveNovelForOfflineReading] Unlocked chapter IDs:', unlockedChapterIds);
-
     // Always save first 3 chapters (indices 0, 1, 2)
-    const firstThreeChapters = [];
-    for (let i = 0; i <= 2; i++) {
-      const chapterNum = i.toString();
-      // Try both string and integer keys
-      const title1 = chaptertitles[chapterNum];
-      const title2 = chaptertitles[i];
-      const title = title1 || title2;
-      
-      if (title) {
-        const content1 = chaptercontents[chapterNum];
-        const content2 = chaptercontents[i];
-        const content = content1 || content2 || '';
-        
-        firstThreeChapters.push({
-          chapter_number: chapterNum,
-          title: title,
-          content: content,
-          is_unlocked: true,
+    for (let i = 0; i < 3; i++) {
+      const chapterId = String(i);
+      if (chaptercontents[chapterId]) {
+        chaptersToSave.push({
+          chapter_number: chapterId,
+          title: chaptertitles[chapterId] || `Chapter ${i + 1}`,
+          content: chaptercontents[chapterId],
+          is_unlocked: true
         });
-        console.log(`[saveNovelForOfflineReading] Saved chapter ${chapterNum}: ${title}`);
       }
     }
 
-    // Add other unlocked chapters (beyond index 2) - only if not saveOnlyFirstThree
-    /** @type {Array<{chapter_number: string, title: string, content: string, is_unlocked: boolean}>} */
-    const otherUnlockedChapters = [];
-    if (!saveOnlyFirstThree) {
-      unlockedChapterIds.forEach(chapterNum => {
-        const num = parseInt(chapterNum, 10);
-        if (num > 2) {
-          const title1 = chaptertitles[chapterNum];
-          const title2 = chaptertitles[num];
-          const title = title1 || title2;
-          
-          if (title) {
-            const content1 = chaptercontents[chapterNum];
-            const content2 = chaptercontents[num];
-            const content = content1 || content2 || '';
-            
-            otherUnlockedChapters.push({
-              chapter_number: chapterNum,
-              title: title,
-              content: content,
-              is_unlocked: true,
-            });
-            console.log(`[saveNovelForOfflineReading] Saved unlocked chapter ${chapterNum}: ${title}`);
-          }
-        }
-      });
+    // Save additional unlocked chapters
+    for (const chapterId of unlockedChapters) {
+      const chapterNum = parseInt(chapterId, 10);
+      if (chapterNum > 2 && chaptercontents[chapterId]) {
+        chaptersToSave.push({
+          chapter_number: chapterId,
+          title: chaptertitles[chapterId] || `Chapter ${chapterNum + 1}`,
+          content: chaptercontents[chapterId],
+          is_unlocked: true
+        });
+      }
     }
 
-    const allChapters = [...firstThreeChapters, ...otherUnlockedChapters];
-    console.log(`[saveNovelForOfflineReading] Total chapters saved: ${allChapters.length} (saveOnlyFirstThree: ${saveOnlyFirstThree})`);
-
-    // Save novel metadata
-    const novelToSave = {
-      ...novel,
-      averageRating: novel.averageRating || "-",
-      writer: novel.writer || {
-        name: "-",
-        isWriter: true,
+    // Prepare data structure
+    const data = {
+      version: 1,
+      novel_id: novel.id,
+      novel: {
+        id: novel.id,
+        title: novel.title,
+        summary: novel.summary,
+        tags: novel.tags,
+        viewers_count: novel.viewers_count,
+        is_visible: novel.is_visible,
+        featured: novel.featured,
+        status: novel.status,
+        averageRating: novel.averageRating,
+        writer: novel.writer,
+        user_id: novel.user_id,
+        image: novel.image
       },
-      image: imageFile.uri,
-      // Store chapter data directly in novel for offline reading
-      offline_chapters: allChapters,
+      chapters: chaptersToSave,
+      encrypted: true
     };
 
-    dataFile.write(JSON.stringify(novelToSave));
+    // Encrypt and save
+    const jsonData = JSON.stringify(data);
+    const encryptedData = await encryptData(jsonData, key);
+    await FileSystem.writeAsStringAsync(filePath, encryptedData, {
+      encoding: FileSystem.EncodingType.UTF8
+    });
 
-    // Save image (with timeout handling)
-    if (novel.image && novel.image !== FALLBACK_IMAGE && novel.image !== imageFile.uri) {
+    // Download and save image (not encrypted for performance)
+    if (novel.image && novel.image !== FALLBACK_IMAGE) {
       try {
-        await downloadOrOverwriteFileAsync(novel.image, imageFile);
+        const imagePath = getSmpDirectory() + fileId + '.jpg';
+        await FileSystem.downloadAsync(novel.image, imagePath);
       } catch (imageError) {
-        console.warn('[offlineCache] Image download failed in saveNovelForOfflineReading:', imageError instanceof Error ? imageError.message : String(imageError));
-        // Don't throw - novel and chapters are still saved, just without the image
+        console.warn('[saveNovelForOffline] Failed to download image:', imageError);
+        // Don't fail the save if image download fails
       }
     }
 
-    // Save chapters separately
-    chaptersFile.write(JSON.stringify(allChapters));
-
-    console.log(`[offlineCache] Saved ${allChapters.length} chapters for offline reading`);
+    console.log(`[saveNovelForOffline] Saved novel "${novel.title}" with ${chaptersToSave.length} chapters`);
   } catch (error) {
-    console.error('[offlineCache] could not save novel for offline reading:', error instanceof Error ? error.message : String(error));
+    console.error('[saveNovelForOffline] Failed to save novel:', error);
     throw error;
+  }
+}
+
+/**
+ * Load a novel from offline encrypted .smp file
+ * @param {string} novelId - Novel ID
+ * @param {string} userId - User ID for decryption key
+ * @returns {Promise<Object|null>} - Object with { novel, chapters } or null
+ */
+export async function getNovelForOffline(novelId, userId) {
+  try {
+    const key = await generateUserKey(userId);
+    const filePath = getSmpDirectory() + novelId + '.smp';
+
+    const fileInfo = await FileSystem.getInfoAsync(filePath);
+    if (!fileInfo.exists) {
+      return null;
+    }
+
+    const encryptedData = await FileSystem.readAsStringAsync(filePath, {
+      encoding: FileSystem.EncodingType.UTF8
+    });
+
+    const decryptedJson = await decryptData(encryptedData, key);
+    const data = JSON.parse(decryptedJson);
+
+    // Check if image exists locally
+    const imagePath = getSmpDirectory() + novelId + '.jpg';
+    const imageInfo = await FileSystem.getInfoAsync(imagePath);
+    if (imageInfo.exists) {
+      data.novel.image = imagePath;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('[getNovelForOffline] Failed to load novel:', error);
+    return null;
+  }
+}
+
+/**
+ * Check if a novel is saved offline
+ * @param {string} novelId - Novel ID
+ * @returns {Promise<boolean>} - True if saved
+ */
+export async function isNovelSavedOffline(novelId) {
+  try {
+    const filePath = getSmpDirectory() + novelId + '.smp';
+    const fileInfo = await FileSystem.getInfoAsync(filePath);
+    return fileInfo.exists;
+  } catch (error) {
+    console.error('[isNovelSavedOffline] Failed to check:', error);
+    return false;
+  }
+}
+
+/**
+ * List all cached novels offline
+ * @param {string} userId - User ID for decryption
+ * @returns {Promise<Array>} - Array of novel objects
+ */
+export async function getCachedNovelsOffline(userId) {
+  try {
+    await ensureSmpDirectory();
+    const dir = getSmpDirectory();
+    const files = await FileSystem.readDirectoryAsync(dir);
+
+    const novels = [];
+    for (const file of files) {
+      if (file.endsWith('.smp')) {
+        const novelId = file.replace('.smp', '');
+        const data = await getNovelForOffline(novelId, userId);
+        if (data && data.novel) {
+          novels.push(data.novel);
+        }
+      }
+    }
+
+    return novels;
+  } catch (error) {
+    console.error('[getCachedNovelsOffline] Failed to list novels:', error);
+    return [];
+  }
+}
+
+/**
+ * Delete a novel from offline storage
+ * @param {string} novelId - Novel ID
+ */
+export async function deleteNovelForOffline(novelId) {
+  try {
+    const filePath = getSmpDirectory() + novelId + '.smp';
+    const imagePath = getSmpDirectory() + novelId + '.jpg';
+
+    await FileSystem.deleteAsync(filePath, { idempotent: true });
+    await FileSystem.deleteAsync(imagePath, { idempotent: true });
+
+    console.log(`[deleteNovelForOffline] Deleted novel ${novelId}`);
+  } catch (error) {
+    console.error('[deleteNovelForOffline] Failed to delete novel:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear old cache directory (migration cleanup)
+ */
+export async function clearOldCache() {
+  try {
+    const oldCacheDir = FileSystem.cacheDirectory + 'offline-cache/';
+    const dirInfo = await FileSystem.getInfoAsync(oldCacheDir);
+    if (dirInfo.exists) {
+      await FileSystem.deleteAsync(oldCacheDir, { idempotent: true });
+      console.log('[clearOldCache] Deleted old cache directory');
+    }
+  } catch (error) {
+    console.error('[clearOldCache] Failed to clear old cache:', error);
+    // Don't throw - this is non-critical
   }
 }

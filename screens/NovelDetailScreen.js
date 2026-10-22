@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as Network from 'expo-network';
 import { supabase } from '../services/supabaseClient';
-import { deleteNovel, getNovel, getNovelChapters, isErrorNetworkError, isNovelSaved, saveNovel, saveNovelChapters, saveNovelForOfflineReading } from '../services/offlineCache';
+import { deleteNovelForOffline, getNovelForOffline, isErrorNetworkError, isNovelSavedOffline, saveNovelForOffline } from '../services/offlineCache';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
@@ -38,7 +38,7 @@ const NovelDetailScreen = () => {
   
   const [novel, setNovel] = useState(null);
   const [novelChapters, setNovelChapters] = useState(null);
-  const [isSavedOffline, setIsSavedOffline] = useState(isNovelSaved(id));
+  const [isSavedOffline, setIsSavedOffline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,6 +51,7 @@ const NovelDetailScreen = () => {
   const contentFade = useRef(new Animated.Value(0)).current;
   const emberAnims = useRef([]);
   const { session } = useGoogleAuth();
+  const userId = session?.user?.id || 'guest';
 
   // Initialize ember particles
   useEffect(() => {
@@ -167,8 +168,11 @@ const NovelDetailScreen = () => {
       // failed to fetch from network, try cache
       if(isNetworkError){
         console.log(`[NovelDetailScreen] could not load ${id} from network, trying from cache`);
-        data = getNovel(id);
-        console.log(`[NovelDetailScreen] novel ${id} ${data ? "loaded successfully" : "not cached"}`);
+        const cachedData = await getNovelForOffline(id, userId);
+        if (cachedData) {
+          data = cachedData.novel;
+          console.log(`[NovelDetailScreen] novel ${id} loaded successfully from cache`);
+        }
       }
 
       if (!data && error) {
@@ -180,8 +184,8 @@ const NovelDetailScreen = () => {
       setNovel(data);
       if(isSavedOffline && !isNetworkError) {
         try {
-          // Use saveNovelForOfflineReading to preserve chapter content if already saved
-          await saveNovelForOfflineReading(data, unlockedChapters);
+          // Use saveNovelForOffline to preserve chapter content if already saved
+          await saveNovelForOffline(data, unlockedChapters, userId);
         } catch (saveError) {
           console.warn('[NovelDetailScreen] Auto-save failed (non-critical):', saveError instanceof Error ? saveError.message : String(saveError));
           // Don't throw - novel is still displayed, just not cached
@@ -324,9 +328,18 @@ const NovelDetailScreen = () => {
     fetchUnlockedChapters();
   }, [fetchNovel, updateViewCount, fetchUnlockedChapters]);
 
+  // Check if novel is saved offline on mount
+  useEffect(() => {
+    const checkSavedStatus = async () => {
+      const saved = await isNovelSavedOffline(id);
+      setIsSavedOffline(saved);
+    };
+    checkSavedStatus();
+  }, [id]);
+
   const handleSaveOffline = useCallback(async () => {
     if(isSavedOffline){
-      deleteNovel(id);
+      await deleteNovelForOffline(id);
       setIsSavedOffline(false);
       return;
     }
@@ -335,7 +348,7 @@ const NovelDetailScreen = () => {
       if(!novel) return;
       console.log('[NovelDetailScreen] Saving offline with unlockedChapters:', unlockedChapters);
       // Save novel with only unlocked chapters (first 3 + any unlocked)
-      await saveNovelForOfflineReading(novel, unlockedChapters);
+      await saveNovelForOffline(novel, unlockedChapters, userId);
       setIsSavedOffline(true);
     }
     catch(error){

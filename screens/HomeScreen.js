@@ -24,7 +24,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
-import { getCachedNovels, isErrorNetworkError, saveNovel, isNovelSaved, saveNovelForOfflineReading } from '../services/offlineCache';
+import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, isNovelSavedOffline } from '../services/offlineCache';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
@@ -226,6 +226,11 @@ const Home = () => {
       Animated.spring(badgePop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
     }
   }, [unreadCount]);
+
+  // Clear old cache on app startup
+  useEffect(() => {
+    clearOldCache();
+  }, []);
 
   // Wallet dropdown handlers
   const toggleWalletMenu = () => {
@@ -559,7 +564,7 @@ const Home = () => {
       // failed to fetch from network, try cache
       if(isErrorNetworkError(error)){
         console.log("[HomeScreen] could not fetch novels from network, trying from cache");
-        enrichedNovels = getCachedNovels();
+        enrichedNovels = await getCachedNovelsOffline(userId || 'guest');
         console.log(`[HomeScreen] novel ${enrichedNovels ? "loaded successfully" : "not cached"}`);
         if(enrichedNovels) return enrichedNovels;
       }
@@ -590,11 +595,11 @@ const Home = () => {
       for(let novel of enrichedNovels){
         try {
           // Check if novel is already cached
-          const isCached = await isNovelSaved(novel.id);
+          const isCached = await isNovelSavedOffline(novel.id);
           if (!isCached) {
-            // Use saveNovelForOfflineReading to save first 3 chapters with content
+            // Use saveNovelForOffline to save first 3 chapters with content
             // For auto-cache, we only save first 3 chapters (no unlocked chapters list available)
-            await saveNovelForOfflineReading(novel, [], true);
+            await saveNovelForOffline(novel, [], userId || 'guest');
             console.log(`[HomeScreen] Auto-cached novel: ${novel.title}`);
           } else {
             console.log(`[HomeScreen] Novel already cached: ${novel.title}`);
@@ -613,7 +618,7 @@ const Home = () => {
         // If offline or status unknown, load from cache directly
         if (isOnline === false || isOnline === null) {
           console.log('[HomeScreen] Offline/status unknown - loading novels from cache');
-          const cachedNovels = getCachedNovels();
+          const cachedNovels = await getCachedNovelsOffline(userId || 'guest');
           console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
           if (cachedNovels && cachedNovels.length > 0) {
             try {
@@ -650,7 +655,7 @@ const Home = () => {
       } catch (err) {
         console.error('fetchNovels error:', err.message);
         // Try to load from cache as fallback
-        const cachedNovels = getCachedNovels();
+        const cachedNovels = await getCachedNovelsOffline(userId || 'guest');
         console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
         if (cachedNovels && cachedNovels.length > 0) {
           console.log('[HomeScreen] Network error, showing cached novels');
