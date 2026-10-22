@@ -31,14 +31,8 @@ export function isErrorNetworkError(error) {
  * @returns {Promise<string>} - Hex string of the encryption key
  */
 async function generateUserKey(userId) {
-  if (!userId) {
-    // Generate a random key for guest users
-    const randomBytes = await Crypto.getRandomBytesAsync(32);
-    return Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
   // Derive key from user ID using SHA-256 (crypto-js)
-  const keyStorageKey = `${KEY_PREFIX}${KEY_VERSION}_${userId}`;
+  const keyStorageKey = `${KEY_PREFIX}${KEY_VERSION}_${userId || 'guest'}`;
 
   try {
     // Check if we already have a key stored
@@ -51,7 +45,7 @@ async function generateUserKey(userId) {
   }
 
   // Generate key from user ID using crypto-js
-  const key = CryptoJS.SHA256(userId + KEY_VERSION).toString();
+  const key = CryptoJS.SHA256((userId || 'guest') + KEY_VERSION).toString();
 
   // Store the key for future use
   try {
