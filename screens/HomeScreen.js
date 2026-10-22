@@ -592,9 +592,9 @@ const Home = () => {
           // Check if novel is already cached
           const isCached = await isNovelSaved(novel.id);
           if (!isCached) {
-            // Use saveNovelForOfflineReading to preserve chapter content if it exists
+            // Use saveNovelForOfflineReading to save first 3 chapters with content
             // For auto-cache, we only save first 3 chapters (no unlocked chapters list available)
-            await saveNovelForOfflineReading(novel, []);
+            await saveNovelForOfflineReading(novel, [], true);
             console.log(`[HomeScreen] Auto-cached novel: ${novel.title}`);
           } else {
             console.log(`[HomeScreen] Novel already cached: ${novel.title}`);
