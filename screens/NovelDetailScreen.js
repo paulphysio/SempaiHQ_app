@@ -134,12 +134,19 @@ const NovelDetailScreen = () => {
         const cachedData = await getNovelForOffline(id, userId);
         if (cachedData) {
           console.log('[NovelDetailScreen] Novel loaded from cache:', cachedData.novel.title);
-          setNovel(cachedData.novel);
-          // Chapters are now in cachedData.chapters
+          // Convert cached chapters to chaptertitles format for compatibility
+          const chaptertitles = {};
           if (cachedData.chapters && cachedData.chapters.length > 0) {
             console.log('[NovelDetailScreen] Loaded', cachedData.chapters.length, 'chapters from cache');
-            setNovelChapters(cachedData.chapters);
+            cachedData.chapters.forEach(chapter => {
+              chaptertitles[chapter.chapter_number] = chapter.title;
+            });
           }
+          setNovel({
+            ...cachedData.novel,
+            chaptertitles
+          });
+          setNovelChapters(cachedData.chapters);
           Animated.timing(contentFade, {
             toValue: 1,
             duration: 500,
@@ -169,7 +176,17 @@ const NovelDetailScreen = () => {
         console.log(`[NovelDetailScreen] could not load ${id} from network, trying from cache`);
         const cachedData = await getNovelForOffline(id, userId);
         if (cachedData) {
-          data = cachedData.novel;
+          // Convert cached chapters to chaptertitles format for compatibility
+          const chaptertitles = {};
+          if (cachedData.chapters && cachedData.chapters.length > 0) {
+            cachedData.chapters.forEach(chapter => {
+              chaptertitles[chapter.chapter_number] = chapter.title;
+            });
+          }
+          data = {
+            ...cachedData.novel,
+            chaptertitles
+          };
           setNovelChapters(cachedData.chapters);
           console.log(`[NovelDetailScreen] novel ${id} loaded successfully from cache`);
         }
@@ -719,7 +736,7 @@ const NovelDetailScreen = () => {
       )}
 
       <FlatList
-        data={novelChapters ? novelChapters.map(c => [c.chapter_number, c.title]) : (novel.chaptertitles ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0]) - parseInt(b[0])) : [])}
+        data={novel.chaptertitles ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0]) - parseInt(b[0])) : []}
         renderItem={renderChapterItem}
         keyExtractor={([chapterId]) => `chapter-${chapterId}`}
         numColumns={1}
