@@ -567,11 +567,21 @@ const Home = () => {
         console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
         if (cachedNovels && cachedNovels.length > 0) {
           console.log('[HomeScreen] Network error, showing cached novels');
-          cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
-          console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
-          if (isMounted.current) {
-            setNovels(cachedNovels.slice(0, 6));
-            setError('Showing cached content (offline mode)');
+          try {
+            cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
+            console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
+            if (isMounted.current) {
+              setNovels(cachedNovels.slice(0, 6));
+              setNovelsLoading(false);
+              setError('Showing cached content (offline mode)');
+            }
+          } catch (sortError) {
+            console.error('[HomeScreen] Error sorting cached novels:', sortError);
+            if (isMounted.current) {
+              setNovels(cachedNovels.slice(0, 6));
+              setNovelsLoading(false);
+              setError('Showing cached content (offline mode)');
+            }
           }
         } else {
           console.log('[HomeScreen] No cached novels available');
