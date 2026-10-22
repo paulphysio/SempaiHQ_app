@@ -2076,15 +2076,37 @@ const ChapterScreen = () => {
       setIsLocked(true);
 
       const chapterNum = parseInt(chapterId, 10);
-      console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected);
+      console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected, 'isOnline:', isOnline);
       
-      // First 3 chapters (indices 0, 1, 2) are free - no wallet required
-      if (!isWalletConnected && chapterNum > 2) {
-        console.log('[ChapterScreen] Chapter beyond 2 without wallet, setting error');
-        setError('Connect your wallet to read Chapter 3 and beyond.');
+      // If offline, only allow chapters that are saved
+      if (isOnline === false || isOnline === null) {
+        console.log('[ChapterScreen] Offline mode, checking cache');
+        const cachedNovel = getNovel(novelId);
+        if (cachedNovel) {
+          console.log('[ChapterScreen] Novel found in cache');
+          // Check if chapter is in offline_chapters
+          if (cachedNovel.offline_chapters) {
+            const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === chapterId);
+            if (offlineChapter && offlineChapter.content) {
+              console.log('[ChapterScreen] Chapter available in offline cache');
+              setLoading(false);
+              return;
+            }
+          }
+          // Check if chapter is in first 3 (old cache format)
+          if (chapterNum <= 2 && cachedNovel.chaptercontents?.[chapterId]) {
+            console.log('[ChapterScreen] First 3 chapters available in old cache');
+            setLoading(false);
+            return;
+          }
+        }
+        console.log('[ChapterScreen] Chapter not available offline');
+        setError('This chapter is not available offline. Please save the novel while online to access this chapter.');
         setLoading(false);
         return;
       }
+      
+      // Online - fetch from network
       await Promise.all([
         fetchPrices(),
         isWalletConnected ? fetchUserData() : Promise.resolve(),
@@ -2100,6 +2122,21 @@ const ChapterScreen = () => {
       if (isNaN(chapterNum)) {
         setError('Invalid chapter number');
         return;
+      }
+
+      // If offline and chapter is in offline_chapters, unlock immediately
+      if ((isOnline === false || isOnline === null) && novel.offline_chapters) {
+        const offlineChapter = novel.offline_chapters.find(c => c.chapter_number === chapterId);
+        if (offlineChapter && offlineChapter.content) {
+          console.log('[ChapterScreen] Chapter in offline cache, unlocking:', chapterNum);
+          setIsLocked(false);
+          setCanUnlockNextThree(true);
+          setIsAdvanceChapter(false);
+          setIsUnlockedViaSubscription(false);
+          setReadingMode('free');
+          checkHasReadChapter(chapterId);
+          return;
+        }
       }
 
       // First 3 chapters (indices 0, 1, 2) are free - unlock immediately even without wallet
@@ -2120,7 +2157,7 @@ const ChapterScreen = () => {
         checkHasReadChapter(chapterId);
       }
     }
-  }, [novel, activeWalletAddress, chapterId, checkAccess, checkHasReadChapter, isWalletConnected, recentlyUnlocked]);
+  }, [novel, activeWalletAddress, chapterId, checkAccess, checkHasReadChapter, isWalletConnected, recentlyUnlocked, isOnline]);
 
   useEffect(() => {
     if (!loading && novel && !isLocked && readingMode === 'paid' && isWalletConnected && !hasReadChapter) {
@@ -2130,9 +2167,17 @@ const ChapterScreen = () => {
         console.log('[ChapterScreen] First 3 chapters are free, skipping payment');
         return;
       }
+      // Don't process payment for offline chapters
+      if ((isOnline === false || isOnline === null) && novel.offline_chapters) {
+        const offlineChapter = novel.offline_chapters.find(c => c.chapter_number === chapterId);
+        if (offlineChapter && offlineChapter.content) {
+          console.log('[ChapterScreen] Chapter in offline cache, skipping payment');
+          return;
+        }
+      }
       processChapterPayment(chapterId);
     }
-  }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter]);
+  }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter, isOnline]);
 
   // Fetch ratings when chapter is unlocked
   useEffect(() => {
