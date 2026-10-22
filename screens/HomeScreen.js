@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
+import Network from 'expo-network';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
@@ -65,6 +66,7 @@ const Home = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [novelsLoading, setNovelsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
   const [error, setError] = useState(null);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -104,6 +106,28 @@ const Home = () => {
   const mangaFlatListRef = useRef(null);
   const novelIndexRef = useRef(0);
   const mangaIndexRef = useRef(0);
+
+  // Check network status
+  useEffect(() => {
+    const checkNetworkStatus = async () => {
+      try {
+        const networkState = await Network.getNetworkStateAsync();
+        const online = networkState.isConnected && networkState.type !== 'none';
+        setIsOnline(online);
+        console.log('[HomeScreen] Network status:', online ? 'online' : 'offline');
+      } catch (error) {
+        console.error('[HomeScreen] Error checking network status:', error);
+        setIsOnline(true); // Assume online if check fails
+      }
+    };
+
+    checkNetworkStatus();
+    const interval = setInterval(checkNetworkStatus, 5000); // Check every 5 seconds
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
 
   // Cinematic card expansion — measures the tapped poster's real screen
   // rect, then CinematicCardOverlay morphs it into a full detail panel.
@@ -255,6 +279,12 @@ const Home = () => {
   useEffect(() => {
     const syncWallet = async () => {
       try {
+        // Skip wallet sync if offline
+        if (!isOnline) {
+          console.log('[HomeScreen] Offline - skipping wallet sync');
+          return;
+        }
+
         if (session?.user?.id) {
           const { data: authUser, error: authUserError } = await supabase
             .from('users')
@@ -374,6 +404,12 @@ const Home = () => {
 
     const fetchAnnouncements = async () => {
       try {
+        // Skip if offline
+        if (!isOnline) {
+          console.log('[HomeScreen] Offline - skipping announcements fetch');
+          return;
+        }
+
         const { data: interactions, error: interactionsError } = await supabase
           .from('novel_interactions')
           .select('novel_id')
@@ -458,7 +494,7 @@ const Home = () => {
       }
     };
     fetchAnnouncements();
-  }, [userId, isWriter, isArtist]);
+  }, [userId, isWriter, isArtist, isOnline]);
 
   // Fetch notifications
   useEffect(() => {
@@ -466,6 +502,12 @@ const Home = () => {
 
     const fetchNotifications = async () => {
       try {
+        // Skip if offline
+        if (!isOnline) {
+          console.log('[HomeScreen] Offline - skipping notifications fetch');
+          return;
+        }
+
         const { data: notificationsData, error: notificationsError } = await supabase
           .from('notifications')
           .select('id, novel_id, message, novel_title, is_read, created_at')
@@ -488,7 +530,7 @@ const Home = () => {
       }
     };
     fetchNotifications();
-  }, [userId]);
+  }, [userId, isOnline]);
 
   // Fetch novels
   useEffect(() => {
@@ -555,6 +597,38 @@ const Home = () => {
     const fetchNovel = async () => {
       setNovelsLoading(true);
       try {
+        // If offline, load from cache directly
+        if (!isOnline) {
+          console.log('[HomeScreen] Offline - loading novels from cache');
+          const cachedNovels = getCachedNovels();
+          console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
+          if (cachedNovels && cachedNovels.length > 0) {
+            try {
+              cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
+              console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
+              if (isMounted.current) {
+                setNovels(cachedNovels.slice(0, 6));
+                setNovelsLoading(false);
+                setError(null);
+              }
+            } catch (sortError) {
+              console.error('[HomeScreen] Error sorting cached novels:', sortError);
+              if (isMounted.current) {
+                setNovels(cachedNovels.slice(0, 6));
+                setNovelsLoading(false);
+                setError(null);
+              }
+            }
+          } else {
+            console.log('[HomeScreen] No cached novels available');
+            if (isMounted.current) {
+              setError('No internet connection and no cached content. Please save novels for offline reading first.');
+              setNovels([]);
+            }
+          }
+          return;
+        }
+
         const enrichedNovels = await fetchNovelInfo();
         enrichedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
         if (isMounted.current) {
@@ -569,7 +643,7 @@ const Home = () => {
           console.log('[HomeScreen] Network error, showing cached novels');
           try {
             cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
-            console.log('[HomeScreen] Setting novels state with', cachedNovels.slice(0, 6).length, 'novels');
+            console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
@@ -597,7 +671,7 @@ const Home = () => {
       }
     };
     fetchNovel();
-  }, []);
+  }, [isOnline]);
 
   // Debug novels state changes
   useEffect(() => {
@@ -608,6 +682,14 @@ const Home = () => {
   useEffect(() => {
     const fetchManga = async () => {
       try {
+        // Skip manga fetch if offline
+        if (!isOnline) {
+          console.log('[HomeScreen] Offline - skipping manga fetch');
+          setManga([]);
+          setLoading(false);
+          return;
+        }
+
         let { data: mangaData, error } = await supabase
           .from('manga')
           .select('id, title, cover_image, summary, user_id, status, tags, viewers_count')
@@ -706,7 +788,7 @@ const Home = () => {
       }
     };
     fetchManga();
-  }, []);
+  }, [isOnline]);
 
   // Toggle sidebar — spring instead of a flat timing curve, so it has a
   // touch of natural overshoot/settle rather than a mechanical slide.
@@ -1408,7 +1490,7 @@ const Home = () => {
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
-              {console.log('[HomeScreen] Render - loading:', novelsLoading, 'novels:', novels.length)}
+              {console.log('[HomeScreen] Rendering novels section - loading:', novelsLoading, 'novels.length:', novels.length)}
               {novelsLoading ? (
                 <CarouselSkeleton />
               ) : novels.length === 0 ? (

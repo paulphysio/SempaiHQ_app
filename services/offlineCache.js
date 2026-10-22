@@ -67,7 +67,7 @@ export function getCachedNovels() {
     const novel = getNovel(path.name);
     if (!novel) continue;
 
-    console.log('[getCachedNovels] Found:', novel.title);
+    console.log('[getCachedNovels] Found cached novel:', novel.title);
     const { imageFile } = getNovelCache(path.name);
     novels.push({
       id: novel.id,
@@ -87,7 +87,7 @@ export function getCachedNovels() {
     });
   }
 
-  console.log('[getCachedNovels] Returning', novels.length, 'novels');
+  console.log('[getCachedNovels] Returning novels:', novels.length);
   return novels;
 }
 
