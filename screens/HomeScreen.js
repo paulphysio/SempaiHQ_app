@@ -1408,6 +1408,7 @@ const Home = () => {
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
+              {console.log('[HomeScreen] Rendering novels section - loading:', novelsLoading, 'novels.length:', novels.length)}
               {novelsLoading ? (
                 <CarouselSkeleton />
               ) : novels.length === 0 ? (
