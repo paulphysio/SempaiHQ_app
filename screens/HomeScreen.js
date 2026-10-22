@@ -24,7 +24,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
-import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, isNovelSavedOffline } from '../services/offlineCache';
+import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, clearAllSmpFiles, isNovelSavedOffline } from '../services/offlineCache';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';

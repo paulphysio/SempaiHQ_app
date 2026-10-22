@@ -313,7 +313,21 @@ export async function getNovelForOffline(novelId, userId) {
       encoding: FileSystem.EncodingType.UTF8
     });
 
-    const decryptedJson = await decryptData(encryptedData, key);
+    let decryptedJson;
+    try {
+      decryptedJson = await decryptData(encryptedData, key);
+    } catch (decryptError) {
+      // If decryption fails with user key, try guest key (for migration purposes)
+      console.log('[getNovelForOffline] Failed to decrypt with user key, trying guest key');
+      try {
+        const guestKey = await generateUserKey('guest');
+        decryptedJson = await decryptData(encryptedData, guestKey);
+        console.log('[getNovelForOffline] Successfully decrypted with guest key');
+      } catch (guestError) {
+        throw decryptError; // Throw original error if guest key also fails
+      }
+    }
+
     const data = JSON.parse(decryptedJson);
 
     // Check if image exists locally
@@ -326,15 +340,7 @@ export async function getNovelForOffline(novelId, userId) {
     return data;
   } catch (error) {
     console.error('[getNovelForOffline] Failed to load novel:', error);
-    // If decryption fails, the file might be corrupted or encrypted with a different key
-    // Delete the corrupted file so it can be re-saved
-    try {
-      const filePath = getSmpDirectory() + novelId + '.smp';
-      await FileSystem.deleteAsync(filePath, { idempotent: true });
-      console.log('[getNovelForOffline] Deleted corrupted .smp file');
-    } catch (deleteError) {
-      // Ignore delete errors
-    }
+    // Don't auto-delete - let user re-save with correct key
     return null;
   }
 }
@@ -416,6 +422,23 @@ export async function clearOldCache() {
     }
   } catch (error) {
     console.error('[clearOldCache] Failed to clear old cache:', error);
+    // Don't throw - this is non-critical
+  }
+}
+
+/**
+ * Clear all .smp files (for migration when user ID changes)
+ */
+export async function clearAllSmpFiles() {
+  try {
+    const smpDir = getSmpDirectory();
+    const dirInfo = await FileSystem.getInfoAsync(smpDir);
+    if (dirInfo.exists) {
+      await FileSystem.deleteAsync(smpDir, { idempotent: true });
+      console.log('[clearAllSmpFiles] Deleted all .smp files');
+    }
+  } catch (error) {
+    console.error('[clearAllSmpFiles] Failed to clear .smp files:', error);
     // Don't throw - this is non-critical
   }
 }
