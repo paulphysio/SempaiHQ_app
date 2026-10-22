@@ -9,7 +9,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import * as Network from 'expo-network';
 import { supabase } from '../../services/supabaseClient';
 import { isErrorNetworkError } from '../../services/offlineCache';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -431,7 +430,7 @@ const Comment = ({
   );
 };
 
-const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
+const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel', isOnline: propIsOnline }) => {
   const { wallet } = useContext(EmbeddedWalletContext);
   const { isDark, colors } = useTheme();
   const styles = getCommentStyles(isDark);
@@ -445,7 +444,6 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
   const [error, setError] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [balance, setBalance] = useState(0);
-  const [isOnline, setIsOnline] = useState(null);
   const COMMENT_COOLDOWN = 60 * 1000;
   const DAILY_REWARD_LIMIT = 10;
   const MIN_COMMENT_LENGTH = 2;
@@ -453,27 +451,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
-
-  // Check network status
-  useEffect(() => {
-    const checkNetworkStatus = async () => {
-      try {
-        const networkState = await Network.getNetworkStateAsync();
-        const online = networkState.isConnected && networkState.type !== 'none';
-        setIsOnline(online);
-      } catch (error) {
-        console.error('[NovelCommentSection] Error checking network status:', error);
-        setIsOnline(true);
-      }
-    };
-
-    checkNetworkStatus();
-    const interval = setInterval(checkNetworkStatus, 5000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
+  const isOnline = propIsOnline !== undefined ? propIsOnline : null;
 
   const fetchAmethystBalance = async () => {
     if (!isWalletConnected || !activePublicKey) {
@@ -570,7 +548,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel' }) => {
     // Disabled real-time subscription due to multiple subscription errors
     // Comments will be refreshed manually or on component remount
     // If real-time updates are needed, consider polling or a different approach
-  }, [novelId]);
+  }, [novelId, isOnline]);
 
   const deleteComment = async (commentId) => {
     if (!currentUserId) {

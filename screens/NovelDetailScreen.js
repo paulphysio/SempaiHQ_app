@@ -482,6 +482,7 @@ const NovelDetailScreen = () => {
         <NovelCommentSection
           novelId={novel.id}
           novelTitle={novel.title}
+          isOnline={isOnline}
         />
       )}
       <View style={styles.footer}>
