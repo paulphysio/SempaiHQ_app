@@ -337,7 +337,30 @@ const NovelDetailScreen = () => {
 
   const handleNavigation = (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
+    
+    // If offline and chapter is in cache, allow navigation even without wallet
     if (chapterNum && (!isWalletConnected && chapterNum > 1)) {
+      if (isOnline === false || isOnline === null) {
+        // Check if chapter is available in offline cache
+        const cachedNovel = getNovel(id);
+        if (cachedNovel) {
+          // Check if chapter is in offline_chapters (new format)
+          if (cachedNovel.offline_chapters) {
+            const offlineChapter = cachedNovel.offline_chapters.find(c => c.chapter_number === params.chapterId);
+            if (offlineChapter && offlineChapter.content) {
+              console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
+              navigation.navigate(screen, params);
+              return;
+            }
+          }
+          // Check if chapter is in first 3 (old format)
+          if (chapterNum <= 3 && cachedNovel.chaptercontents?.[params.chapterId]) {
+            console.log('[NovelDetailScreen] First 3 chapters available offline, allowing navigation');
+            navigation.navigate(screen, params);
+            return;
+          }
+        }
+      }
       setShowConnectPopup(true);
     } else {
       navigation.navigate(screen, params);
