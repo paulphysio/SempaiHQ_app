@@ -68,10 +68,11 @@ export function getCachedNovels() {
     if (!novel) continue;
 
     console.log('[getCachedNovels] Found cached novel:', novel.title);
+    const { imageFile } = getNovelCache(path.name);
     novels.push({
       id: novel.id,
       title: novel.title,
-      image: novel.image,
+      image: imageFile.uri,
       summary: novel.summary,
       user_id: novel.user_id,
       tags: novel.tags,
