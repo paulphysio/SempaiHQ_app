@@ -389,6 +389,11 @@ const Home = () => {
           }
         }
       } catch (err) {
+        // Silently ignore network errors when offline
+        if (isErrorNetworkError(err)) {
+          console.log('[HomeScreen] Wallet sync skipped due to network error (offline)');
+          return;
+        }
         console.error('Error syncing wallet:', err.message);
         if (isMounted.current) {
           setError('Failed to sync wallet');
@@ -396,7 +401,7 @@ const Home = () => {
       }
     };
     syncWallet();
-  }, [wallet?.publicKey, isWalletConnected, session?.user?.id]);
+  }, [wallet?.publicKey, isWalletConnected, session?.user?.id, isOnline]);
 
   // Fetch announcements
   useEffect(() => {
