@@ -886,13 +886,13 @@ const ChapterScreen = () => {
             // Fallback: Check if chapter content exists in original chaptercontents (old cache format)
             if (cachedNovel.chaptercontents?.[chapter]) {
               console.log('[ChapterScreen] Chapter found in old cache format');
-              // Check if it's one of the first 3 chapters
+              // Check if it's one of the first 3 chapters (indices 0, 1, 2)
               const chapterNum = parseInt(chapter, 10);
-              if (chapterNum <= 3) {
+              if (chapterNum <= 2) {
                 console.log('[ChapterScreen] First 3 chapters available in old cache');
                 setIsLocked(false);
               } else {
-                console.log('[ChapterScreen] Chapter > 3 not available in old cache');
+                console.log('[ChapterScreen] Chapter > 2 not available in old cache');
                 setError('This chapter is not available offline. Please re-save the novel to include unlocked chapters.');
               }
             } else {
@@ -1614,8 +1614,8 @@ const ChapterScreen = () => {
     // Reset to locked state while checking access
     setIsLocked(true);
 
-    // First 3 chapters (1, 2, 3) are free for all users - no wallet required
-    if (chapterNum >= 1 && chapterNum <= 3) {
+    // First 3 chapters (indices 0, 1, 2) are free for all users - no wallet required
+    if (chapterNum >= 0 && chapterNum <= 2) {
       console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
       setIsLocked(false);
       setCanUnlockNextThree(true);
@@ -1639,8 +1639,8 @@ const ChapterScreen = () => {
     }
 
     try {
-      // First 3 chapters (1, 2, 3) are free for all users - no wallet required
-      if (chapterNum >= 1 && chapterNum <= 3) {
+      // First 3 chapters (indices 0, 1, 2) are free for all users - no wallet required
+      if (chapterNum >= 0 && chapterNum <= 2) {
         console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
         setIsLocked(false);
         setCanUnlockNextThree(true);
@@ -2061,9 +2061,9 @@ const ChapterScreen = () => {
       setIsLocked(true);
 
       const chapterNum = parseInt(chapterId, 10);
-      // First 3 chapters (1, 2, 3) are free - no wallet required
-      if (!isWalletConnected && chapterNum > 3) {
-        setError('Connect your wallet to read Chapter 4 and beyond.');
+      // First 3 chapters (indices 0, 1, 2) are free - no wallet required
+      if (!isWalletConnected && chapterNum > 2) {
+        setError('Connect your wallet to read Chapter 3 and beyond.');
         setLoading(false);
         return;
       }

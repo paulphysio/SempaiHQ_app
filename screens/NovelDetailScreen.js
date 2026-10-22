@@ -339,15 +339,15 @@ const NovelDetailScreen = () => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
     console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
     
-    // First 3 chapters are ALWAYS free - no wallet check needed
-    if (chapterNum && chapterNum <= 3) {
+    // First 3 chapters (indices 0, 1, 2) are ALWAYS free - no wallet check needed
+    if (chapterNum !== null && chapterNum <= 2) {
       console.log('[NovelDetailScreen] First 3 chapters are free, allowing navigation');
       navigation.navigate(screen, params);
       return;
     }
     
-    // For chapters beyond 3, check wallet connection if online
-    if (chapterNum && chapterNum > 1 && isWalletConnected !== false) {
+    // For chapters beyond 2, check wallet connection if online
+    if (chapterNum !== null && chapterNum > 2 && isWalletConnected !== false) {
       if (isOnline === false || isOnline === null) {
         console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
         // Check if chapter is available in offline cache
@@ -370,7 +370,7 @@ const NovelDetailScreen = () => {
           console.log('[NovelDetailScreen] Checking old cache format for chapter', params.chapterId);
           const chapterContent = cachedNovel.chaptercontents?.[params.chapterId];
           console.log('[NovelDetailScreen] Chapter content in old cache:', chapterContent ? 'found' : 'not found');
-          if (chapterNum <= 3 && chapterContent) {
+          if (chapterNum <= 2 && chapterContent) {
             console.log('[NovelDetailScreen] First 3 chapters available offline, allowing navigation');
             navigation.navigate(screen, params);
             return;

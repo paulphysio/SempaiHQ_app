@@ -204,9 +204,9 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
     console.log('[saveNovelForOfflineReading] Chapter titles keys:', Object.keys(novel.chaptertitles || {}));
     console.log('[saveNovelForOfflineReading] Unlocked chapter IDs:', unlockedChapterIds);
 
-    // Always save first 3 chapters
+    // Always save first 3 chapters (indices 0, 1, 2)
     const firstThreeChapters = [];
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 0; i <= 2; i++) {
       const chapterNum = i.toString();
       // Try both string and integer keys
       const title1 = novel.chaptertitles?.[chapterNum];
@@ -228,11 +228,11 @@ export async function saveNovelForOfflineReading(novel, unlockedChapterIds) {
       }
     }
 
-    // Add other unlocked chapters
+    // Add other unlocked chapters (beyond index 2)
     const otherUnlockedChapters = [];
     unlockedChapterIds.forEach(chapterNum => {
       const num = parseInt(chapterNum, 10);
-      if (num > 3) {
+      if (num > 2) {
         const title1 = novel.chaptertitles?.[chapterNum];
         const title2 = novel.chaptertitles?.[num];
         const title = title1 || title2;
