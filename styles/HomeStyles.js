@@ -24,6 +24,7 @@ const COLOR = {
     border: 'rgba(255, 255, 255, 0.08)',
     borderAccent: 'rgba(255, 87, 51, 0.35)',
     danger: '#FF6B6B',
+    warning: '#FFC107',
     bgPrimary: '#0d0d0d',
     bgSecondary: '#141414',
     inputBg: '#1a1a1a',
@@ -46,6 +47,7 @@ const COLOR = {
     border: 'rgba(59, 130, 246, 0.15)',
     borderAccent: 'rgba(59, 130, 246, 0.35)',
     danger: '#ef4444',
+    warning: '#f59e0b',
     bgPrimary: '#FDFBD4',
     bgSecondary: '#f5f0d0',
     inputBg: '#ffffff',
@@ -1110,6 +1112,57 @@ export const styles = StyleSheet.create({
     fontFamily: FONT,
   },
 
+  guestBadge: {
+    position: 'absolute',
+    top: 7,
+    left: 32,
+    minWidth: 45,
+    height: 22,
+    paddingHorizontal: 5,
+    borderRadius: 11,
+    backgroundColor: COLOR.warning,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.35)',
+  },
+
+  guestBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: FONT,
+  },
+
+  statusBadge: {
+    position: 'absolute',
+    top: 7,
+    left: 32,
+    minWidth: 55,
+    height: 22,
+    paddingHorizontal: 5,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+
+  statusBadgeCompleted: {
+    borderColor: 'rgba(76, 175, 80, 0.5)',
+  },
+
+  statusBadgeHiatus: {
+    borderColor: 'rgba(255, 152, 0, 0.5)',
+  },
+
+  statusBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: FONT,
+    textTransform: 'capitalize',
+  },
+
   ratingFloatBadge: {
     position: 'absolute',
     top: 7,
@@ -1638,6 +1691,188 @@ export const styles = StyleSheet.create({
   navLinksContainer: {
     paddingTop: 5,
     paddingBottom: 15,
+  },
+
+  // Offline mode styles - Redesigned
+  offlineHeaderGradient: {
+    paddingTop: 60,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+  },
+  offlineHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  offlineStatusIndicator: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 152, 0, 0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  offlineHeaderTitle: {
+    flex: 1,
+  },
+  offlineHeaderText: {
+    fontSize: 28,
+    fontWeight: '800',
+    fontFamily: FONT,
+    letterSpacing: -0.5,
+  },
+  offlineHeaderSubtitle: {
+    fontSize: 14,
+    fontFamily: FONT,
+    marginTop: 4,
+    opacity: 0.8,
+  },
+  offlineScrollContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  offlineContentContainer: {
+    paddingTop: 24,
+    paddingBottom: 100, // Space for global bottom nav
+  },
+  offlineLoadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  offlineLoadingText: {
+    marginTop: 16,
+    fontSize: 15,
+    fontFamily: FONT,
+    fontWeight: '500',
+  },
+  offlineEmptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 40,
+  },
+  offlineEmptyIcon: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 24,
+  },
+  offlineEmptyTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    fontFamily: FONT,
+    marginBottom: 8,
+  },
+  offlineEmptyText: {
+    fontSize: 15,
+    textAlign: 'center',
+    fontFamily: FONT,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  offlineEmptyDivider: {
+    width: 40,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginBottom: 24,
+  },
+  offlineEmptyTip: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontFamily: FONT,
+    fontStyle: 'italic',
+  },
+  offlineNovelsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  offlineNovelCard: {
+    width: (width - 48) / 2,
+    borderWidth: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  offlineNovelImageContainer: {
+    position: 'relative',
+  },
+  offlineNovelImage: {
+    width: '100%',
+    height: 220,
+  },
+  offlineNovelImageGradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 80,
+  },
+  offlineNovelInfo: {
+    padding: 14,
+  },
+  offlineNovelTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: FONT,
+    marginBottom: 12,
+    minHeight: 40,
+    lineHeight: 20,
+  },
+  offlineNovelMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  offlineNovelMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  offlineNovelMetaText: {
+    fontSize: 12,
+    fontFamily: FONT,
+    fontWeight: '600',
+  },
+  offlineGuestBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  offlineGuestBadgeText: {
+    color: '#000',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: FONT,
+    textTransform: 'uppercase',
+  },
+  offlineStatusBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  offlineStatusBadgeText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: FONT,
+    textTransform: 'uppercase',
   },
 });
 

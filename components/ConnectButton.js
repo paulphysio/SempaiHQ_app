@@ -231,21 +231,21 @@ export const EmbeddedWalletProvider = ({ children }) => {
   }, [user, authLoading, disconnectWallet]);
 
   const createEmbeddedWallet = useCallback(async (password) => {
-    if (!user || user.isGuest) {
-      throw new Error('Sign in with an account to create a wallet');
+    // Verify actual auth status from Supabase, not just local state
+    const { data: authUser, error: authError } = await supabase.auth.getUser();
+    if (authError || !authUser.user) {
+      throw new Error('No active session. Please sign in with a full account.');
     }
+    
+    // Use Supabase user data, not local state
+    const actualUser = authUser.user;
+    
     if (!password || typeof password !== 'string' || password.length < 8) {
       throw new Error('Password must be a string and at least 8 characters long');
     }
     try {
       setIsLoading(true);
-      console.log('[createEmbeddedWallet] Creating wallet for:', user.email);
-
-      const { data: authUser, error: authError } = await supabase.auth.getUser();
-      if (authError) throw new Error(`Auth error: ${authError.message}`);
-      if (!authUser.user || authUser.user.id !== user.id) {
-        throw new Error('Authenticated user mismatch');
-      }
+      console.log('[createEmbeddedWallet] Creating wallet for:', actualUser.email);
 
       const keypair = solanaWeb3.Keypair.generate();
       const publicKey = keypair.publicKey;
@@ -305,19 +305,24 @@ export const EmbeddedWalletProvider = ({ children }) => {
   }, [user, useBiometrics]);
 
   const retrieveEmbeddedWallet = useCallback(async (password) => {
-    if (!user || user.isGuest) throw new Error('Sign in with an account to retrieve a wallet');
+    // Verify actual auth status from Supabase, not just local state
+    const { data: authUser, error: authError } = await supabase.auth.getUser();
+    if (authError || !authUser.user) {
+      throw new Error('No active session. Please sign in with a full account.');
+    }
+    
+    // Use Supabase user data, not local state
+    const actualUser = authUser.user;
+    
     if (!password || typeof password !== 'string' || password.length < 8) throw new Error('Password must be a string and at least 8 characters long');
     
     try {
       setIsLoading(true);
-      console.log('[retrieveEmbeddedWallet] Retrieving wallet for:', user.email);
-
-      const { data: authUser, error: authError } = await supabase.auth.getUser();
-      if (authError || !authUser.user || authUser.user.id !== user.id) throw new Error('Authenticated user mismatch');
+      console.log('[retrieveEmbeddedWallet] Retrieving wallet for:', actualUser.email);
 
       await disconnectWallet();
 
-      const { data: userData, error: userError } = await supabase.from('users').select('id, wallet_address').eq('email', user.email).single();
+      const { data: userData, error: userError } = await supabase.from('users').select('id, wallet_address').eq('email', actualUser.email).single();
       if (userError || !userData) throw new Error('User not found. Please ensure your account is registered.');
       if (!userData.wallet_address) throw new Error('No wallet address associated with this user. Please create a new wallet.');
 

@@ -54,10 +54,13 @@ export const getGlobalNavbarStyles = (colors, isDark) =>
       width: '100%',
       zIndex: 1,
     },
-    brand: {
+    brandContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
+    },
+    brand: {
+      alignItems: 'center',
     },
     brandLogo: {
       width: 28,
@@ -68,23 +71,12 @@ export const getGlobalNavbarStyles = (colors, isDark) =>
       shadowOpacity: 0.4,
       shadowRadius: 6,
     },
-    brandText: {
-      color: colors.textPrimary,
-      fontSize: 16,
-      fontWeight: 'bold',
-      letterSpacing: 0.5,
-      fontFamily: 'Yoruka',
-      textShadowColor: colors.accentSoft,
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 4,
-    },
     themeToggleBtn: {
       width: 28,
       height: 28,
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
-      marginLeft: 8,
       backgroundColor: colors.accentSoft,
       borderWidth: 1,
       borderColor: colors.border,

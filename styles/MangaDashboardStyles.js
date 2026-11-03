@@ -216,6 +216,31 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
   },
+  statusOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  statusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3A3A4E',
+    borderWidth: 1,
+    borderColor: 'rgba(243, 99, 22, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  statusOptionActive: {
+    borderColor: '#F36316',
+    backgroundColor: 'rgba(243, 99, 22, 0.2)',
+  },
+  statusOptionText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+  },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -98,40 +98,41 @@ const GlobalNavbar = () => {
         ]}
       />
       <View style={styles.headerContent}>
-        <TouchableOpacity
-          style={styles.brand}
-          activeOpacity={0.7}
-          onPress={() => navigation.navigate('Home')}
-        >
-          <Animated.View
-            style={{
-              transform: [
-                {
-                  scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
-                },
-              ],
-            }}
+        <View style={styles.brandContainer}>
+          <TouchableOpacity
+            style={styles.brand}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('Home')}
           >
-            <Image
-              source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
-              style={styles.brandLogo}
-              defaultSource={{ uri: 'https://via.placeholder.com/28x28' }}
-            />
-          </Animated.View>
-          <Text style={styles.brandText}>SempaiHQ</Text>
-        </TouchableOpacity>
+            <Animated.View
+              style={{
+                transform: [
+                  {
+                    scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
+                  },
+                ],
+              }}
+            >
+              <Image
+                source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
+                style={styles.brandLogo}
+                defaultSource={{ uri: 'https://via.placeholder.com/28x28' }}
+              />
+            </Animated.View>
+          </TouchableOpacity>
 
-        {/* Theme Toggle Button - always visible beside brand */}
-        <TouchableOpacity
-          onPress={toggleTheme}
-          activeOpacity={0.85}
-          style={styles.themeToggleBtn}
-          accessible
-          accessibilityLabel="Toggle theme"
-          accessibilityHint="Switch between light and dark mode"
-        >
-          <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={13} color={isDark ? colors.gold : colors.accent} />
-        </TouchableOpacity>
+          {/* Theme Toggle Button - always visible beside brand */}
+          <TouchableOpacity
+            onPress={toggleTheme}
+            activeOpacity={0.85}
+            style={styles.themeToggleBtn}
+            accessible
+            accessibilityLabel="Toggle theme"
+            accessibilityHint="Switch between light and dark mode"
+          >
+            <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={13} color={isDark ? colors.gold : colors.accent} />
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.headerAuthRow}>
           {!session ? (

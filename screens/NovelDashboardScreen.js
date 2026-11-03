@@ -125,19 +125,47 @@ const parseISOToSelections = (isoDate) => {
   };
 };
 
-// Function to schedule a push notification
-const schedulePushNotification = async (title, body, data = {}) => {
+// Function to send push notification via Supabase Edge Function (Firebase FCM)
+const sendPushNotification = async (userIds, title, body, data = {}) => {
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
+    console.log('[sendPushNotification] Sending push notification via Edge Function (Firebase FCM)...');
+    console.log('[sendPushNotification] User IDs:', userIds);
+    console.log('[sendPushNotification] Title:', title);
+    console.log('[sendPushNotification] Body:', body);
+    console.log('[sendPushNotification] Data:', data);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      console.error('[sendPushNotification] No access token available');
+      return;
+    }
+
+    const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/send-push-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        userIds,
         title,
         body,
         data,
-      },
-      trigger: null,
+      }),
     });
+
+    const result = await response.json();
+    console.log('[sendPushNotification] Edge function response:', result);
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to send push notification');
+    }
+
+    console.log('[sendPushNotification] Push notification sent successfully');
   } catch (error) {
-    console.error('Error scheduling push notification:', error);
+    console.error('[sendPushNotification] Error sending push notification:', error);
   }
 };
 
@@ -154,6 +182,7 @@ const NovelDashboardScreen = () => {
   const [novelImage, setNovelImage] = useState(null);
   const [novelImageUrl, setNovelImageUrl] = useState('');
   const [novelSummary, setNovelSummary] = useState('');
+  const [novelStatus, setNovelStatus] = useState('ongoing');
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newChapterContent, setNewChapterContent] = useState('');
   const [newChapterIsAdvance, setNewChapterIsAdvance] = useState(false);
@@ -531,6 +560,7 @@ const NovelDashboardScreen = () => {
     setNovelImage(null);
     setNovelImageUrl(novel.image || '');
     setNovelSummary(novel.summary || '');
+    setNovelStatus(novel.status || 'ongoing');
     setChapterTitles(nextChapterTitles);
     setChapterContents(nextChapterContents);
     setAdvanceChapters(nextAdvanceChapters);
@@ -620,6 +650,7 @@ const NovelDashboardScreen = () => {
         advance_chapters: advanceChapters,
         tags: tags.map((tag) => tag.value),
         viewers_count: selectedNovel ? selectedNovel.viewers_count : 0,
+        status: novelStatus,
       };
 
       let novelId, chapterNumber, message;
@@ -641,30 +672,54 @@ const NovelDashboardScreen = () => {
         message = `A new novel "${novelTitle}" has been published!`;
       }
 
-      const { data: users, error: usersError } = await supabase.from('users').select('id');
-      if (usersError) throw new Error(usersError.message);
+      // Target users for notifications
+      let targetUsers = [];
+      if (selectedNovel) {
+        // For new chapters, notify users who have interacted with this novel (including the author)
+        const { data: interactions, error: interactionsError } = await supabase
+          .from('novel_interactions')
+          .select('user_id')
+          .eq('novel_id', novelId);
 
-      if (users.length > 0) {
-        const notifications = users.map((user) => ({
-          user_id: user.id,
+        if (interactionsError) throw new Error(interactionsError.message);
+        targetUsers = interactions?.map(i => i.user_id) || [];
+      } else {
+        // For new novels, notify all users
+        const { data: users, error: usersError } = await supabase.from('users').select('id');
+        if (usersError) throw new Error(usersError.message);
+        targetUsers = users?.map(u => u.id) || [];
+      }
+
+      if (targetUsers.length > 0) {
+        console.log('[NovelDashboard] Creating notifications for', targetUsers.length, 'users');
+        const notifications = targetUsers.map((userId) => ({
+          user_id: userId,
           novel_id: novelId,
+          novel_title: novelTitle,
           type: selectedNovel ? 'new_chapter' : 'new_novel',
           message,
           chapter: selectedNovel ? chapterNumber : null,
         }));
 
+        console.log('[NovelDashboard] Inserting notifications into database...');
         const { error: notifError } = await supabase.from('notifications').insert(notifications);
-        if (notifError) throw new Error(notifError.message);
+        if (notifError) {
+          console.error('[NovelDashboard] Error inserting notifications:', notifError);
+          throw new Error(notifError.message);
+        }
+        console.log('[NovelDashboard] Notifications inserted successfully');
 
-        await schedulePushNotification(
+        console.log('[NovelDashboard] Sending push notification via Edge Function (Firebase FCM)...');
+        await sendPushNotification(
+          targetUsers,
           selectedNovel ? `New Chapter for ${novelTitle}` : `New Novel: ${novelTitle}`,
           message,
           { novelId, type: selectedNovel ? 'new_chapter' : 'new_novel' }
         );
+      } else {
+        console.log('[NovelDashboard] No target users to notify');
       }
 
-      setSuccessMessage('Novel submitted successfully! Users notified.');
-      setShowSuccessModal(true);
       resetForm();
       fetchNovels();
     } catch (err) {
@@ -1184,6 +1239,36 @@ const NovelDashboardScreen = () => {
                   </Text>
                   <FontAwesome5 name="chevron-down" size={12} color={KA_COLORS.textMuted} />
                 </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={[styles.label, styles.darkText]}>Status</Text>
+                <View style={styles.statusOptions}>
+                  {['ongoing', 'completed', 'hiatus'].map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      onPress={() => setNovelStatus(status)}
+                      style={[
+                        styles.statusOption,
+                        novelStatus === status && styles.statusOptionActive,
+                      ]}
+                      activeOpacity={0.7}
+                      accessible
+                      accessibilityLabel={`Set status to ${status}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: novelStatus === status }}
+                    >
+                      <FontAwesome5
+                        name={novelStatus === status ? 'check-circle' : 'circle'}
+                        size={16}
+                        color={novelStatus === status ? KA_COLORS.ivory : KA_COLORS.textMuted}
+                      />
+                      <Text style={[styles.statusOptionText, styles.darkText]}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
 
               <View style={styles.chapterSection}>
@@ -1770,6 +1855,30 @@ const styles = StyleSheet.create({
     color: KA_COLORS.ivory,
     fontSize: 14,
     flexShrink: 1,
+  },
+  statusOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  statusOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: KA_COLORS.bgElevated,
+    borderWidth: 1,
+    borderColor: KA_COLORS.border,
+    borderRadius: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  statusOptionActive: {
+    borderColor: KA_COLORS.gold,
+    backgroundColor: 'rgba(244, 208, 63, 0.1)',
+  },
+  statusOptionText: {
+    color: KA_COLORS.ivory,
+    fontSize: 14,
   },
   chapterSection: {
     marginTop: 16,

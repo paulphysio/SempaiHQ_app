@@ -20,6 +20,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getGlobalBottomNavStyles, NAV } from '../styles/GlobalBottomNavStyles';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
+import { NotificationEmitter } from '../services/NotificationEmitter';
 
 const { width } = Dimensions.get('window');
 const ICON_SIZE = width < 480 ? 19 : 21;
@@ -134,7 +135,7 @@ const NavButton = ({
 
 // ---------------------------------------------------------------------------
 
-const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
+const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
@@ -161,10 +162,13 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
   const { isDark, colors } = useTheme();
   const themedStyles = getGlobalBottomNavStyles(isDark);
 
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [combinedMessages, setCombinedMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Animation refs
   const enterAnim = useRef(new Animated.Value(0)).current;
@@ -180,6 +184,13 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
       bounciness: 10,
     }).start();
   }, []);
+
+  // Fetch messages on mount if wallet is connected
+  useEffect(() => {
+    if (isWalletConnected && activeWalletAddress) {
+      fetchMessages();
+    }
+  }, [isWalletConnected, activeWalletAddress]);
 
   // Menu pulse (very subtle)
   useEffect(() => {
@@ -209,12 +220,50 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
     return () => loop.stop();
   }, [unreadCount]);
 
+  // Listen for notification events to refresh unread count
+  useEffect(() => {
+    const listener = NotificationEmitter.addListener('notificationReceived', () => {
+      console.log('[GlobalBottomNav] Notification received, refreshing unread count');
+      fetchMessages();
+    });
+    return () => listener.remove();
+  }, [isWalletConnected, activeWalletAddress]);
+
   const navTimer = useRef(null);
   useEffect(() => () => clearTimeout(navTimer.current), []);
 
-  const handleNotifications = () => {
-    setShowNotifications(true);
-    fetchNotifications();
+  const handleNotifications = async () => {
+    setShowMessages(true);
+    await fetchMessages();
+    
+    // Mark all notifications as read
+    if (isWalletConnected && activeWalletAddress) {
+      try {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id')
+          .eq('wallet_address', activeWalletAddress)
+          .single();
+        
+        if (userData) {
+          await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('user_id', userData.id)
+            .is('read', null);
+          
+          await supabase
+            .from('announcements')
+            .update({ read: true })
+            .is('read', null);
+          
+          // Refresh to update unread count
+          setUnreadCount(0);
+        }
+      } catch (error) {
+        console.error('[GlobalBottomNav] Error marking as read:', error);
+      }
+    }
   };
 
   const handleNavigation = (screenName) => {
@@ -223,23 +272,31 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
     navTimer.current = setTimeout(() => setIsNavigating(false), 500);
   };
 
-  const fetchNotifications = async () => {
-    if (!isWalletConnected || !activeWalletAddress) return;
+  const fetchMessages = async () => {
+    if (!isWalletConnected || !activeWalletAddress) {
+      console.log('[GlobalBottomNav] fetchMessages: Wallet not connected');
+      return;
+    }
 
-    setLoadingNotifications(true);
+    console.log('[GlobalBottomNav] fetchMessages: Starting...');
+    setLoadingMessages(true);
     try {
+      console.log('[GlobalBottomNav] Fetching user data for wallet:', activeWalletAddress);
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id')
+        .select('id, isWriter, isArtist')
         .eq('wallet_address', activeWalletAddress)
         .single();
 
       if (userError || !userData) {
-        console.error('Error fetching user:', userError);
+        console.error('[GlobalBottomNav] Error fetching user:', userError);
         setNotifications([]);
+        setAnnouncements([]);
         return;
       }
 
+      console.log('[GlobalBottomNav] User data fetched:', userData.id);
+      console.log('[GlobalBottomNav] Fetching notifications for user:', userData.id);
       const { data: notifData, error: notifError } = await supabase
         .from('notifications')
         .select('*')
@@ -248,17 +305,52 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
         .limit(20);
 
       if (notifError) {
-        console.error('Error fetching notifications:', notifError);
-        setNotifications([]);
-        return;
+        console.error('[GlobalBottomNav] Error fetching notifications:', notifError);
+      } else {
+        console.log('[GlobalBottomNav] Fetched', notifData?.length || 0, 'notifications');
       }
 
+      console.log('[GlobalBottomNav] Fetching announcements...');
+      const { data: announcementData, error: announcementError } = await supabase
+        .from('announcements')
+        .select(`
+          id, title, message, created_at, release_date, audience,
+          users!user_id(id, wallet_address)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (announcementError) {
+        console.error('[GlobalBottomNav] Error fetching announcements:', announcementError);
+      } else {
+        console.log('[GlobalBottomNav] Fetched', announcementData?.length || 0, 'announcements');
+      }
+
+      const filteredAnnouncements = (announcementData || []).filter(ann =>
+        ann.audience === 'creators' ? userData.isWriter || userData.isArtist : true
+      );
+
+      console.log('[GlobalBottomNav] Filtered announcements:', filteredAnnouncements.length);
       setNotifications(notifData || []);
+      setAnnouncements(filteredAnnouncements);
+      
+      // Combine and sort by date
+      const combined = [
+        ...(notifData || []).map(n => ({ ...n, type: 'notification' })),
+        ...(filteredAnnouncements || []).map(a => ({ ...a, type: 'announcement' }))
+      ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      setCombinedMessages(combined);
+      
+      // Calculate unread count from both notifications (where read is false or null) and announcements
+      const unreadNotifs = (notifData || []).filter(n => !n.read);
+      const unreadAnnouncements = (filteredAnnouncements || []).filter(a => !a.read);
+      setUnreadCount(unreadNotifs.length + unreadAnnouncements.length);
     } catch (error) {
-      console.error('Error in fetchNotifications:', error);
+      console.error('[GlobalBottomNav] Error in fetchMessages:', error);
       setNotifications([]);
+      setAnnouncements([]);
     } finally {
-      setLoadingNotifications(false);
+      setLoadingMessages(false);
     }
   };
 
@@ -338,11 +430,22 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
 
               <NavButton
                 icon="envelope"
-                label="View notifications"
-                active={showNotifications}
+                label="View messages"
+                active={showMessages}
                 onPress={handleNotifications}
                 badge={unreadCount}
                 pulse={unreadCount > 0 ? notifPulseAnim : undefined}
+                styles={themedStyles}
+                colors={colors}
+                isDark={isDark}
+              />
+
+              <NavButton
+                icon="inbox"
+                label="Inbox"
+                active={currentRoute === 'Inbox'}
+                onPress={() => handleNavigation('Inbox')}
+                disabled={isNavigating}
                 styles={themedStyles}
                 colors={colors}
                 isDark={isDark}
@@ -374,43 +477,52 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen, unreadCount = 0 }) => {
         </View>
       </Animated.View>
 
-      {/* Notifications Modal */}
+      {/* Messages Modal (combines notifications and announcements) */}
       <Modal
-        visible={showNotifications}
+        visible={showMessages}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setShowNotifications(false)}
+        onRequestClose={() => setShowMessages(false)}
       >
         <View style={themedStyles.modalOverlay}>
           <View style={themedStyles.modalContent}>
             <View style={themedStyles.modalHeader}>
-              <Text style={themedStyles.modalTitle}>Notifications</Text>
+              <Text style={themedStyles.modalTitle}>Messages</Text>
               <Pressable
                 style={themedStyles.modalClose}
-                onPress={() => setShowNotifications(false)}
+                onPress={() => setShowMessages(false)}
                 accessibilityRole="button"
-                accessibilityLabel="Close notifications"
+                accessibilityLabel="Close messages"
               >
                 <FontAwesome5 name="times" size={16} color={colors.accent} />
               </Pressable>
             </View>
             <ScrollView style={themedStyles.modalBody}>
-              {loadingNotifications ? (
-                <Text style={themedStyles.modalText}>Loading notifications...</Text>
+              {loadingMessages ? (
+                <Text style={themedStyles.modalText}>Loading messages...</Text>
               ) : !isWalletConnected ? (
-                <Text style={themedStyles.modalText}>Connect your wallet to view notifications.</Text>
-              ) : notifications.length === 0 ? (
-                <Text style={themedStyles.modalText}>No notifications found.</Text>
+                <Text style={themedStyles.modalText}>Connect your wallet to view messages.</Text>
+              ) : combinedMessages.length === 0 ? (
+                <Text style={themedStyles.modalText}>No messages found.</Text>
               ) : (
-                notifications.map((notif) => (
-                  <View key={notif.id} style={themedStyles.notificationItem}>
-                    <Text style={themedStyles.notificationType}>{notif.type}</Text>
-                    <Text style={themedStyles.notificationMessage}>{notif.message}</Text>
-                    <Text style={themedStyles.notificationDate}>
-                      {new Date(notif.created_at).toLocaleDateString()}
-                    </Text>
-                  </View>
-                ))
+                <>
+                  {combinedMessages.map((msg) => (
+                    <View key={`${msg.type}-${msg.id}`} style={themedStyles.notificationItem}>
+                      <Text style={themedStyles.notificationType}>
+                        {msg.type === 'announcement' ? 'Announcement' : 'Notification'}
+                      </Text>
+                      {msg.type === 'announcement' && (
+                        <Text style={themedStyles.notificationTitle}>{msg.title}</Text>
+                      )}
+                      <Text style={themedStyles.notificationMessage}>
+                        {msg.type === 'announcement' ? msg.message : msg.message}
+                      </Text>
+                      <Text style={themedStyles.notificationDate}>
+                        {new Date(msg.created_at).toLocaleDateString()}
+                      </Text>
+                    </View>
+                  ))}
+                </>
               )}
             </ScrollView>
           </View>

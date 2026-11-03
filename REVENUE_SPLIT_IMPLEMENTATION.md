@@ -13,7 +13,7 @@ This document outlines the implementation of the new revenue split system for ch
 ### **Wallet Destinations:**
 - **Creator**: Individual novelist's wallet (from novel data)
 - **Sempai HQ**: `4EeY4iAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr` (Squads wallet)
-- **Founder Fund**: `62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr`
+- **Founder Fund**: `71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD`
 
 ## Technical Implementation
 

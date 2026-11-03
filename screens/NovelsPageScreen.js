@@ -353,6 +353,7 @@ const NovelsPageScreen = () => {
           tags,
           user_id,
           viewers_count,
+          status,
           users:user_id (name)
         `)
         .eq('is_visible', true);
@@ -521,6 +522,16 @@ const NovelsPageScreen = () => {
           {item.tags?.includes('Adult(18+)') && (
             <View style={themedStyles.adultBadge}>
               <Text style={themedStyles.adultBadgeText}>18+</Text>
+            </View>
+          )}
+          {item.status && (
+            <View style={[
+              themedStyles.statusBadge,
+              item.status === 'completed' ? themedStyles.statusBadgeCompleted : item.status === 'ongoing' ? themedStyles.statusBadgeOngoing : themedStyles.statusBadgeHiatus
+            ]}>
+              <Text style={themedStyles.statusBadgeText}>
+                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+              </Text>
             </View>
           )}
         </View>

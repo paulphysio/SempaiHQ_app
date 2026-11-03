@@ -52,19 +52,47 @@ const TAG_OPTIONS = [
   { value: 'Josei', label: 'Josei' },
 ];
 
-// Function to schedule a push notification
-const schedulePushNotification = async (title, body, data = {}) => {
+// Function to send push notification via Supabase Edge Function (Firebase FCM)
+const sendPushNotification = async (userIds, title, body, data = {}) => {
   try {
-    await Notifications.scheduleNotificationAsync({
-      content: {
+    console.log('[sendPushNotification] Sending push notification via Edge Function (Firebase FCM)...');
+    console.log('[sendPushNotification] User IDs:', userIds);
+    console.log('[sendPushNotification] Title:', title);
+    console.log('[sendPushNotification] Body:', body);
+    console.log('[sendPushNotification] Data:', data);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (!accessToken) {
+      console.error('[sendPushNotification] No access token available');
+      return;
+    }
+
+    const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/send-push-notification', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        userIds,
         title,
         body,
         data,
-      },
-      trigger: null, // Immediate notification
+      }),
     });
+
+    const result = await response.json();
+    console.log('[sendPushNotification] Edge function response:', result);
+
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to send push notification');
+    }
+
+    console.log('[sendPushNotification] Push notification sent successfully');
   } catch (error) {
-    console.error('Error scheduling push notification:', error);
+    console.error('[sendPushNotification] Error sending push notification:', error);
   }
 };
 
@@ -78,6 +106,7 @@ const MangaDashboardScreen = () => {
   const [coverImage, setCoverImage] = useState(null);
   const [coverPreview, setCoverPreview] = useState('');
   const [summary, setSummary] = useState('');
+  const [mangaStatus, setMangaStatus] = useState('ongoing');
   const [chapterTitle, setChapterTitle] = useState('');
   const [chapterPages, setChapterPages] = useState([]);
   const [chapterPrice, setChapterPrice] = useState('2.5'); // New state for chapter price
@@ -325,6 +354,7 @@ const MangaDashboardScreen = () => {
     setTitle(manga.title || '');
     setCoverPreview(manga.cover_image || '');
     setSummary(manga.summary || '');
+    setMangaStatus(manga.status || 'ongoing');
     setTags(manga.tags ? manga.tags.map((tag) => ({ value: tag, label: tag })) : []);
     await fetchChapters(manga.id);
   };
@@ -386,7 +416,7 @@ const MangaDashboardScreen = () => {
         author:
           (await supabase.from('users').select('name').eq('id', userId).single()).data?.name ||
           'Unknown',
-        status: 'ongoing',
+        status: mangaStatus,
         tags: tags.map((tag) => tag.value),
         viewers_count: activeManga ? activeManga.viewers_count : 0,
       };
@@ -471,26 +501,53 @@ const MangaDashboardScreen = () => {
       const message = activeManga
         ? `A new chapter has been added to "${title}"!`
         : `A new manga "${title}" has been published!`;
-      const { data: users, error: usersError } = await supabase.from('users').select('id');
-      if (usersError) throw new Error(usersError.message);
 
-      if (users.length > 0) {
-        const notifications = users.map((user) => ({
-          user_id: user.id,
+      // Target users for notifications
+      let targetUsers = [];
+      if (activeManga) {
+        // For new chapters, notify users who have interacted with this manga (including the author)
+        const { data: interactions, error: interactionsError } = await supabase
+          .from('manga_interactions')
+          .select('user_id')
+          .eq('manga_id', mangaId);
+
+        if (interactionsError) throw new Error(interactionsError.message);
+        targetUsers = interactions?.map(i => i.user_id) || [];
+      } else {
+        // For new manga, notify all users
+        const { data: users, error: usersError } = await supabase.from('users').select('id');
+        if (usersError) throw new Error(usersError.message);
+        targetUsers = users?.map(u => u.id) || [];
+      }
+
+      if (targetUsers.length > 0) {
+        console.log('[MangaDashboard] Creating notifications for', targetUsers.length, 'users');
+        const notifications = targetUsers.map((userId) => ({
+          user_id: userId,
           manga_id: mangaId,
+          manga_title: title,
           type: activeManga ? 'new_chapter' : 'new_manga',
           message,
           chapter: activeManga ? chapters.length : null,
         }));
 
+        console.log('[MangaDashboard] Inserting notifications into database...');
         const { error: notifError } = await supabase.from('notifications').insert(notifications);
-        if (notifError) throw new Error(notifError.message);
+        if (notifError) {
+          console.error('[MangaDashboard] Error inserting notifications:', notifError);
+          throw new Error(notifError.message);
+        }
+        console.log('[MangaDashboard] Notifications inserted successfully');
 
-        await schedulePushNotification(
+        console.log('[MangaDashboard] Sending push notification via Edge Function (Firebase FCM)...');
+        await sendPushNotification(
+          targetUsers,
           activeManga ? `New Chapter for ${title}` : `New Manga: ${title}`,
           message,
           { mangaId, type: activeManga ? 'new_chapter' : 'new_manga' }
         );
+      } else {
+        console.log('[MangaDashboard] No target users to notify');
       }
 
       Alert.alert('Success', 'Manga saved successfully!');
@@ -569,6 +626,7 @@ const MangaDashboardScreen = () => {
     setCoverImage(null);
     setCoverPreview('');
     setSummary('');
+    setMangaStatus('ongoing');
     clearChapterForm();
     setChapters([]);
     setActiveManga(null);
@@ -767,6 +825,35 @@ const MangaDashboardScreen = () => {
                   accessible
                   accessibilityLabel="Manga summary input"
                 />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Status</Text>
+                <View style={styles.statusOptions}>
+                  {['ongoing', 'completed', 'hiatus'].map((status) => (
+                    <TouchableOpacity
+                      key={status}
+                      onPress={() => setMangaStatus(status)}
+                      style={[
+                        styles.statusOption,
+                        mangaStatus === status && styles.statusOptionActive,
+                      ]}
+                      activeOpacity={0.7}
+                      accessible
+                      accessibilityLabel={`Set status to ${status}`}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: mangaStatus === status }}
+                    >
+                      <Icon
+                        name={mangaStatus === status ? 'check-circle' : 'circle'}
+                        size={16}
+                        color={mangaStatus === status ? '#fff' : '#888'}
+                      />
+                      <Text style={styles.statusOptionText}>
+                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Tags</Text>

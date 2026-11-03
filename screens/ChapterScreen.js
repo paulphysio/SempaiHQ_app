@@ -22,6 +22,7 @@ import { Video, ResizeMode, Audio } from 'expo-av';
 import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Network from 'expo-network';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
 import { getNovelForOffline, isErrorNetworkError } from '../services/offlineCache';
 import { safeFetch } from '../utils/urlValidation';
@@ -59,9 +60,9 @@ const connection = new Connection(RPC_URL, 'confirmed', {
 const MIN_ATA_SOL = 0.00103928;
 const MIN_USER_SOL = 0.001;
 
-const SQUADS_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
-const TREASURY_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
-const FOUNDER_FUND_WALLET = new PublicKey("62PPSRhAk6hdn85MUoYAnUDisswZRfos68Zqf7N1QLkr");
+const SQUADS_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
+const TREASURY_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
+const FOUNDER_FUND_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 const SEMPAI_HQ_WALLET = new PublicKey("4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H");
 
 // Ad video configuration - use local asset
@@ -299,6 +300,21 @@ const ChapterScreen = () => {
   const [isLocked, setIsLocked] = useState(true);
   const [userId, setUserId] = useState(null);
   const [advanceInfo, setAdvanceInfo] = useState(null);
+
+  // Restore user ID from AsyncStorage (works offline)
+  useEffect(() => {
+    (async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem('offline_user_id');
+        if (storedUserId) {
+          console.log('[ChapterScreen] Restored user ID from storage:', storedUserId);
+          setUserId(storedUserId);
+        }
+      } catch (e) {
+        console.error('[ChapterScreen] Failed to restore user ID:', e);
+      }
+    })();
+  }, []);
   const [canUnlockNextThree, setCanUnlockNextThree] = useState(false);
   const [readingMode, setReadingMode] = useState('free');
   const [smpBalance, setSmpBalance] = useState(0);
@@ -413,6 +429,9 @@ const ChapterScreen = () => {
   const [authorNote, setAuthorNote] = useState('');
   const [isEditingAuthorNote, setIsEditingAuthorNote] = useState(false);
   const [isAuthor, setIsAuthor] = useState(false);
+
+  // Fullscreen mode
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Initialize ember particles
   useEffect(() => {
@@ -577,10 +596,16 @@ const ChapterScreen = () => {
 
   const fetchSmpBalanceOnChain = useCallback(async (retryCount = 3, retryDelay = 1000) => {
     if (!activeWalletAddress || !activePublicKey) return 0;
-    
+
+    // Skip if offline or status unknown
+    if (isOnline === false || isOnline === null) {
+      console.log('[fetchSmpBalanceOnChain] Offline - skipping RPC call');
+      return 0;
+    }
+
     const rpcUrls = [RPC_URL, FALLBACK_RPC_URL];
     let lastError = null;
-    
+
     for (const rpcUrl of rpcUrls) {
       for (let attempt = 1; attempt <= retryCount; attempt++) {
         try {
@@ -615,14 +640,19 @@ const ChapterScreen = () => {
         }
       }
     }
-    
+
     // All RPCs failed
     setError('Unable to fetch SMP balance.');
     setTimeout(() => setError(null), 5000);
     return 0;
-  }, [activeWalletAddress, activePublicKey]);
+  }, [activeWalletAddress, activePublicKey, isOnline]);
 
   const fetchTokenBalances = useCallback(async () => {
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      return;
+    }
+
     if (!activeWalletAddress || !activePublicKey) {
       setSolBalance(0);
       setUsdcBalance(0);
@@ -666,10 +696,16 @@ const ChapterScreen = () => {
 
   const fetchAmethystBalance = useCallback(async () => {
     if (!activeWalletAddress || !activePublicKey) return 0;
-    
+
+    // Skip if offline or status unknown
+    if (isOnline === false || isOnline === null) {
+      console.log('[fetchAmethystBalance] Offline - skipping RPC call');
+      return 0;
+    }
+
     const rpcUrls = [RPC_URL, FALLBACK_RPC_URL];
     let lastError = null;
-    
+
     for (const rpcUrl of rpcUrls) {
       try {
         const fallbackConnection = new Connection(rpcUrl, 'confirmed');
@@ -692,19 +728,25 @@ const ChapterScreen = () => {
         console.warn(`[fetchAmethystBalance] Failed on ${rpcUrl}, trying next RPC`);
       }
     }
-    
+
     // All RPCs failed
     console.error('[fetchAmethystBalance] All RPCs failed:', lastError);
     setAmethystBalance(0);
     return 0;
-  }, [activeWalletAddress, activePublicKey]);
+  }, [activeWalletAddress, activePublicKey, isOnline]);
 
   const fetchSkrBalance = useCallback(async () => {
     if (!activeWalletAddress || !activePublicKey) return 0;
-    
+
+    // Skip if offline or status unknown
+    if (isOnline === false || isOnline === null) {
+      console.log('[fetchSkrBalance] Offline - skipping RPC call');
+      return 0;
+    }
+
     const rpcUrls = [RPC_URL, FALLBACK_RPC_URL];
     let lastError = null;
-    
+
     for (const rpcUrl of rpcUrls) {
       try {
         const fallbackConnection = new Connection(rpcUrl, 'confirmed');
@@ -727,21 +769,21 @@ const ChapterScreen = () => {
         console.warn(`[fetchSkrBalance] Failed on ${rpcUrl}, trying next RPC`);
       }
     }
-    
+
     // All RPCs failed
     console.error('[fetchSkrBalance] All RPCs failed:', lastError);
     setSkrBalance(0);
     return 0;
-  }, [activeWalletAddress, activePublicKey]);
+  }, [activeWalletAddress, activePublicKey, isOnline]);
 
   const fetchUserData = useCallback(async () => {
-    if (!activeWalletAddress) return;
-
     // Skip if offline
-    if (isOnline === false) {
+    if (isOnline === false || isOnline === null) {
       console.log('[ChapterScreen] Offline - skipping user data fetch');
       return;
     }
+
+    if (!activeWalletAddress) return;
 
     try {
       const { data, error } = await supabase
@@ -864,8 +906,8 @@ const ChapterScreen = () => {
     }
     try {
       // If offline or status unknown, try cache first
-      if (isOnline === false) {
-        console.log('[ChapterScreen] Offline - loading novel from cache');
+      if (isOnline === false || isOnline === null) {
+        console.log('[ChapterScreen] Offline/status unknown - loading novel from cache');
         const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
           console.log('[ChapterScreen] Novel loaded from cache:', cachedData.novel.title);
@@ -1458,6 +1500,11 @@ const ChapterScreen = () => {
 
   // Rating functions
   const fetchRatings = useCallback(async () => {
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      return;
+    }
+
     if (!userId) return;
     const chapterNum = parseInt(chapterId, 10);
 
@@ -1568,6 +1615,11 @@ const ChapterScreen = () => {
 
   // Check has read chapter
   const checkHasReadChapter = useCallback(async (targetChapterId) => {
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      return false;
+    }
+
     if (!activeWalletAddress || !novel || !targetChapterId) return false;
     try {
       const eventDetails = `${activeWalletAddress}${novel.title || 'Untitled'}${targetChapterId}`
@@ -1620,6 +1672,11 @@ const ChapterScreen = () => {
   }, [activeWalletAddress, novelId]);
 
   const checkAccess = useCallback(async (walletAddress, novelData, chapterNum) => {
+    // Skip if offline
+    if (isOnline === false || isOnline === null) {
+      return;
+    }
+
     // Reset to locked state while checking access
     setIsLocked(true);
 
@@ -2064,6 +2121,13 @@ const ChapterScreen = () => {
       setLoading(false);
       return;
     }
+
+    // Wait for user ID to be loaded before proceeding offline
+    if ((isOnline === false || isOnline === null) && !userId) {
+      console.log('[ChapterScreen] Waiting for user ID to load before checking cache');
+      return;
+    }
+
     const initialize = async () => {
       // Reset loading state when chapter changes
       setLoading(true);
@@ -2071,10 +2135,10 @@ const ChapterScreen = () => {
 
       const chapterNum = parseInt(chapterId, 10);
       console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected, 'isOnline:', isOnline);
-      
-      // If offline, only allow chapters that are saved
-      if (isOnline === false) {
-        console.log('[ChapterScreen] Offline mode, checking cache');
+
+      // If offline or status unknown, only allow chapters that are saved
+      if (isOnline === false || isOnline === null) {
+        console.log('[ChapterScreen] Offline/status unknown mode, checking cache');
         const cachedData = await getNovelForOffline(novelId, userId || 'guest');
         if (cachedData) {
           console.log('[ChapterScreen] Cached novel found:', cachedData.novel.title);
@@ -2087,7 +2151,11 @@ const ChapterScreen = () => {
             setIsAdvanceChapter(false);
             setIsUnlockedViaSubscription(false);
             setReadingMode('free');
-            setNovel(cachedData.novel);
+            // Set novel with chapter content
+            const novelWithChapter = { ...cachedData.novel };
+            novelWithChapter.chaptercontents = {};
+            novelWithChapter.chaptercontents[chapterId] = chapter.content;
+            setNovel(novelWithChapter);
             setLoading(false);
             return;
           } else {
@@ -2136,7 +2204,12 @@ const ChapterScreen = () => {
               setIsAdvanceChapter(false);
               setIsUnlockedViaSubscription(false);
               setReadingMode('free');
-              checkHasReadChapter(chapterId);
+              // Set chapter content in novel object
+              const novelWithChapter = { ...novel };
+              novelWithChapter.chaptercontents = {};
+              novelWithChapter.chaptercontents[chapterId] = chapter.content;
+              setNovel(novelWithChapter);
+              // Skip checkHasReadChapter when offline
               return;
             }
           }
@@ -2151,12 +2224,15 @@ const ChapterScreen = () => {
         setIsAdvanceChapter(false);
         setIsUnlockedViaSubscription(false);
         setReadingMode('free');
-        checkHasReadChapter(chapterId);
+        // Skip checkHasReadChapter when offline
+        if (isOnline === true) {
+          checkHasReadChapter(chapterId);
+        }
         return;
       }
 
       // Only check access for chapters beyond 2 if wallet is connected
-      if (isWalletConnected && activeWalletAddress) {
+      if (isWalletConnected && activeWalletAddress && isOnline === true) {
         checkAccess(activeWalletAddress, novel, chapterNum);
         checkHasReadChapter(chapterId);
       }
@@ -2172,16 +2248,25 @@ const ChapterScreen = () => {
         return;
       }
       // Don't process payment for offline chapters
-      if ((isOnline === false || isOnline === null) && novel.offline_chapters) {
-        const offlineChapter = novel.offline_chapters.find(c => c.chapter_number === chapterId);
-        if (offlineChapter && offlineChapter.content) {
-          console.log('[ChapterScreen] Chapter in offline cache, skipping payment');
-          return;
-        }
+      if (isOnline === false) {
+        (async () => {
+          try {
+            const cachedData = await getNovelForOffline(novelId, userId || 'guest');
+            if (cachedData && cachedData.chapters) {
+              const offlineChapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
+              if (offlineChapter && offlineChapter.content) {
+                console.log('[ChapterScreen] Chapter in offline cache, skipping payment');
+                return;
+              }
+            }
+          } catch (e) {
+            console.log('[ChapterScreen] Error checking offline cache:', e);
+          }
+        })();
       }
       processChapterPayment(chapterId);
     }
-  }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter, isOnline]);
+  }, [loading, novel, isLocked, readingMode, processChapterPayment, isWalletConnected, chapterId, hasReadChapter, isOnline, userId]);
 
   // Fetch ratings when chapter is unlocked
   useEffect(() => {
@@ -2200,6 +2285,7 @@ const ChapterScreen = () => {
   // Optimize Amethyst balance fetching
   useEffect(() => {
     if (!isWalletConnected || !activeWalletAddress) return;
+    if (isOnline === false || isOnline === null) return; // Skip offline
     let intervalId;
     const fetchAndSchedule = async () => {
       await fetchAmethystBalance();
@@ -2207,14 +2293,14 @@ const ChapterScreen = () => {
     };
     fetchAndSchedule();
     return () => clearInterval(intervalId);
-  }, [isWalletConnected, activeWalletAddress, fetchAmethystBalance]);
+  }, [isWalletConnected, activeWalletAddress, fetchAmethystBalance, isOnline]);
 
   // Fetch token balances for benefactor payments
   useEffect(() => {
-    if (isWalletConnected && activeWalletAddress) {
+    if (isWalletConnected && activeWalletAddress && isOnline === true) {
       fetchTokenBalances();
     }
-  }, [isWalletConnected, activeWalletAddress, fetchTokenBalances]);
+  }, [isWalletConnected, activeWalletAddress, fetchTokenBalances, isOnline]);
 
   // Refresh live prices periodically so long reading sessions don't drift
   // too far from the market (cache TTL above already avoids redundant calls)
@@ -2355,9 +2441,113 @@ const ChapterScreen = () => {
   const threeChaptersSmp = smpPrice ? Math.ceil(3 / smpPrice) : 'N/A';
   const fullChaptersSmp = smpPrice ? Math.ceil(15 / smpPrice) : 'N/A';
 
+  // OFFLINE MODE - Minimal reading UI
+  if (isOnline === false || isOnline === null) {
+    const chapterContent = novel?.chaptercontents?.[chapterId] || '';
+    const chapterTitle = novel?.chaptertitles?.[parseInt(chapterId, 10)] || `Chapter ${parseInt(chapterId, 10) + 1}`;
+
+    if (isFullscreen) {
+      return (
+        <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
+          <StatusBar hidden={true} />
+
+          {/* Fullscreen close button */}
+          <TouchableOpacity
+            style={styles.fullscreenCloseButton}
+            onPress={() => setIsFullscreen(false)}
+          >
+            <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+
+          {/* Chapter Content - Full Screen */}
+          <ScrollView style={styles.fullscreenScrollView} contentContainerStyle={styles.fullscreenContent}>
+            <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
+              {chapterTitle}
+            </Text>
+            <Text style={[styles.offlineChapterContent, { color: colors.textPrimary }]}>
+              {chapterContent}
+            </Text>
+          </ScrollView>
+        </View>
+      );
+    }
+
+    return (
+      <SafeAreaView style={[styles.offlineContainer, { backgroundColor: colors.bg }]}>
+        <StatusBar
+          barStyle={isDark ? 'light-content' : 'dark-content'}
+          backgroundColor={colors.bg}
+        />
+
+        {/* Offline Header */}
+        <View style={[styles.offlineHeader, { borderBottomColor: colors.border }]}>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.offlineBackButton}
+          >
+            <FontAwesome5 name="arrow-left" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <FontAwesome5 name="wifi" size={20} color={colors.warning} />
+          <Text style={[styles.offlineHeaderText, { color: colors.textPrimary }]}>Offline Mode</Text>
+          <TouchableOpacity
+            onPress={() => setIsFullscreen(true)}
+            style={styles.offlineFullscreenButton}
+          >
+            <FontAwesome5 name="expand" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Chapter Content */}
+        <ScrollView style={styles.offlineScrollView}>
+          <View style={styles.offlineChapterContainer}>
+            <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
+              {chapterTitle}
+            </Text>
+            <Text style={[styles.offlineChapterContent, { color: colors.textPrimary }]}>
+              {chapterContent}
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ONLINE MODE - Full UI
+  // If fullscreen, render only chapter content
+  if (isFullscreen) {
+    const chapterContent = novel?.chaptercontents?.[chapterId] || '';
+    return (
+      <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
+        <StatusBar hidden={true} />
+
+        {/* Fullscreen close button */}
+        <TouchableOpacity
+          style={styles.fullscreenCloseButton}
+          onPress={() => setIsFullscreen(false)}
+        >
+          <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+
+        {/* Chapter Content - Full Screen */}
+        <ScrollView style={styles.fullscreenScrollView} contentContainerStyle={styles.fullscreenContent}>
+          <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
+            {chapterTitle}
+          </Text>
+          <Text style={[styles.offlineChapterContent, { color: colors.textPrimary }]}>
+            {chapterContent}
+          </Text>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  // Normal online mode
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+      <StatusBar
+        barStyle={isDark ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.bg}
+      />
       <View style={styles.backgroundGradient} />
       <View style={styles.emberContainer} pointerEvents="none">
         {embersInitialized.current && emberAnims.current && emberAnims.current.length > 0 && embersData.current && embersData.current.map((ember, index) => {
@@ -2421,6 +2611,12 @@ const ChapterScreen = () => {
           onPress={() => navigation.navigate('NovelsPage', { novelId })}
         >
           <FontAwesome5 name="book" size={20} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => setIsFullscreen(true)}
+        >
+          <FontAwesome5 name="expand" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
       {(successMessage || error || warningMessage) && (

@@ -577,6 +577,18 @@ export const getProfileStyles = (isDark = true) => {
       borderRadius: RADIUS.xs,
       alignItems: 'center',
     },
+    messageInput: {
+      backgroundColor: c.bgElevated,
+      color: c.textPrimary,
+      borderRadius: RADIUS.xs,
+      padding: SPACE.md,
+      borderWidth: 1,
+      borderColor: c.border,
+      marginBottom: SPACE.lg,
+      minHeight: 100,
+      fontSize: 14,
+      fontFamily: FONT,
+    },
     modalButtonText: {
       color: c.textOnAccent,
       fontSize: 16,

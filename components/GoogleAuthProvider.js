@@ -110,9 +110,19 @@ export const GoogleAuthProvider = ({ children }) => {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
       setSession(session);
+
+      // Save user ID to AsyncStorage for offline access
+      if (session?.user?.id) {
+        try {
+          await AsyncStorage.setItem('offline_user_id', session.user.id);
+          console.log('[GoogleAuthProvider] Saved user ID for offline access:', session.user.id);
+        } catch (e) {
+          console.error('[GoogleAuthProvider] Failed to save user ID:', e);
+        }
+      }
     });
 
     return () => subscription?.unsubscribe();

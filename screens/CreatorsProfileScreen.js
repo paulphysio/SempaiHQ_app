@@ -12,6 +12,7 @@ import {
   Dimensions,
   Animated,
   Easing,
+  TextInput,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Modal from 'react-native-modal';
@@ -64,6 +65,9 @@ const { width, height } = Dimensions.get('window');
   const [selectedCurrency, setSelectedCurrency] = useState('USDC');
   const [isProcessingBadgePurchase, setIsProcessingBadgePurchase] = useState(false);
   const [solPrice, setSolPrice] = useState(0);
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -240,6 +244,41 @@ const { width, height } = Dimensions.get('window');
       }
     } catch (error) {
       console.error('[CreatorsProfileScreen] Error fetching writer badges:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) {
+      Alert.alert('Error', 'Please enter a message');
+      return;
+    }
+
+    if (!isWalletConnected) {
+      Alert.alert('Error', 'Please connect your wallet to send messages');
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      const { error } = await supabase
+        .from('private_messages')
+        .insert({
+          sender_wallet: activeWalletAddress,
+          recipient_wallet: creatorData.wallet_address,
+          content: messageText.trim(),
+          status: 'sent',
+        });
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Message sent successfully!');
+      setMessageText('');
+      setShowMessageModal(false);
+    } catch (error) {
+      console.error('[CreatorsProfileScreen] Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+    } finally {
+      setIsSendingMessage(false);
     }
   };
 
@@ -558,14 +597,24 @@ const { width, height } = Dimensions.get('window');
                   {isArtist && <UBBadge type="artist" size="small" />}
                 </View>
                 {!isOwnProfile && isWalletConnected && (
-                  <TouchableOpacity 
-                    style={[themedStyles.actionButton, { marginTop: 12 }]}
-                    onPress={() => setShowBadgePurchaseModal(true)}
-                    activeOpacity={0.8}
-                  >
-                    <FontAwesome5 name="shopping-cart" size={16} color={colors.textOnAccent} />
-                    <Text style={themedStyles.actionButtonText}>BUY BADGE</Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                    <TouchableOpacity
+                      style={[themedStyles.actionButton, { flex: 1 }]}
+                      onPress={() => setShowMessageModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <FontAwesome5 name="envelope" size={16} color={colors.textOnAccent} />
+                      <Text style={themedStyles.actionButtonText}>MESSAGE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[themedStyles.actionButton, { flex: 1 }]}
+                      onPress={() => setShowBadgePurchaseModal(true)}
+                      activeOpacity={0.8}
+                    >
+                      <FontAwesome5 name="shopping-cart" size={16} color={colors.textOnAccent} />
+                      <Text style={themedStyles.actionButtonText}>BUY BADGE</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
               
@@ -758,6 +807,50 @@ const { width, height } = Dimensions.get('window');
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Message Modal */}
+      <Modal
+        isVisible={showMessageModal}
+        onBackdropPress={() => setShowMessageModal(false)}
+        onBackButtonPress={() => setShowMessageModal(false)}
+      >
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <TouchableOpacity
+              style={themedStyles.closeButton}
+              onPress={() => setShowMessageModal(false)}
+            >
+              <FontAwesome5 name="times" size={20} color="#fff" />
+            </TouchableOpacity>
+            <Text style={themedStyles.modalTitle}>Send Message</Text>
+            <Text style={themedStyles.modalMessage}>
+              Send a private message to {creatorData?.name || 'this creator'}.
+            </Text>
+
+            <TextInput
+              style={themedStyles.messageInput}
+              placeholder="Type your message here..."
+              placeholderTextColor="#888"
+              multiline
+              numberOfLines={4}
+              value={messageText}
+              onChangeText={setMessageText}
+            />
+
+            <TouchableOpacity
+              style={[themedStyles.modalButton, { backgroundColor: colors.accent, opacity: isSendingMessage ? 0.6 : 1 }]}
+              onPress={handleSendMessage}
+              disabled={isSendingMessage}
+            >
+              {isSendingMessage ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={themedStyles.modalButtonText}>Send Message</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>

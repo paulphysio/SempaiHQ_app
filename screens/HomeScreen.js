@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -14,7 +14,7 @@ import {
   TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Modal from 'react-native-modal';
@@ -28,6 +28,7 @@ import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clear
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
+import { NotificationEmitter } from '../services/NotificationEmitter';
 import CinematicCardOverlay from '../components/CinematicCardOverlay';
 import { useTheme } from '../context/ThemeContext';
 
@@ -68,14 +69,13 @@ const Home = () => {
   const [novelsLoading, setNovelsLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(null); // null = unknown, will be set on check
   const [error, setError] = useState(null);
-  const [showAnnouncements, setShowAnnouncements] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
   const [showAuthMenu, setShowAuthMenu] = useState(false);
   const [showWalletMenu, setShowWalletMenu] = useState(false);
 
   const [publicKey, setPublicKey] = useState(null);
   const [userId, setUserId] = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isWriter, setIsWriter] = useState(false);
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
@@ -85,14 +85,14 @@ const Home = () => {
   const [walletPassword, setWalletPassword] = useState('');
   const [walletPassword2, setWalletPassword2] = useState('');
   const [walletModalError, setWalletModalError] = useState(null);
+  const [activeDropdown, setActiveDropdown] = useState(null);
 
   // Get themed styles
   const themedStyles = getThemedStyles(isDark);
 
   // Animation refs
   const slideAnim = useRef(new Animated.Value(280)).current;
-  const announcementAnim = useRef(new Animated.Value(0)).current;
-  const notificationAnim = useRef(new Animated.Value(0)).current;
+  const messageAnim = useRef(new Animated.Value(0)).current;
   const authAnim = useRef(new Animated.Value(0)).current;
   const walletMenuAnim = useRef(new Animated.Value(0)).current;
 
@@ -146,8 +146,7 @@ const Home = () => {
   // Keeps dropdowns/overlay mounted long enough to play their exit
   // animation instead of disappearing the instant state flips.
   const overlayShouldRender = useDelayedUnmount(menuOpen, 300);
-  const notificationsShouldRender = useDelayedUnmount(showNotifications, 300);
-  const announcementsShouldRender = useDelayedUnmount(showAnnouncements, 300);
+  const messagesShouldRender = useDelayedUnmount(showMessages, 300);
   const walletMenuShouldRender = useDelayedUnmount(showWalletMenu, 250);
   const authMenuShouldRender = useDelayedUnmount(showAuthMenu, 250);
 
@@ -220,7 +219,9 @@ const Home = () => {
 
   // Pop the notification badge whenever the unread count goes up, instead
   // of it just silently changing number.
+  const unreadCount = unreadNotifications + announcements.length;
   useEffect(() => {
+    console.log('[HomeScreen] Unread count updated:', unreadCount, '(notifications:', unreadNotifications, ', announcements:', announcements.length, ')');
     if (unreadCount > 0) {
       badgePop.setValue(0.6);
       Animated.spring(badgePop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
@@ -230,10 +231,9 @@ const Home = () => {
   // Get stored user ID from AsyncStorage (works offline)
   const getStoredUserId = useCallback(async () => {
     try {
-      const storedUserStr = await AsyncStorage.getItem('supabase.auth.user');
-      if (storedUserStr) {
-        const storedUser = JSON.parse(storedUserStr);
-        return storedUser.id;
+      const storedUserId = await AsyncStorage.getItem('offline_user_id');
+      if (storedUserId) {
+        return storedUserId;
       }
     } catch (e) {
       console.log('[HomeScreen] Could not read stored user from AsyncStorage');
@@ -255,8 +255,7 @@ const Home = () => {
 
   // Wallet dropdown handlers
   const toggleWalletMenu = () => {
-    if (showAnnouncements) { setShowAnnouncements(false); Animated.timing(announcementAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
-    if (showNotifications) { setShowNotifications(false); Animated.timing(notificationAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
+    if (showMessages) { setShowMessages(false); Animated.timing(messageAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
     if (showAuthMenu) { setShowAuthMenu(false); Animated.timing(authAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
     const toValue = showWalletMenu ? 0 : 1;
     Animated.timing(walletMenuAnim, { toValue, duration: 250, useNativeDriver: true }).start();
@@ -431,9 +430,12 @@ const Home = () => {
 
   // Fetch announcements
   useEffect(() => {
-    if (!userId) return;
+    let isCancelled = false;
 
     const fetchAnnouncements = async () => {
+      if (!userId || isCancelled) {
+        return;
+      }
       try {
         // Skip if offline
         if (isOnline === false) {
@@ -525,13 +527,20 @@ const Home = () => {
       }
     };
     fetchAnnouncements();
+    return () => {
+      isCancelled = true;
+    };
   }, [userId, isWriter, isArtist, isOnline]);
 
   // Fetch notifications
   useEffect(() => {
-    if (!userId) return;
+    let isCancelled = false;
 
     const fetchNotifications = async () => {
+      if (!userId || isCancelled) {
+        console.log('[HomeScreen] fetchNotifications: No userId or cancelled');
+        return;
+      }
       try {
         // Skip if offline
         if (isOnline === false) {
@@ -539,6 +548,7 @@ const Home = () => {
           return;
         }
 
+        console.log('[HomeScreen] Fetching notifications for userId:', userId);
         const { data: notificationsData, error: notificationsError } = await supabase
           .from('notifications')
           .select('id, novel_id, message, novel_title, is_read, created_at')
@@ -546,22 +556,63 @@ const Home = () => {
           .order('created_at', { ascending: false });
 
         if (notificationsError) {
+          console.error('[HomeScreen] Error fetching notifications:', notificationsError);
           throw new Error(`Failed to fetch notifications: ${notificationsError.message}`);
         }
 
+        console.log('[HomeScreen] Fetched', notificationsData?.length || 0, 'notifications');
+        const unreadCount = notificationsData?.filter(n => !n.is_read).length || 0;
+        console.log('[HomeScreen] Unread count:', unreadCount);
+
         if (isMounted.current) {
           setNotifications(notificationsData || []);
-          setUnreadCount(notificationsData?.filter(n => !n.is_read).length || 0);
+          setUnreadNotifications(unreadCount);
         }
       } catch (err) {
-        console.error('fetchNotifications error:', err.message);
+        console.error('[HomeScreen] fetchNotifications error:', err.message);
         if (isMounted.current) {
           setError(`Failed to fetch notifications: ${err.message}`);
         }
       }
     };
     fetchNotifications();
+    return () => {
+      isCancelled = true;
+    };
   }, [userId, isOnline]);
+
+  // Listen for notification updates from App.js
+  useEffect(() => {
+    const listener = () => {
+      console.log('[HomeScreen] Notification received, refreshing...');
+      if (userId) {
+        // Refetch notifications
+        const refetchNotifications = async () => {
+          try {
+            const { data: notificationsData } = await supabase
+              .from('notifications')
+              .select('id, novel_id, message, novel_title, is_read, created_at')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false });
+
+            if (isMounted.current) {
+              setNotifications(notificationsData || []);
+              setUnreadNotifications(notificationsData?.filter(n => !n.is_read).length || 0);
+            }
+          } catch (err) {
+            console.error('[HomeScreen] Error refetching notifications:', err);
+          }
+        };
+        refetchNotifications();
+      }
+    };
+
+    // Subscribe to notification emitter
+    const unsubscribe = NotificationEmitter?.subscribe?.(listener);
+    return () => {
+      unsubscribe?.();
+    };
+  }, [userId]);
 
   // Fetch novels
   useEffect(() => {
@@ -576,6 +627,7 @@ const Home = () => {
           user_id,
           tags,
           viewers_count,
+          status,
           viewers:viewers_count,
           writer:users (name, isWriter)
         `)
@@ -612,66 +664,56 @@ const Home = () => {
         novel.isAdult = novel.tags?.includes("Adult(18+)") || false;
       }
 
-      // Auto-cache novels for offline use
-      for(let novel of enrichedNovels){
-        try {
-          // Check if novel is already cached
-          const isCached = await isNovelSavedOffline(novel.id);
-          if (!isCached) {
-            // Use saveNovelForOffline to save first 3 chapters with content
-            // For auto-cache, we only save first 3 chapters (no unlocked chapters list available)
-            await saveNovelForOffline(novel, [], userId || 'guest');
-            console.log(`[HomeScreen] Auto-cached novel: ${novel.title}`);
-          } else {
-            console.log(`[HomeScreen] Novel already cached: ${novel.title}`);
-          }
-        } catch(cacheError) {
-          console.error(`[HomeScreen] Failed to cache novel ${novel.title}:`, cacheError);
-        }
-      }
-
       return enrichedNovels;
     }
 
     const fetchNovel = async () => {
       setNovelsLoading(true);
       try {
-        // If offline or status unknown, load from cache directly
+        // If offline, load ALL saved novels from cache
         if (isOnline === false) {
-          console.log('[HomeScreen] Offline/status unknown - loading novels from cache');
+          console.log('[HomeScreen] Offline - loading all saved novels from cache');
           const cachedNovels = await getCachedNovelsOffline(userId || 'guest');
           console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
           if (cachedNovels && cachedNovels.length > 0) {
             try {
               cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
-              console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
+              console.log('[HomeScreen] Setting offline novels state with all:', cachedNovels.length);
               if (isMounted.current) {
-                setNovels(cachedNovels.slice(0, 6));
+                setNovels(cachedNovels); // Show ALL saved novels offline
                 setNovelsLoading(false);
+                setLoading(false);
                 setError(null);
               }
             } catch (sortError) {
               console.error('[HomeScreen] Error sorting cached novels:', sortError);
               if (isMounted.current) {
-                setNovels(cachedNovels.slice(0, 6));
+                setNovels(cachedNovels);
                 setNovelsLoading(false);
+                setLoading(false);
                 setError(null);
               }
             }
           } else {
             console.log('[HomeScreen] No cached novels available');
             if (isMounted.current) {
-              setError('No internet connection and no cached content. Please save novels for offline reading first.');
               setNovels([]);
+              setNovelsLoading(false);
+              setLoading(false);
             }
           }
           return;
         }
 
+        // Online mode - fetch from network and show only 6 featured
         const enrichedNovels = await fetchNovelInfo();
         enrichedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
         if (isMounted.current) {
+          console.log('[HomeScreen] Setting novels state with:', enrichedNovels.slice(0, 6));
           setNovels(enrichedNovels.slice(0, 6));
+          setNovelsLoading(false);
+          setLoading(false);
+          setError(null);
         }
       } catch (err) {
         console.error('fetchNovels error:', err.message);
@@ -686,6 +728,7 @@ const Home = () => {
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
+              setLoading(false);
               setError(null); // Clear error so novels display
             }
           } catch (sortError) {
@@ -693,6 +736,7 @@ const Home = () => {
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
+              setLoading(false);
               setError(null); // Clear error so novels display
             }
           }
@@ -701,16 +745,19 @@ const Home = () => {
           if (isMounted.current) {
             setError('No internet connection and no cached content. Please save novels for offline reading first.');
             setNovels([]);
+            setNovelsLoading(false);
+            setLoading(false);
           }
         }
       } finally {
         if (isMounted.current) {
           setNovelsLoading(false);
+          setLoading(false);
         }
       }
     };
     fetchNovel();
-  }, [isOnline, session]);
+  }, [isOnline]);
 
   // Debug novels state changes
   useEffect(() => {
@@ -721,11 +768,10 @@ const Home = () => {
   useEffect(() => {
     const fetchManga = async () => {
       try {
-        // Skip manga fetch if offline or status unknown
+        // Skip manga fetch if offline
         if (isOnline === false) {
-          console.log('[HomeScreen] Offline/status unknown - skipping manga fetch');
+          console.log('[HomeScreen] Offline - skipping manga fetch');
           setManga([]);
-          setLoading(false);
           return;
         }
 
@@ -815,13 +861,15 @@ const Home = () => {
 
         if (isMounted.current) {
           setManga(enrichedManga);
-          setLoading(false);
         }
       } catch (err) {
         console.error('Error fetching manga:', err.message);
         if (isMounted.current) {
           setError(`Failed to fetch manga: ${err.message}`);
           setManga([]);
+        }
+      } finally {
+        if (isMounted.current) {
           setLoading(false);
         }
       }
@@ -841,38 +889,24 @@ const Home = () => {
     setMenuOpen(!menuOpen);
   };
 
-  // Toggle announcements dropdown
-  const toggleAnnouncements = () => {
+  // Toggle messages dropdown (combines announcements and notifications)
+  const toggleMessages = () => {
     if (showAuthMenu) { setShowAuthMenu(false); Animated.timing(authAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
     if (showWalletMenu) { setShowWalletMenu(false); Animated.timing(walletMenuAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
-    Animated.timing(announcementAnim, {
-      toValue: showAnnouncements ? 0 : 1,
+    Animated.timing(messageAnim, {
+      toValue: showMessages ? 0 : 1,
       duration: 300,
       useNativeDriver: true,
     }).start();
-    setShowAnnouncements(!showAnnouncements);
-  };
-
-  // Toggle notifications dropdown
-  const toggleNotifications = () => {
-    if (showAuthMenu) { setShowAuthMenu(false); Animated.timing(authAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
-    if (showWalletMenu) { setShowWalletMenu(false); Animated.timing(walletMenuAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(); }
-    Animated.timing(notificationAnim, {
-      toValue: showNotifications ? 0 : 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-    setShowNotifications(!showNotifications);
+    setShowMessages(!showMessages);
   };
 
   // Toggle auth dropdown
   const toggleAuthMenu = () => {
     // close other dropdowns
-    if (showAnnouncements) setShowAnnouncements(false);
-    if (showNotifications) setShowNotifications(false);
+    if (showMessages) setShowMessages(false);
     if (showWalletMenu) setShowWalletMenu(false);
-    Animated.timing(announcementAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
-    Animated.timing(notificationAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+    Animated.timing(messageAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
 
     const toValue = showAuthMenu ? 0 : 1;
     Animated.timing(authAnim, { toValue, duration: 250, useNativeDriver: true }).start();
@@ -894,7 +928,7 @@ const Home = () => {
 
       if (isMounted.current) {
         setNotifications(notifications.map(n => ({ ...n, is_read: true })));
-        setUnreadCount(0);
+        setUnreadNotifications(0);
       }
     } catch (err) {
       console.error('Error marking notifications as read:', err.message);
@@ -949,27 +983,33 @@ const Home = () => {
   // silently scroll underneath the overlay (which would make the collapse
   // animation land somewhere other than where the card actually is now).
   useEffect(() => {
-    if (novels.length <= 1 || expandedCard) return;
-    const interval = setInterval(() => {
+    const interval = novels.length <= 1 || expandedCard ? null : setInterval(() => {
       let nextIndex = novelIndexRef.current + 1;
       if (nextIndex >= novels.length) nextIndex = 0;
       novelFlatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
       novelIndexRef.current = nextIndex;
     }, 2500);
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [novels.length, expandedCard]);
 
   // Auto-scroll manga — same pause-while-expanded guard as novels above.
   useEffect(() => {
-    if (manga.length <= 1 || expandedCard) return;
-    const interval = setInterval(() => {
+    const interval = manga.length <= 1 || expandedCard ? null : setInterval(() => {
       let nextIndex = mangaIndexRef.current + 1;
       if (nextIndex >= manga.length) nextIndex = 0;
       mangaFlatListRef.current?.scrollToIndex({ index: nextIndex, animated: true });
       mangaIndexRef.current = nextIndex;
     }, 2500);
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [manga.length, expandedCard]);
+
+  // All hooks have been called - now we can check for offline mode
+  const walletAddress = wallet?.publicKey?.toString();
+  const walletLabel = walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : 'Connect';
 
   // Tapping a poster no longer navigates immediately — it opens the
   // cinematic in-place preview. The CTA inside that preview is what
@@ -997,6 +1037,7 @@ const Home = () => {
       console.warn(`Missing ID for ${type}: ${item.title}`);
       return null;
     }
+    console.log(`[HomeScreen] Rendering ${type} item:`, item.title, 'status:', item.status);
     const hasWriterCredit =
       (type === 'novel' ? item.writer?.isWriter : item.writer?.isArtist) && item.writer?.name !== 'Unknown';
 
@@ -1024,6 +1065,22 @@ const Home = () => {
             <View style={[styles.rankBadge, { backgroundColor: colors.accent }]}>
               <Text style={styles.rankBadgeText}>{index + 1}</Text>
             </View>
+            {item.saved_with_key === 'guest' && (
+              <View style={[styles.guestBadge, { backgroundColor: colors.warning }]}>
+                <Text style={styles.guestBadgeText}>Guest</Text>
+              </View>
+            )}
+            {item.status && (
+              <View style={[
+                styles.statusBadge,
+                item.status === 'completed' ? styles.statusBadgeCompleted : styles.statusBadgeHiatus,
+                { backgroundColor: item.status === 'completed' ? 'rgba(76, 175, 80, 0.9)' : item.status === 'ongoing' ? 'rgba(156, 39, 176, 0.9)' : 'rgba(255, 152, 0, 0.9)' }
+              ]}>
+                <Text style={styles.statusBadgeText}>
+                  {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                </Text>
+              </View>
+            )}
             <View style={[styles.ratingFloatBadge, { backgroundColor: colors.bgElevated }]}>
               <FontAwesome5 name="star" size={9} color={colors.gold} />
               <Text style={[styles.ratingFloatText, { color: colors.textPrimary }]}>{item.averageRating}</Text>
@@ -1064,6 +1121,7 @@ const Home = () => {
     );
   };
 
+  // Render announcement item
   // Render announcement item
   const renderAnnouncementItem = ({ item }) => (
     <View style={[styles.announcementCard, { backgroundColor: colors.bgCard }]}>
@@ -1106,6 +1164,24 @@ const Home = () => {
       </Text>
     </TouchableOpacity>
   );
+
+  // Render combined message item (announcement or notification)
+  const renderMessageItem = ({ item }) => {
+    if (item.type === 'announcement') {
+      return renderAnnouncementItem({ item });
+    }
+    return renderNotificationItem({ item });
+  };
+
+  // Combine announcements and notifications into a single list
+  const combinedMessages = React.useMemo(() => {
+    const combined = [
+      ...announcements.map(a => ({ ...a, type: 'announcement' })),
+      ...notifications.map(n => ({ ...n, type: 'notification' }))
+    ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    console.log('[HomeScreen] Combined messages:', combined.length, '(announcements:', announcements.length, ', notifications:', notifications.length, ')');
+    return combined;
+  }, [announcements, notifications]);
 
   // Render feature item
   const renderFeatureItem = ({ item, index }) => {
@@ -1201,8 +1277,6 @@ const Home = () => {
 
   // In the Home component, replace the sidebar rendering with this
   const renderSidebarContent = () => {
-    const [activeDropdown, setActiveDropdown] = useState(null);
-
     const navGroups = [
       {
         title: 'Main',
@@ -1339,37 +1413,147 @@ const Home = () => {
     );
   };
 
-  const walletAddress = wallet?.publicKey?.toString();
-  const walletLabel = walletAddress ? `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}` : 'Connect';
-
+  // ONLINE MODE - Full app with all features
   return (
     <View style={themedStyles.container}>
-      {/* Background animations */}
-      <View style={[styles.backgroundAnimation, { zIndex: -1, pointerEvents: 'none' }]}>
-        <LinearGradient
-          colors={isDark ? ['rgba(0, 0, 0, 0.8)', 'rgba(243, 99, 22, 0.3)'] : ['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.2)']}
-          style={styles.gradientLayer}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <Animated.View
-          style={[
-            styles.waveLayer,
-            {
-              transform: [
-                { translateX: -width / 2 },
-                { translateY: -height / 2 },
-                { rotate: waveAnim.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) },
-              ],
-            },
-          ]}
-        >
+      {isOnline === false ? (
+        // OFFLINE MODE UI - Redesigned
+        <>
+          {/* Beautiful gradient header */}
           <LinearGradient
-            colors={isDark ? ['rgba(243, 99, 22, 0.4)', 'transparent'] : ['rgba(59, 130, 246, 0.3)', 'transparent']}
-            style={styles.waveGradient}
-            start={{ x: 0.5, y: 0.5 }}
-            end={{ x: 1, y: 1 }}
-          />
+            colors={isDark ? ['rgba(243, 99, 22, 0.15)', 'rgba(243, 99, 22, 0.05)'] : ['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.05)']}
+            style={styles.offlineHeaderGradient}
+          >
+            <View style={styles.offlineHeaderContent}>
+              <View style={styles.offlineStatusIndicator}>
+                <FontAwesome5 name="wifi-slash" size={24} color={colors.warning} />
+              </View>
+              <View style={styles.offlineHeaderTitle}>
+                <Text style={[styles.offlineHeaderText, { color: colors.textPrimary }]}>Offline Mode</Text>
+                <Text style={[styles.offlineHeaderSubtitle, { color: colors.textSecondary }]}>
+                  {novels.length} saved novel{novels.length !== 1 ? 's' : ''} available
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* Offline content - only saved novels */}
+          <ScrollView
+            style={styles.offlineScrollContainer}
+            contentContainerStyle={styles.offlineContentContainer}
+            showsVerticalScrollIndicator={false}
+          >
+            {novelsLoading ? (
+              <View style={styles.offlineLoadingContainer}>
+                <ActivityIndicator size="large" color={colors.accent} />
+                <Text style={[styles.offlineLoadingText, { color: colors.textSecondary }]}>Loading your library...</Text>
+              </View>
+            ) : novels.length === 0 ? (
+              <View style={styles.offlineEmptyContainer}>
+                <View style={styles.offlineEmptyIcon}>
+                  <FontAwesome5 name="cloud-download-alt" size={48} color={colors.textMuted} />
+                </View>
+                <Text style={[styles.offlineEmptyTitle, { color: colors.textPrimary }]}>No saved novels</Text>
+                <Text style={[styles.offlineEmptyText, { color: colors.textSecondary }]}>
+                  Save novels while online to read them offline
+                </Text>
+                <View style={styles.offlineEmptyDivider} />
+                <Text style={[styles.offlineEmptyTip, { color: colors.textMuted }]}>
+                  💡 Go online and tap the bookmark icon on any novel to save it
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.offlineNovelsGrid}>
+                {novels.map((novel, index) => {
+                  console.log('[HomeScreen] Offline novel:', novel.title, 'status:', novel.status);
+                  return (
+                  <TouchableOpacity
+                    key={novel.id}
+                    style={[styles.offlineNovelCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                    onPress={() => navigation.navigate('NovelDetail', { id: novel.id })}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.offlineNovelImageContainer}>
+                      <Image
+                        source={{ uri: novel.image || 'https://via.placeholder.com/150x200' }}
+                        style={styles.offlineNovelImage}
+                        resizeMode="cover"
+                      />
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.8)']}
+                        style={styles.offlineNovelImageGradient}
+                      />
+                      {novel.status && (
+                        <View style={[
+                          styles.offlineStatusBadge,
+                          { backgroundColor: novel.status === 'completed' ? 'rgba(76, 175, 80, 0.9)' : novel.status === 'ongoing' ? 'rgba(156, 39, 176, 0.9)' : 'rgba(255, 152, 0, 0.9)' }
+                        ]}>
+                          <Text style={styles.offlineStatusBadgeText}>
+                            {novel.status.charAt(0).toUpperCase() + novel.status.slice(1)}
+                          </Text>
+                        </View>
+                      )}
+                      {novel.saved_with_key === 'guest' && (
+                        <View style={[styles.offlineGuestBadge, { backgroundColor: colors.warning }]}>
+                          <Text style={styles.offlineGuestBadgeText}>Guest</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.offlineNovelInfo}>
+                      <Text style={[styles.offlineNovelTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+                        {novel.title}
+                      </Text>
+                      <View style={styles.offlineNovelMeta}>
+                        <View style={styles.offlineNovelMetaItem}>
+                          <FontAwesome5 name="eye" size={11} color={colors.textSecondary} />
+                          <Text style={[styles.offlineNovelMetaText, { color: colors.textSecondary }]}>
+                            {(novel.viewers_count || 0).toLocaleString()}
+                          </Text>
+                        </View>
+                        <View style={styles.offlineNovelMetaItem}>
+                          <FontAwesome5 name="bookmark" size={11} color={colors.accent} />
+                          <Text style={[styles.offlineNovelMetaText, { color: colors.accent }]}>
+                            Saved
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        </>
+      ) : (
+        // ONLINE MODE UI
+        <>
+          {/* Background animations */}
+          <View style={[styles.backgroundAnimation, { zIndex: -1, pointerEvents: 'none' }]}>
+            <LinearGradient
+              colors={isDark ? ['rgba(0, 0, 0, 0.8)', 'rgba(243, 99, 22, 0.3)'] : ['rgba(59, 130, 246, 0.1)', 'rgba(59, 130, 246, 0.2)']}
+              style={styles.gradientLayer}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            />
+            <Animated.View
+              style={[
+                styles.waveLayer,
+                {
+                  transform: [
+                    { translateX: -width / 2 },
+                    { translateY: -height / 2 },
+                    { rotate: waveAnim.interpolate({ inputRange: [0, 360], outputRange: ['0deg', '360deg'] }) },
+                  ],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={isDark ? ['rgba(243, 99, 22, 0.4)', 'transparent'] : ['rgba(59, 130, 246, 0.3)', 'transparent']}
+                style={styles.waveGradient}
+                start={{ x: 0.5, y: 0.5 }}
+                end={{ x: 1, y: 1 }}
+              />
         </Animated.View>
         <Animated.View
           style={[
@@ -1397,19 +1581,8 @@ const Home = () => {
 
         <View style={styles.headerRight}>
           <View style={styles.headerActions}>
-            <View style={styles.announcementToggleWrapper}>
-              <AnimatedPressable style={styles.headerAction} onPress={toggleAnnouncements} accessible accessibilityLabel="Announcements" scaleTo={0.88}>
-                <FontAwesome5 name="bullhorn" size={15} color="#fff" />
-                {announcements.length > 0 && (
-                  <View style={styles.headerBadge}>
-                    <Text style={styles.headerBadgeText}>{announcements.length > 9 ? '9+' : announcements.length}</Text>
-                  </View>
-                )}
-              </AnimatedPressable>
-            </View>
-
             <View style={styles.notificationWrapper}>
-              <AnimatedPressable style={styles.headerAction} onPress={toggleNotifications} accessible accessibilityLabel="Notifications" scaleTo={0.88}>
+              <AnimatedPressable style={styles.headerAction} onPress={toggleMessages} accessible accessibilityLabel="Messages" scaleTo={0.88}>
                 <FontAwesome5 name="bell" size={15} color="#fff" />
                 {unreadCount > 0 && (
                   <Animated.View style={[styles.headerBadge, { transform: [{ scale: badgePop }] }]}>
@@ -1605,14 +1778,13 @@ const Home = () => {
         </View>
       </ScrollView>
 
-      {/* Sidebar */}
-      <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
+      {/* Sidebar - REMOVED */}
+      {/* <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
         {renderSidebarContent()}
-      </Animated.View>
+      </Animated.View> */}
 
-      {/* Sidebar overlay — fades with the sidebar's own slide position and
-          stays mounted long enough to finish fading before it unmounts. */}
-      {overlayShouldRender && (
+      {/* Sidebar overlay - REMOVED */}
+      {/* {overlayShouldRender && (
         <Animated.View
           style={[styles.overlay, { opacity: overlayOpacity }]}
           pointerEvents={menuOpen ? 'auto' : 'none'}
@@ -1625,27 +1797,27 @@ const Home = () => {
             accessibilityLabel="Close menu"
           />
         </Animated.View>
-      )}
+      )} */}
 
-      {/* Notifications dropdown */}
-      {notificationsShouldRender && (
+      {/* Messages dropdown (combines announcements and notifications) */}
+      {messagesShouldRender && (
         <Animated.View
           style={[
             styles.notificationDropdown,
             {
-              opacity: notificationAnim,
-              transform: [{ translateY: notificationAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
+              opacity: messageAnim,
+              transform: [{ translateY: messageAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
             },
           ]}
         >
-          {notifications.length === 0 ? (
-            <Text style={styles.noNotifications}>No notifications</Text>
+          {combinedMessages.length === 0 ? (
+            <Text style={styles.noNotifications}>No messages</Text>
           ) : (
             <>
               <FlatList
-                data={notifications}
-                renderItem={renderNotificationItem}
-                keyExtractor={item => `notification-${item.id}`}
+                data={combinedMessages}
+                renderItem={renderMessageItem}
+                keyExtractor={item => `message-${item.id}-${item.type}`}
                 style={styles.notificationList}
               />
               {unreadCount > 0 && (
@@ -1653,7 +1825,7 @@ const Home = () => {
                   style={styles.markReadButton}
                   onPress={markNotificationsRead}
                   accessible={true}
-                  accessibilityLabel="Mark all notifications as read"
+                  accessibilityLabel="Mark all messages as read"
                 >
                   <Text style={styles.markReadButtonText}>Mark All as Read</Text>
                 </AnimatedPressable>
@@ -1724,39 +1896,6 @@ const Home = () => {
           <View style={styles.authItem}>
             <GoogleSignInButton />
           </View>
-        </Animated.View>
-      )}
-
-      {/* Announcements dropdown */}
-      {announcementsShouldRender && (
-        <Animated.View
-          style={[
-            styles.announcementDropdown,
-            {
-              opacity: announcementAnim,
-              transform: [{ translateY: announcementAnim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }],
-            },
-          ]}
-        >
-          <AnimatedPressable
-            style={styles.closeAnnouncementButton}
-            onPress={toggleAnnouncements}
-            accessible={true}
-            accessibilityLabel="Close announcements"
-            scaleTo={0.85}
-          >
-            <FontAwesome5 name="times" size={16} color="#fff" />
-          </AnimatedPressable>
-          {announcements.length === 0 ? (
-            <Text style={styles.noAnnouncements}>No announcements</Text>
-          ) : (
-            <FlatList
-              data={announcements}
-              renderItem={renderAnnouncementItem}
-              keyExtractor={item => `announcement-${item.id}`}
-              style={styles.announcementCarousel}
-            />
-          )}
         </Animated.View>
       )}
 
@@ -1889,6 +2028,8 @@ const Home = () => {
         onClose={closeCard}
         onReadNow={handleReadNow}
       />
+        </>
+      )}
     </View>
   );
 };

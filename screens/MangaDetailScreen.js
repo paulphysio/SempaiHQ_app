@@ -54,7 +54,7 @@ const MangaDetailScreen = () => {
     try {
       const { data: mangaData, error: mangaError } = await supabase
         .from('manga')
-        .select('id, title, cover_image, summary, user_id, users:user_id (name), tags')
+        .select('id, title, cover_image, summary, user_id, users:user_id (name), tags, status')
         .eq('id', id)
         .eq('is_visible', true)
         .single();
@@ -132,6 +132,7 @@ const MangaDetailScreen = () => {
 
   const data = [
     { type: 'navbar', key: 'navbar' },
+    { type: 'header', key: 'header' },
     { type: 'error', key: 'error' },
     { type: 'chapters', key: 'chapters' },
     { type: 'comments', key: 'comments' },
@@ -186,6 +187,37 @@ const MangaDetailScreen = () => {
                   <Icon name="book" size={20} color="#FFFFFF" />
                   <Text style={styles.navMenuText}>Manga</Text>
                 </TouchableOpacity>
+      case 'header':
+        return manga ? (
+          <Animated.View entering={FadeIn} style={styles.header}>
+            <Image source={{ uri: manga.cover_image }} style={styles.coverImage} />
+            <View style={styles.headerContent}>
+              <View style={styles.titleRow}>
+                <Text style={styles.title}>{manga.title}</Text>
+                {manga.status && manga.status !== 'ongoing' && (
+                  <View style={[
+                    styles.statusBadge,
+                    manga.status === 'completed' && styles.statusBadgeCompleted,
+                    manga.status === 'hiatus' && styles.statusBadgeHiatus,
+                  ]}>
+                    <Text style={styles.statusBadgeText}>
+                      {manga.status.charAt(0).toUpperCase() + manga.status.slice(1)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.author}>By {manga.users?.name || 'Unknown'}</Text>
+              <Text style={styles.summary}>{manga.summary}</Text>
+              <View style={styles.tagsContainer}>
+                {manga.tags?.map((tag) => (
+                  <View key={tag} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
+        ) : null;
                 <TouchableOpacity
                   onPress={() => navigation.navigate('Swap')}
                   style={styles.navMenuItem}

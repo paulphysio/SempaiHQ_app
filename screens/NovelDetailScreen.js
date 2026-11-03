@@ -10,10 +10,12 @@ import {
   SafeAreaView,
   StyleSheet,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as Network from 'expo-network';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
 import { deleteNovelForOffline, getNovelForOffline, isErrorNetworkError, isNovelSavedOffline, saveNovelForOffline } from '../services/offlineCache';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -51,7 +53,29 @@ const NovelDetailScreen = () => {
   const contentFade = useRef(new Animated.Value(0)).current;
   const emberAnims = useRef([]);
   const { session } = useGoogleAuth();
-  const userId = session?.user?.id || 'guest';
+  const [userId, setUserId] = useState(session?.user?.id || null);
+
+  // Restore user ID from AsyncStorage (works offline)
+  useEffect(() => {
+    (async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem('offline_user_id');
+        if (storedUserId && !userId) {
+          console.log('[NovelDetailScreen] Restored user ID from storage:', storedUserId);
+          setUserId(storedUserId);
+        }
+      } catch (e) {
+        console.error('[NovelDetailScreen] Failed to restore user ID:', e);
+      }
+    })();
+  }, []);
+
+  // Update userId when session changes
+  useEffect(() => {
+    if (session?.user?.id) {
+      setUserId(session.user.id);
+    }
+  }, [session?.user?.id]);
 
   // Initialize ember particles
   useEffect(() => {
@@ -126,12 +150,12 @@ const NovelDetailScreen = () => {
 
   const fetchNovel = useCallback(async () => {
     try {
-      console.log('[NovelDetailScreen] Fetching novel with id:', id);
+      console.log('[NovelDetailScreen] Fetching novel with id:', id, 'isOnline:', isOnline, 'userId:', userId);
 
-      // If offline, try cache first
+      // If definitely offline, try cache only
       if (isOnline === false) {
         console.log('[NovelDetailScreen] Offline - loading novel from cache');
-        const cachedData = await getNovelForOffline(id, userId);
+        const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
           console.log('[NovelDetailScreen] Novel loaded from cache:', cachedData.novel.title);
           setNovel(cachedData.novel);
@@ -151,7 +175,8 @@ const NovelDetailScreen = () => {
         }
       }
 
-      // Online - fetch from network
+      // Online or status unknown - fetch from network first
+      console.log('[NovelDetailScreen] Online/status unknown - fetching from network');
       let { data, error } = await supabase
         .from('novels')
         .select('*')
@@ -178,15 +203,6 @@ const NovelDetailScreen = () => {
 
       console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
-      if(isSavedOffline && !isNetworkError) {
-        try {
-          // Use saveNovelForOffline to preserve chapter content if already saved
-          await saveNovelForOffline(data, unlockedChapters, userId);
-        } catch (saveError) {
-          console.warn('[NovelDetailScreen] Auto-save failed (non-critical):', saveError instanceof Error ? saveError.message : String(saveError));
-          // Don't throw - novel is still displayed, just not cached
-        }
-      }
       Animated.timing(contentFade, {
         toValue: 1,
         duration: 500,
@@ -198,7 +214,7 @@ const NovelDetailScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [id, isSavedOffline, isOnline]);
+  }, [id, isOnline, userId]);
 
   const updateViewCount = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
@@ -256,7 +272,7 @@ const NovelDetailScreen = () => {
       console.error('Error in updateViewCount:', error.message);
       setViewCountError('An unexpected error occurred while updating view count.');
     }
-  }, [id, isWalletConnected, activePublicKey, isSavedOffline, isOnline]);
+  }, [id, isWalletConnected, activePublicKey, isOnline]);
 
   const fetchUnlockedChapters = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
@@ -264,7 +280,7 @@ const NovelDetailScreen = () => {
       return;
     }
 
-    // Skip if offline
+    // Skip if definitely offline
     if (isOnline === false) {
       console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
       const cachedData = await getNovelForOffline(id, userId);
@@ -311,7 +327,7 @@ const NovelDetailScreen = () => {
       console.error('Error in fetchUnlockedChapters:', error.message);
       setUnlockedChapters([]);
     }
-  }, [id, isWalletConnected, activePublicKey, isSavedOffline, isOnline]);
+  }, [id, isWalletConnected, activePublicKey, isOnline]);
 
   useEffect(() => {
     if (viewCountError) {
@@ -345,7 +361,7 @@ const NovelDetailScreen = () => {
     try{
       if(!novel) return;
       console.log('[NovelDetailScreen] Saving offline with unlockedChapters:', unlockedChapters);
-      // Save novel with only unlocked chapters (first 3 + any unlocked)
+      // If novel was previously saved with guest key and user is now logged in, it will be re-encrypted with user key
       await saveNovelForOffline(novel, unlockedChapters, userId);
       setIsSavedOffline(true);
     }
@@ -477,7 +493,21 @@ const NovelDetailScreen = () => {
       <View style={styles.novelContainer}>
         <View style={styles.novelHeaderGradient}>
           <View style={styles.novelHeader}>
-            <Text style={styles.novelTitle}>{novel.title}</Text>
+            <View style={styles.novelTitleRow}>
+              <Text style={styles.novelTitle}>{novel.title}</Text>
+              {novel.status && (
+                <View style={[
+                  styles.statusBadge,
+                  novel.status === 'completed' && styles.statusBadgeCompleted,
+                  novel.status === 'ongoing' && styles.statusBadgeOngoing,
+                  novel.status === 'hiatus' && styles.statusBadgeHiatus,
+                ]}>
+                  <Text style={styles.statusBadgeText}>
+                    {novel.status.charAt(0).toUpperCase() + novel.status.slice(1)}
+                  </Text>
+                </View>
+              )}
+            </View>
             <View style={styles.novelImageWrapper}>
               <Image
                 source={{ uri: novel.image || FALLBACK_IMAGE }}
@@ -487,6 +517,11 @@ const NovelDetailScreen = () => {
               />
               <View style={styles.imageGlow} />
             </View>
+            {novel.saved_with_key === 'guest' && (
+              <View style={[styles.guestBadge, { backgroundColor: colors.warning }]}>
+                <Text style={styles.guestBadgeText}>Guest Session</Text>
+              </View>
+            )}
             <View style={styles.novelViews}>
               <FontAwesome5 name="eye" size={16} color={colors.accent} />
               <Text style={styles.novelViewsText}>
@@ -656,6 +691,76 @@ const NovelDetailScreen = () => {
     );
   }
 
+  // OFFLINE MODE - Minimal reading UI
+  if (isOnline === false || isOnline === null) {
+    return (
+      <SafeAreaView style={styles.page}>
+        <View style={[styles.offlineContainer, { backgroundColor: colors.bgPrimary }]}>
+          {/* Offline Header */}
+          <View style={[styles.offlineHeader, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+              onPress={() => navigation.goBack()}
+              style={styles.offlineBackButton}
+            >
+              <FontAwesome5 name="arrow-left" size={20} color={colors.textPrimary} />
+            </TouchableOpacity>
+            <FontAwesome5 name="wifi" size={20} color={colors.warning} />
+            <Text style={[styles.offlineHeaderText, { color: colors.textPrimary }]}>Offline Mode</Text>
+          </View>
+
+          {/* Novel Cover and Info */}
+          <ScrollView style={styles.offlineScrollView}>
+            <View style={styles.offlineNovelHeader}>
+              <Image
+                source={{ uri: novel.image || FALLBACK_IMAGE }}
+                style={styles.offlineCoverImage}
+                resizeMode="cover"
+              />
+              <View style={styles.offlineNovelInfo}>
+                <Text style={[styles.offlineTitle, { color: colors.textPrimary }]}>{novel.title}</Text>
+                <Text style={[styles.offlineAuthor, { color: colors.textSecondary }]}>
+                  By {novel.writer?.name || 'Unknown'}
+                </Text>
+                <Text style={[styles.offlineSummary, { color: colors.textSecondary }]}>
+                  {novel.summary}
+                </Text>
+              </View>
+            </View>
+
+            {/* Saved Chapters List */}
+            <View style={styles.offlineChaptersSection}>
+              <Text style={[styles.offlineSectionTitle, { color: colors.textPrimary }]}>
+                Saved Chapters
+              </Text>
+              {novelChapters && novelChapters.length > 0 ? (
+                novelChapters.map((chapter, index) => (
+                  <TouchableOpacity
+                    key={chapter.chapter_number}
+                    style={[styles.offlineChapterItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}
+                    onPress={() => handleNavigation('Chapter', {
+                      novelId: novel.id,
+                      chapterId: chapter.chapter_number.toString(),
+                    })}
+                  >
+                    <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
+                      {chapter.title || `Chapter ${index + 1}`}
+                    </Text>
+                    <FontAwesome5 name="chevron-right" size={16} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={[styles.offlineEmptyText, { color: colors.textSecondary }]}>
+                  No chapters saved
+                </Text>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ONLINE MODE - Full UI
   return (
     <SafeAreaView style={styles.page}>
       <View style={styles.backgroundGradient} />

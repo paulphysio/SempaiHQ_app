@@ -10,8 +10,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#141414"
     },
+    "plugins": [
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "googleServicesFile": "./google-services.json",
+            "package": "com.turningpointKS.sempaihq"
+          }
+        }
+      ]
+    ],
     "android": {
-      "package": "com.sempaihq.app",
+      "package": "com.turningpointKS.sempaihq",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#141414"

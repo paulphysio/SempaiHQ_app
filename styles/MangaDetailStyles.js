@@ -101,7 +101,6 @@ export const styles = StyleSheet.create({
     marginLeft: 10,
   },
   header: {
-    flexDirection: 'row',
     padding: 20,
     backgroundColor: '#0F0F1B',
   },
@@ -109,20 +108,79 @@ export const styles = StyleSheet.create({
     width: SCREEN_WIDTH * 0.4,
     height: SCREEN_WIDTH * 0.6,
     borderRadius: 10,
-    marginRight: 20,
+    marginBottom: 20,
   },
-  info: {
-    flex: 1,
+  headerContent: {
+    alignItems: 'center',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
+    marginBottom: 10,
   },
   title: {
     color: '#FFFFFF',
     fontSize: 24,
     fontFamily: 'Yoruka',
-    
+    fontWeight: '700',
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+  },
+  statusBadgeCompleted: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    borderColor: '#4CAF50',
+  },
+  statusBadgeHiatus: {
+    backgroundColor: 'rgba(255, 152, 0, 0.2)',
+    borderColor: '#FF9800',
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'Yoruka',
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  author: {
+    color: '#F36316',
+    fontSize: 16,
+    fontFamily: 'Yoruka',
     marginBottom: 10,
+  },
+  summary: {
+    color: '#B0B0B0',
+    fontSize: 14,
+    fontFamily: 'Yoruka',
+    textAlign: 'center',
+    marginBottom: 15,
+    lineHeight: 20,
+  },
+  tagsContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  tag: {
+    backgroundColor: '#2A2A3E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  tagText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontFamily: 'Yoruka',
+  },
+  info: {
+    flex: 1,
+    justifyContent: 'center',
   },
   titleIcon: {
     marginRight: 10,
@@ -143,9 +201,6 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Yoruka',
     marginBottom: 10,
-  },
-  summary: {
-    marginTop: 10,
   },
   summaryTitle: {
     color: '#FFFFFF',

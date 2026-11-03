@@ -10,10 +10,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import * as Font from 'expo-font';
 import Orientation from 'react-native-orientation-locker';
 import { supabase } from './services/supabaseClient';
 import { NavigationProvider, useNavigationHandler } from './context/NavigationContext';
+import { NotificationEmitter } from './services/NotificationEmitter';
 import HomeScreen from './screens/HomeScreen';
 import EditProfileScreen from './screens/EditProfileScreen';
 import NovelDetailScreen from './screens/NovelDetailScreen';
@@ -51,7 +53,6 @@ import MarketplaceScreen from './screens/MarketplaceScreen';
 import MintScreen from './screens/MintScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import AdminScreen from './screens/AdminScreen';
-import AnnouncementsScreen from './screens/AnnouncementsScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import TermsScreen from './screens/TermsScreen';
 import SupportScreen from './screens/SupportScreen';
@@ -61,13 +62,18 @@ import KaitoLeaderboardScreen from './screens/KaitoLeaderboardScreen';
 import AddGifScreen from './screens/AddGifScreen';
 import BadgesScreen from './screens/BadgesScreen';
 import CreatorDashboardScreen from './screens/CreatorDashboardScreen';
+import KaijiScreen from './screens/KaijiScreen';
+import InboxScreen from './screens/InboxScreen';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    console.log('[App] Notification received:', notification);
+    return {
+      shouldShowAlert: true, // Show in-app alert
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 const Stack = createStackNavigator();
@@ -117,7 +123,7 @@ class ErrorBoundary extends React.Component {
     }
     return this.props.children;
   }
-}
+};
 
 const MainApp = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
@@ -203,6 +209,100 @@ const AppContent = ({ setIsStatusBarHidden }) => {
       }
     };
     loadFonts();
+  }, []);
+
+  // Request notification permissions and register push token with Firebase
+  useEffect(() => {
+    const setupNotifications = async () => {
+      console.log('[App] Setting up notifications...');
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        console.log('[App] Notification permission status:', finalStatus);
+
+        if (finalStatus !== 'granted') {
+          console.warn('[App] Failed to get push token for push notification!');
+          return;
+        }
+
+        // Get Expo push token with projectId (required for Firebase)
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+        console.log('[App] EAS Project ID:', projectId);
+
+        const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
+        console.log('[App] Expo push token obtained:', pushToken.data);
+
+        // Store push token in Supabase for the current user
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.id) {
+          console.log('[App] Storing push token for user:', session.user.id);
+          const { error: tokenError } = await supabase
+            .from('users')
+            .update({ push_token: pushToken.data })
+            .eq('id', session.user.id);
+
+          if (tokenError) {
+            console.error('[App] Error storing push token:', tokenError);
+          } else {
+            console.log('[App] Push token stored successfully');
+          }
+        }
+
+        // Track last notification to prevent duplicates
+        let lastNotificationId = null;
+
+        // Listen for notification opens
+        const subscription = Notifications.addNotificationResponseReceivedListener(response => {
+          console.log('[App] Notification response received:', response);
+        });
+
+        // Listen for notifications received in foreground
+        const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
+          console.log('[App] Notification received in foreground:', notification);
+          
+          // Check if this is a remote push notification (not a local one)
+          if (notification.request.trigger && notification.request.trigger.type === 'push') {
+            const notificationId = notification.request.identifier;
+            
+            // Prevent duplicate notifications
+            if (notificationId !== lastNotificationId) {
+              lastNotificationId = notificationId;
+              
+              // Schedule a local notification to show in Android notification bar
+              Notifications.scheduleNotificationAsync({
+                content: {
+                  title: notification.request.content.title,
+                  body: notification.request.content.body,
+                  data: notification.request.content.data,
+                  sound: 'notification-sound.mp3', // Custom sound file
+                },
+                trigger: null, // Show immediately
+              });
+            }
+          }
+          
+          // Show alert
+          Alert.alert(
+            notification.request.content.title,
+            notification.request.content.body
+          );
+          NotificationEmitter.emit();
+        });
+
+        return () => {
+          subscription.remove();
+          foregroundSubscription.remove();
+        };
+      } catch (error) {
+        console.error('[App] Error setting up notifications:', error);
+      }
+    };
+
+    setupNotifications();
   }, []);
 
   useEffect(() => {
@@ -303,7 +403,6 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="Mint" component={MintScreen} />
             <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
             <Stack.Screen name="Admin" component={AdminScreen} />
-            <Stack.Screen name="Announcements" component={AnnouncementsScreen} />
             <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
             <Stack.Screen name="Terms" component={TermsScreen} />
             <Stack.Screen name="Support" component={SupportScreen} />
@@ -312,6 +411,8 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="KaitoLeaderboard" component={KaitoLeaderboardScreen} />
             <Stack.Screen name="AddGif" component={AddGifScreen} />
             <Stack.Screen name="Badges" component={BadgesScreen} />
+            <Stack.Screen name="Kaiji" component={KaijiScreen} />
+            <Stack.Screen name="Inbox" component={InboxScreen} />
           </>
         )}
       </Stack.Navigator>

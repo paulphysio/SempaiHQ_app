@@ -225,6 +225,10 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
     console.log('\n--- DATA PREPARATION ---');
     console.log('Total chapters to save:', chaptersToSave.length);
 
+    // Determine if saved with user or guest key
+    const savedWithKey = (userId && userId !== 'guest') ? 'user' : 'guest';
+    console.log('Saved with key:', savedWithKey);
+
     // Prepare data structure
     const data = {
       version: 1,
@@ -245,6 +249,7 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
         chaptertitles: novel.chaptertitles || {}
       },
       chapters: chaptersToSave,
+      saved_with_key: savedWithKey,
       encrypted: true
     };
 
@@ -297,38 +302,51 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
  * Load a novel from offline encrypted .smp file
  * @param {string} novelId - Novel ID
  * @param {string} userId - User ID for decryption key
- * @returns {Promise<Object|null>} - Object with { novel, chapters } or null
+ * @returns {Promise<Object|null>} - Object with { novel, chapters, saved_with_key } or null
  */
 export async function getNovelForOffline(novelId, userId) {
   try {
+    console.log('[getNovelForOffline] Loading novel:', novelId, 'with userId:', userId);
     const key = await generateUserKey(userId);
     const filePath = getSmpDirectory() + novelId + '.smp';
 
     const fileInfo = await FileSystem.getInfoAsync(filePath);
     if (!fileInfo.exists) {
+      console.log('[getNovelForOffline] File does not exist:', filePath);
       return null;
     }
 
+    console.log('[getNovelForOffline] File exists, reading...');
     const encryptedData = await FileSystem.readAsStringAsync(filePath, {
       encoding: FileSystem.EncodingType.UTF8
     });
 
     let decryptedJson;
+    let usedKey = 'user';
     try {
+      console.log('[getNovelForOffline] Attempting decryption with user key');
       decryptedJson = await decryptData(encryptedData, key);
+      console.log('[getNovelForOffline] Decrypted successfully with user key');
     } catch (decryptError) {
       // If decryption fails with user key, try guest key (for migration purposes)
       console.log('[getNovelForOffline] Failed to decrypt with user key, trying guest key');
       try {
         const guestKey = await generateUserKey('guest');
         decryptedJson = await decryptData(encryptedData, guestKey);
+        usedKey = 'guest';
         console.log('[getNovelForOffline] Successfully decrypted with guest key');
       } catch (guestError) {
+        console.log('[getNovelForOffline] Failed to decrypt with guest key too');
         throw decryptError; // Throw original error if guest key also fails
       }
     }
 
     const data = JSON.parse(decryptedJson);
+
+    // Ensure saved_with_key field exists (for old files without it)
+    if (!data.saved_with_key) {
+      data.saved_with_key = usedKey;
+    }
 
     // Check if image exists locally
     const imagePath = getSmpDirectory() + novelId + '.jpg';
@@ -337,6 +355,7 @@ export async function getNovelForOffline(novelId, userId) {
       data.novel.image = imagePath;
     }
 
+    console.log('[getNovelForOffline] Decrypted novel "' + data.novel.title + '" with ' + usedKey + ' key');
     return data;
   } catch (error) {
     console.error('[getNovelForOffline] Failed to load novel:', error);
@@ -364,7 +383,7 @@ export async function isNovelSavedOffline(novelId) {
 /**
  * List all cached novels offline
  * @param {string} userId - User ID for decryption
- * @returns {Promise<Array>} - Array of novel objects
+ * @returns {Promise<Array>} - Array of novel objects with saved_with_key metadata
  */
 export async function getCachedNovelsOffline(userId) {
   try {
@@ -378,11 +397,16 @@ export async function getCachedNovelsOffline(userId) {
         const novelId = file.replace('.smp', '');
         const data = await getNovelForOffline(novelId, userId);
         if (data && data.novel) {
-          novels.push(data.novel);
+          // Include saved_with_key in the novel object for UI display
+          novels.push({
+            ...data.novel,
+            saved_with_key: data.saved_with_key
+          });
         }
       }
     }
 
+    console.log(`[getCachedNovelsOffline] Found ${novels.length} saved novels`);
     return novels;
   } catch (error) {
     console.error('[getCachedNovelsOffline] Failed to list novels:', error);

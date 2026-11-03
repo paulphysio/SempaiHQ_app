@@ -82,13 +82,13 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       icon: 'cog',
       items: [
         { name: 'Admin', screen: 'Admin', icon: 'user-shield' },
-        { name: 'Announcements', screen: 'Announcements', icon: 'bullhorn' },
       ],
     },
     {
       title: 'Info',
       icon: 'info-circle',
       items: [
+        { name: 'Inbox', screen: 'Inbox', icon: 'envelope' },
         { name: 'Support', screen: 'Support', icon: 'life-ring' },
         { name: 'Terms', screen: 'Terms', icon: 'file-contract' },
         { name: 'Privacy Policy', screen: 'PrivacyPolicy', icon: 'shield-alt' },
@@ -98,6 +98,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       title: 'Other',
       icon: 'ellipsis-h',
       items: [
+        { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
         { name: 'Apply', screen: 'Apply', icon: 'user-plus' },
         { name: 'Download', screen: 'Download', icon: 'download' },
         { name: 'Add Gif', screen: 'AddGif', icon: 'image' },

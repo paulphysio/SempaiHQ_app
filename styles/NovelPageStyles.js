@@ -45,10 +45,10 @@ const PALETTE = {
 
     success: '#5fa876',
     successSoft: 'rgba(95,168,118,0.14)',
+    warning: '#FFC107',
+    warningSoft: 'rgba(255,193,7,0.14)',
     error: '#e2495f',
     errorSoft: 'rgba(226,73,95,0.14)',
-    warning: '#c9a84c',
-    warningSoft: 'rgba(201,168,76,0.14)',
 
     overlay: 'rgba(5,4,2,0.88)',
     shadow: '#000000',
@@ -84,8 +84,8 @@ const PALETTE = {
     successSoft: 'rgba(60,122,82,0.10)',
     error: '#c13a52',
     errorSoft: 'rgba(193,58,82,0.10)',
-    warning: '#96762f',
-    warningSoft: 'rgba(150,118,47,0.10)',
+    warning: '#FFC107',
+    warningSoft: 'rgba(255,193,7,0.10)',
 
     overlay: 'rgba(38,30,18,0.55)',
     shadow: '#2a2216',
@@ -269,14 +269,45 @@ export const getNovelPageStyles = (isDark = true) => {
     novelHeader: {
       alignItems: 'center',
     },
+    novelTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: SPACE.sm,
+      marginBottom: SPACE.lg,
+    },
     novelTitle: {
       color: c.textPrimary,
       fontSize: 26,
       fontFamily: FONT,
       textAlign: 'center',
-      marginBottom: SPACE.lg,
       fontWeight: '700',
       letterSpacing: 0.8,
+    },
+    statusBadge: {
+      paddingHorizontal: SPACE.sm,
+      paddingVertical: SPACE.xs,
+      borderRadius: 4,
+      borderWidth: 1,
+    },
+    statusBadgeCompleted: {
+      backgroundColor: 'rgba(76, 175, 80, 0.2)',
+      borderColor: '#4CAF50',
+    },
+    statusBadgeHiatus: {
+      backgroundColor: 'rgba(255, 152, 0, 0.2)',
+      borderColor: '#FF9800',
+    },
+    statusBadgeOngoing: {
+      backgroundColor: 'rgba(156, 39, 176, 0.2)',
+      borderColor: '#9C27B0',
+    },
+    statusBadgeText: {
+      color: c.textPrimary,
+      fontSize: 12,
+      fontFamily: FONT,
+      fontWeight: '600',
+      textTransform: 'capitalize',
     },
     novelImageWrapper: {
       position: 'relative',
@@ -299,6 +330,21 @@ export const getNovelPageStyles = (isDark = true) => {
       backgroundColor: c.accentSoft,
       borderRadius: RADIUS.lg,
       zIndex: -1,
+    },
+    guestBadge: {
+      position: 'absolute',
+      top: 8,
+      right: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: RADIUS.sm,
+      backgroundColor: c.warning || '#FFC107',
+      zIndex: 1,
+    },
+    guestBadgeText: {
+      color: '#000',
+      fontSize: 10,
+      fontWeight: '600',
     },
     novelViews: {
       flexDirection: 'row',
@@ -677,6 +723,90 @@ export const getNovelPageStyles = (isDark = true) => {
       fontFamily: FONT,
       lineHeight: 22,
       letterSpacing: 0.2,
+    },
+
+    // ---------------------------------------------------- Offline Mode Styles
+    offlineContainer: {
+      flex: 1,
+    },
+    offlineHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: SPACE.md,
+      borderBottomWidth: 1,
+      gap: SPACE.sm,
+    },
+    offlineBackButton: {
+      padding: SPACE.sm,
+    },
+    offlineHeaderText: {
+      fontSize: 16,
+      fontFamily: FONT,
+      fontWeight: '600',
+      marginLeft: SPACE.sm,
+    },
+    offlineScrollView: {
+      flex: 1,
+      paddingBottom: 80, // Space for global bottom nav
+    },
+    offlineNovelHeader: {
+      padding: SPACE.xl,
+      alignItems: 'center',
+    },
+    offlineCoverImage: {
+      width: 150,
+      height: 225,
+      borderRadius: RADIUS.md,
+      marginBottom: SPACE.lg,
+    },
+    offlineNovelInfo: {
+      alignItems: 'center',
+    },
+    offlineTitle: {
+      fontSize: 22,
+      fontFamily: FONT,
+      fontWeight: '700',
+      marginBottom: SPACE.sm,
+      textAlign: 'center',
+    },
+    offlineAuthor: {
+      fontSize: 14,
+      fontFamily: FONT,
+      marginBottom: SPACE.md,
+    },
+    offlineSummary: {
+      fontSize: 14,
+      fontFamily: FONT,
+      lineHeight: 22,
+      textAlign: 'center',
+      paddingHorizontal: SPACE.lg,
+    },
+    offlineChaptersSection: {
+      padding: SPACE.xl,
+    },
+    offlineSectionTitle: {
+      fontSize: 18,
+      fontFamily: FONT,
+      fontWeight: '600',
+      marginBottom: SPACE.lg,
+    },
+    offlineChapterItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: SPACE.lg,
+      borderBottomWidth: 1,
+    },
+    offlineChapterTitle: {
+      fontSize: 15,
+      fontFamily: FONT,
+      flex: 1,
+    },
+    offlineEmptyText: {
+      fontSize: 14,
+      fontFamily: FONT,
+      textAlign: 'center',
+      paddingVertical: SPACE.xl,
     },
   });
 };

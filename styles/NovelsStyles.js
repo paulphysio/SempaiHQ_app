@@ -425,6 +425,31 @@ export const getNovelsStyles = (isDark = true) => {
       fontWeight: '700',
       letterSpacing: 0.5,
     },
+    statusBadge: {
+      position: 'absolute',
+      top: SPACE.sm,
+      left: SPACE.sm,
+      backgroundColor: 'rgba(76, 175, 80, 0.9)',
+      paddingHorizontal: SPACE.sm,
+      paddingVertical: SPACE.xs,
+      borderRadius: RADIUS.xs,
+    },
+    statusBadgeCompleted: {
+      backgroundColor: 'rgba(76, 175, 80, 0.9)',
+    },
+    statusBadgeHiatus: {
+      backgroundColor: 'rgba(255, 152, 0, 0.9)',
+    },
+    statusBadgeOngoing: {
+      backgroundColor: 'rgba(156, 39, 176, 0.9)',
+    },
+    statusBadgeText: {
+      color: c.textOnAccent,
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.5,
+      textTransform: 'capitalize',
+    },
     novelInfo: {
       padding: SPACE.lg,
       minHeight: 100,

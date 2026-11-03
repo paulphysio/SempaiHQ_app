@@ -1326,6 +1326,81 @@ export const getChapterScreenStyles = (isDark = true) => {
       color: c.textSecondary,
       textAlign: 'center',
     },
+
+    // ---------------------------------------------------- Offline Mode Styles
+    offlineContainer: {
+      flex: 1,
+    },
+    offlineHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: SPACE.md,
+      borderBottomWidth: 1,
+      gap: SPACE.sm,
+    },
+    offlineBackButton: {
+      padding: SPACE.sm,
+    },
+    offlineHeaderText: {
+      fontSize: 16,
+      fontFamily: FONT,
+      fontWeight: '600',
+      marginLeft: SPACE.sm,
+    },
+    offlineScrollView: {
+      flex: 1,
+      paddingBottom: 80, // Space for global bottom nav
+    },
+    offlineChapterContainer: {
+      padding: SPACE.xl,
+    },
+    offlineChapterTitle: {
+      fontSize: 24,
+      fontFamily: FONT,
+      fontWeight: '700',
+      marginBottom: SPACE.lg,
+    },
+    offlineChapterContent: {
+      fontSize: 16,
+      fontFamily: FONT,
+      lineHeight: 28,
+    },
+
+    // ---------------------------------------------------- Fullscreen Mode Styles
+    fullscreenContainer: {
+      flex: 1,
+      width: Dimensions.get('window').width,
+      height: Dimensions.get('window').height,
+    },
+    fullscreenScrollView: {
+      flex: 1,
+      paddingBottom: 0,
+    },
+    fullscreenContent: {
+      padding: SPACE.xl,
+      flexGrow: 1,
+    },
+    fullscreenHeader: {
+      position: 'absolute',
+      top: SPACE.lg,
+      right: SPACE.lg,
+      zIndex: 1000,
+    },
+    fullscreenCloseButton: {
+      position: 'absolute',
+      top: SPACE.lg,
+      right: SPACE.lg,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 20,
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000,
+    },
+    offlineFullscreenButton: {
+      padding: SPACE.sm,
+    },
   });
 };
 
