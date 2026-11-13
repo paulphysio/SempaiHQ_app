@@ -19,6 +19,8 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { getProfileStyles } from '../styles/ProfileStyles';
 import AutopaySettings from '../components/AutopaySettings';
+import pioneerBadge from '../assets/Pioneer.png';
+import { getUserReadingTime, formatReadingTime } from '../hooks/useReadingTimer';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,6 +45,14 @@ const ProfileScreen = () => {
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [isBenefactor, setIsBenefactor] = useState(false);
   const [benefactorLevel, setBenefactorLevel] = useState(null);
+  const [isPioneer, setIsPioneer] = useState(false);
+  const [userBadges, setUserBadges] = useState([]);
+  const [readingStats, setReadingStats] = useState({
+    total_seconds: 0,
+    total_chapters: 0,
+    total_novels: 0,
+    last_read_at: null,
+  });
   
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -127,6 +137,16 @@ const ProfileScreen = () => {
         setIsBenefactor(user.is_benefactor || false);
         setBenefactorLevel(user.benefactor_level || null);
 
+        // Fetch user badges
+        const { data: badges } = await supabase
+          .from('user_badges')
+          .select('*, badges(*)')
+          .eq('user_id', user.id);
+        
+        const pioneerBadge = badges?.find(b => b.badges?.type === 'pioneer');
+        setIsPioneer(!!pioneerBadge);
+        setUserBadges(badges || []);
+
         if (activeWalletAddress === user.wallet_address) {
           setIsOwnProfile(true);
         }
@@ -142,6 +162,10 @@ const ProfileScreen = () => {
           .select('id, title, image, summary')
           .eq('user_id', user.id)
           .eq('is_visible', true);
+
+        // Fetch reading stats
+        const readingData = await getUserReadingTime(user.id);
+        setReadingStats(readingData);
 
         setCreatorData({ ...user, ...profile });
         setNovels(novelsData || []);
@@ -268,6 +292,9 @@ const ProfileScreen = () => {
                   <Text style={themedStyles.profileName}>
                     {creatorData?.name || creatorData?.wallet_address?.slice(0, 8)}
                   </Text>
+                  {isPioneer && (
+                    <Image source={pioneerBadge} style={themedStyles.benefactorBadge} />
+                  )}
                   {isBenefactor && getBenefactorBadgeImage() && (
                     <Image source={getBenefactorBadgeImage()} style={themedStyles.benefactorBadge} />
                   )}
@@ -307,6 +334,46 @@ const ProfileScreen = () => {
                 <FontAwesome5 name="wallet" size={14} color={colors.gold} />
                 <Text style={themedStyles.walletText}>{creatorData?.wallet_address?.slice(0, 8)}...</Text>
               </View>
+            </View>
+
+            <View style={themedStyles.card}>
+              <View style={themedStyles.cardTopBorder} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
+              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
+
+              <Text style={themedStyles.sectionTitle}>READING STATS</Text>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }}>
+                <View style={{ alignItems: 'center' }}>
+                  <FontAwesome5 name="clock" size={24} color={colors.gold} />
+                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginTop: 8 }}>
+                    {formatReadingTime(readingStats.total_seconds)}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Total Time</Text>
+                </View>
+                <View style={{ alignItems: 'center' }}>
+                  <FontAwesome5 name="book-open" size={24} color={colors.accent} />
+                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginTop: 8 }}>
+                    {readingStats.total_chapters}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Chapters</Text>
+                </View>
+                <View style={{ alignItems: 'center' }}>
+                  <FontAwesome5 name="library" size={24} color={colors.success || '#5fa876'} />
+                  <Text style={{ color: colors.textPrimary, fontSize: 18, fontWeight: 'bold', marginTop: 8 }}>
+                    {readingStats.total_novels}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12, marginTop: 4 }}>Novels</Text>
+                </View>
+              </View>
+
+              {readingStats.last_read_at && (
+                <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 16, fontStyle: 'italic' }}>
+                  Last read: {new Date(readingStats.last_read_at).toLocaleDateString()}
+                </Text>
+              )}
             </View>
 
             <View style={themedStyles.card}>

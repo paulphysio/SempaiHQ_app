@@ -24,7 +24,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
-import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, clearAllSmpFiles, isNovelSavedOffline } from '../services/offlineCache';
+import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, clearAllSmpFiles, clearCorruptedFiles, isNovelSavedOffline } from '../services/offlineCache';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
 import { useCardExpansion } from '../utils/cardExpansion';
@@ -107,21 +107,35 @@ const Home = () => {
   const novelIndexRef = useRef(0);
   const mangaIndexRef = useRef(0);
 
-  // Check network status
+  // Check network status and clear corrupted offline files on app start
   useEffect(() => {
+    let lastOnline = null;
     const checkNetworkStatus = async () => {
       try {
         const networkState = await Network.getNetworkStateAsync();
         const online = networkState.isConnected && networkState.type !== 'none';
         setIsOnline(online);
-        console.log('[HomeScreen] Network status:', online ? 'online' : 'offline');
+        if (online !== lastOnline) {
+          lastOnline = online;
+          if (__DEV__) console.log('[HomeScreen] Network status:', online ? 'online' : 'offline');
+        }
       } catch (error) {
         console.error('[HomeScreen] Error checking network status:', error);
         setIsOnline(true); // Assume online if check fails
       }
     };
 
+    // Clear corrupted offline files on app start
+    const cleanupCorruptedFiles = async () => {
+      try {
+        await clearCorruptedFiles();
+      } catch (error) {
+        console.error('[HomeScreen] Failed to clear corrupted files:', error);
+      }
+    };
+
     checkNetworkStatus();
+    cleanupCorruptedFiles();
     const interval = setInterval(checkNetworkStatus, 5000); // Check every 5 seconds
 
     return () => {
@@ -159,9 +173,9 @@ const Home = () => {
   // Feature cards
   const features = [
     {
-      title: "Kaito's Adventure",
-      image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/background.jpg' },
-      path: 'KaitoAdventure',
+      title: 'Kaiji',
+      image: require('../assets/kaiji/kaiji.png'),
+      path: 'Kaiji',
       requiresWallet: true,
     },
     {
@@ -221,7 +235,7 @@ const Home = () => {
   // of it just silently changing number.
   const unreadCount = unreadNotifications + announcements.length;
   useEffect(() => {
-    console.log('[HomeScreen] Unread count updated:', unreadCount, '(notifications:', unreadNotifications, ', announcements:', announcements.length, ')');
+    if (__DEV__) console.log('[HomeScreen] Unread count updated:', unreadCount, '(notifications:', unreadNotifications, ', announcements:', announcements.length, ')');
     if (unreadCount > 0) {
       badgePop.setValue(0.6);
       Animated.spring(badgePop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
@@ -236,7 +250,7 @@ const Home = () => {
         return storedUserId;
       }
     } catch (e) {
-      console.log('[HomeScreen] Could not read stored user from AsyncStorage');
+      if (__DEV__) console.log('[HomeScreen] Could not read stored user from AsyncStorage');
     }
     return null;
   }, []);
@@ -246,7 +260,7 @@ const Home = () => {
     (async () => {
       const storedUserId = await getStoredUserId();
       if (storedUserId && !userId) {
-        console.log('[HomeScreen] Restored user ID from storage:', storedUserId);
+        if (__DEV__) console.log('[HomeScreen] Restored user ID from storage:', storedUserId);
         setUserId(storedUserId);
       }
     })();
@@ -306,7 +320,7 @@ const Home = () => {
       try {
         // Skip wallet sync if offline
         if (isOnline === false) {
-          console.log('[HomeScreen] Offline - skipping wallet sync');
+          if (__DEV__) console.log('[HomeScreen] Offline - skipping wallet sync');
           return;
         }
 
@@ -340,7 +354,7 @@ const Home = () => {
             : wallet.publicKey?.toString();
             
           if (!publicKeyStr) {
-            console.log('No valid public key found');
+            if (__DEV__) console.log('No valid public key found');
             return;
           }
           
@@ -416,7 +430,7 @@ const Home = () => {
       } catch (err) {
         // Silently ignore network errors when offline
         if (isErrorNetworkError(err)) {
-          console.log('[HomeScreen] Wallet sync skipped due to network error (offline)');
+          if (__DEV__) console.log('[HomeScreen] Wallet sync skipped due to network error (offline)');
           return;
         }
         console.error('Error syncing wallet:', err.message);
@@ -439,7 +453,7 @@ const Home = () => {
       try {
         // Skip if offline
         if (isOnline === false) {
-          console.log('[HomeScreen] Offline - skipping announcements fetch');
+          if (__DEV__) console.log('[HomeScreen] Offline - skipping announcements fetch');
           return;
         }
 
@@ -521,6 +535,11 @@ const Home = () => {
         }
       } catch (err) {
         console.error('fetchAnnouncements error:', err.message);
+        // Silently ignore network errors when offline
+        if (isErrorNetworkError(err)) {
+          if (__DEV__) console.log('[HomeScreen] Announcements fetch skipped due to network error (offline)');
+          return;
+        }
         if (isMounted.current) {
           setError(`Failed to fetch announcements: ${err.message}`);
         }
@@ -538,17 +557,17 @@ const Home = () => {
 
     const fetchNotifications = async () => {
       if (!userId || isCancelled) {
-        console.log('[HomeScreen] fetchNotifications: No userId or cancelled');
+        if (__DEV__) console.log('[HomeScreen] fetchNotifications: No userId or cancelled');
         return;
       }
       try {
         // Skip if offline
         if (isOnline === false) {
-          console.log('[HomeScreen] Offline - skipping notifications fetch');
+          if (__DEV__) console.log('[HomeScreen] Offline - skipping notifications fetch');
           return;
         }
 
-        console.log('[HomeScreen] Fetching notifications for userId:', userId);
+        if (__DEV__) console.log('[HomeScreen] Fetching notifications for userId:', userId);
         const { data: notificationsData, error: notificationsError } = await supabase
           .from('notifications')
           .select('id, novel_id, message, novel_title, is_read, created_at')
@@ -560,9 +579,9 @@ const Home = () => {
           throw new Error(`Failed to fetch notifications: ${notificationsError.message}`);
         }
 
-        console.log('[HomeScreen] Fetched', notificationsData?.length || 0, 'notifications');
+        if (__DEV__) console.log('[HomeScreen] Fetched', notificationsData?.length || 0, 'notifications');
         const unreadCount = notificationsData?.filter(n => !n.is_read).length || 0;
-        console.log('[HomeScreen] Unread count:', unreadCount);
+        if (__DEV__) console.log('[HomeScreen] Unread count:', unreadCount);
 
         if (isMounted.current) {
           setNotifications(notificationsData || []);
@@ -570,6 +589,11 @@ const Home = () => {
         }
       } catch (err) {
         console.error('[HomeScreen] fetchNotifications error:', err.message);
+        // Silently ignore network errors when offline
+        if (isErrorNetworkError(err)) {
+          if (__DEV__) console.log('[HomeScreen] Notifications fetch skipped due to network error (offline)');
+          return;
+        }
         if (isMounted.current) {
           setError(`Failed to fetch notifications: ${err.message}`);
         }
@@ -584,7 +608,7 @@ const Home = () => {
   // Listen for notification updates from App.js
   useEffect(() => {
     const listener = () => {
-      console.log('[HomeScreen] Notification received, refreshing...');
+      if (__DEV__) console.log('[HomeScreen] Notification received, refreshing...');
       if (userId) {
         // Refetch notifications
         const refetchNotifications = async () => {
@@ -636,9 +660,9 @@ const Home = () => {
 
       // failed to fetch from network, try cache
       if(isErrorNetworkError(error)){
-        console.log("[HomeScreen] could not fetch novels from network, trying from cache");
+        if (__DEV__) console.log("[HomeScreen] could not fetch novels from network, trying from cache");
         enrichedNovels = await getCachedNovelsOffline(userId || 'guest');
-        console.log(`[HomeScreen] novel ${enrichedNovels ? "loaded successfully" : "not cached"}`);
+        if (__DEV__) console.log(`[HomeScreen] novel ${enrichedNovels ? "loaded successfully" : "not cached"}`);
         if(enrichedNovels) return enrichedNovels;
       }
 
@@ -670,15 +694,15 @@ const Home = () => {
     const fetchNovel = async () => {
       setNovelsLoading(true);
       try {
-        // If offline, load ALL saved novels from cache
-        if (isOnline === false) {
-          console.log('[HomeScreen] Offline - loading all saved novels from cache');
+        // If offline or network status unknown, load ALL saved novels from cache immediately
+        if (isOnline === false || isOnline === null) {
+          if (__DEV__) console.log('[HomeScreen] Offline/network unknown - loading all saved novels from cache');
           const cachedNovels = await getCachedNovelsOffline(userId || 'guest');
-          console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
+          if (__DEV__) console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
           if (cachedNovels && cachedNovels.length > 0) {
             try {
               cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
-              console.log('[HomeScreen] Setting offline novels state with all:', cachedNovels.length);
+              if (__DEV__) console.log('[HomeScreen] Setting offline novels state with all:', cachedNovels.length);
               if (isMounted.current) {
                 setNovels(cachedNovels); // Show ALL saved novels offline
                 setNovelsLoading(false);
@@ -695,7 +719,7 @@ const Home = () => {
               }
             }
           } else {
-            console.log('[HomeScreen] No cached novels available');
+            if (__DEV__) console.log('[HomeScreen] No cached novels available');
             if (isMounted.current) {
               setNovels([]);
               setNovelsLoading(false);
@@ -709,7 +733,7 @@ const Home = () => {
         const enrichedNovels = await fetchNovelInfo();
         enrichedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
         if (isMounted.current) {
-          console.log('[HomeScreen] Setting novels state with:', enrichedNovels.slice(0, 6));
+          if (__DEV__) console.log('[HomeScreen] Setting novels state with:', enrichedNovels.slice(0, 6));
           setNovels(enrichedNovels.slice(0, 6));
           setNovelsLoading(false);
           setLoading(false);
@@ -719,12 +743,12 @@ const Home = () => {
         console.error('fetchNovels error:', err.message);
         // Try to load from cache as fallback
         const cachedNovels = await getCachedNovelsOffline(userId || 'guest');
-        console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
+        if (__DEV__) console.log('[HomeScreen] Cached novels count:', cachedNovels?.length || 0);
         if (cachedNovels && cachedNovels.length > 0) {
-          console.log('[HomeScreen] Network error, showing cached novels');
+          if (__DEV__) console.log('[HomeScreen] Network error, showing cached novels');
           try {
             cachedNovels.sort((a, b) => (b.viewers_count || 0) - (a.viewers_count || 0));
-            console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
+            if (__DEV__) console.log('[HomeScreen] Setting novels state with:', cachedNovels.slice(0, 6));
             if (isMounted.current) {
               setNovels(cachedNovels.slice(0, 6));
               setNovelsLoading(false);
@@ -741,7 +765,7 @@ const Home = () => {
             }
           }
         } else {
-          console.log('[HomeScreen] No cached novels available');
+          if (__DEV__) console.log('[HomeScreen] No cached novels available');
           if (isMounted.current) {
             setError('No internet connection and no cached content. Please save novels for offline reading first.');
             setNovels([]);
@@ -761,7 +785,7 @@ const Home = () => {
 
   // Debug novels state changes
   useEffect(() => {
-    console.log('[HomeScreen] Novels state changed:', novels.length, novels.map(n => n.title));
+    if (__DEV__) console.log('[HomeScreen] Novels state changed:', novels.length, novels.map(n => n.title));
   }, [novels]);
 
   // Fetch manga
@@ -770,7 +794,7 @@ const Home = () => {
       try {
         // Skip manga fetch if offline
         if (isOnline === false) {
-          console.log('[HomeScreen] Offline - skipping manga fetch');
+          if (__DEV__) console.log('[HomeScreen] Offline - skipping manga fetch');
           setManga([]);
           return;
         }
@@ -785,7 +809,7 @@ const Home = () => {
 
         // failed to fetch from network, show empty array
         if(isErrorNetworkError(error)){
-          console.log("[HomeScreen] could not fetch manga from network, skipping");
+          if (__DEV__) console.log("[HomeScreen] could not fetch manga from network, skipping");
           setManga([]);
           setLoading(false);
           return;
@@ -1037,7 +1061,7 @@ const Home = () => {
       console.warn(`Missing ID for ${type}: ${item.title}`);
       return null;
     }
-    console.log(`[HomeScreen] Rendering ${type} item:`, item.title, 'status:', item.status);
+    if (__DEV__) console.log(`[HomeScreen] Rendering ${type} item:`, item.title, 'status:', item.status);
     const hasWriterCredit =
       (type === 'novel' ? item.writer?.isWriter : item.writer?.isArtist) && item.writer?.name !== 'Unknown';
 
@@ -1179,7 +1203,7 @@ const Home = () => {
       ...announcements.map(a => ({ ...a, type: 'announcement' })),
       ...notifications.map(n => ({ ...n, type: 'notification' }))
     ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    console.log('[HomeScreen] Combined messages:', combined.length, '(announcements:', announcements.length, ', notifications:', notifications.length, ')');
+    if (__DEV__) console.log('[HomeScreen] Combined messages:', combined.length, '(announcements:', announcements.length, ', notifications:', notifications.length, ')');
     return combined;
   }, [announcements, notifications]);
 
@@ -1314,7 +1338,7 @@ const Home = () => {
         items: [
           { name: 'Chat', screen: 'Chat', icon: 'comments' },
           { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
-          { name: 'Kaito Leaderboard', screen: 'KaitoLeaderboard', icon: 'crown' },
+          { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
         ],
       },
       {
@@ -1465,7 +1489,7 @@ const Home = () => {
             ) : (
               <View style={styles.offlineNovelsGrid}>
                 {novels.map((novel, index) => {
-                  console.log('[HomeScreen] Offline novel:', novel.title, 'status:', novel.status);
+                  if (__DEV__) console.log('[HomeScreen] Offline novel:', novel.title, 'status:', novel.status);
                   return (
                   <TouchableOpacity
                     key={novel.id}
@@ -1702,7 +1726,7 @@ const Home = () => {
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />
-              {console.log('[HomeScreen] Rendering novels section - loading:', novelsLoading, 'novels.length:', novels.length)}
+              {__DEV__ && console.log('[HomeScreen] Rendering novels section - loading:', novelsLoading, 'novels.length:', novels.length)}
               {novelsLoading ? (
                 <CarouselSkeleton />
               ) : novels.length === 0 ? (

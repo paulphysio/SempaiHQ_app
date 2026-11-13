@@ -4,7 +4,7 @@ export default ({ config }) => ({
   ...config,
   name: 'Sempai HQ',
   slug: 'sempai-hq',
-  version: '1.0.8',
+  version: '1.2',
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'light',
@@ -43,7 +43,7 @@ export default ({ config }) => ({
       { 
         icon: './assets/notification-icon.png', 
         color: '#ffffff',
-        sounds: ['notification-sound']
+        sounds: ['./notification_sound.mp3']
       },
     ],
     'expo-font',

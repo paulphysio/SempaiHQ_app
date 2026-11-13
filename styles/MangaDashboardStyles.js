@@ -1,504 +1,239 @@
 import { StyleSheet } from 'react-native';
+import { colors, space, radius, type, layout } from '../theme/theme';
+
+const WORK_W = 116;
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
+  container: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+  scroll: { paddingBottom: 130 },
+  pad: { paddingHorizontal: layout.gutter },
+
+  statRow: { flexDirection: 'row', paddingHorizontal: layout.gutter, paddingTop: space.lg, marginBottom: space.xl },
+
+  /* works rail */
+  worksRail: { paddingHorizontal: layout.gutter, gap: space.md, paddingBottom: space.xl },
+  workCard: { width: WORK_W },
+  workCover: {
+    width: WORK_W,
+    height: WORK_W * 1.5,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceHi,
+    borderWidth: 1,
+    borderColor: colors.line,
+    marginBottom: 8,
   },
-  navbar: {
-    backgroundColor: '#0F0F1A',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  navLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  navText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-    
-  },
-  navRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuToggle: {
-    marginLeft: 15,
-  },
-  navMenu: {
-    backgroundColor: '#0F0F1A',
-    padding: 10,
-    marginTop: 10,
-    borderRadius: 8,
-  },
-  navMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  navMenuText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  header: {
-    padding: 20,
-    backgroundColor: 'rgba(243, 99, 22, 0.1)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontFamily: 'Yoruka',
-    
-  },
-  headerSubtitle: {
-    color: '#ccc',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginTop: 5,
-  },
-  main: {
-    padding: 20,
-    paddingBottom: 40, // Add extra padding for footer
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  connectPrompt: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  connectIcon: {
-    marginBottom: 20,
-  },
-  connectText: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  accessDenied: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  deniedIcon: {
-    marginBottom: 20,
-  },
-  accessDeniedText: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 10,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  formSection: {
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontFamily: 'Yoruka',
-    
-    marginBottom: 15,
-  },
-  mangaForm: {
-    backgroundColor: '#2A2A3E',
-    padding: 15,
+  workShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },
+  workEdit: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  inputGroup: {
-    marginBottom: 15,
-  },
-  label: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: '#3A3A4E',
-    color: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  textarea: {
-    backgroundColor: '#3A3A4E',
-    color: '#fff',
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    height: 100,
-    textAlignVertical: 'top',
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  fileButton: {
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 10,
-    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
-    marginTop: 10,
+    justifyContent: 'center',
   },
-  fileButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    
+  workTitle: { ...type.bodyStrong, fontSize: 13, marginBottom: 2 },
+  newCover: { alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1.5, borderColor: colors.lineStrong },
+  newText: { ...type.caption, marginTop: 8, fontWeight: '700' },
+
+  /* editor */
+  editorHead: { flexDirection: 'row', alignItems: 'center', padding: space.md, marginBottom: space.xl },
+  stepHeader: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.sm, marginBottom: space.md },
+  stepBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary + '22',
+    borderWidth: 1.5,
+    borderColor: colors.primary,
   },
-  imagePreview: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-    marginBottom: 10,
+  stepBadgeText: { ...type.h3, color: colors.primaryHi },
+
+  coverPick: {
+    width: 150,
+    height: 225,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    alignSelf: 'center',
+    backgroundColor: colors.surfaceHi,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.lineStrong,
   },
-  pagePreview: {
-    width: 100,
-    height: 150,
-    borderRadius: 8,
-    marginRight: 10,
+  coverEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.md },
+  coverIconWrap: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: colors.primary + '1f',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: space.sm,
   },
-  imageGrid: {
-    marginTop: 10,
-  },
-  placeholderText: {
-    color: '#888',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-  },
-  tagButton: {
-    backgroundColor: '#3A3A4E',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  tagButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-  },
-  statusOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  statusOption: {
+  coverShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '35%' },
+  coverChange: {
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3A3A4E',
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-    borderRadius: 8,
+    gap: 6,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  coverChangeText: { ...type.caption, color: '#fff', fontWeight: '700' },
+
+  tagBox: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  tagGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, paddingBottom: space.lg },
+
+  /* chapter builder */
+  editingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+    padding: space.sm,
+    paddingHorizontal: space.md,
+    marginBottom: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.gold + '1a',
+    borderWidth: 1,
+    borderColor: colors.gold + '66',
   },
-  statusOptionActive: {
-    borderColor: '#F36316',
-    backgroundColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  statusOptionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
+  editingText: { ...type.caption, color: colors.gold, fontWeight: '700' },
+  addPage: {
+    width: 84,
+    height: 120,
+    borderRadius: radius.md,
     alignItems: 'center',
-    marginBottom: 15,
-  },
-  checkboxLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  chapterSection: {
-    marginTop: 20,
-  },
-  chapterTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-    marginBottom: 15,
-  },
-  addChapterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 12,
-    borderRadius: 8,
-  },
-  addChapterButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  chapterList: {
-    marginVertical: 15,
-  },
-  chapterItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#3A3A4E',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  chapterTitleText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-  },
-  chapterActions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    marginLeft: 10,
-  },
-  submitButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 15,
-    borderRadius: 8,
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.primary + '88',
+    backgroundColor: colors.primary + '12',
   },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  announcementSection: {
-    marginTop: 20,
-  },
-  announcementForm: {
-    backgroundColor: '#2A2A3E',
-    padding: 15,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  dateButton: {
-    backgroundColor: '#3A3A4E',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
-  },
-  dateButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-  },
-  announcementButton: {
-    flexDirection: 'row',
+  addPageText: { ...type.caption, color: colors.primaryHi, fontWeight: '700', marginTop: 4 },
+  pageThumb: { width: 84, height: 120, borderRadius: radius.md, overflow: 'hidden', backgroundColor: colors.surfaceHi, borderWidth: 1, borderColor: colors.line },
+  pageNum: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
     alignItems: 'center',
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 15,
-    borderRadius: 8,
     justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
-  announcementButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
+  pageNumText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  pageRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.danger,
   },
-  mangaSection: {
-    marginBottom: 20,
+  pageMove: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
-  mangaGrid: {
-    paddingBottom: 20,
-  },
-  mangaCard: {
-    flexDirection: 'row',
-    backgroundColor: '#2A2A3E',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
+  premiumBox: {
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHi,
     borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.2)',
+    borderColor: colors.line,
   },
-  mangaImage: {
-    width: 100,
-    height: 150,
-    borderRadius: 8,
-  },
-  mangaInfo: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  mangaTitle: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-  },
-  mangaSummary: {
-    color: '#ccc',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginTop: 5,
-  },
-  mangaTags: {
-    color: '#ccc',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginTop: 5,
-  },
-  mangaViewers: {
-    color: '#ccc',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginTop: 5,
-  },
-  editMangaButton: {
+
+  chapterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 10,
+    padding: space.md,
+    marginBottom: space.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  editMangaButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
+  chapterIdx: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.electric + '26',
+    marginRight: space.md,
   },
-  noManga: {
-    color: '#ccc',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-  },
-  artistsSection: {
-    marginBottom: 20,
-  },
-  artistsList: {
-    paddingBottom: 20,
-  },
-  artistItem: {
+  chapterIdxText: { ...type.h3, color: colors.electric },
+
+  dateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A3E',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceHi,
+    borderWidth: 1.5,
+    borderColor: colors.line,
   },
-  artistIcon: {
-    marginRight: 10,
-  },
-  artistText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-  },
-  noArtists: {
-    color: '#ccc',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-  },
-  modalContainer: {
-    justifyContent: 'flex-end',
-    margin: 0,
-  },
-  modalContent: {
-    backgroundColor: '#2A2A3E',
-    padding: 20,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontFamily: 'Yoruka',
-    
-    marginBottom: 15,
-  },
-  tagList: {
-    paddingBottom: 20,
-  },
-  tagOption: {
+
+  artistRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    gap: space.md,
+    padding: space.md,
+    marginBottom: space.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
-  tagOptionText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  modalCloseButton: {
-    backgroundColor: 'rgba(243, 99, 22, 0.8)',
-    padding: 15,
-    borderRadius: 8,
+  artistAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.electric + '30',
+    borderWidth: 1,
+    borderColor: colors.electric,
   },
-  modalCloseButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: '#0F0F1A',
+
+  publishBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
     alignItems: 'center',
+    padding: space.lg,
+    backgroundColor: 'rgba(10,10,20,0.96)',
+    borderTopWidth: 1,
+    borderTopColor: colors.lineStrong,
   },
-  footerText: {
-    color: '#ccc',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
+
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.scrim, alignItems: 'center', justifyContent: 'center', zIndex: 50 },
+  overlayCard: { alignItems: 'center', padding: space.xxl, borderRadius: radius.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.lineStrong },
+
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: space.xl },
+  footerText: { ...type.caption },
 });

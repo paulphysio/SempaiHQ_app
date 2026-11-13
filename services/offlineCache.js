@@ -1,14 +1,9 @@
 // @ts-check
 
-import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';
-import * as SecureStore from 'expo-secure-store';
-import CryptoJS from 'crypto-js';
 
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 const SMP_DIRECTORY = 'smp-novels';
-const KEY_VERSION = 'v1';
-const KEY_PREFIX = 'smp_encryption_key_';
 
 /**
  * @param {any} error
@@ -23,109 +18,6 @@ export function isErrorNetworkError(error) {
          lowerMessage.includes("enotfound") ||
          lowerMessage.includes("timeout") ||
          lowerMessage.includes("failed to fetch");
-}
-
-/**
- * Generate encryption key from user ID
- * @param {string} userId - User ID to derive key from
- * @returns {Promise<string>} - Hex string of the encryption key
- */
-async function generateUserKey(userId) {
-  // Derive key from user ID using SHA-256 (crypto-js)
-  const keyStorageKey = `${KEY_PREFIX}${KEY_VERSION}_${userId || 'guest'}`;
-
-  try {
-    // Check if we already have a key stored
-    const existingKey = await SecureStore.getItemAsync(keyStorageKey);
-    if (existingKey) {
-      return existingKey;
-    }
-  } catch (e) {
-    // SecureStore might not be available, continue to generate
-  }
-
-  // Generate key from user ID using crypto-js
-  const key = CryptoJS.SHA256((userId || 'guest') + KEY_VERSION).toString();
-
-  // Store the key for future use
-  try {
-    await SecureStore.setItemAsync(keyStorageKey, key);
-  } catch (e) {
-    // SecureStore might not be available, that's okay
-  }
-
-  return key;
-}
-
-/**
- * Encrypt data using AES encryption (crypto-js)
- * @param {string} data - JSON string to encrypt
- * @param {string} key - Encryption key (hex string)
- * @returns {Promise<string>} - Encrypted data (IV:encrypted format)
- */
-async function encryptData(data, key) {
-  try {
-    // Generate random IV using expo-crypto
-    const ivBytes = await Crypto.getRandomBytesAsync(16);
-    const ivWordArray = CryptoJS.lib.WordArray.create(ivBytes);
-
-    // Encrypt using AES-CBC with crypto-js
-    const encrypted = CryptoJS.AES.encrypt(data, key, {
-      iv: ivWordArray,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-
-    // Combine IV and encrypted data
-    const ivHex = CryptoJS.enc.Hex.stringify(ivWordArray);
-    const encryptedData = encrypted.toString();
-    const combined = ivHex + ':' + encryptedData;
-
-    return combined;
-  } catch (error) {
-    console.error('[encryptData] Encryption failed:', error);
-    throw new Error('Failed to encrypt data');
-  }
-}
-
-/**
- * Decrypt data using AES encryption (crypto-js)
- * @param {string} encryptedData - Encrypted data (IV:encrypted format)
- * @param {string} key - Encryption key (hex string)
- * @returns {Promise<string>} - Decrypted JSON string
- */
-async function decryptData(encryptedData, key) {
-  try {
-    // Split IV and encrypted data
-    const parts = encryptedData.split(':');
-    if (parts.length !== 2) {
-      throw new Error('Invalid encrypted data format');
-    }
-
-    const ivHex = parts[0];
-    const encrypted = parts[1];
-
-    // Convert IV to WordArray
-    const iv = CryptoJS.enc.Hex.parse(ivHex);
-
-    // Decrypt using AES-CBC
-    const decrypted = CryptoJS.AES.decrypt(encrypted, key, {
-      iv: iv,
-      mode: CryptoJS.mode.CBC,
-      padding: CryptoJS.pad.Pkcs7
-    });
-
-    const decryptedStr = decrypted.toString(CryptoJS.enc.Utf8);
-
-    if (!decryptedStr) {
-      throw new Error('Decryption failed - invalid key or corrupted data');
-    }
-
-    return decryptedStr;
-  } catch (error) {
-    console.error('[decryptData] Decryption failed:', error);
-    throw new Error('Failed to decrypt data');
-  }
 }
 
 /**
@@ -148,23 +40,21 @@ async function ensureSmpDirectory() {
 }
 
 /**
- * Save a novel for offline reading in encrypted .smp format
+ * Save a novel for offline reading (unencrypted, device-local)
  * @param {Object} novel - Novel object with metadata
  * @param {Array<string>} unlockedChapters - Array of unlocked chapter IDs
- * @param {string} userId - User ID for encryption key
+ * @param {string} userId - User ID (not used for encryption anymore)
  */
 export async function saveNovelForOffline(novel, unlockedChapters, userId) {
   try {
     await ensureSmpDirectory();
 
-    const key = await generateUserKey(userId);
     const fileId = novel.id;
     const filePath = getSmpDirectory() + fileId + '.smp';
 
     console.log('\n=== SAVE OFFLINE START ===');
     console.log('Novel ID:', novel.id);
     console.log('Novel Title:', novel.title);
-    console.log('User ID:', userId);
     console.log('File Path:', filePath);
     console.log('File Directory:', getSmpDirectory());
 
@@ -225,13 +115,9 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
     console.log('\n--- DATA PREPARATION ---');
     console.log('Total chapters to save:', chaptersToSave.length);
 
-    // Determine if saved with user or guest key
-    const savedWithKey = (userId && userId !== 'guest') ? 'user' : 'guest';
-    console.log('Saved with key:', savedWithKey);
-
-    // Prepare data structure
+    // Prepare data structure (no encryption)
     const data = {
-      version: 1,
+      version: 2,
       novel_id: novel.id,
       novel: {
         id: novel.id,
@@ -249,26 +135,22 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
         chaptertitles: novel.chaptertitles || {}
       },
       chapters: chaptersToSave,
-      saved_with_key: savedWithKey,
-      encrypted: true
+      encrypted: false
     };
 
     console.log('Data structure prepared with keys:', Object.keys(data));
     console.log('Novel object keys:', Object.keys(data.novel));
 
-    // Encrypt and save
+    // Save as plain JSON (no encryption)
     const jsonData = JSON.stringify(data);
     console.log('JSON data length:', jsonData.length, 'characters');
 
-    const encryptedData = await encryptData(jsonData, key);
-    console.log('Encrypted data length:', encryptedData.length, 'characters');
-
-    await FileSystem.writeAsStringAsync(filePath, encryptedData, {
+    await FileSystem.writeAsStringAsync(filePath, jsonData, {
       encoding: FileSystem.EncodingType.UTF8
     });
     console.log('✓ File written successfully to:', filePath);
 
-    // Download and save image (not encrypted for performance)
+    // Download and save image
     if (novel.image && novel.image !== FALLBACK_IMAGE) {
       try {
         const imagePath = getSmpDirectory() + fileId + '.jpg';
@@ -299,15 +181,14 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
 }
 
 /**
- * Load a novel from offline encrypted .smp file
+ * Load a novel from offline .smp file (unencrypted)
  * @param {string} novelId - Novel ID
- * @param {string} userId - User ID for decryption key
- * @returns {Promise<Object|null>} - Object with { novel, chapters, saved_with_key } or null
+ * @param {string} userId - User ID (not used anymore)
+ * @returns {Promise<Object|null>} - Object with { novel, chapters } or null
  */
 export async function getNovelForOffline(novelId, userId) {
   try {
-    console.log('[getNovelForOffline] Loading novel:', novelId, 'with userId:', userId);
-    const key = await generateUserKey(userId);
+    console.log('[getNovelForOffline] Loading novel:', novelId);
     const filePath = getSmpDirectory() + novelId + '.smp';
 
     const fileInfo = await FileSystem.getInfoAsync(filePath);
@@ -317,36 +198,11 @@ export async function getNovelForOffline(novelId, userId) {
     }
 
     console.log('[getNovelForOffline] File exists, reading...');
-    const encryptedData = await FileSystem.readAsStringAsync(filePath, {
+    const jsonData = await FileSystem.readAsStringAsync(filePath, {
       encoding: FileSystem.EncodingType.UTF8
     });
 
-    let decryptedJson;
-    let usedKey = 'user';
-    try {
-      console.log('[getNovelForOffline] Attempting decryption with user key');
-      decryptedJson = await decryptData(encryptedData, key);
-      console.log('[getNovelForOffline] Decrypted successfully with user key');
-    } catch (decryptError) {
-      // If decryption fails with user key, try guest key (for migration purposes)
-      console.log('[getNovelForOffline] Failed to decrypt with user key, trying guest key');
-      try {
-        const guestKey = await generateUserKey('guest');
-        decryptedJson = await decryptData(encryptedData, guestKey);
-        usedKey = 'guest';
-        console.log('[getNovelForOffline] Successfully decrypted with guest key');
-      } catch (guestError) {
-        console.log('[getNovelForOffline] Failed to decrypt with guest key too');
-        throw decryptError; // Throw original error if guest key also fails
-      }
-    }
-
-    const data = JSON.parse(decryptedJson);
-
-    // Ensure saved_with_key field exists (for old files without it)
-    if (!data.saved_with_key) {
-      data.saved_with_key = usedKey;
-    }
+    const data = JSON.parse(jsonData);
 
     // Check if image exists locally
     const imagePath = getSmpDirectory() + novelId + '.jpg';
@@ -355,11 +211,23 @@ export async function getNovelForOffline(novelId, userId) {
       data.novel.image = imagePath;
     }
 
-    console.log('[getNovelForOffline] Decrypted novel "' + data.novel.title + '" with ' + usedKey + ' key');
+    console.log('[getNovelForOffline] Successfully loaded novel:', data.novel.title);
     return data;
   } catch (error) {
     console.error('[getNovelForOffline] Failed to load novel:', error);
-    // Don't auto-delete - let user re-save with correct key
+    // Delete corrupted file
+    console.log('[getNovelForOffline] Deleting corrupted file:', filePath);
+    try {
+      await FileSystem.deleteAsync(filePath);
+      const imagePath = getSmpDirectory() + novelId + '.jpg';
+      const imageInfo = await FileSystem.getInfoAsync(imagePath);
+      if (imageInfo.exists) {
+        await FileSystem.deleteAsync(imagePath);
+      }
+      console.log('[getNovelForOffline] Corrupted files deleted successfully');
+    } catch (deleteError) {
+      console.error('[getNovelForOffline] Failed to delete corrupted file:', deleteError);
+    }
     return null;
   }
 }
@@ -382,8 +250,8 @@ export async function isNovelSavedOffline(novelId) {
 
 /**
  * List all cached novels offline
- * @param {string} userId - User ID for decryption
- * @returns {Promise<Array>} - Array of novel objects with saved_with_key metadata
+ * @param {string} userId - User ID (not used anymore)
+ * @returns {Promise<Array>} - Array of novel objects
  */
 export async function getCachedNovelsOffline(userId) {
   try {
@@ -395,13 +263,14 @@ export async function getCachedNovelsOffline(userId) {
     for (const file of files) {
       if (file.endsWith('.smp')) {
         const novelId = file.replace('.smp', '');
-        const data = await getNovelForOffline(novelId, userId);
-        if (data && data.novel) {
-          // Include saved_with_key in the novel object for UI display
-          novels.push({
-            ...data.novel,
-            saved_with_key: data.saved_with_key
-          });
+        try {
+          const data = await getNovelForOffline(novelId, userId);
+          if (data && data.novel) {
+            novels.push(data.novel);
+          }
+        } catch (loadError) {
+          console.error('[getCachedNovelsOffline] Failed to load novel:', novelId, loadError);
+          // Continue with other files
         }
       }
     }
@@ -451,7 +320,7 @@ export async function clearOldCache() {
 }
 
 /**
- * Clear all .smp files (for migration when user ID changes)
+ * Clear all .smp files (for migration when user ID changes or encryption removed)
  */
 export async function clearAllSmpFiles() {
   try {
@@ -462,7 +331,51 @@ export async function clearAllSmpFiles() {
       console.log('[clearAllSmpFiles] Deleted all .smp files');
     }
   } catch (error) {
-    console.error('[clearAllSmpFiles] Failed to clear .smp files:', error);
-    // Don't throw - this is non-critical
+    console.error('[clearAllSmpFiles] Failed to clear files:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear corrupted files (when JSON parse fails)
+ */
+export async function clearCorruptedFiles() {
+  try {
+    await ensureSmpDirectory();
+    const dir = getSmpDirectory();
+    const files = await FileSystem.readDirectoryAsync(dir);
+
+    let deletedCount = 0;
+    for (const file of files) {
+      if (file.endsWith('.smp')) {
+        const filePath = dir + file;
+        try {
+          // Try to read as JSON to verify it's valid
+          const content = await FileSystem.readAsStringAsync(filePath);
+          JSON.parse(content); // Will throw if invalid JSON
+        } catch (parseError) {
+          // File is corrupted, delete it
+          console.log('[clearCorruptedFiles] Deleting corrupted file:', file);
+          try {
+            await FileSystem.deleteAsync(filePath, { idempotent: true });
+            // Also delete associated image
+            const imagePath = dir + file.replace('.smp', '.jpg');
+            const imageInfo = await FileSystem.getInfoAsync(imagePath);
+            if (imageInfo.exists) {
+              await FileSystem.deleteAsync(imagePath, { idempotent: true });
+            }
+            deletedCount++;
+          } catch (deleteError) {
+            console.error('[clearCorruptedFiles] Failed to delete corrupted file:', file, deleteError);
+          }
+        }
+      }
+    }
+
+    console.log(`[clearCorruptedFiles] Deleted ${deletedCount} corrupted files`);
+    return deletedCount;
+  } catch (error) {
+    console.error('[clearCorruptedFiles] Failed to clear corrupted files:', error);
+    return 0;
   }
 }

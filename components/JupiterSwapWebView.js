@@ -223,6 +223,8 @@ const JupiterSwapWebView = ({
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
   const [canGoBack, setCanGoBack] = useState(false);
+  const [webViewError, setWebViewError] = useState(null);
+  const [webViewKey, setWebViewKey] = useState(0);
   const loadingPulse = usePulse();
 
   const handleGoBack = () => {

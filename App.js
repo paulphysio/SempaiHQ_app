@@ -64,6 +64,11 @@ import BadgesScreen from './screens/BadgesScreen';
 import CreatorDashboardScreen from './screens/CreatorDashboardScreen';
 import KaijiScreen from './screens/KaijiScreen';
 import InboxScreen from './screens/InboxScreen';
+import ReaderScreen from './screens/ReaderScreen';
+import BazaarScreen from './screens/BazaarScreen';
+import BazaarBookScreen from './screens/BazaarBookScreen';
+import UploadBookScreen from './screens/UploadBookScreen';
+import BazaarDashboardScreen from './screens/BazaarDashboardScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -278,7 +283,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
                   title: notification.request.content.title,
                   body: notification.request.content.body,
                   data: notification.request.content.data,
-                  sound: 'notification-sound.mp3', // Custom sound file
+                  sound: 'notification_sound',
                 },
                 trigger: null, // Show immediately
               });
@@ -344,7 +349,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   return (
     <NavigationContainer ref={navigationRef}>
       <View style={{ flex: 1, backgroundColor: '#0A0A18' }}>
-        <GlobalNavbar />
+        {currentRoute !== 'Kaiji' && <GlobalNavbar />}
         <Stack.Navigator
           screenOptions={{
             headerShown: false,
@@ -413,10 +418,15 @@ const AppContent = ({ setIsStatusBarHidden }) => {
             <Stack.Screen name="Badges" component={BadgesScreen} />
             <Stack.Screen name="Kaiji" component={KaijiScreen} />
             <Stack.Screen name="Inbox" component={InboxScreen} />
+            <Stack.Screen name="Reader" component={ReaderScreen} />
+            <Stack.Screen name="Bazaar" component={BazaarScreen} />
+            <Stack.Screen name="BazaarBook" component={BazaarBookScreen} />
+            <Stack.Screen name="UploadBook" component={UploadBookScreen} />
+            <Stack.Screen name="BazaarDashboard" component={BazaarDashboardScreen} />
           </>
         )}
       </Stack.Navigator>
-        {currentRoute !== 'KaitoAdventure' && (
+        {currentRoute !== 'KaitoAdventure' && currentRoute !== 'Kaiji' && (
           <GlobalBottomNav 
             onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
             menuOpen={sidebarOpen}

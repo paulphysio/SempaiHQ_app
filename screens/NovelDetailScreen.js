@@ -61,7 +61,7 @@ const NovelDetailScreen = () => {
       try {
         const storedUserId = await AsyncStorage.getItem('offline_user_id');
         if (storedUserId && !userId) {
-          console.log('[NovelDetailScreen] Restored user ID from storage:', storedUserId);
+          if (__DEV__) console.log('[NovelDetailScreen] Restored user ID from storage:', storedUserId);
           setUserId(storedUserId);
         }
       } catch (e) {
@@ -128,12 +128,16 @@ const NovelDetailScreen = () => {
 
   // Check network status
   useEffect(() => {
+    let lastOnline = null;
     const checkNetworkStatus = async () => {
       try {
         const networkState = await Network.getNetworkStateAsync();
         const online = networkState.isConnected && networkState.type !== 'none';
         setIsOnline(online);
-        console.log('[NovelDetailScreen] Network status:', online ? 'online' : 'offline');
+        if (online !== lastOnline) {
+          lastOnline = online;
+          if (__DEV__) console.log('[NovelDetailScreen] Network status:', online ? 'online' : 'offline');
+        }
       } catch (error) {
         console.error('[NovelDetailScreen] Error checking network status:', error);
         setIsOnline(true);
@@ -150,14 +154,14 @@ const NovelDetailScreen = () => {
 
   const fetchNovel = useCallback(async () => {
     try {
-      console.log('[NovelDetailScreen] Fetching novel with id:', id, 'isOnline:', isOnline, 'userId:', userId);
+      if (__DEV__) console.log('[NovelDetailScreen] Fetching novel with id:', id, 'isOnline:', isOnline, 'userId:', userId);
 
-      // If definitely offline, try cache only
-      if (isOnline === false) {
-        console.log('[NovelDetailScreen] Offline - loading novel from cache');
+      // If offline or network status unknown, try cache first
+      if (isOnline === false || isOnline === null) {
+        if (__DEV__) console.log('[NovelDetailScreen] Offline/network unknown - loading novel from cache');
         const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
-          console.log('[NovelDetailScreen] Novel loaded from cache:', cachedData.novel.title);
+          if (__DEV__) console.log('[NovelDetailScreen] Novel loaded from cache:', cachedData.novel.title);
           setNovel(cachedData.novel);
           setNovelChapters(cachedData.chapters);
           Animated.timing(contentFade, {
@@ -168,15 +172,18 @@ const NovelDetailScreen = () => {
           setLoading(false);
           return;
         } else {
-          console.log('[NovelDetailScreen] Novel not in cache');
-          setError('Novel not available offline. Please save it for offline reading first.');
-          setLoading(false);
-          return;
+          if (__DEV__) console.log('[NovelDetailScreen] Novel not in cache');
+          if (isOnline === false) {
+            setError('Novel not available offline. Please save it for offline reading first.');
+            setLoading(false);
+            return;
+          }
+          // If network status unknown, continue to try network fetch
         }
       }
 
       // Online or status unknown - fetch from network first
-      console.log('[NovelDetailScreen] Online/status unknown - fetching from network');
+      if (__DEV__) console.log('[NovelDetailScreen] Online/status unknown - fetching from network');
       let { data, error } = await supabase
         .from('novels')
         .select('*')
@@ -187,12 +194,12 @@ const NovelDetailScreen = () => {
       const isNetworkError = isErrorNetworkError(error);
       // failed to fetch from network, try cache
       if(isNetworkError){
-        console.log(`[NovelDetailScreen] could not load ${id} from network, trying from cache`);
+        if (__DEV__) console.log(`[NovelDetailScreen] could not load ${id} from network, trying from cache`);
         const cachedData = await getNovelForOffline(id, userId);
         if (cachedData) {
           data = cachedData.novel;
           setNovelChapters(cachedData.chapters);
-          console.log(`[NovelDetailScreen] novel ${id} loaded successfully from cache`);
+          if (__DEV__) console.log(`[NovelDetailScreen] novel ${id} loaded successfully from cache`);
         }
       }
 
@@ -201,7 +208,7 @@ const NovelDetailScreen = () => {
         throw new Error('Novel not found');
       }
 
-      console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
+      if (__DEV__) console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
       Animated.timing(contentFade, {
         toValue: 1,
@@ -218,13 +225,13 @@ const NovelDetailScreen = () => {
 
   const updateViewCount = useCallback(async () => {
     if (!isWalletConnected || !activePublicKey) {
-      console.log('No wallet connected, skipping view count update');
+      if (__DEV__) console.log('No wallet connected, skipping view count update');
       return;
     }
 
     // Skip if offline
     if (isOnline === false || isOnline === null) {
-      console.log('[NovelDetailScreen] Offline - skipping view count update');
+      if (__DEV__) console.log('[NovelDetailScreen] Offline - skipping view count update');
       return;
     }
 
@@ -252,7 +259,7 @@ const NovelDetailScreen = () => {
         .single();
 
       if (existingInteraction) {
-        console.log('User has already viewed this novel, skipping view count increment');
+        if (__DEV__) console.log('User has already viewed this novel, skipping view count increment');
         return;
       }
 
@@ -266,7 +273,7 @@ const NovelDetailScreen = () => {
         console.error('Error in increment_novel_view:', rpcError.message);
         setViewCountError('Failed to update view count. Please try again later.');
       } else {
-        console.log('Viewers count incremented and interaction recorded for user:', userId);
+        if (__DEV__) console.log('Viewers count incremented and interaction recorded for user:', userId);
       }
     } catch (error) {
       console.error('Error in updateViewCount:', error.message);
@@ -282,14 +289,14 @@ const NovelDetailScreen = () => {
 
     // Skip if definitely offline
     if (isOnline === false) {
-      console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
+      if (__DEV__) console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
       const cachedData = await getNovelForOffline(id, userId);
       if (cachedData && cachedData.chapters) {
         setNovelChapters(cachedData.chapters);
         const unlockedChapterIds = cachedData.chapters.map(p => p.chapter_number.toString()) || [];
         setUnlockedChapters(unlockedChapterIds);
       } else {
-        console.log('[NovelDetailScreen] Chapters not in cache - novel was cached without chapter data');
+        if (__DEV__) console.log('[NovelDetailScreen] Chapters not in cache - novel was cached without chapter data');
       }
       return;
     }
@@ -305,11 +312,11 @@ const NovelDetailScreen = () => {
       const isNetworkError = isErrorNetworkError(paymentsError);
       // failed to fetch from network, try cache
       if(isNetworkError){
-        console.log(`[NovelDetailScreen] could not load unlocked chapters ${id} from network, trying from cache`);
+        if (__DEV__) console.log(`[NovelDetailScreen] could not load unlocked chapters ${id} from network, trying from cache`);
         const cachedData = await getNovelForOffline(id, userId);
         if (cachedData && cachedData.chapters) {
           payments = cachedData.chapters;
-          console.log(`[NovelDetailScreen] unlocked chapters ${id} loaded successfully from cache`);
+          if (__DEV__) console.log(`[NovelDetailScreen] unlocked chapters ${id} loaded successfully from cache`);
         }
       }
 
@@ -360,7 +367,7 @@ const NovelDetailScreen = () => {
 
     try{
       if(!novel) return;
-      console.log('[NovelDetailScreen] Saving offline with unlockedChapters:', unlockedChapters);
+      if (__DEV__) console.log('[NovelDetailScreen] Saving offline with unlockedChapters:', unlockedChapters);
       // If novel was previously saved with guest key and user is now logged in, it will be re-encrypted with user key
       await saveNovelForOffline(novel, unlockedChapters, userId);
       setIsSavedOffline(true);
@@ -379,11 +386,11 @@ const NovelDetailScreen = () => {
 
   const handleNavigation = async (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
-    console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
+    if (__DEV__) console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
 
     // First 3 chapters (indices 0, 1, 2) are ALWAYS free - no wallet check needed
     if (chapterNum !== null && chapterNum <= 2) {
-      console.log('[NovelDetailScreen] First 3 chapters are free, allowing navigation');
+      if (__DEV__) console.log('[NovelDetailScreen] First 3 chapters are free, allowing navigation');
       navigation.navigate(screen, params);
       return;
     }
@@ -391,23 +398,23 @@ const NovelDetailScreen = () => {
     // For chapters beyond 2, check wallet connection if online
     if (chapterNum !== null && chapterNum > 2 && isWalletConnected !== false) {
       if (isOnline === false || isOnline === null) {
-        console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
+        if (__DEV__) console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
         // Check if chapter is available in offline cache
         const cachedData = await getNovelForOffline(id, userId);
-        console.log('[NovelDetailScreen] Cached novel:', cachedData ? 'found' : 'not found');
+        if (__DEV__) console.log('[NovelDetailScreen] Cached novel:', cachedData ? 'found' : 'not found');
 
         if (cachedData && cachedData.chapters) {
           const offlineChapter = cachedData.chapters.find(c => c.chapter_number === params.chapterId);
-          console.log('[NovelDetailScreen] Offline chapter found:', offlineChapter ? 'yes' : 'no');
+          if (__DEV__) console.log('[NovelDetailScreen] Offline chapter found:', offlineChapter ? 'yes' : 'no');
           if (offlineChapter && offlineChapter.content) {
-            console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
+            if (__DEV__) console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
             navigation.navigate(screen, params);
             return;
           }
         }
       }
       if (!isWalletConnected) {
-        console.log('[NovelDetailScreen] Wallet not connected, showing connect popup');
+        if (__DEV__) console.log('[NovelDetailScreen] Wallet not connected, showing connect popup');
         setShowConnectPopup(true);
         return;
       }

@@ -1,340 +1,54 @@
-import { StyleSheet, Dimensions } from 'react-native';
-
-const { width } = Dimensions.get('window');
-const cardWidth = (width - 40) / 2; // Two columns with 20px padding
+import { StyleSheet } from 'react-native';
+import { colors, space, radius, type, layout } from '../theme/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  navbar: {
-    backgroundColor: '#0F0F1B',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F36316',
-  },
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  navLink: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  barRight: { flexDirection: 'row', alignItems: 'center' },
+
+  grid: { paddingBottom: 140 },
+  columnWrap: { gap: layout.gridGap, paddingHorizontal: layout.gutter, marginBottom: space.xl },
+
+  bannerWrap: { marginHorizontal: layout.gutter, marginTop: space.lg, borderRadius: radius.xl },
+  banner: { borderRadius: radius.xl, padding: space.xl, overflow: 'hidden' },
+  bannerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: space.sm },
+  bannerTag: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  logoImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-  },
-  navRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuToggle: {
-    marginLeft: 15,
-    padding: 10,
-  },
-  navMenu: {
-    backgroundColor: '#0F0F1B',
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F36316',
-  },
-  navMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  navMenuText: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  rewardsBelt: {
-    backgroundColor: '#F36316',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  beltContent: {
-    flexDirection: 'column',
-    alignItems: 'center',
-  },
-  rewardItem: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginVertical: 5,
-    textAlign: 'center',
-  },
-  bold: {
-    
-  },
-  header: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: '#fff',
-    fontSize: 28,
-    fontFamily: 'Yoruka',
-    
-  },
-  headerTagline: {
-    color: '#ccc',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginVertical: 10,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2A2A3E',
-    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.3)',
     paddingHorizontal: 10,
-    marginVertical: 10,
-    width: '100%',
+    paddingVertical: 4,
+    borderRadius: radius.pill,
   },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    paddingVertical: 10,
-  },
-  tagSelectContainer: {
-    width: '100%',
-    marginVertical: 10,
-  },
-  tagSelectLabel: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginBottom: 5,
-  },
-  tagList: {
-    paddingVertical: 5,
-  },
-  tagOption: {
-    backgroundColor: '#2A2A3E',
-    borderRadius: 15,
+  bannerTagText: { ...type.label, color: colors.gold, marginLeft: 6 },
+  bannerSub: { ...type.caption, color: 'rgba(255,255,255,0.85)' },
+  bannerAmount: { ...type.hero, fontSize: 30, marginTop: 2 },
+  bannerCopy: { ...type.body, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
+  cdRow: { flexDirection: 'row', alignItems: 'center', marginTop: space.lg },
+  cdCell: {
+    minWidth: 52,
+    alignItems: 'center',
     paddingVertical: 8,
-    paddingHorizontal: 15,
-    marginRight: 10,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
   },
-  tagOptionSelected: {
-    backgroundColor: '#F36316',
-  },
-  tagOptionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-  },
-  tagOptionTextSelected: {
-    
-  },
-  mangaGrid: {
-    padding: 20,
-  },
-  mangaCard: {
-    width: cardWidth,
-    margin: 5,
-    backgroundColor: '#2A2A3E',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  mangaLink: {
-    flex: 1,
-  },
-  mangaCover: {
-    width: '100%',
-    height: 200,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
-  },
-  mangaInfo: {
-    padding: 10,
-  },
-  mangaTitle: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    
-  },
-  mangaSummary: {
-    color: '#ccc',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginVertical: 5,
-  },
-  mangaMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F36316',
-  },
-  artistLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  artistText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginLeft: 5,
-  },
-  viewers: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewersText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginLeft: 5,
-  },
-  adultTag: {
-    color: '#ff4444',
-    fontSize: 12,
-    fontFamily: 'Yoruka',
-    
-  },
-  noManga: {
-    color: '#ccc',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  walletPanel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#0F0F1B',
-    borderTopWidth: 1,
-    borderTopColor: '#F36316',
-    padding: 10,
-    zIndex: 1000,
-  },
-  walletPanelOpen: {
-    minHeight: 170,
-  },
-  walletToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#2A2A3E',
-    borderRadius: 10,
-  },
-  walletSummary: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  walletCountdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-  },
-  countdownText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginLeft: 5,
-  },
-  walletContent: {
-    padding: 1,
-  },
-  walletInfo: {
-    marginBottom: 8,
-  },
-  walletInfoText: {
-    color: '#fff',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginVertical: 3,
-  },
-  withdrawSection: {
-    backgroundColor: '#2A2A3E',
-    borderRadius: 10,
-    padding: 6,
-  },
-  withdrawInput: {
-    backgroundColor: '#1A1A2E',
-    color: '#fff',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 10,
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-  },
-  withdrawActions: {
+  cdValue: { ...type.h1, fontSize: 20 },
+  cdUnit: { ...type.label, fontSize: 8, color: 'rgba(255,255,255,0.7)', marginTop: 1 },
+  cdSep: { color: 'rgba(255,255,255,0.6)', fontSize: 18, marginHorizontal: 5 },
+
+  searchWrap: { paddingHorizontal: layout.gutter, marginTop: space.lg },
+  chipRail: { paddingHorizontal: layout.gutter, paddingVertical: space.md, gap: space.sm },
+  resultsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  withdrawButton: {
-    backgroundColor: '#FF5733',
-    borderRadius: 8,
-    padding: 15,
-    flex: 1,
     alignItems: 'center',
-    marginRight: 5,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    paddingHorizontal: layout.gutter,
+    marginBottom: space.md,
   },
-  refreshButton: {
-    backgroundColor: '#888',
-    borderRadius: 8,
-    padding: 15,
-    flex: 1,
-    alignItems: 'center',
-    marginLeft: 5,
-  },
-  withdrawButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-  },
-  refreshButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  errorText: {
-    color: '#ff4444',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginTop: 10,
-    textAlign: 'center',
-  },
+  clearText: { ...type.caption, color: colors.primaryHi, fontWeight: '700' },
+
+  pillWrap: { position: 'absolute', left: layout.gutter, right: layout.gutter, bottom: space.lg },
+  tileRow: { flexDirection: 'row' },
+  quickRow: { flexDirection: 'row', gap: space.sm, marginTop: space.sm },
 });

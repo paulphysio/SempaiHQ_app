@@ -18,7 +18,7 @@ release:
   android_details:
     cert_fingerprint: fdca1897321795324781cd7c37238a2d83657581d7f2d33b3ac4ea51bddd8349
     min_sdk: 24
-    version: 1.0.8
+    version: 1.2
     version_code: 11
     locales:
       - en-AU

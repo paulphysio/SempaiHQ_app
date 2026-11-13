@@ -49,6 +49,8 @@ import { CardStyleInterpolators } from '@react-navigation/stack';
 import { formatNumber } from '../utils/formatNumber';
 import { useTheme } from '../context/ThemeContext';
 import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
+import pioneerBadge from '../assets/Pioneer.png';
+import { useReadingTimer, formatReadingTime } from '../hooks/useReadingTimer';
 
 const { height } = Dimensions.get('window');
 
@@ -60,10 +62,86 @@ const connection = new Connection(RPC_URL, 'confirmed', {
 const MIN_ATA_SOL = 0.00103928;
 const MIN_USER_SOL = 0.001;
 
+// Check if writer has SMP ATA
+const checkWriterAta = async (writerWalletAddress) => {
+  try {
+    const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+    const writerATA = getAssociatedTokenAddressSync(smpMint, new PublicKey(writerWalletAddress));
+    const ataInfo = await connection.getAccountInfo(writerATA);
+    return ataInfo !== null;
+  } catch (error) {
+    return false; // ATA doesn't exist
+  }
+};
+
+// Poll getSignatureStatuses instead of confirmTransaction — the websocket
+// subscription used by confirmTransaction often never connects in React
+// Native / on rate-limited RPC, which hangs payment flows indefinitely.
+const waitForSignature = async (connection, signature, lastValidBlockHeight, timeoutMs = 45000) => {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const { value } = await connection.getSignatureStatuses([signature], { searchTransactionHistory: true });
+      const st = value?.[0];
+      if (st?.err) throw new Error('Transaction failed on-chain.');
+      if (st && (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized')) return true;
+      const height = await connection.getBlockHeight('confirmed');
+      if (height > lastValidBlockHeight) return false;
+    } catch (e) {
+      if (e.message === 'Transaction failed on-chain.') throw e;
+    }
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return false;
+};
+
+// Create writer ATA
+const createWriterAta = async (walletAddress, publicKey, signAndSendTransaction) => {
+  try {
+    const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+    const writerPublicKey = new PublicKey(walletAddress);
+    const writerATA = getAssociatedTokenAddressSync(smpMint, writerPublicKey);
+
+    // Check if ATA already exists
+    const existingAta = await connection.getAccountInfo(writerATA);
+    if (existingAta) {
+      if (__DEV__) console.log('[createWriterAta] ATA already exists, skipping creation');
+      return true;
+    }
+
+    const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+
+    const ataTransaction = new Transaction({
+      recentBlockhash: blockhash,
+      feePayer: publicKey,
+    }).add(
+      createAssociatedTokenAccountInstruction(
+        publicKey,
+        writerATA,
+        writerPublicKey,
+        smpMint
+      )
+    );
+
+    const ataSignature = await signAndSendTransaction(ataTransaction);
+    if (__DEV__) console.log('[createWriterAta] ATA created:', ataSignature);
+
+    const landed = await waitForSignature(connection, ataSignature, lastValidBlockHeight);
+    if (!landed) {
+      throw new Error('ATA creation transaction was not confirmed. Please check your wallet before retrying.');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('[createWriterAta] Error:', error.message);
+    throw error;
+  }
+};
+
 const SQUADS_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 const TREASURY_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 const FOUNDER_FUND_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
-const SEMPAI_HQ_WALLET = new PublicKey("4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H");
+const SEMPAI_HQ_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 
 // Ad video configuration - use local asset
 const AD_VIDEO_URI = require('../assets/ad_video.mp4');
@@ -71,7 +149,7 @@ const AD_VIDEO_URI = require('../assets/ad_video.mp4');
 // USD cost of unlocking a single chapter. Centralized here so the displayed
 // SMP cost (SMP_READ_COST) and the amount actually charged on-chain
 // (processChapterPayment) can never drift apart.
-const CHAPTER_READ_USD_COST = 0.025;
+const CHAPTER_READ_USD_COST = 0.0025; // Reduced for testing
 
 // ---------------------------------------------------------------------------
 // Live pricing (Jupiter)
@@ -190,7 +268,11 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
     const sempaiHqAta = getAssociatedTokenAddressSync(paymentMint, SEMPAI_HQ_WALLET, true);
     const founderFundAta = getAssociatedTokenAddressSync(paymentMint, FOUNDER_FUND_WALLET, true);
 
-    let reroutedToFounderFund = 0;
+    // Check user ATA first - if it doesn't exist, we can't proceed
+    const userAtaInfo = await connection.getAccountInfo(userAta);
+    if (!userAtaInfo) {
+      throw new Error('You do not have an SMP token account. Please get some SMP tokens first.');
+    }
 
     const [creatorAtaInfo, sempaiHqAtaInfo, founderFundAtaInfo] = await connection.getMultipleAccountsInfo([
       creatorAta,
@@ -199,76 +281,55 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
     ]);
 
     const userBalance = await connection.getBalance(userPublicKey);
-    const ataRentExemption = 0.00203928 * 1000000000;
-    const requiredSolForAtas = (!creatorAtaInfo ? ataRentExemption : 0) + (!sempaiHqAtaInfo ? ataRentExemption : 0);
+    const ataRentExemption = Math.ceil(0.00203928 * 1e9); // lamports per ATA
+    const TX_FEE_LAMPORTS = 5000;
 
-    let creatorDestAta = creatorAta;
-    let creatorDestAmount = creatorAmount;
-    if (!creatorAtaInfo) {
-      if (userBalance >= requiredSolForAtas) {
+    // Budget ALL missing ATAs up front. The founder fund ATA is the reroute
+    // sink, so it gets creation priority when the wallet can't afford them all.
+    const ataSpecs = [
+      { key: 'ff', ata: founderFundAta, owner: FOUNDER_FUND_WALLET, exists: !!founderFundAtaInfo },
+      { key: 'creator', ata: creatorAta, owner: authorPublicKey, exists: !!creatorAtaInfo },
+      { key: 'hq', ata: sempaiHqAta, owner: SEMPAI_HQ_WALLET, exists: !!sempaiHqAtaInfo },
+    ];
+    const creatable = new Set();
+    let ataBudget = userBalance - TX_FEE_LAMPORTS;
+    for (const spec of ataSpecs) {
+      if (spec.exists) continue;
+      if (ataBudget >= ataRentExemption) {
+        creatable.add(spec.key);
         instructions.push(
           createAssociatedTokenAccountInstruction(
             userPublicKey,
-            creatorAta,
-            authorPublicKey,
+            spec.ata,
+            spec.owner,
             paymentMint
           )
         );
-      } else {
-        reroutedToFounderFund += creatorAmount;
-        creatorDestAta = null;
-        creatorDestAmount = 0;
+        ataBudget -= ataRentExemption;
       }
     }
 
-    let sempaiHqDestAta = sempaiHqAta;
-    let sempaiHqDestAmount = sempaiHqAmount;
-    if (!sempaiHqAtaInfo) {
-      if (userBalance >= requiredSolForAtas) {
-        instructions.push(
-          createAssociatedTokenAccountInstruction(
-            userPublicKey,
-            sempaiHqAta,
-            SEMPAI_HQ_WALLET,
-            paymentMint
-          )
-        );
-      } else {
-        reroutedToFounderFund += sempaiHqAmount;
-        sempaiHqDestAta = null;
-        sempaiHqDestAmount = 0;
-      }
+    const ffReady = ataSpecs[0].exists || creatable.has('ff');
+    if (!ffReady) {
+      throw new Error('Insufficient SOL to create required token accounts. Please add SOL to your wallet.');
+    }
+    const creatorReady = ataSpecs[1].exists || creatable.has('creator');
+    const hqReady = ataSpecs[2].exists || creatable.has('hq');
+
+    let reroutedToFounderFund = 0;
+    if (creatorReady) {
+      instructions.push(createTransferInstruction(userAta, creatorAta, userPublicKey, creatorAmount));
+    } else {
+      reroutedToFounderFund += creatorAmount;
+    }
+    if (hqReady) {
+      instructions.push(createTransferInstruction(userAta, sempaiHqAta, userPublicKey, sempaiHqAmount));
+    } else {
+      reroutedToFounderFund += sempaiHqAmount;
     }
 
-    let founderFundDestAta = founderFundAta;
-    let founderFundDestAmount = founderFundAmount;
-    if (!founderFundAtaInfo) {
-      if (userBalance >= ataRentExemption) {
-        instructions.push(
-          createAssociatedTokenAccountInstruction(
-            userPublicKey,
-            founderFundAta,
-            FOUNDER_FUND_WALLET,
-            paymentMint
-          )
-        );
-      } else {
-        founderFundDestAta = null;
-        founderFundDestAmount = 0;
-      }
-    }
-
-    if (creatorDestAta && creatorDestAmount > 0) {
-      instructions.push(createTransferInstruction(userAta, creatorDestAta, userPublicKey, creatorDestAmount));
-    }
-    if (sempaiHqDestAta && sempaiHqDestAmount > 0) {
-      instructions.push(createTransferInstruction(userAta, sempaiHqDestAta, userPublicKey, sempaiHqDestAmount));
-    }
-
-    const totalFounderFundAmount = founderFundDestAmount + reroutedToFounderFund;
-    if (totalFounderFundAmount > 0 && founderFundDestAta) {
-      instructions.push(createTransferInstruction(userAta, founderFundDestAta, userPublicKey, totalFounderFundAmount));
-    }
+    const totalFounderFundAmount = founderFundAmount + reroutedToFounderFund;
+    instructions.push(createTransferInstruction(userAta, founderFundAta, userPublicKey, totalFounderFundAmount));
 
     if (smpMintAddress && paymentMint.equals(smpMintAddress)) {
       instructions.push(createBurnInstruction(userAta, paymentMint, userPublicKey, founderFundAmount));
@@ -307,7 +368,7 @@ const ChapterScreen = () => {
       try {
         const storedUserId = await AsyncStorage.getItem('offline_user_id');
         if (storedUserId) {
-          console.log('[ChapterScreen] Restored user ID from storage:', storedUserId);
+          if (__DEV__) console.log('[ChapterScreen] Restored user ID from storage:', storedUserId);
           setUserId(storedUserId);
         }
       } catch (e) {
@@ -328,12 +389,28 @@ const ChapterScreen = () => {
   const [pricesAreLive, setPricesAreLive] = useState(false); // false = showing fallback, not confirmed live data
   const [recentlyUnlocked, setRecentlyUnlocked] = useState(false);
   const [hasReadChapter, setHasReadChapter] = useState(false);
+  const [showPioneerModal, setShowPioneerModal] = useState(false);
+  const [isClaimingPioneer, setIsClaimingPioneer] = useState(false);
+  const [pioneerPayload, setPioneerPayload] = useState(null);
+  const [currentCreatorId, setCurrentCreatorId] = useState(null);
+  const [showAtaFundingModal, setShowAtaFundingModal] = useState(false);
+  const [writerHasAta, setWriterHasAta] = useState(true);
+  const [ataFundingCost, setAtaFundingCost] = useState(0);
+  const [writerAtaAddress, setWriterAtaAddress] = useState(null);
+  const [pendingPaymentDetails, setPendingPaymentDetails] = useState(null);
+  const [pendingAuthorData, setPendingAuthorData] = useState(null);
   const usdcPrice = 1; // USDC is pegged to $1
   const [isAdvanceChapter, setIsAdvanceChapter] = useState(false);
   const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const paymentInProgressRef = useRef(false);
   const [isOnline, setIsOnline] = useState(null);
   const emberAnims = useRef([]);
+
+  // Reading time tracking
+  // Only track reading time once the chapter is actually unlocked —
+  // a locked/paywalled chapter must not accumulate reading sessions.
+  const { isTracking, getCurrentDuration } = useReadingTimer(isLocked ? null : userId, novelId, chapterId);
   const embersData = useRef([]);
   const embersInitialized = useRef(false);
 
@@ -474,12 +551,16 @@ const ChapterScreen = () => {
 
   // Check network status
   useEffect(() => {
+    let lastOnline = null;
     const checkNetworkStatus = async () => {
       try {
         const networkState = await Network.getNetworkStateAsync();
         const online = networkState.isConnected && networkState.type !== 'none';
         setIsOnline(online);
-        console.log('[ChapterScreen] Network status:', online ? 'online' : 'offline');
+        if (online !== lastOnline) {
+          lastOnline = online;
+          if (__DEV__) console.log('[ChapterScreen] Network status:', online ? 'online' : 'offline');
+        }
       } catch (error) {
         console.error('[ChapterScreen] Error checking network status:', error);
         setIsOnline(true);
@@ -514,7 +595,7 @@ const ChapterScreen = () => {
       return 250000000; // Fallback: 0.0025 USD / 0.00000001 USD per SMP = 250,000,000 (6 decimals)
     }
     const costInSmp = Math.ceil((CHAPTER_READ_USD_COST / smpPrice) * 10 ** SMP_DECIMALS);
-    console.log('[SMP_READ_COST] Calculated SMP cost for $' + CHAPTER_READ_USD_COST + ':', costInSmp, 'SMP price:', smpPrice);
+    if (__DEV__) console.log('[SMP_READ_COST] Calculated SMP cost for $' + CHAPTER_READ_USD_COST + ':', costInSmp, 'SMP price:', smpPrice);
     return costInSmp;
   }, [smpPrice]);
 
@@ -527,13 +608,13 @@ const ChapterScreen = () => {
         try {
           const { timestamp, solPrice: cachedSol, smpPrice: cachedSmp } = JSON.parse(cachedRaw);
           if (Date.now() - timestamp < PRICE_CACHE_TTL_MS && cachedSol > 0 && cachedSmp > 0) {
-            console.log('[fetchPrices] Using cached prices:', { solPrice: cachedSol, smpPrice: cachedSmp });
+            if (__DEV__) console.log('[fetchPrices] Using cached prices:', { solPrice: cachedSol, smpPrice: cachedSmp });
             setSolPrice(cachedSol);
             setSmpPrice(cachedSmp);
             setPricesAreLive(true);
             return;
           }
-          console.warn('[fetchPrices] Cache expired or invalid, fetching new prices');
+          if (__DEV__) console.warn('[fetchPrices] Cache expired or invalid, fetching new prices');
         } catch (err) {
           console.error('[fetchPrices] Cache parse error:', err.message);
           await SecureStore.deleteItemAsync(PRICE_CACHE_KEY);
@@ -560,7 +641,7 @@ const ChapterScreen = () => {
           if (!liveSmpPrice) {
             liveSmpPrice = await fetchSmpFallbackPrice();
             if (liveSmpPrice) {
-              console.log('[fetchPrices] Using web API fallback for SMP price');
+              if (__DEV__) console.log('[fetchPrices] Using web API fallback for SMP price');
             }
           }
         }
@@ -579,7 +660,7 @@ const ChapterScreen = () => {
           PRICE_CACHE_KEY,
           JSON.stringify({ timestamp: Date.now(), solPrice: liveSolPrice, smpPrice: liveSmpPrice })
         );
-        console.log('[fetchPrices] Live prices cached:', { solPrice: liveSolPrice, smpPrice: liveSmpPrice });
+        if (__DEV__) console.log('[fetchPrices] Live prices cached:', { solPrice: liveSolPrice, smpPrice: liveSmpPrice });
       } else {
         // Total failure (no network, both API paths down): keep whatever
         // was already in state (last good value) rather than silently
@@ -599,7 +680,7 @@ const ChapterScreen = () => {
 
     // Skip if offline or status unknown
     if (isOnline === false || isOnline === null) {
-      console.log('[fetchSmpBalanceOnChain] Offline - skipping RPC call');
+      if (__DEV__) console.log('[fetchSmpBalanceOnChain] Offline - skipping RPC call');
       return 0;
     }
 
@@ -614,17 +695,17 @@ const ChapterScreen = () => {
           const ataAddress = await getAssociatedTokenAddress(smpMint, activePublicKey);
           const ataInfo = await fallbackConnection.getAccountInfo(ataAddress);
           if (!ataInfo) {
-            console.log(`[fetchSmpBalanceOnChain] No ATA found for SMP on ${rpcUrl}, returning 0`);
+            if (__DEV__) console.log(`[fetchSmpBalanceOnChain] No ATA found for SMP, returning 0`);
             setSmpBalance(0);
             return 0;
           }
           const balance = Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SMP_DECIMALS;
-          console.log(`[fetchSmpBalanceOnChain] SMP balance from ${rpcUrl}:`, balance);
+          if (__DEV__) console.log(`[fetchSmpBalanceOnChain] SMP balance:`, balance);
           setSmpBalance(balance);
           return balance;
         } catch (error) {
           lastError = error;
-          console.error(`[fetchSmpBalanceOnChain] Attempt ${attempt} error on ${rpcUrl}:`, error.message);
+          console.error(`[fetchSmpBalanceOnChain] Attempt ${attempt} error:`, error.message);
 
           // Handle RPC authorization issues gracefully
           if (error.message.includes('401') || error.message.includes('Unauthorized')) {
@@ -633,7 +714,7 @@ const ChapterScreen = () => {
           }
 
           if (attempt === retryCount) {
-            console.warn(`[fetchSmpBalanceOnChain] All attempts failed on ${rpcUrl}, trying next RPC`);
+            console.warn(`[fetchSmpBalanceOnChain] All attempts failed, trying next RPC`);
             break; // Try next RPC
           }
           await new Promise((resolve) => setTimeout(resolve, retryDelay * attempt));
@@ -699,7 +780,7 @@ const ChapterScreen = () => {
 
     // Skip if offline or status unknown
     if (isOnline === false || isOnline === null) {
-      console.log('[fetchAmethystBalance] Offline - skipping RPC call');
+      if (__DEV__) console.log('[fetchAmethystBalance] Offline - skipping RPC call');
       return 0;
     }
 
@@ -713,19 +794,19 @@ const ChapterScreen = () => {
         const ataAddress = await getAssociatedTokenAddress(amethystMint, activePublicKey);
         const ataInfo = await fallbackConnection.getAccountInfo(ataAddress);
         const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** AMETHYST_DECIMALS : 0;
-        console.log(`[fetchAmethystBalance] Balance from ${rpcUrl}:`, balance);
+        if (__DEV__) console.log(`[fetchAmethystBalance] Balance:`, balance);
         setAmethystBalance(balance);
         return balance;
       } catch (error) {
         lastError = error;
-        console.error(`[fetchAmethystBalance] Error on ${rpcUrl}:`, error.message);
+        console.error(`[fetchAmethystBalance] Error:`, error.message);
 
         // Don't show error to user for RPC issues, just log it and try next RPC
         if (error.message.includes('401') || error.message.includes('Unauthorized')) {
           console.warn('[fetchAmethystBalance] RPC authorization issue, trying next RPC');
           continue;
         }
-        console.warn(`[fetchAmethystBalance] Failed on ${rpcUrl}, trying next RPC`);
+        console.warn(`[fetchAmethystBalance] Failed, trying next RPC`);
       }
     }
 
@@ -740,7 +821,7 @@ const ChapterScreen = () => {
 
     // Skip if offline or status unknown
     if (isOnline === false || isOnline === null) {
-      console.log('[fetchSkrBalance] Offline - skipping RPC call');
+      if (__DEV__) console.log('[fetchSkrBalance] Offline - skipping RPC call');
       return 0;
     }
 
@@ -754,19 +835,19 @@ const ChapterScreen = () => {
         const ataAddress = await getAssociatedTokenAddress(skrMint, activePublicKey);
         const ataInfo = await fallbackConnection.getAccountInfo(ataAddress);
         const balance = ataInfo ? Number(ataInfo.data.readBigUInt64LE(64)) / 10 ** SKR_DECIMALS : 0;
-        console.log(`[fetchSkrBalance] Balance from ${rpcUrl}:`, balance);
+        if (__DEV__) console.log(`[fetchSkrBalance] Balance:`, balance);
         setSkrBalance(balance);
         return balance;
       } catch (error) {
         lastError = error;
-        console.error(`[fetchSkrBalance] Error on ${rpcUrl}:`, error.message);
+        console.error(`[fetchSkrBalance] Error:`, error.message);
 
         // Don't show error to user for RPC issues, just log it and try next RPC
         if (error.message.includes('401') || error.message.includes('Unauthorized')) {
           console.warn('[fetchSkrBalance] RPC authorization issue, trying next RPC');
           continue;
         }
-        console.warn(`[fetchSkrBalance] Failed on ${rpcUrl}, trying next RPC`);
+        console.warn(`[fetchSkrBalance] Failed, trying next RPC`);
       }
     }
 
@@ -779,7 +860,7 @@ const ChapterScreen = () => {
   const fetchUserData = useCallback(async () => {
     // Skip if offline
     if (isOnline === false || isOnline === null) {
-      console.log('[ChapterScreen] Offline - skipping user data fetch');
+      if (__DEV__) console.log('[ChapterScreen] Offline - skipping user data fetch');
       return;
     }
 
@@ -820,7 +901,11 @@ const ChapterScreen = () => {
       const isAdEligible = !hasUsedToday && !chapterUnlock;
       setShowAdOption(isAdEligible);
 
-      // Check benefactor access
+      // Check benefactor access — track locally so fetchUserData doesn't
+      // depend on benefactorAccess state (a new object every fetch would
+      // retrigger this callback in an infinite loop).
+      let activeSubscription = null;
+      let badgeHolder = false;
       const { data: novelData } = await supabase
         .from('novels')
         .select('user_id')
@@ -847,6 +932,7 @@ const ChapterScreen = () => {
           } else if (subscriptionData.chapters_remaining <= 0 && subscriptionData.plan_type !== 'gold') {
             setBenefactorAccess(null);
           } else {
+            activeSubscription = subscriptionData;
             setBenefactorAccess(subscriptionData);
           }
         } else {
@@ -870,6 +956,7 @@ const ChapterScreen = () => {
             .single();
 
           if (!badgeDetailError && badge && badge.writer_id === novel.user_id) {
+            badgeHolder = true;
             setHasWriterBadge(true);
           } else {
             setHasWriterBadge(false);
@@ -879,7 +966,7 @@ const ChapterScreen = () => {
         }
       }
 
-      setShowBenefactorOption(!benefactorAccess && !hasWriterBadge);
+      setShowBenefactorOption(!activeSubscription && !badgeHolder);
 
       // Fetch autopay preference
       if (data.id) {
@@ -896,7 +983,7 @@ const ChapterScreen = () => {
       setError('Failed to load user data.');
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, fetchSmpBalanceOnChain, fetchAmethystBalance, novelId, chapterId, benefactorAccess, isOnline]);
+  }, [activeWalletAddress, fetchSmpBalanceOnChain, fetchAmethystBalance, novelId, chapterId, isOnline]);
 
   const fetchNovel = useCallback(async (id, chapter) => {
     if (!id) {
@@ -907,19 +994,19 @@ const ChapterScreen = () => {
     try {
       // If offline or status unknown, try cache first
       if (isOnline === false || isOnline === null) {
-        console.log('[ChapterScreen] Offline/status unknown - loading novel from cache');
+        if (__DEV__) console.log('[ChapterScreen] Offline/status unknown - loading novel from cache');
         const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
-          console.log('[ChapterScreen] Novel loaded from cache:', cachedData.novel.title);
+          if (__DEV__) console.log('[ChapterScreen] Novel loaded from cache:', cachedData.novel.title);
           setNovel(cachedData.novel);
           // Chapters are now in cachedData.chapters
           if (cachedData.chapters && cachedData.chapters.length > 0) {
-            console.log('[ChapterScreen] Loaded', cachedData.chapters.length, 'chapters from cache');
+            if (__DEV__) console.log('[ChapterScreen] Loaded', cachedData.chapters.length, 'chapters from cache');
           }
           setLoading(false);
           return;
         } else {
-          console.log('[ChapterScreen] Novel not in cache');
+          if (__DEV__) console.log('[ChapterScreen] Novel not in cache');
           setError('Novel not available offline. Please save it for offline reading first.');
           setLoading(false);
           return;
@@ -929,10 +1016,10 @@ const ChapterScreen = () => {
       // Online - fetch from network
       // For chapters beyond 2 without wallet, don't fetch content - show connect wallet instead
       const chapterNum = parseInt(chapter, 10);
-      console.log('[ChapterScreen] Fetching chapter:', chapter, 'parsed:', chapterNum, 'isWalletConnected:', isWalletConnected);
+      if (__DEV__) console.log('[ChapterScreen] Fetching chapter:', chapter, 'parsed:', chapterNum, 'isWalletConnected:', isWalletConnected);
       
       if (chapterNum > 2 && !isWalletConnected) {
-        console.log('[ChapterScreen] Chapter beyond 2 without wallet, skipping fetch');
+        if (__DEV__) console.log('[ChapterScreen] Chapter beyond 2 without wallet, skipping fetch');
         // Let the UI show the connect wallet message
         setLoading(false);
         return;
@@ -947,11 +1034,11 @@ const ChapterScreen = () => {
       const isNetworkError = isErrorNetworkError(error);
       // failed to fetch from network, try cache
       if(isNetworkError){
-        console.log(`[ChapterScreen] could not load novel ${id} from network, trying from cache`);
+        if (__DEV__) console.log(`[ChapterScreen] could not load novel ${id} from network, trying from cache`);
         const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
           data = cachedData.novel;
-          console.log(`[ChapterScreen] novel ${id} loaded successfully from cache`);
+          if (__DEV__) console.log(`[ChapterScreen] novel ${id} loaded successfully from cache`);
         }
       }
       else if (error) throw new Error(error.message);
@@ -963,7 +1050,7 @@ const ChapterScreen = () => {
           if (cachedData) {
             const chapter = cachedData.chapters.find(c => c.chapter_number === chapter);
             if (chapter && chapter.content) {
-              console.log('[ChapterScreen] Chapter found in offline cache');
+              if (__DEV__) console.log('[ChapterScreen] Chapter found in offline cache');
               data = cachedData.novel;
               data.chaptercontents = {};
               data.chaptercontents[chapter] = chapter.content;
@@ -1166,7 +1253,7 @@ const ChapterScreen = () => {
   // Auto-play video when modal opens
   useEffect(() => {
     if (showVideoAd && videoRef.current) {
-      console.log('[Video Ad] Modal opened, starting playback');
+      if (__DEV__) console.log('[Video Ad] Modal opened, starting playback');
       setWatchDuration(0);
       setAdWatched(false);
       // Add a small delay to ensure the modal is fully rendered
@@ -1453,33 +1540,15 @@ const ChapterScreen = () => {
     }
   }, [activeWalletAddress, novelId, chapterId, isProcessing, checkBenefactorAccess, processBenefactorPayment, solPrice]);
 
-  // Autopay functionality
+  // Autopay functionality - temporarily disabled for testing
   const handleAutopayUnlock = useCallback(async () => {
-    if (!activeWalletAddress || !autopayEnabled || smpBalance < (SMP_READ_COST / 10 ** SMP_DECIMALS)) return;
-    // Autopay should not work on advance chapters
-    if (isAdvanceChapter) return;
-
-    try {
-      setIsProcessing(true);
-      setShowPaymentAnimation(true);
-      // Trigger SMP payment for chapter unlock
-      console.log('[Autopay] Automatically unlocking chapter with SMP');
-      await processChapterPayment(chapterId, 'SINGLE', 'SMP');
-    } catch (error) {
-      console.error('[Autopay] Error:', error);
-      setError(`Autopay failed: ${error.message}`);
-      setTimeout(() => setError(null), 5000);
-    } finally {
-      setIsProcessing(false);
-      setShowPaymentAnimation(false);
-    }
-  }, [activeWalletAddress, autopayEnabled, smpBalance, isAdvanceChapter, processChapterPayment, chapterId]);
+    setError('Autopay is temporarily disabled for maintenance. Please unlock chapters manually.');
+    setTimeout(() => setError(null), 5000);
+  }, []);
 
   useEffect(() => {
-    if (!loading && novel && pricesAreLive && autopayPreferenceLoaded && isLocked && autopayEnabled && smpBalance >= (SMP_READ_COST / 10 ** SMP_DECIMALS) && !isProcessing && userId && !isAdvanceChapter) {
-      handleAutopayUnlock();
-    }
-  }, [loading, novel, pricesAreLive, autopayPreferenceLoaded, isLocked, autopayEnabled, smpBalance, isProcessing, userId, isAdvanceChapter, handleAutopayUnlock]);
+    // Autopay disabled - no automatic payments
+  }, [loading, novel, pricesAreLive, autopayPreferenceLoaded, isLocked, autopayEnabled, smpBalance, isProcessing, userId, isAdvanceChapter]);
 
   // Share functionality
   const handleShare = useCallback(async () => {
@@ -1682,7 +1751,7 @@ const ChapterScreen = () => {
 
     // First 3 chapters (indices 0, 1, 2) are free for all users - no wallet required
     if (chapterNum >= 0 && chapterNum <= 2) {
-      console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
+      if (__DEV__) console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
       setIsLocked(false);
       setCanUnlockNextThree(true);
       setIsAdvanceChapter(false);
@@ -1707,7 +1776,7 @@ const ChapterScreen = () => {
     try {
       // First 3 chapters (indices 0, 1, 2) are free for all users - no wallet required
       if (chapterNum >= 0 && chapterNum <= 2) {
-        console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
+        if (__DEV__) console.log('[checkAccess] First 3 chapters are free, unlocking:', chapterNum);
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setIsAdvanceChapter(false);
@@ -1879,11 +1948,19 @@ const ChapterScreen = () => {
 
   const processChapterPayment = useCallback(
     async (targetChapterId, paymentType = 'SINGLE', currency = 'SMP') => {
-      console.log('[processChapterPayment] Active Wallet Address:', activeWalletAddress);
-      console.log('[processChapterPayment] Target Chapter ID:', targetChapterId);
-      
+      // Prevent multiple simultaneous payments
+      if (paymentInProgressRef.current) {
+        if (__DEV__) console.log('[processChapterPayment] Payment already in progress, ignoring duplicate call');
+        return false;
+      }
+      paymentInProgressRef.current = true;
+
+      if (__DEV__) console.log('[processChapterPayment] Active Wallet Address:', activeWalletAddress);
+      if (__DEV__) console.log('[processChapterPayment] Target Chapter ID:', targetChapterId);
+
       if (!activeWalletAddress || !novelId || !targetChapterId || !activePublicKey || !wallet || !signAndSendTransaction) {
         setError('Please connect your wallet and try again.');
+        paymentInProgressRef.current = false;
         return false;
       }
 
@@ -1892,6 +1969,7 @@ const ChapterScreen = () => {
       if (isNaN(parsedChapterId)) {
         console.error('[processChapterPayment] Invalid chapter ID:', targetChapterId);
         setError('Invalid chapter ID.');
+        paymentInProgressRef.current = false;
         return false;
       }
 
@@ -1905,7 +1983,7 @@ const ChapterScreen = () => {
         // Check if already paid
         const isPaid = await checkChapterPayment(parsedChapterId);
         if (isPaid && paymentType === 'SINGLE') {
-          console.log('[processChapterPayment] Chapter already paid');
+          if (__DEV__) console.log('[processChapterPayment] Chapter already paid');
           setIsLocked(false);
           return true;
         }
@@ -1933,6 +2011,31 @@ const ChapterScreen = () => {
 
         const authorPublicKey = new PublicKey(authorData.wallet_address);
 
+        // Check if writer has SMP ATA - only for SMP payments
+        if (currency === 'SMP') {
+          const hasAta = await checkWriterAta(authorData.wallet_address);
+          setWriterHasAta(hasAta);
+
+          if (!hasAta) {
+            // Calculate ATA funding cost
+            const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+            const writerATA = getAssociatedTokenAddressSync(smpMint, authorPublicKey);
+            const rentExempt = await connection.getMinimumBalanceForRentExemption(165);
+            const fundingCost = 0.00203928; // ~0.002 SOL for ATA creation
+            setAtaFundingCost(fundingCost);
+            setWriterAtaAddress(writerATA.toBase58());
+            // Store pending payment details
+            setPendingPaymentDetails({ targetChapterId, paymentType, currency });
+            setPendingAuthorData(authorData);
+            setShowAtaFundingModal(true);
+            // Return early - user will need to confirm ATA funding before proceeding
+            setIsProcessing(false);
+            setShowPaymentAnimation(false);
+            paymentInProgressRef.current = false;
+            return false;
+          }
+        }
+
         // Calculate payment amount
         const usdAmount = CHAPTER_READ_USD_COST;
         let paymentAmount = 0;
@@ -1951,10 +2054,10 @@ const ChapterScreen = () => {
           throw new Error(`Invalid currency: ${currency}`);
         }
 
-        console.log('[processChapterPayment] Payment amount:', paymentAmount, currency);
+        if (__DEV__) console.log('[processChapterPayment] Payment amount:', paymentAmount, currency);
 
         // Build transaction client-side
-        console.log('[processChapterPayment] Building transaction...');
+        if (__DEV__) console.log('[processChapterPayment] Building transaction...');
         const transaction = await createPaymentTransactionClient({
           paymentMint,
           paymentAmount,
@@ -1969,42 +2072,17 @@ const ChapterScreen = () => {
         transaction.feePayer = activePublicKey;
 
         // Sign and send transaction
-        console.log('[processChapterPayment] Signing and sending transaction...');
+        if (__DEV__) console.log('[processChapterPayment] Signing and sending transaction...');
         const signature = await signAndSendTransaction(transaction);
         console.log('[processChapterPayment] Transaction sent, signature:', signature);
 
-        // Confirm transaction with retry logic
-        let confirmation;
-        let retryCount = 0;
-        const maxRetries = 3;
-
-        while (retryCount < maxRetries) {
-          try {
-            confirmation = await connection.confirmTransaction(
-              {
-                signature,
-                blockhash,
-                lastValidBlockHeight,
-              },
-              'confirmed'
-            );
-            break; // Success, exit loop
-          } catch (confirmError) {
-            retryCount++;
-            console.warn(`[processChapterPayment] Confirmation attempt ${retryCount} failed:`, confirmError.message);
-
-            if (retryCount >= maxRetries) {
-              throw new Error('Transaction confirmation failed after multiple attempts. Please check your wallet for the transaction status.');
-            }
-
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-          }
-        }
-
-        if (confirmation.value.err) {
-          console.error('[processChapterPayment] On-chain transaction failed:', confirmation.value.err);
-          throw new Error('Transaction failed on the blockchain.');
+        // Poll for confirmation — confirmTransaction's websocket subscription
+        // can hang indefinitely in React Native.
+        console.log('[processChapterPayment] Waiting for on-chain confirmation...');
+        const landed = await waitForSignature(connection, signature, lastValidBlockHeight);
+        console.log('[processChapterPayment] Confirmation result:', landed);
+        if (!landed) {
+          throw new Error('Transaction not confirmed yet. Check your wallet before trying again — do NOT pay twice.');
         }
 
         // Record payment in database via edge function
@@ -2017,6 +2095,7 @@ const ChapterScreen = () => {
           signature,
         };
 
+        console.log('[processChapterPayment] Calling unlock-chapter edge function...');
         try {
           // Use fetch directly for better control
           const { data: sessionData } = await supabase.auth.getSession();
@@ -2028,7 +2107,7 @@ const ChapterScreen = () => {
             const supabaseUrl = 'https://xqeimsncmnqsiowftdmz.supabase.co';
             const functionUrl = `${supabaseUrl}/functions/v1/unlock-chapter`;
 
-            console.log('[processChapterPayment] Calling edge function at:', functionUrl);
+            if (__DEV__) console.log('[processChapterPayment] Calling edge function at:', functionUrl);
 
             const response = await safeFetch(functionUrl, {
               method: 'POST',
@@ -2039,10 +2118,84 @@ const ChapterScreen = () => {
               body: JSON.stringify(requestBody),
             });
 
-            console.log('[processChapterPayment] Edge function response status:', response.status);
+            if (__DEV__) console.log('[processChapterPayment] Edge function response status:', response.status);
 
             const data = await response.json();
-            console.log('[processChapterPayment] Edge function response:', data);
+            if (__DEV__) console.log('[processChapterPayment] Edge function response:', JSON.stringify(data, null, 2));
+            if (__DEV__) console.log('[processChapterPayment] isPioneer flag:', data?.isPioneer);
+
+            if (response.ok && data?.isPioneer) {
+              if (__DEV__) console.log('[processChapterPayment] Pioneer badge detected! Showing modal...');
+              // First payment to this writer - show Pioneer badge modal
+              // (badge is granted server-side by the edge function)
+              const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+              const writerATA = getAssociatedTokenAddressSync(smpMint, authorPublicKey);
+              setPioneerPayload({
+                type: 'create_ata',
+                mint: SMP_MINT_ADDRESS.toString(),
+                owner: authorData.wallet_address,
+                ata: writerATA.toBase58(),
+                instructions: 'Use this payload to create an Associated Token Account for the writer'
+              });
+              setCurrentCreatorId(novelData.user_id);
+              setShowPioneerModal(true);
+            } else {
+              if (__DEV__) console.log('[processChapterPayment] Not a pioneer payment or response not OK');
+              // Fallback: Check if user should have Pioneer badge but doesn't
+              // This handles cases where edge function might not be deployed
+              try {
+                const { data: pioneerBadge } = await supabase
+                  .from('badges')
+                  .select('id')
+                  .eq('type', 'pioneer')
+                  .limit(1)
+                  .maybeSingle();
+
+                if (pioneerBadge) {
+                  const { data: userBadge } = await supabase
+                    .from('user_badges')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('badge_id', pioneerBadge.id)
+                    .maybeSingle();
+
+                  if (!userBadge) {
+                    if (__DEV__) console.log('[processChapterPayment] User missing Pioneer badge, checking if first payment...');
+                    // Check if this is actually the first payment to this writer
+                    const { data: authorNovels } = await supabase
+                      .from('novels')
+                      .select('id')
+                      .eq('user_id', novelData.user_id);
+
+                    const authorNovelIds = (authorNovels || []).map(n => n.id);
+                    const { data: priorPayments } = await supabase
+                      .from('chapter_payments')
+                      .select('id')
+                      .eq('wallet_address', activeWalletAddress)
+                      .in('novel_id', authorNovelIds)
+                      .neq('transaction_id', signature)
+                      .limit(1);
+
+                    if (!priorPayments || priorPayments.length === 0) {
+                      if (__DEV__) console.log('[processChapterPayment] This IS the first payment! Showing Pioneer modal...');
+                      const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+                      const writerATA = getAssociatedTokenAddressSync(smpMint, authorPublicKey);
+                      setPioneerPayload({
+                        type: 'create_ata',
+                        mint: SMP_MINT_ADDRESS.toString(),
+                        owner: authorData.wallet_address,
+                        ata: writerATA.toBase58(),
+                        instructions: 'Use this payload to create an Associated Token Account for the writer'
+                      });
+                      setCurrentCreatorId(novelData.user_id);
+                      setShowPioneerModal(true);
+                    }
+                  }
+                }
+              } catch (fallbackError) {
+                console.error('[processChapterPayment] Fallback Pioneer check failed:', fallbackError);
+              }
+            }
 
             if (!response.ok) {
               console.error('[processChapterPayment] Edge function error:', data.error || 'Unknown error');
@@ -2073,7 +2226,7 @@ const ChapterScreen = () => {
         if (err.message.includes('Insufficient')) {
           setWarningMessage(`Insufficient ${currency} balance. Get more tokens to continue.`);
           setTimeout(() => {
-            navigation.navigate('TokenSwap', {
+            navigation.navigate('Swap', {
               returnScreen: 'Chapter',
               returnParams: { novelId, chapterId: targetChapterId },
             });
@@ -2086,6 +2239,7 @@ const ChapterScreen = () => {
       } finally {
         setIsProcessing(false);
         setShowPaymentAnimation(false);
+        paymentInProgressRef.current = false;
       }
     },
     [activeWalletAddress, activePublicKey, novelId, smpBalance, smpPrice, solPrice, navigation, signAndSendTransaction, checkChapterPayment, wallet, fetchSmpBalanceOnChain]
@@ -2124,7 +2278,7 @@ const ChapterScreen = () => {
 
     // Wait for user ID to be loaded before proceeding offline
     if ((isOnline === false || isOnline === null) && !userId) {
-      console.log('[ChapterScreen] Waiting for user ID to load before checking cache');
+      if (__DEV__) console.log('[ChapterScreen] Waiting for user ID to load before checking cache');
       return;
     }
 
@@ -2134,18 +2288,18 @@ const ChapterScreen = () => {
       setIsLocked(true);
 
       const chapterNum = parseInt(chapterId, 10);
-      console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected, 'isOnline:', isOnline);
+      if (__DEV__) console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected, 'isOnline:', isOnline);
 
       // If offline or status unknown, only allow chapters that are saved
       if (isOnline === false || isOnline === null) {
-        console.log('[ChapterScreen] Offline/status unknown mode, checking cache');
+        if (__DEV__) console.log('[ChapterScreen] Offline/status unknown mode, checking cache');
         const cachedData = await getNovelForOffline(novelId, userId || 'guest');
         if (cachedData) {
-          console.log('[ChapterScreen] Cached novel found:', cachedData.novel.title);
+          if (__DEV__) console.log('[ChapterScreen] Cached novel found:', cachedData.novel.title);
           // Check if chapter is in the saved chapters
           const chapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
           if (chapter && chapter.content) {
-            console.log('[ChapterScreen] Chapter available in offline cache, unlocking:', chapterNum);
+            if (__DEV__) console.log('[ChapterScreen] Chapter available in offline cache, unlocking:', chapterNum);
             setIsLocked(false);
             setCanUnlockNextThree(true);
             setIsAdvanceChapter(false);
@@ -2159,13 +2313,13 @@ const ChapterScreen = () => {
             setLoading(false);
             return;
           } else {
-            console.log('[ChapterScreen] Chapter not in saved chapters');
+            if (__DEV__) console.log('[ChapterScreen] Chapter not in saved chapters');
             setError('This chapter is not available offline. Please save the novel while online to access this chapter.');
             setLoading(false);
             return;
           }
         } else {
-          console.log('[ChapterScreen] Novel not in cache');
+          if (__DEV__) console.log('[ChapterScreen] Novel not in cache');
           setError('Novel not available offline. Please save it for offline reading first.');
           setLoading(false);
           return;
@@ -2198,7 +2352,7 @@ const ChapterScreen = () => {
           if (cachedData) {
             const chapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
             if (chapter && chapter.content) {
-              console.log('[ChapterScreen] Chapter in offline cache, unlocking:', chapterNum);
+              if (__DEV__) console.log('[ChapterScreen] Chapter in offline cache, unlocking:', chapterNum);
               setIsLocked(false);
               setCanUnlockNextThree(true);
               setIsAdvanceChapter(false);
@@ -2218,7 +2372,7 @@ const ChapterScreen = () => {
 
       // First 3 chapters (indices 0, 1, 2) are free - unlock immediately even without wallet
       if (chapterNum >= 0 && chapterNum <= 2) {
-        console.log('[ChapterScreen] First 3 chapters are free, unlocking:', chapterNum);
+        if (__DEV__) console.log('[ChapterScreen] First 3 chapters are free, unlocking:', chapterNum);
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setIsAdvanceChapter(false);
@@ -2244,7 +2398,7 @@ const ChapterScreen = () => {
       const chapterNum = parseInt(chapterId, 10);
       // Don't process payment for first 3 chapters (indices 0, 1, 2)
       if (chapterNum >= 0 && chapterNum <= 2) {
-        console.log('[ChapterScreen] First 3 chapters are free, skipping payment');
+        if (__DEV__) console.log('[ChapterScreen] First 3 chapters are free, skipping payment');
         return;
       }
       // Don't process payment for offline chapters
@@ -2255,12 +2409,12 @@ const ChapterScreen = () => {
             if (cachedData && cachedData.chapters) {
               const offlineChapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
               if (offlineChapter && offlineChapter.content) {
-                console.log('[ChapterScreen] Chapter in offline cache, skipping payment');
+                if (__DEV__) console.log('[ChapterScreen] Chapter in offline cache, skipping payment');
                 return;
               }
             }
           } catch (e) {
-            console.log('[ChapterScreen] Error checking offline cache:', e);
+            if (__DEV__) console.log('[ChapterScreen] Error checking offline cache:', e);
           }
         })();
       }
@@ -2516,6 +2670,27 @@ const ChapterScreen = () => {
   // If fullscreen, render only chapter content
   if (isFullscreen) {
     const chapterContent = novel?.chaptercontents?.[chapterId] || '';
+
+    // Never reveal chapter content in fullscreen when the chapter is locked
+    if (!shouldShowContent) {
+      return (
+        <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
+          <StatusBar hidden={true} />
+          <TouchableOpacity
+            style={styles.fullscreenCloseButton}
+            onPress={() => setIsFullscreen(false)}
+          >
+            <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.lockedContainer}>
+            <FontAwesome5 name="lock" size={48} color={colors.accent} style={styles.lockIcon} />
+            <Text style={styles.lockedMessage}>This chapter is locked</Text>
+            <Text style={styles.lockedSubMessage}>Unlock it to read in fullscreen.</Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
         <StatusBar hidden={true} />
@@ -2605,7 +2780,17 @@ const ChapterScreen = () => {
         <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
           <FontAwesome5 name="home" size={20} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
+          {isTracking && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+              <FontAwesome5 name="clock" size={10} color={colors.gold} />
+              <Text style={{ color: colors.gold, fontSize: 10, marginLeft: 4, fontFamily: 'monospace' }}>
+                {formatReadingTime(getCurrentDuration())}
+              </Text>
+            </View>
+          )}
+        </View>
         <TouchableOpacity
           style={styles.headerButton}
           onPress={() => navigation.navigate('NovelsPage', { novelId })}
@@ -3074,7 +3259,7 @@ const ChapterScreen = () => {
                 // Check if 30 seconds reached
                 if (currentDuration >= 30 && !adWatched) {
                   setAdWatched(true);
-                  console.log('[Video Ad] 30 seconds watched, unlocking chapter');
+                  if (__DEV__) console.log('[Video Ad] 30 seconds watched, unlocking chapter');
                   handleVideoAdEnd();
                 }
               }
@@ -3386,6 +3571,206 @@ const ChapterScreen = () => {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Pioneer Badge Modal */}
+      <Modal
+        visible={showPioneerModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => !isClaimingPioneer && setShowPioneerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.pioneerCard}>
+            {/* Hero */}
+            <View style={styles.pioneerHero}>
+              <View style={styles.pioneerBadgeRing}>
+                <Image source={pioneerBadge} style={styles.pioneerBadgeImage} />
+              </View>
+              <Text style={styles.pioneerTitle}>You're a Pioneer</Text>
+              <Text style={styles.pioneerSubtitle}>
+                First reader to support this writer
+              </Text>
+            </View>
+
+            {/* Perks */}
+            <View style={styles.pioneerPerks}>
+              <View style={styles.pioneerPerkRow}>
+                <FontAwesome5 name="medal" size={13} color="#FFD700" style={styles.pioneerPerkIcon} />
+                <Text style={styles.pioneerPerkText}>Exclusive Pioneer badge on your profile</Text>
+              </View>
+              <View style={styles.pioneerPerkRow}>
+                <FontAwesome5 name="star" size={13} color="#FFD700" style={styles.pioneerPerkIcon} />
+                <Text style={styles.pioneerPerkText}>Recognized as this writer's first supporter</Text>
+              </View>
+              <View style={styles.pioneerPerkRow}>
+                <FontAwesome5 name="crown" size={13} color="#FFD700" style={styles.pioneerPerkIcon} />
+                <Text style={styles.pioneerPerkText}>Rare badge — cannot be earned again</Text>
+              </View>
+            </View>
+
+            {/* Actions */}
+            <TouchableOpacity
+              style={[styles.pioneerClaimButton, isClaimingPioneer && { opacity: 0.6 }]}
+              disabled={isClaimingPioneer}
+              onPress={async () => {
+                setIsClaimingPioneer(true);
+                try {
+                  // Try to grant Pioneer badge manually if edge function didn't
+                  const { data: pioneerBadgeRow } = await supabase
+                    .from('badges')
+                    .select('id')
+                    .eq('type', 'pioneer')
+                    .limit(1)
+                    .maybeSingle();
+
+                  if (pioneerBadgeRow && userId) {
+                    const { data: existingBadge } = await supabase
+                      .from('user_badges')
+                      .select('id')
+                      .eq('user_id', userId)
+                      .eq('badge_id', pioneerBadgeRow.id)
+                      .maybeSingle();
+
+                    if (!existingBadge) {
+                      // Try to insert badge (might fail due to RLS)
+                      const { error: badgeError } = await supabase
+                        .from('user_badges')
+                        .insert({
+                          user_id: userId,
+                          badge_id: pioneerBadgeRow.id,
+                          acquired_at: new Date().toISOString(),
+                        });
+
+                      if (badgeError) {
+                        console.error('[Pioneer Badge] Manual insert failed:', badgeError);
+                        // Badge might already be granted by edge function
+                      }
+                    }
+                  }
+
+                  Alert.alert('Congratulations!', 'You have earned the Pioneer badge!');
+                  setShowPioneerModal(false);
+                } catch (error) {
+                  console.error('[Pioneer Badge] Error:', error);
+                  Alert.alert('Error', 'Failed to add Pioneer badge: ' + error.message);
+                } finally {
+                  setIsClaimingPioneer(false);
+                }
+              }}
+            >
+              {isClaimingPioneer ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <FontAwesome5 name="award" size={14} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.pioneerClaimButtonText}>Claim Pioneer Badge</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.pioneerDeclineButton}
+              disabled={isClaimingPioneer}
+              onPress={() => setShowPioneerModal(false)}
+            >
+              <Text style={styles.pioneerDeclineText}>Maybe later</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ATA Funding Modal */}
+      <Modal
+        visible={showAtaFundingModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAtaFundingModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.ataModalContent}>
+            <View style={styles.ataModalHeader}>
+              <View style={styles.ataModalIcon}>
+                <FontAwesome5 name="exclamation-triangle" size={28} color={colors.warning || '#FFD700'} />
+              </View>
+              <Text style={styles.ataModalTitle}>Writer Missing ATA</Text>
+              <Text style={styles.ataModalDescription}>
+                This writer doesn't have an SMP Associated Token Account yet. Without it, their payment share will be rerouted to the treasury.
+              </Text>
+            </View>
+
+            <View style={styles.ataInfoCard}>
+              <View style={styles.ataInfoRow}>
+                <Text style={styles.ataInfoLabel}>Writer Wallet:</Text>
+                <Text style={styles.ataInfoValue}>{pendingAuthorData?.wallet_address?.slice(0, 8)}...</Text>
+              </View>
+              <View style={styles.ataInfoRow}>
+                <Text style={styles.ataInfoLabel}>ATA Address:</Text>
+                <Text style={styles.ataInfoValue}>{writerAtaAddress?.slice(0, 8)}...</Text>
+              </View>
+              <View style={styles.ataCostBadge}>
+                <Text style={styles.ataCostText}>~0.002 SOL to create ATA</Text>
+              </View>
+            </View>
+
+            <View style={styles.ataButtonContainer}>
+              <TouchableOpacity
+                style={styles.ataPrimaryButton}
+                onPress={async () => {
+                  try {
+                    setShowAtaFundingModal(false);
+                    // Create writer ATA first
+                    await createWriterAta(
+                      pendingAuthorData?.wallet_address,
+                      activePublicKey,
+                      signAndSendTransaction
+                    );
+                    // Then proceed with payment
+                    if (pendingPaymentDetails) {
+                      await processChapterPayment(
+                        pendingPaymentDetails.targetChapterId,
+                        pendingPaymentDetails.paymentType,
+                        pendingPaymentDetails.currency
+                      );
+                    }
+                  } catch (error) {
+                    console.error('[ATA Funding] Error:', error);
+                    setError(`Failed to create ATA: ${error.message}`);
+                    setTimeout(() => setError(null), 5000);
+                  }
+                }}
+              >
+                <FontAwesome5 name="check-circle" size={18} color="#ffffff" style={styles.ataButtonIcon} />
+                <Text style={styles.ataPrimaryButtonText}>Fund ATA & Proceed</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.ataSecondaryButton}
+                onPress={async () => {
+                  setShowAtaFundingModal(false);
+                  // Proceed with payment (writer share will be rerouted to treasury)
+                  if (pendingPaymentDetails) {
+                    await processChapterPayment(
+                      pendingPaymentDetails.targetChapterId,
+                      pendingPaymentDetails.paymentType,
+                      pendingPaymentDetails.currency
+                    );
+                  }
+                }}
+              >
+                <FontAwesome5 name="arrow-right" size={16} color={colors.warning || '#FFD700'} style={styles.ataButtonIcon} />
+                <Text style={styles.ataSecondaryButtonText}>Skip - Send to Treasury</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.ataCancelButton}
+                onPress={() => setShowAtaFundingModal(false)}
+              >
+                <Text style={styles.ataCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

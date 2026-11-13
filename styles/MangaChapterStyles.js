@@ -1,409 +1,152 @@
 import { StyleSheet } from 'react-native';
+import { colors, space, radius, type, layout } from '../theme/theme';
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1A1A2E',
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    marginTop: 10,
-    fontFamily: 'Roboto-Regular',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1A1A2E',
-    padding: 20,
-  },
-  errorTitle: {
-    color: '#FF5252',
-    fontSize: 22,
-    
-    marginBottom: 20,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Bold',
-  },
-  input: {
-    backgroundColor: '#2C2C44',
-    color: '#FFFFFF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-    fontSize: 16,
-    width: '100%',
-    fontFamily: 'Roboto-Regular',
-  },
-  actionButton: {
-    backgroundColor: '#F36316',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    
-    fontFamily: 'Roboto-Bold',
-  },
-  secondaryButton: {
-    backgroundColor: '#2C2C44',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Roboto-Regular',
-  },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  balanceContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: '#2C2C44',
-    borderRadius: 8,
-    margin: 10,
-  },
-  balanceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  balanceIcon: {
-    marginRight: 5,
-  },
-  balanceText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Roboto-Regular',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#2C2C44',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F36316',
-  },
-  headerButton: {
-    padding: 10,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Bold',
-  },
-  messageContainer: {
-    padding: 10,
-    margin: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  successMessage: {
-    backgroundColor: '#28A745',
-  },
-  errorMessage: {
-    backgroundColor: '#FF5252',
-  },
-  messageText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Roboto-Regular',
-  },
-  lockedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  lockIcon: {
-    marginBottom: 20,
-  },
-  lockedMessage: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    
-    marginBottom: 10,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Bold',
-  },
-  lockedSubMessage: {
-    color: '#CCCCCC',
-    fontSize: 16,
-    marginBottom: 20,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Regular',
-  },
-  paymentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  paymentButton: {
-    backgroundColor: '#F36316',
-    padding: 15,
-    borderRadius: 8,
-    margin: 5,
-    width: 150,
-    alignItems: 'center',
-  },
-  disabledButton: {
-    backgroundColor: '#555',
-    opacity: 0.6,
-  },
-  paymentButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    
-    marginVertical: 5,
-    fontFamily: 'Roboto-Bold',
-  },
-  paymentPrice: {
-    color: '#CCCCCC',
-    fontSize: 12,
-    fontFamily: 'Roboto-Regular',
-  },
-  contentContainer: {
-    flex: 1,
-  },
-  pageContainer: {
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  pageImage: {
-    width: '100%',
-    height: 600,
-    borderRadius: 8,
-  },
-  readingOptions: {
-    padding: 10,
-    alignItems: 'center',
-  },
-  smpButton: {
-    backgroundColor: '#F36316',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  smpButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    
-    fontFamily: 'Roboto-Bold',
-  },
-  readingModeText: {
-    color: '#CCCCCC',
-    fontSize: 14,
-    fontFamily: 'Roboto-Regular',
-  },
-  navigation: {
-    padding: 10,
-    backgroundColor: '#2C2C44',
-    borderTopWidth: 1,
-    borderTopColor: '#F36316',
-  },
-  navRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  navButton: {
-    flex: 1,
-    backgroundColor: '#F36316',
-    padding: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 5,
-  },
-  navButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    
-    fontFamily: 'Roboto-Bold',
-  },
-  navPlaceholder: {
-    flex: 1,
-    marginHorizontal: 5,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#2C2C44',
-    padding: 20,
-    borderRadius: 12,
-    width: '90%',
-    maxWidth: 400,
-  },
-  closeButton: {
+  container: { flex: 1, backgroundColor: colors.bg },
+  center: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
+
+  /* reader chrome */
+  topBar: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 10, // Increased padding for larger touch area
-  },
-  modalTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    
-    marginBottom: 10,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Bold',
-  },
-  modalSubtitle: {
-    color: '#CCCCCC',
-    fontSize: 16,
-    marginBottom: 15,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Regular',
-  },
-  transactionDetails: {
-    marginBottom: 20,
-  },
-  detailText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    marginVertical: 5,
-    fontFamily: 'Roboto-Regular',
-  },
-  modalButtonRow: {
+    top: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  modalConfirmButton: {
-    backgroundColor: '#F36316',
-    padding: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 5,
     alignItems: 'center',
-    minHeight: 48, // Ensure sufficient touch area
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+    backgroundColor: 'rgba(10,10,20,0.94)',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line,
   },
-  modalCancelButton: {
-    backgroundColor: '#555',
-    padding: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginLeft: 5,
+  progressTrack: { position: 'absolute', top: 57, left: 0, right: 0, height: 3, backgroundColor: 'rgba(255,255,255,0.06)' },
+  barTitle: { ...type.h3 },
+  miniStat: {
+    flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 48, // Ensure sufficient touch area
-  },
-  modalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    
-    fontFamily: 'Roboto-Bold',
-  },
-  modalNote: {
-    color: '#CCCCCC',
-    fontSize: 12,
-    marginTop: 10,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Regular',
-  },
-  passwordModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-  },
-  passwordModalContent: {
-    backgroundColor: '#2C2C44',
-    padding: 20,
-    borderRadius: 12,
-    width: '90%',
-    maxWidth: 400,
-  },
-  passwordModalTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    
-    marginBottom: 15,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Bold',
-  },
-  passwordInput: {
-    backgroundColor: '#1A1A2E',
-    color: '#FFFFFF',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    fontSize: 16,
-    fontFamily: 'Roboto-Regular',
-  },
-  inputError: {
-    borderColor: '#FF5252',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceHi,
     borderWidth: 1,
+    borderColor: colors.line,
   },
-  passwordErrorText: {
-    color: '#FF5252',
-    fontSize: 14,
-    marginBottom: 10,
-    textAlign: 'center',
-    fontFamily: 'Roboto-Regular',
-  },
-  passwordModalButtonRow: {
+  miniStatText: { ...type.caption, color: '#fff', fontWeight: '700' },
+  bottomBar: {
+    position: 'absolute',
+    bottom: space.lg,
+    alignSelf: 'center',
     flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  passwordModalConfirmButton: {
-    backgroundColor: '#F36316',
-    padding: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginRight: 5,
     alignItems: 'center',
-    minHeight: 48, // Ensure sufficient touch area
+    gap: space.md,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(18,18,31,0.94)',
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
   },
-  passwordModalCancelButton: {
-    backgroundColor: '#555',
-    padding: 12,
-    borderRadius: 8,
-    flex: 1,
-    marginLeft: 5,
+  pageIndicator: { flexDirection: 'row', alignItems: 'baseline', minWidth: 70, justifyContent: 'center' },
+  pageText: { ...type.h1, fontSize: 18 },
+  pageTotal: { ...type.caption },
+  toastWrap: { position: 'absolute', top: 70, left: 0, right: 0, zIndex: 20 },
+
+  /* read-to-earn */
+  earnWrap: { paddingHorizontal: space.lg, paddingBottom: space.md },
+  earnIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
     alignItems: 'center',
-    minHeight: 48, // Ensure sufficient touch area
+    justifyContent: 'center',
+    marginRight: space.md,
   },
-  passwordModalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    
-    fontFamily: 'Roboto-Bold',
+  earnDone: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.mint + '18',
+    borderWidth: 1,
+    borderColor: colors.mint + '55',
   },
+  earnDoneText: { ...type.bodyStrong, color: colors.mint },
+
+  /* end card */
+  endCard: { padding: space.xl, alignItems: 'stretch', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line },
+  endKicker: { ...type.label, color: colors.primaryHi, textAlign: 'center' },
+  endTitle: { ...type.h1, textAlign: 'center', marginTop: 4 },
+
+  /* balance strip */
+  balanceStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(18,18,31,0.85)',
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  balanceItem: { alignItems: 'center', gap: 3 },
+  balanceText: { ...type.h3 },
+  balanceLabel: { ...type.label, fontSize: 9 },
+  balanceDivider: { width: 1, height: 28, backgroundColor: colors.line },
+
+  /* paywall */
+  paywallBackdrop: { ...StyleSheet.absoluteFillObject, opacity: 0.5 },
+  paywallScroll: { padding: space.lg, paddingBottom: space.huge },
+  paywallTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  paywallManga: { ...type.h3, flex: 1, textAlign: 'center', paddingHorizontal: space.md },
+  lockBadge: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center' },
+  paywallTitle: { ...type.hero, fontSize: 24, textAlign: 'center', marginTop: space.lg },
+
+  payRow: { flexDirection: 'row', gap: space.sm },
+  payTile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: space.lg,
+    paddingHorizontal: space.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.lineStrong,
+  },
+  payIcon: { width: 34, height: 34, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
+  payTitle: { ...type.label, color: colors.textDim },
+  payAmount: { ...type.h2, marginVertical: 3 },
+
+  bundle: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg, borderRadius: radius.lg, overflow: 'hidden' },
+  bundleIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.25)', alignItems: 'center', justifyContent: 'center' },
+  bundleTitle: { ...type.h2 },
+  bundleDesc: { ...type.caption, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  bundleUsd: { ...type.h1, fontSize: 20 },
+  bundleSmp: { ...type.caption, color: 'rgba(255,255,255,0.85)' },
+  ribbon: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: colors.gold,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderBottomLeftRadius: radius.md,
+  },
+  ribbonText: { color: '#3b2600', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+
+  /* transaction sheet */
+  txHero: { alignItems: 'center', paddingVertical: space.lg },
+  txAmount: { ...type.hero, fontSize: 34, marginVertical: 4 },
+  txCurrency: { ...type.h1, color: colors.primaryHi },
+  txRows: { borderRadius: radius.md, backgroundColor: colors.surfaceHi, borderWidth: 1, borderColor: colors.line, marginBottom: space.md },
+  txRow: { flexDirection: 'row', justifyContent: 'space-between', padding: space.md },
+  txValue: { ...type.bodyStrong },
+  modalNote: { ...type.caption, textAlign: 'center', marginTop: space.md },
 });

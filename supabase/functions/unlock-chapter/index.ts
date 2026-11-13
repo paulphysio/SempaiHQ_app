@@ -213,6 +213,85 @@ serve(async (req) => {
       }).then(throwOnError);
     }
 
+    // Pioneer badge: grant when this is the user's first-ever payment to this writer
+    let isPioneer = false;
+    try {
+      const { data: authorNovels } = await supabaseAdmin
+        .from("novels")
+        .select("id")
+        .eq("user_id", novel.user_id);
+      const authorNovelIds = (authorNovels || []).map((n: any) => n.id);
+
+      const { data: priorPayments } = await supabaseAdmin
+        .from("chapter_payments")
+        .select("id")
+        .eq("wallet_address", walletAddress)
+        .in("novel_id", authorNovelIds)
+        .neq("transaction_id", signature)
+        .limit(1);
+
+      if (!priorPayments || priorPayments.length === 0) {
+        // Ensure a pioneer badge definition exists
+        let badgeId: string | null = null;
+        const { data: existingBadge } = await supabaseAdmin
+          .from("badges")
+          .select("id")
+          .eq("type", "pioneer")
+          .limit(1)
+          .maybeSingle();
+        badgeId = existingBadge?.id ?? null;
+
+        if (!badgeId) {
+          const { data: newBadge, error: badgeInsertError } = await supabaseAdmin
+            .from("badges")
+            .insert({
+              name: "Pioneer",
+              description: "First supporter of a writer on Sempai HQ",
+              type: "pioneer",
+              price: 0,
+            })
+            .select("id")
+            .single();
+          if (badgeInsertError) throw badgeInsertError;
+          badgeId = newBadge.id;
+        }
+
+        // Grant the badge if the user doesn't already own it
+        const { data: owned } = await supabaseAdmin
+          .from("user_badges")
+          .select("id")
+          .eq("user_id", userData.id)
+          .eq("badge_id", badgeId)
+          .maybeSingle();
+
+        if (!owned) {
+          const { error: grantError } = await supabaseAdmin
+            .from("user_badges")
+            .insert({
+              user_id: userData.id,
+              badge_id: badgeId,
+              acquired_at: new Date().toISOString(),
+            });
+          if (grantError) throw grantError;
+        }
+        isPioneer = true;
+
+        // Also insert into pioneer_creators table to track the relationship
+        const { error: pioneerError } = await supabaseAdmin
+          .from("pioneer_creators")
+          .insert({
+            user_id: userData.id,
+            creator_id: novel.user_id,
+            first_payment_at: new Date().toISOString(),
+          });
+        if (pioneerError && !pioneerError.message.includes('duplicate key')) {
+          console.warn("[unlock-chapter] Pioneer creators insert failed:", pioneerError.message);
+        }
+      }
+    } catch (pioneerError: any) {
+      console.warn("[unlock-chapter] Pioneer badge grant failed:", pioneerError?.message);
+    }
+
     // Award points
     const pointsToAdd = paymentType === "SINGLE" ? 100 : 1000;
     await supabaseAdmin.rpc('increment_weekly_points', {
@@ -221,7 +300,7 @@ serve(async (req) => {
     });
 
     console.log(`[unlock-chapter] Success - Chapter ${chapterId} unlocked for user ${userData.id}`);
-    return Response.json({ success: true, signature });
+    return Response.json({ success: true, signature, isPioneer });
 
   } catch (error: any) {
     console.error("[unlock-chapter] Error:", error.message);

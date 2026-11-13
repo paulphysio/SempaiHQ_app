@@ -1,340 +1,64 @@
-import { StyleSheet, Dimensions } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { colors, space, radius, type, layout } from '../theme/theme';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const COVER_W = layout.SCREEN_W * 0.46;
 
 export const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1A1A2E',
+  container: { flex: 1, backgroundColor: colors.bg },
+  barRight: { flexDirection: 'row', alignItems: 'center' },
+
+  heroWrap: { overflow: 'hidden' },
+  heroBackdrop: { ...StyleSheet.absoluteFillObject, opacity: 0.55 },
+  heroBody: { alignItems: 'center', paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xl },
+  coverShadow: { borderRadius: radius.lg },
+  cover: {
+    width: COVER_W,
+    height: COVER_W * 1.5,
+    borderRadius: radius.lg,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.surfaceHi,
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#1A1A2E',
-  },
-  loadingText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginTop: 10,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#1A1A2E',
-  },
-  errorTitle: {
-    color: '#FF5252',
-    fontSize: 20,
-    fontFamily: 'Yoruka',
-    
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  error: {
-    backgroundColor: '#FF5252',
-    padding: 10,
-    borderRadius: 5,
-    margin: 10,
-  },
-  errorText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-  },
-  navbar: {
-    backgroundColor: '#0F0F1B',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A3E',
-  },
-  navContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  navLink: {
+  title: { ...type.hero, textAlign: 'center', marginTop: space.lg },
+  authorRow: { flexDirection: 'row', alignItems: 'center', marginTop: space.sm, paddingVertical: 4 },
+  author: { ...type.bodyStrong, color: colors.primaryHi, marginLeft: 8 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.md },
+
+  section: { paddingHorizontal: layout.gutter },
+  statRow: { flexDirection: 'row', marginBottom: space.lg },
+  ctaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: space.xl },
+  latestBtn: { paddingHorizontal: 16, paddingVertical: 15 },
+
+  summary: { ...type.body, marginTop: 6 },
+  more: { ...type.caption, color: colors.primaryHi, fontWeight: '700' },
+  tagWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.lg },
+
+  chapterWrap: { paddingHorizontal: layout.gutter, marginBottom: space.sm },
+  chapterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  logoImage: {
-    width: 30,
-    height: 30,
-    marginRight: 10,
-  },
-  logoText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-  },
-  navRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuToggle: {
-    padding: 10,
-  },
-  navMenu: {
-    marginTop: 10,
-    backgroundColor: '#1A1A2E',
-    borderRadius: 5,
-    padding: 10,
-  },
-  navMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-  },
-  navMenuText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  header: {
-    padding: 20,
-    backgroundColor: '#0F0F1B',
-  },
-  coverImage: {
-    width: SCREEN_WIDTH * 0.4,
-    height: SCREEN_WIDTH * 0.6,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  headerContent: {
-    alignItems: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    marginBottom: 10,
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    fontFamily: 'Yoruka',
-    fontWeight: '700',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    gap: space.md,
+    padding: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
+    borderColor: colors.line,
   },
-  statusBadgeCompleted: {
-    backgroundColor: 'rgba(76, 175, 80, 0.2)',
-    borderColor: '#4CAF50',
-  },
-  statusBadgeHiatus: {
-    backgroundColor: 'rgba(255, 152, 0, 0.2)',
-    borderColor: '#FF9800',
-  },
-  statusBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: 'Yoruka',
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  author: {
-    color: '#F36316',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginBottom: 10,
-  },
-  summary: {
-    color: '#B0B0B0',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-    marginBottom: 15,
-    lineHeight: 20,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  chapterNum: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm + 2,
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    backgroundColor: colors.primary + '22',
+    borderWidth: 1,
+    borderColor: colors.primary + '66',
   },
-  tag: {
-    backgroundColor: '#2A2A3E',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-  },
-  tagText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontFamily: 'Yoruka',
-  },
-  info: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  titleIcon: {
-    marginRight: 10,
-  },
-  artistContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  artistText: {
-    color: '#F36316',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    marginLeft: 5,
-  },
-  genres: {
-    color: '#B0B0B0',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginBottom: 10,
-  },
-  summaryTitle: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontFamily: 'Yoruka',
-    
-    marginBottom: 5,
-  },
-  summaryText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    lineHeight: 20,
-  },
-  chapters: {
-    padding: 20,
-    backgroundColor: '#1A1A2E',
-  },
-  chapterTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontFamily: 'Yoruka',
-    
-    marginBottom: 15,
-  },
-  chapterGrid: {
-    paddingBottom: 10,
-  },
-  chapterItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: '#0F0F1B',
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  chapterIcon: {
-    marginRight: 10,
-  },
-  chapterText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    flex: 1,
-  },
-  premiumIcon: {
-    marginLeft: 10,
-  },
-  noChapters: {
-    color: '#B0B0B0',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  comments: {
-    padding: 20,
-    backgroundColor: '#1A1A2E',
-  },
-  walletPanel: {
-    position: 'absolute',
-    bottom: 0,
-    right: 20,
-    backgroundColor: '#0F0F1B',
-    borderRadius: 10,
-    padding: 10,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  walletPanelOpen: {
-    width: SCREEN_WIDTH * 0.8,
-  },
-  walletToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-  },
-  walletSummary: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginLeft: 10,
-  },
-  walletContent: {
-    padding: 10,
-  },
-  walletInfo: {
-    marginBottom: 10,
-  },
-  walletInfoText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    marginBottom: 5,
-  },
-  bold: {
-    
-  },
-  withdrawButton: {
-    backgroundColor: '#F36316',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  withdrawButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-    
-  },
-  footer: {
-    padding: 20,
-    backgroundColor: '#0F0F1B',
-    alignItems: 'center',
-  },
-  footerText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontFamily: 'Yoruka',
-  },
-  actionButton: {
-    backgroundColor: '#F36316',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: 'Yoruka',
-    
-  },
+  chapterNumText: { ...type.h3, color: colors.primaryHi },
+  chapterTitle: { ...type.bodyStrong },
+  noChapters: { ...type.body, textAlign: 'center', paddingVertical: space.xl },
+
+  pillWrap: { position: 'absolute', left: layout.gutter, right: layout.gutter, bottom: space.lg },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: space.xl },
+  footerText: { ...type.caption },
 });

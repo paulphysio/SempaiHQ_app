@@ -355,7 +355,7 @@ const { width, height } = Dimensions.get('window');
 
       if (!paymentMint) {
         // SOL transfer to treasury
-        const treasuryWallet = new PublicKey('4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H');
+        const treasuryWallet = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD');
         instructions.push(
           SystemProgram.transfer({
             fromPubkey: activePublicKey,
@@ -366,7 +366,7 @@ const { width, height } = Dimensions.get('window');
       } else {
         // Token transfer to treasury
         const userAta = getAssociatedTokenAddressSync(paymentMint, activePublicKey);
-        const treasuryWallet = new PublicKey('4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H');
+        const treasuryWallet = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD');
         const treasuryAta = getAssociatedTokenAddressSync(paymentMint, treasuryWallet, true);
 
         instructions.push(

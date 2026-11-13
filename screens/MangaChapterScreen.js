@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useCallback, useContext, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   ActivityIndicator,
   FlatList,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
+  ScrollView,
   StatusBar,
   SafeAreaView,
   Image,
+  Dimensions,
+  StyleSheet,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { formatNumber } from '../utils/formatNumber';
@@ -33,10 +32,9 @@ import {
   unpackAccount,
   TOKEN_PROGRAM_ID,
 } from '@solana/spl-token';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as SecureStore from 'expo-secure-store';
-import { styles } from '../styles/MangaChapterStyles';
 import {
   RPC_URL,
   SMP_MINT_ADDRESS,
@@ -49,6 +47,84 @@ import {
 } from '../constants';
 import bs58 from 'bs58';
 import MangaCommentSection from '../components/MangaCommentSection';
+import { useTheme } from '../context/ThemeContext';
+import pioneerBadge from '../assets/Pioneer.png';
+import {
+  Screen, Tap, IconButton, GradientButton, GhostButton, Input, Field, Panel, Sheet, Toast,
+  Skeleton, EmptyState, Divider, SectionHeader,
+} from '../components/ui';
+import { colors, gradients, radius, space, type, glow } from '../theme/theme';
+import { styles } from '../styles/MangaChapterStyles';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+
+/* ───────────── Reader page: full-width, auto aspect ratio, tap toggles controls ───────────── */
+const ReaderPage = React.memo(({ uri, onPress }) => {
+  const [ratio, setRatio] = useState(0.7);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    Image.getSize(
+      uri,
+      (w, h) => {
+        if (alive && w && h) setRatio(w / h);
+      },
+      () => {}
+    );
+    return () => {
+      alive = false;
+    };
+  }, [uri]);
+
+  return (
+    <Tap onPress={onPress} scaleTo={1} accessibilityLabel="Toggle reader controls">
+      <View style={{ width: SCREEN_W, aspectRatio: ratio, backgroundColor: colors.surface }}>
+        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="contain" onLoad={() => setReady(true)} />
+        {!ready ? (
+          <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : null}
+      </View>
+    </Tap>
+  );
+});
+
+/* ───────────── Paywall building blocks ───────────── */
+const PayTile = ({ icon, color, title, amount, sub, onPress, disabled }) => (
+  <Tap onPress={onPress} disabled={disabled} style={[styles.payTile, disabled && { opacity: 0.45 }]} accessibilityLabel={`Unlock with ${title}`}>
+    <View style={[styles.payIcon, { backgroundColor: color + '26' }]}>
+      <Icon name={icon} size={14} color={color} solid />
+    </View>
+    <Text style={styles.payTitle}>{title}</Text>
+    <Text style={styles.payAmount} numberOfLines={1} adjustsFontSizeToFit>{amount}</Text>
+    <Text style={type.caption}>{sub}</Text>
+  </Tap>
+);
+
+const BundleCard = ({ icon, title, desc, usd, smp, ribbon, tone, onPress }) => (
+  <Tap onPress={onPress} scaleTo={0.985} style={{ marginBottom: space.md }} accessibilityLabel={`Unlock ${title}`}>
+    <LinearGradient colors={tone} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.bundle, glow(tone[1], 0.3)]}>
+      <View style={styles.bundleIcon}>
+        <Icon name={icon} size={18} color="#fff" solid />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.bundleTitle}>{title}</Text>
+        <Text style={styles.bundleDesc}>{desc}</Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={styles.bundleUsd}>${usd.toFixed(2)}</Text>
+        <Text style={styles.bundleSmp}>{smp} SMP</Text>
+      </View>
+      {ribbon ? (
+        <View style={styles.ribbon}>
+          <Text style={styles.ribbonText}>{ribbon}</Text>
+        </View>
+      ) : null}
+    </LinearGradient>
+  </Tap>
+);
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const MAX_PASSWORD_ATTEMPTS = 3;
@@ -57,6 +133,18 @@ const MERCHANT_WALLET = TARGET_WALLET;
 const SMP_READ_COST = 1000; // Fixed cost for single chapter
 const threeChaptersSmp = 6480139; // Fixed $3 equivalent for 3 chapters
 const fullChaptersSmp = 32400693; // Fixed $15 equivalent for all chapters
+
+// Check if writer has SMP ATA
+const checkWriterAta = async (writerWalletAddress) => {
+  try {
+    const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+    const writerATA = getAssociatedTokenAddressSync(smpMint, new PublicKey(writerWalletAddress));
+    const ataInfo = await connection.getAccountInfo(writerATA);
+    return ataInfo !== null;
+  } catch (error) {
+    return false; // ATA doesn't exist
+  }
+};
 
 const fetchSolPrice = async () => {
   try {
@@ -96,11 +184,13 @@ const MangaChapterScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { mangaId, chapterId } = route.params || {};
+  const { isDark, colors: themeColors } = useTheme();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
 
   const [manga, setManga] = useState(null);
   const [chapter, setChapter] = useState(null);
+  const [mangaOwner, setMangaOwner] = useState(null);
   const [pages, setPages] = useState([]);
   const [chapterPrice, setChapterPrice] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +207,13 @@ const MangaChapterScreen = () => {
   const [showTransactionPopup, setShowTransactionPopup] = useState(false);
   const [transactionDetails, setTransactionDetails] = useState(null);
   const [solPrice, setSolPrice] = useState(100);
+  const [showPioneerModal, setShowPioneerModal] = useState(false);
+  const [pioneerPayload, setPioneerPayload] = useState(null);
+  const [currentCreatorId, setCurrentCreatorId] = useState(null);
+  const [showAtaFundingModal, setShowAtaFundingModal] = useState(false);
+  const [writerHasAta, setWriterHasAta] = useState(true);
+  const [ataFundingCost, setAtaFundingCost] = useState(0);
+  const [writerAtaAddress, setWriterAtaAddress] = useState(null);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState(null);
@@ -228,8 +325,8 @@ const MangaChapterScreen = () => {
         .select('amount')
         .eq('wallet_address', activeWalletAddress)
         .eq('currency', 'SMP')
-        .single();
-      if (balanceError) throw new Error(`Failed to fetch SMP balance: ${balanceError.message}`);
+        .maybeSingle();
+      if (balanceError && balanceError.code !== 'PGRST116') throw new Error(`Failed to fetch SMP balance: ${balanceError.message}`);
       setSmpBalance(balanceData?.amount || 0);
 
       await fetchAmethystBalance();
@@ -266,8 +363,15 @@ const MangaChapterScreen = () => {
         .order('page_number', { ascending: true });
       if (pagesError) throw new Error(`Failed to fetch pages: ${pagesError.message}`);
 
+      const { data: ownerData } = await supabase
+        .from('users')
+        .select('id, wallet_address, balance')
+        .eq('id', mangaData.user_id)
+        .maybeSingle();
+
       setManga(mangaData);
       setChapter(chapterData);
+      setMangaOwner(ownerData || null);
       setPages(pagesData || []);
       setIsPremium(chapterData.is_premium);
       setChapterPrice(chapterData.price !== null ? chapterData.price : 2.9);
@@ -332,34 +436,36 @@ const MangaChapterScreen = () => {
       }
 
       if (userId) {
-        const { data: payment, error: paymentError } = await supabase
+        const { data: payments, error: paymentError } = await supabase
           .from('user_payments')
           .select('id')
           .eq('user_wallet', activeWalletAddress)
           .eq('manga_id', mangaData.id)
           .eq('chapter_id', chapterData.id)
-          .single();
-        if (paymentError && paymentError.code !== 'PGRST116') {
+          .limit(1);
+        if (paymentError) {
           console.error('checkAccess: Payment check error:', paymentError);
           throw new Error(`Payment check failed: ${paymentError.message}`);
         }
-        if (payment) {
+        if (payments?.length) {
           console.log('checkAccess: Payment found, unlocking');
           setIsLocked(false);
           return;
         }
 
-        const { data: unlock, error: unlockError } = await supabase
+        // chapter_id NULL means a whole-series ("All Chapters") unlock
+        const { data: unlocks, error: unlockError } = await supabase
           .from('unlocked_manga_chapters')
           .select('chapter_id, expires_at')
           .eq('user_id', userId)
           .eq('manga_id', mangaData.id)
-          .eq('chapter_id', chapterData.id)
-          .single();
-        if (unlockError && unlockError.code !== 'PGRST116') {
+          .or(`chapter_id.eq.${chapterData.id},chapter_id.is.null`)
+          .limit(1);
+        if (unlockError) {
           console.error('checkAccess: Unlock check error:', unlockError);
           throw new Error(`Unlock check failed: ${unlockError.message}`);
         }
+        const unlock = unlocks?.[0];
         if (unlock && (!unlock.expires_at || new Date(unlock.expires_at) > new Date())) {
           console.log('checkAccess: Unlock record found, unlocking');
           setIsLocked(false);
@@ -447,6 +553,50 @@ const MangaChapterScreen = () => {
     }
   };
 
+  // Ask the edge function whether this unlock earned the Pioneer badge.
+  // The badge itself is granted server-side (user_badges is service-role only).
+  const claimPioneerBadge = useCallback(async (signature) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken || !mangaId) return false;
+
+      const supabaseUrl = 'https://xqeimsncmnqsiowftdmz.supabase.co';
+      const response = await fetch(`${supabaseUrl}/functions/v1/claim-pioneer-badge`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ mangaId, signature }),
+      });
+      const data = await response.json();
+      return !!(response.ok && data?.isPioneer);
+    } catch (err) {
+      console.warn('[claimPioneerBadge] Failed:', err.message);
+      return false;
+    }
+  }, [mangaId]);
+
+  const showPioneerIfEarned = useCallback((creatorId, creatorWallet) => {
+    try {
+      const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+      const writerATA = getAssociatedTokenAddressSync(smpMint, new PublicKey(creatorWallet));
+      setPioneerPayload({
+        type: 'create_ata',
+        mint: SMP_MINT_ADDRESS.toString(),
+        owner: creatorWallet,
+        ata: writerATA.toBase58(),
+        instructions: 'Use this payload to create an Associated Token Account for the writer'
+      });
+    } catch (err) {
+      console.warn('[showPioneerIfEarned] Failed to build payload:', err.message);
+      setPioneerPayload(null);
+    }
+    setCurrentCreatorId(creatorId);
+    setShowPioneerModal(true);
+  }, []);
+
   const updateTokenBalance = useCallback(async () => {
     if (!activeWalletAddress || !manga || !chapterId || !isPremium) return;
     try {
@@ -474,9 +624,9 @@ const MangaChapterScreen = () => {
         .select('amount')
         .eq('wallet_address', activeWalletAddress)
         .eq('currency', 'SMP')
-        .single();
-      if (balanceError || !walletBalance) throw new Error(`Wallet balance not found: ${balanceError?.message}`);
-      if (walletBalance.amount < SMP_READ_COST) throw new Error(`Insufficient SMP balance: ${walletBalance.amount.toLocaleString()} SMP`);
+        .maybeSingle();
+      if (balanceError && balanceError.code !== 'PGRST116') throw new Error(`Wallet balance not found: ${balanceError?.message}`);
+      if (!walletBalance || walletBalance.amount < SMP_READ_COST) throw new Error(`Insufficient SMP balance: ${walletBalance?.amount?.toLocaleString() || 0} SMP`);
 
       let sourceATA;
       try {
@@ -576,12 +726,17 @@ const MangaChapterScreen = () => {
 
       await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
 
-      const newSmpBalance = walletBalance.amount - SMP_READ_COST;
+      const newSmpBalance = (walletBalance?.amount || 0) - SMP_READ_COST;
       await supabase
         .from('wallet_balances')
-        .update({ amount: newSmpBalance })
-        .eq('wallet_address', activeWalletAddress)
-        .eq('currency', 'SMP');
+        .upsert({
+          user_id: userData.id,
+          wallet_address: activeWalletAddress,
+          chain: 'SOL',
+          currency: 'SMP',
+          amount: newSmpBalance,
+          decimals: 0,
+        }, { onConflict: 'wallet_address,currency' });
 
       let readerReward = 100;
       const authorReward = 500;
@@ -652,7 +807,7 @@ const MangaChapterScreen = () => {
         ]),
       ]);
 
-      await supabase.from('user_payments').insert({
+      const { error: paymentInsertError } = await supabase.from('user_payments').insert({
         user_wallet: activeWalletAddress,
         manga_id: mangaId,
         chapter_id: chapterId,
@@ -660,17 +815,27 @@ const MangaChapterScreen = () => {
         payment_amount: SMP_READ_COST,
         payment_currency: 'SMP',
         paid_at: new Date().toISOString(),
-        payment_type: 'single',
-        amount: SMP_READ_COST,
       });
+      if (paymentInsertError) {
+        console.warn('[updateTokenBalance] Failed to record payment:', paymentInsertError.message);
+      }
 
-      await supabase.from('unlocked_manga_chapters').insert({
+      const { error: unlockInsertError } = await supabase.from('unlocked_manga_chapters').insert({
         user_id: userData.id,
         manga_id: mangaId,
         chapter_id: chapterId,
+        transaction_id: signature,
         unlocked_at: new Date().toISOString(),
         expires_at: null,
       });
+      if (unlockInsertError) {
+        console.warn('[updateTokenBalance] Failed to record unlock:', unlockInsertError.message);
+      }
+
+      // Pioneer badge is granted server-side; show the modal if earned
+      if (await claimPioneerBadge(signature)) {
+        showPioneerIfEarned(mangaOwner.id, mangaOwner.wallet_address);
+      }
 
       setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent. You earned ${readerReward} points.`);
       setSmpBalance(newSmpBalance);
@@ -687,7 +852,7 @@ const MangaChapterScreen = () => {
       );
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, requestPassword, amethystBalance]);
+  }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, requestPassword, amethystBalance, claimPioneerBadge, showPioneerIfEarned]);
 
   const initiatePayment = async (currency, paymentType = 'single') => {
     if (!activeWalletAddress || !activePublicKey) {
@@ -746,6 +911,27 @@ const MangaChapterScreen = () => {
         }
         decimals = SMP_DECIMALS;
         mint = SMP_MINT_ADDRESS;
+
+        // Check if writer has SMP ATA - only for SMP payments
+        if (!mangaOwner?.wallet_address) {
+          throw new Error('Writer info not loaded yet. Please try again.');
+        }
+        const hasAta = await checkWriterAta(mangaOwner.wallet_address);
+        setWriterHasAta(hasAta);
+
+        if (!hasAta) {
+          // Calculate ATA funding cost
+          const smpMint = new PublicKey(SMP_MINT_ADDRESS);
+          const writerATA = getAssociatedTokenAddressSync(smpMint, new PublicKey(mangaOwner.wallet_address));
+          const rentExempt = await connection.getMinimumBalanceForRentExemption(165);
+          const fundingCost = 0.00203928; // ~0.002 SOL for ATA creation
+          setAtaFundingCost(fundingCost);
+          setWriterAtaAddress(writerATA.toBase58());
+          setShowAtaFundingModal(true);
+          setTransactionDetails({ currency, amount, displayAmount, decimals, mint, solPrice: solPriceUsed, chapterPrice: usdAmount, paymentType });
+          setPaymentMethod(currency);
+          return;
+        }
       }
 
       setTransactionDetails({ currency, amount, displayAmount, decimals, mint, solPrice: solPriceUsed, chapterPrice: usdAmount, paymentType });
@@ -952,45 +1138,37 @@ const MangaChapterScreen = () => {
         amountTransferred = (tx.meta.postBalances[receiverIndex] - tx.meta.preBalances[receiverIndex]) / LAMPORTS_PER_SOL;
         console.log('SOL Transfer Details:', { amountTransferred });
       } else {
-        const senderATA = await getAssociatedTokenAddressSync(
-          new PublicKey(mint),
-          senderPubkey
-        );
+        const mintStr = mint?.toString();
         const receiverATA = await getAssociatedTokenAddressSync(
           new PublicKey(mint),
           receiverPubkey
         );
 
-        const senderATAIndex = tx.transaction.message.accountKeys.findIndex(
-          key => key.toBase58() === senderATA.toBase58()
-        );
         const receiverATAIndex = tx.transaction.message.accountKeys.findIndex(
           key => key.toBase58() === receiverATA.toBase58()
         );
 
-        if (senderATAIndex === -1 || receiverATAIndex === -1) {
-          console.log('ATA not found:', { senderATAIndex, receiverATAIndex });
-          throw new Error(`Invalid ${currency} transaction: ATAs missing.`);
+        if (receiverATAIndex === -1) {
+          console.log('Receiver ATA not found:', { receiverATAIndex });
+          throw new Error(`Invalid ${currency} transaction: receiver ATA missing.`);
         }
 
-        const preTokenBalances = tx.meta.preTokenBalances?.find(
-          b => b.accountIndex === senderATAIndex && b.mint === mint
+        // Amount received = receiver's post balance minus pre balance.
+        // uiAmount is already decimal-adjusted, so no further scaling.
+        const receiverPre = tx.meta.preTokenBalances?.find(
+          b => b.accountIndex === receiverATAIndex && b.mint === mintStr
         );
-        const postTokenBalances = tx.meta.postTokenBalances?.find(
-          b => b.accountIndex === receiverATAIndex && b.mint === mint
+        const receiverPost = tx.meta.postTokenBalances?.find(
+          b => b.accountIndex === receiverATAIndex && b.mint === mintStr
         );
 
-        if (!preTokenBalances || !postTokenBalances) {
-          console.log('Token balances not found:', { preTokenBalances, postTokenBalances });
+        if (!receiverPost) {
+          console.log('Token balances not found:', { receiverPre, receiverPost });
           throw new Error(`Invalid ${currency} transfer: token balances missing.`);
         }
 
-        amountTransferred =
-          (Number(preTokenBalances.uiTokenAmount.uiAmount) - (Number(postTokenBalances.uiTokenAmount.uiAmount) || 0)) /
-          10 ** decimals;
-        if (amountTransferred <= 0) {
-          amountTransferred = Number(postTokenBalances.uiTokenAmount.uiAmount) / 10 ** decimals;
-        }
+        const preAmount = receiverPre ? Number(receiverPre.uiTokenAmount.uiAmount) || 0 : 0;
+        amountTransferred = (Number(receiverPost.uiTokenAmount.uiAmount) || 0) - preAmount;
         console.log(`${currency} Transfer Details:`, { amountTransferred });
       }
 
@@ -1021,19 +1199,19 @@ const MangaChapterScreen = () => {
         throw new Error('Chapter is not premium.');
       }
 
-      const { data: existingPayment, error: paymentError } = await supabase
+      const { data: existingPayments, error: paymentError } = await supabase
         .from('user_payments')
         .select('id')
         .eq('user_wallet', activeWalletAddress)
         .eq('manga_id', mangaId)
         .eq('chapter_id', chapterId)
-        .single();
-      if (paymentError && paymentError.code !== 'PGRST116') {
+        .limit(1);
+      if (paymentError) {
         console.error('Payment check error:', paymentError);
         throw new Error('Failed to check existing payment.');
       }
 
-      if (existingPayment) {
+      if (existingPayments?.length) {
         console.log('Existing payment found, unlocking.');
         setIsLocked(false);
         setSuccessMessage('Chapter already unlocked.');
@@ -1049,8 +1227,6 @@ const MangaChapterScreen = () => {
         transaction_id: signature,
         payment_amount: amountTransferred,
         payment_currency: currency,
-        payment_type: paymentType || 'single',
-        amount: currency === 'SMP' ? expectedAmount : amount / 10 ** decimals,
         paid_at: new Date().toISOString(),
       };
 
@@ -1064,6 +1240,7 @@ const MangaChapterScreen = () => {
         user_id: userId,
         manga_id: mangaId,
         chapter_id: chapterId,
+        transaction_id: signature,
         unlocked_at: new Date().toISOString(),
         expires_at: null,
       };
@@ -1080,6 +1257,7 @@ const MangaChapterScreen = () => {
             user_id: userId,
             manga_id: mangaId,
             chapter_id: ch.id,
+            transaction_id: signature,
             unlocked_at: new Date().toISOString(),
             expires_at: expiresAt.toISOString(),
           }));
@@ -1088,6 +1266,7 @@ const MangaChapterScreen = () => {
             user_id: userId,
             manga_id: mangaId,
             chapter_id: null,
+            transaction_id: signature,
             unlocked_at: new Date().toISOString(),
             expires_at: expiresAt.toISOString(),
           };
@@ -1103,6 +1282,19 @@ const MangaChapterScreen = () => {
       }
 
       console.log('Unlock successful:', paymentData);
+
+      // Pioneer badge is granted server-side; show the modal if earned
+      if (await claimPioneerBadge(signature)) {
+        const creatorId = manga?.user_id || mangaOwner?.id;
+        const creatorWallet = mangaOwner?.wallet_address;
+        if (creatorId && creatorWallet) {
+          showPioneerIfEarned(creatorId, creatorWallet);
+        } else {
+          setCurrentCreatorId(creatorId);
+          setShowPioneerModal(true);
+        }
+      }
+
       setIsLocked(false);
       setSuccessMessage('Chapter unlocked successfully!');
       setTimeout(() => setSuccessMessage(''), 5000);
@@ -1194,449 +1386,552 @@ const MangaChapterScreen = () => {
     fetchManga(inputMangaId, inputChapterId);
   };
 
+  /* ───────────── reader UI state (hooks stay above every early return) ───────────── */
+  const [chromeVisible, setChromeVisible] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [paying, setPaying] = useState(false);
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 55 }).current;
+  const onViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (viewableItems && viewableItems.length) {
+      const idx = viewableItems[0].index;
+      if (typeof idx === 'number') setCurrentPage(idx + 1);
+    }
+  }).current;
+  const toggleChrome = useCallback(() => setChromeVisible((v) => !v), []);
+
   const renderPage = useCallback(
-    ({ item }) => (
-      <Animated.View entering={FadeIn} style={styles.pageContainer}>
-        <Image
-          source={{ uri: item.image_url }}
-          style={styles.pageImage}
-          resizeMode="contain"
-        />
-      </Animated.View>
-    ),
-    []
+    ({ item }) => <ReaderPage uri={item.image_url} onPress={toggleChrome} />,
+    [toggleChrome]
   );
 
+  const closeTx = () => {
+    setShowTransactionPopup(false);
+    setTransactionDetails(null);
+    setPaymentMethod(null);
+    setPaying(false);
+  };
+  const closePassword = () => {
+    setShowPasswordModal(false);
+    setPassword('');
+    setPasswordError(null);
+    setPasswordAttempts(0);
+    setPasswordCallback(null);
+    setPaying(false);
+  };
+  const handleConfirmPayment = async () => {
+    if (paying) return;
+    setPaying(true);
+    try {
+      await confirmPayment();
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const goBackToSeries = () =>
+    navigation.canGoBack() ? navigation.goBack() : navigation.navigate('MangaDetail', { id: mangaId });
+
+  /* ───────────── early states ───────────── */
   if (!isWalletConnected) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="lock" size={48} color="#FF5252" style={styles.lockIcon} />
-          <Text style={styles.lockedMessage}>Connect Wallet to Access</Text>
-          <Text style={styles.lockedSubMessage}>
-            Please connect your wallet to read manga chapters.
-          </Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('WalletImport')}
-          >
-            <Icon name="wallet" size={16} color="#ffffff" style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Connect Wallet</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={() => navigation.navigate('Home')}
-          >
-            <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
-            <Text style={styles.secondaryButtonText}>Back to Home</Text>
-          </TouchableOpacity>
-        </Animated.View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+        <Screen>
+          <View style={styles.center}>
+            <EmptyState
+              icon="lock"
+              title="Connect your wallet"
+              subtitle="Link a wallet to read chapters, earn points and unlock premium content."
+              action="Connect Wallet"
+              onAction={() => navigation.navigate('WalletImport')}
+            />
+            <View style={{ width: 220 }}>
+              <GhostButton label="Back to Home" icon="home" onPress={() => navigation.navigate('Home')} />
+            </View>
+          </View>
+        </Screen>
       </SafeAreaView>
     );
   }
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#F36316" />
-        <Text style={styles.loadingText}>Loading Chapter...</Text>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+        <Screen>
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={{ ...type.body, marginTop: space.md }}>Loading chapter…</Text>
+            <View style={{ width: '70%', marginTop: space.xl }}>
+              <Skeleton height={12} />
+              <Skeleton height={12} width="80%" style={{ marginTop: 8 }} />
+            </View>
+          </View>
+        </Screen>
       </SafeAreaView>
     );
   }
 
-  if (useInput || error) {
+  // Only take over the screen for a fatal error. Transient errors show as a toast instead.
+  if (useInput || (error && (!manga || !chapter))) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Text style={styles.errorTitle}>{error || 'Missing Parameters'}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Manga ID (UUID)"
-            placeholderTextColor="#888"
-            value={inputMangaId}
-            onChangeText={setInputMangaId}
-            accessibilityLabel="Manga ID input"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Chapter ID (UUID)"
-            placeholderTextColor="#888"
-            value={inputChapterId}
-            onChangeText={setInputChapterId}
-            accessibilityLabel="Chapter ID input"
-          />
-          <TouchableOpacity style={styles.actionButton} onPress={handleManualFetch}>
-            <Text style={styles.actionButtonText}>Fetch Chapter</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-            <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
-            <Text style={styles.secondaryButtonText}>Back to Home</Text>
-          </TouchableOpacity>
-        </Animated.View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+        <Screen>
+          <ScrollView contentContainerStyle={styles.center} keyboardShouldPersistTaps="handled">
+            <Panel style={{ width: '100%', maxWidth: 420 }}>
+              <Text style={{ ...type.h1, color: colors.danger, textAlign: 'center', marginBottom: space.lg }}>
+                {error || 'Missing parameters'}
+              </Text>
+              <Field label="Manga ID">
+                <Input value={inputMangaId} onChangeText={setInputMangaId} placeholder="UUID" autoCapitalize="none" accessibilityLabel="Manga ID input" />
+              </Field>
+              <Field label="Chapter ID">
+                <Input value={inputChapterId} onChangeText={setInputChapterId} placeholder="UUID" autoCapitalize="none" accessibilityLabel="Chapter ID input" />
+              </Field>
+              <GradientButton label="Fetch Chapter" icon="download" onPress={handleManualFetch} />
+              <View style={{ height: space.sm }} />
+              <GhostButton label="Back to Home" icon="home" onPress={() => navigation.navigate('Home')} />
+            </Panel>
+          </ScrollView>
+        </Screen>
       </SafeAreaView>
     );
   }
 
   if (!manga || !chapter || pages.length === 0) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Text style={styles.errorTitle}>Chapter Not Found</Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              setUseInput(true);
-              setError('Enter new values to try again.');
-            }}
-          >
-            <Text style={styles.actionButtonText}>Try Another Chapter</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-            <Text style={styles.secondaryButtonText}>Back to Home</Text>
-            <Icon name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
-          </TouchableOpacity>
-        </Animated.View>
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
+        <Screen>
+          <View style={styles.center}>
+            <EmptyState
+              icon="book-open"
+              title="Chapter not found"
+              subtitle="This chapter may have no pages yet, or it isn't available."
+              action="Try another chapter"
+              onAction={() => {
+                setUseInput(true);
+                setError('Enter new values to try again.');
+              }}
+            />
+            <View style={{ width: 220 }}>
+              <GhostButton label="Back to Home" icon="home" onPress={() => navigation.navigate('Home')} />
+            </View>
+          </View>
+        </Screen>
       </SafeAreaView>
     );
   }
 
+  /* ───────────── derived values ───────────── */
   const chapterTitle = chapter.title || `Chapter ${chapter.chapter_number}`;
   const chapterNum = parseInt(chapter.chapter_number, 10);
-  const currentIndex = chapterList.findIndex(ch => ch.id === chapter.id);
+  const currentIndex = chapterList.findIndex((ch) => ch.id === chapter.id);
   const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1]?.id : null;
   const nextChapterId = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1]?.id : null;
   const singleChapterSol = solPrice ? (chapterPrice / solPrice).toFixed(4) : 'N/A';
   const singleChapterUsdc = (chapterPrice / usdcPrice).toFixed(2);
+  const usd = Number(chapterPrice || 0);
+  const progress = pages.length ? Math.min(1, currentPage / pages.length) : 0;
+
+  const goChapter = (id) => navigation.navigate('MangaChapter', { mangaId, chapterId: id });
+
+  const balanceStrip = (
+    <View style={styles.balanceStrip}>
+      <View style={styles.balanceItem}>
+        <Icon name="coins" size={12} color={colors.primaryHi} solid />
+        <Text style={styles.balanceText}>{smpBalance !== null ? formatNumber(smpBalance) : '…'}</Text>
+        <Text style={styles.balanceLabel}>SMP</Text>
+      </View>
+      <View style={styles.balanceDivider} />
+      <View style={styles.balanceItem}>
+        <Icon name="star" size={12} color={colors.gold} solid />
+        <Text style={styles.balanceText}>{weeklyPoints !== null ? formatNumber(weeklyPoints) : '…'}</Text>
+        <Text style={styles.balanceLabel}>PTS</Text>
+      </View>
+      <View style={styles.balanceDivider} />
+      <View style={styles.balanceItem}>
+        <Icon name="gem" size={12} color={colors.electric} solid />
+        <Text style={styles.balanceText}>{formatNumber(amethystBalance)}</Text>
+        <Text style={styles.balanceLabel}>AMETHYST</Text>
+      </View>
+    </View>
+  );
+
+  const toast = successMessage || error ? (
+    <View style={styles.toastWrap} pointerEvents="none">
+      <Toast message={successMessage || error} type={error ? 'error' : 'success'} />
+    </View>
+  ) : null;
+
+  /* ───────────── paywall ───────────── */
+  const paywall = (
+    <View style={{ flex: 1 }}>
+      <Image source={{ uri: pages[0]?.image_url }} style={styles.paywallBackdrop} blurRadius={40} />
+      <LinearGradient colors={['rgba(10,10,20,0.55)', colors.bg]} style={StyleSheet.absoluteFill} />
+      <ScrollView contentContainerStyle={styles.paywallScroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.paywallTop}>
+          <IconButton icon="chevron-left" label="Go back" onPress={goBackToSeries} size={38} />
+          <Text numberOfLines={1} style={styles.paywallManga}>{manga.title}</Text>
+          <View style={{ width: 38 }} />
+        </View>
+
+        <Animated.View entering={FadeInDown.duration(400)} style={{ alignItems: 'center', marginTop: space.lg }}>
+          <LinearGradient colors={gradients.gold} style={[styles.lockBadge, glow(colors.gold, 0.5)]}>
+            <Icon name="lock" size={26} color="#3b2600" solid />
+          </LinearGradient>
+          <Text style={styles.paywallTitle}>{chapterTitle}</Text>
+          <Text style={{ ...type.body, textAlign: 'center', marginTop: 4 }}>
+            This is a premium chapter. Unlock it to keep reading.
+          </Text>
+        </Animated.View>
+
+        <View style={{ marginTop: space.xl }}>{balanceStrip}</View>
+
+        <Text style={[type.label, { marginTop: space.xl, marginBottom: space.sm }]}>This chapter</Text>
+        <View style={styles.payRow}>
+          <PayTile
+            icon="sun"
+            color={colors.electric}
+            title="SOL"
+            amount={singleChapterSol}
+            sub={`$${usd.toFixed(2)}`}
+            disabled={singleChapterSol === 'N/A'}
+            onPress={() => initiatePayment('SOL', 'single')}
+          />
+          <PayTile
+            icon="dollar-sign"
+            color={colors.info}
+            title="USDC"
+            amount={singleChapterUsdc}
+            sub={`$${usd.toFixed(2)}`}
+            onPress={() => initiatePayment('USDC', 'single')}
+          />
+          <PayTile
+            icon="coins"
+            color={colors.primary}
+            title="SMP"
+            amount={SMP_READ_COST.toLocaleString()}
+            sub={`$${usd.toFixed(2)}`}
+            onPress={() => initiatePayment('SMP', 'single')}
+          />
+        </View>
+
+        <Text style={[type.label, { marginTop: space.xl, marginBottom: space.sm }]}>Save with a bundle · paid in SMP</Text>
+        <BundleCard
+          icon="layer-group"
+          title="3 Chapters"
+          desc="This chapter + the next 2 · 30 days"
+          usd={3}
+          smp={threeChaptersSmp.toLocaleString()}
+          tone={gradients.electric}
+          onPress={() => initiatePayment('SMP', 'threeChapters')}
+        />
+        <BundleCard
+          icon="crown"
+          title="All Chapters"
+          desc="Every chapter in this series · 30 days"
+          usd={15}
+          smp={fullChaptersSmp.toLocaleString()}
+          ribbon="BEST VALUE"
+          tone={gradients.sakura}
+          onPress={() => initiatePayment('SMP', 'fullChapters')}
+        />
+        <Text style={[type.caption, { textAlign: 'center', marginTop: space.sm }]}>
+          Payments are sent on Solana. You'll confirm with your wallet password.
+        </Text>
+      </ScrollView>
+    </View>
+  );
+
+  /* ───────────── reader ───────────── */
+  const readerHeader = (
+    <View style={{ paddingTop: 64 }}>
+      {isPremium ? (
+        <View style={styles.earnWrap}>
+          {hasReadChapter ? (
+            <View style={styles.earnDone}>
+              <Icon name="check-circle" size={16} color={colors.mint} solid />
+              <Text style={styles.earnDoneText}>You've earned points from this chapter</Text>
+            </View>
+          ) : (
+            <Panel accent={colors.primary} style={{ padding: space.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={styles.earnIcon}>
+                  <Icon name="gem" size={16} color="#fff" solid />
+                </View>
+                <View style={{ flex: 1, marginRight: space.md }}>
+                  <Text style={type.bodyStrong}>Read to earn</Text>
+                  <Text style={type.caption}>Spend 1,000 SMP, get points + support the artist.</Text>
+                </View>
+                <GradientButton full={false} size="sm" label="Earn" icon="bolt" onPress={handleReadWithSMP} />
+              </View>
+            </Panel>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const readerFooter = (
+    <View>
+      <View style={styles.endCard}>
+        <Text style={styles.endKicker}>END OF CHAPTER</Text>
+        <Text style={styles.endTitle}>{chapterTitle}</Text>
+        {nextChapterId ? (
+          <GradientButton size="lg" label="Next Chapter" icon="chevron-right" onPress={() => goChapter(nextChapterId)} style={{ marginTop: space.lg }} />
+        ) : (
+          <Text style={{ ...type.body, marginTop: 6 }}>You're all caught up. 🎉</Text>
+        )}
+        <View style={{ flexDirection: 'row', marginTop: space.md, gap: space.sm }}>
+          <View style={{ flex: 1 }}>
+            <GhostButton label="Previous" icon="chevron-left" disabled={!prevChapter} onPress={() => prevChapter && goChapter(prevChapter)} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <GhostButton label="Series" icon="book-open" onPress={() => navigation.navigate('MangaDetail', { id: mangaId })} />
+          </View>
+        </View>
+      </View>
+      <MangaCommentSection
+        mangaId={mangaId}
+        chapterId={chapterId}
+        isWalletConnected={isWalletConnected}
+        activePublicKey={activePublicKey}
+      />
+      <View style={{ height: 90 }} />
+    </View>
+  );
+
+  const reader = (
+    <View style={{ flex: 1 }}>
+      <FlatList
+        data={pages}
+        renderItem={renderPage}
+        keyExtractor={(item) => item.page_number.toString()}
+        ListHeaderComponent={readerHeader}
+        ListFooterComponent={readerFooter}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        initialNumToRender={4}
+        maxToRenderPerBatch={4}
+        windowSize={5}
+        showsVerticalScrollIndicator={false}
+      />
+
+      {chromeVisible ? (
+        <>
+          <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={styles.topBar}>
+            <IconButton icon="chevron-left" label="Go back" onPress={goBackToSeries} size={38} />
+            <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: space.sm }}>
+              <Text numberOfLines={1} style={styles.barTitle}>{manga.title}</Text>
+              <Text numberOfLines={1} style={type.caption}>{chapterTitle}</Text>
+            </View>
+            <View style={styles.miniStat}>
+              <Icon name="star" size={10} color={colors.gold} solid />
+              <Text style={styles.miniStatText}>{weeklyPoints !== null ? formatNumber(weeklyPoints) : '…'}</Text>
+            </View>
+          </Animated.View>
+          <View style={styles.progressTrack} pointerEvents="none">
+            <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ height: 3, width: `${progress * 100}%` }} />
+          </View>
+
+          <Animated.View entering={FadeIn.duration(160)} exiting={FadeOut.duration(160)} style={styles.bottomBar}>
+            <IconButton icon="step-backward" label="Previous chapter" size={42} onPress={() => prevChapter && goChapter(prevChapter)} style={{ opacity: prevChapter ? 1 : 0.35 }} />
+            <View style={styles.pageIndicator}>
+              <Text style={styles.pageText}>{currentPage}</Text>
+              <Text style={styles.pageTotal}> / {pages.length}</Text>
+            </View>
+            <IconButton icon="step-forward" label="Next chapter" size={42} tone="primary" onPress={() => nextChapterId && goChapter(nextChapterId)} style={{ opacity: nextChapterId ? 1 : 0.35 }} />
+          </Animated.View>
+        </>
+      ) : null}
+    </View>
+  );
+
+  const unlockLabel =
+    transactionDetails?.paymentType === 'threeChapters'
+      ? '3 chapters'
+      : transactionDetails?.paymentType === 'fullChapters'
+      ? 'all chapters'
+      : `Chapter ${chapterNum}`;
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
-      <Animated.View entering={FadeIn} style={styles.balanceContainer}>
-        <View style={styles.balanceItem}>
-          <Icon name="wallet" size={16} color="#F36316" style={styles.balanceIcon} />
-          <Text style={styles.balanceText}>
-            SMP: {smpBalance !== null ? formatNumber(smpBalance) : 'Loading...'}
-          </Text>
-        </View>
-        <View style={styles.balanceItem}>
-          <Icon name="star" size={16} color="#F36316" style={styles.balanceIcon} />
-          <Text style={styles.balanceText}>
-            Points: {weeklyPoints !== null ? formatNumber(weeklyPoints) : 'Loading...'}
-          </Text>
-        </View>
-        <View style={styles.balanceItem}>
-          <Icon name="gem" size={16} color="#F36316" style={styles.balanceIcon} />
-          <Text style={styles.balanceText}>
-            Amethyst: {formatNumber(amethystBalance)}
-          </Text>
-        </View>
-      </Animated.View>
+      <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
+      <Screen>
+        {isLocked ? paywall : reader}
+        {toast}
+      </Screen>
 
-      {(successMessage || error) && (
-        <Animated.View
-          entering={FadeIn}
-          exiting={FadeOut}
-          style={[styles.messageContainer, error ? styles.errorMessage : styles.successMessage]}
-        >
-          <Text style={styles.messageText}>{successMessage || error}</Text>
-        </Animated.View>
-      )}
-
-      {isLocked ? (
-        <Animated.View entering={FadeIn} style={styles.lockedContainer}>
-          <Icon name="lock" size={48} color="#FF5722" style={styles.lockIcon} />
-          <Text style={styles.lockedMessage}>This chapter is locked.</Text>
-          <Text style={styles.lockedSubMessage}>Unlock with Payment or Subscription</Text>
-          <View style={styles.paymentGrid}>
-            {[
-              { currency: 'SOL', price: singleChapterSol, usd: chapterPrice, paymentType: 'single' },
-              { currency: 'USDC', price: singleChapterUsdc, usd: chapterPrice, paymentType: 'single' },
-              {
-                currency: 'SMP',
-                price: SMP_READ_COST.toLocaleString(),
-                usd: chapterPrice,
-                paymentType: 'single',
-                label: 'Single Chapter SMP',
-              },
-              {
-                currency: 'SMP',
-                price: threeChaptersSmp.toLocaleString(),
-                usd: 3,
-                paymentType: 'threeChapters',
-                label: '3 Chapters',
-              },
-              {
-                currency: 'SMP',
-                price: fullChaptersSmp.toLocaleString(),
-                usd: 15,
-                paymentType: 'fullChapters',
-                label: 'All Chapters',
-              },
-            ].map((item, index) => (
-              <TouchableOpacity
-                key={item.currency + item.paymentType}
-                style={[
-                  styles.paymentButton,
-                  item.currency !== 'SMP' && !item.price ? styles.disabledButton : null,
-                  item.paymentType === 'threeChapters' ? styles.threeChaptersButton : null,
-                  item.paymentType === 'fullChapters' ? styles.fullChaptersButton : null,
-                ]}
-                onPress={() => initiatePayment(item.currency, item.paymentType)}
-                disabled={item.currency !== 'SMP' && !item.price}
-              >
-                <Icon
-                  name={item.paymentType === 'fullChapters' ? 'crown' : 'rocket'}
-                  size={20}
-                  color="#ffffff"
-                  style={styles.buttonIcon}
-                />
-                <Text style={styles.paymentButtonText}>
-                  {item.label || `Unlock Chapter (${item.currency})`}
-                </Text>
-                <Text style={styles.paymentPrice}>
-                  ${item.usd.toFixed(2)} / {item.price} {item.currency}
-                </Text>
-              </TouchableOpacity>
-            ))}
+      {/* Confirm transaction (hidden while the password sheet is up so two modals never stack) */}
+      <Sheet
+        visible={showTransactionPopup && !showPasswordModal}
+        onClose={closeTx}
+        title="Confirm payment"
+        footer={
+          <View>
+            <GradientButton label={paying ? 'Processing…' : 'Confirm & pay'} icon="shield-alt" onPress={handleConfirmPayment} loading={paying} disabled={paying} />
+            <View style={{ height: space.sm }} />
+            <GhostButton label="Cancel" onPress={closeTx} disabled={paying && showPasswordModal} />
+            <Text style={styles.modalNote}>You'll be asked for your wallet password.</Text>
           </View>
-        </Animated.View>
-      ) : (
-        <>
-          {isPremium && (
-            <Animated.View entering={FadeIn} style={styles.readingOptions}>
-              <TouchableOpacity
-                style={[styles.smpButton, hasReadChapter ? styles.disabledButton : null]}
-                onPress={handleReadWithSMP}
-                disabled={hasReadChapter}
-              >
-                <Icon name="gem" size={20} color="#ffffff" style={styles.buttonIcon} />
-                <Text style={styles.smpButtonText}>
-                  {hasReadChapter
-                    ? "You've earned points from this chapter!"
-                    : 'Read with 1,000 SMP (Earn points)'}
-                </Text>
-              </TouchableOpacity>
-              <Text style={styles.readingModeText}>
-                {isPremium ? 'Reading with SMP (Points Earned)' : 'Read for free (No Points)'}
-              </Text>
-            </Animated.View>
-          )}
-          <FlatList
-            data={pages}
-            renderItem={renderPage}
-            keyExtractor={(item) => item.page_number.toString()}
-            style={styles.contentContainer}
-            initialNumToRender={5}
-            maxToRenderPerBatch={5}
-            windowSize={3}
-            ListFooterComponent={() => (
-              <View style={styles.navigation}>
-                <View style={styles.navRow}>
-                  {prevChapter ? (
-                    <TouchableOpacity
-                      style={styles.navButton}
-                      onPress={() =>
-                        navigation.navigate('MangaChapter', { mangaId, chapterId: prevChapter })
-                      }
-                    >
-                      <Icon name="chevron-left" size={16} color="#ffffff" />
-                      <Text style={styles.navButtonText}>Previous Chapter</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.navPlaceholder} />
-                  )}
-                  <TouchableOpacity
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate('Manga', { mangaId })}
-                  >
-                    <Icon name="book-open" size={16} color="#ffffff" />
-                    <Text style={styles.navButtonText}>Back to Manga</Text>
-                  </TouchableOpacity>
-                  {nextChapterId && (
-                    <TouchableOpacity
-                      style={styles.navButton}
-                      onPress={() =>
-                        navigation.navigate('MangaChapter', { mangaId, chapterId: nextChapterId })
-                      }
-                    >
-                      <Text style={styles.navButtonText}>Next Chapter</Text>
-                      <Icon name="chevron-right" size={16} color="#ffffff" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <MangaCommentSection
-                  mangaId={mangaId}
-                  chapterId={chapterId}
-                  isWalletConnected={isWalletConnected}
-                  activePublicKey={activePublicKey}
-                />
-              </View>
-            )}
-          />
-        </>
-      )}
-
-      <Modal
-        visible={showTransactionPopup}
-        transparent={true}
-        animationType="none"
-        onRequestClose={() => {
-          console.log('Transaction modal closing requested');
-          setShowTransactionPopup(false);
-          setTransactionDetails(null);
-          setPaymentMethod(null);
-        }}
+        }
       >
-        <View style={styles.modalOverlay}>
-          <Animated.View
-            entering={FadeIn.duration(300)}
-            exiting={FadeOut.duration(300)}
-            style={styles.modalContent}
-          >
-            <TouchableOpacity
-              style={styles.modalButton}
-              onPress={() => {
-                console.log('Close modal button pressed');
-                setShowTransactionPopup(false);
-                setTransactionDetails(null);
-                setPaymentMethod(null);
-              }}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon name="times" size={20} color="#ffffff" />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Confirm Transaction</Text>
-            <Text style={styles.modalSubtitle}>
-              Unlock{' '}
-              {transactionDetails?.paymentType === 'threeChapters'
-                ? '3 Chapters'
-                : transactionDetails?.paymentType === 'fullChapters'
-                ? 'All Chapters'
-                : `Chapter ${chapterNum}`}
-              for:
-            </Text>
-            <View style={styles.transactionDetails}>
-              <Text style={styles.detailText}>
-                Amount: {transactionDetails?.displayAmount} {transactionDetails?.currency}
-              </Text>
-              <Text style={styles.detailText}>
-                USD Value: ${transactionDetails?.chapterPrice?.toFixed(2)}
-              </Text>
-              <Text style={styles.detailText}>
-                Wallet: {activeWalletAddress?.slice(0, 6)}...{activeWalletAddress?.slice(-4)}
-              </Text>
-              <Text style={styles.detailText}>
-                To: {MERCHANT_WALLET?.slice(0, 6)}...{MERCHANT_WALLET?.slice(-4)}
-              </Text>
-            </View>
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity
-                style={styles.modalConfirmButton}
-                onPress={() => {
-                  console.log('Confirm Payment modal button pressed');
-                  confirmPayment();
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.modalButtonText}>Confirm Payment</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => {
-                  console.log('Cancel modal button pressed');
-                  setShowTransactionPopup(false);
-                  setTransactionDetails(null);
-                  setPaymentMethod(null);
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalNote}>You will need to enter your wallet password.</Text>
-          </Animated.View>
+        <View style={styles.txHero}>
+          <Text style={type.label}>Unlock {unlockLabel}</Text>
+          <Text style={styles.txAmount}>
+            {transactionDetails?.displayAmount} <Text style={styles.txCurrency}>{transactionDetails?.currency}</Text>
+          </Text>
+          <Text style={type.body}>≈ ${Number(transactionDetails?.chapterPrice || 0).toFixed(2)} USD</Text>
         </View>
-      </Modal>
+        <View style={styles.txRows}>
+          <View style={styles.txRow}>
+            <Text style={type.caption}>From</Text>
+            <Text style={styles.txValue}>{activeWalletAddress?.slice(0, 6)}…{activeWalletAddress?.slice(-4)}</Text>
+          </View>
+          <Divider style={{ marginVertical: 0 }} />
+          <View style={styles.txRow}>
+            <Text style={type.caption}>To</Text>
+            <Text style={styles.txValue}>{MERCHANT_WALLET?.slice(0, 6)}…{MERCHANT_WALLET?.slice(-4)}</Text>
+          </View>
+        </View>
+      </Sheet>
 
-      <Modal
+      {/* Wallet password */}
+      <Sheet
         visible={showPasswordModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {
-          console.log('Password modal close requested');
-          setShowPasswordModal(false);
-          setPassword('');
-          setPasswordError(null);
-          setPasswordAttempts(0);
-          setPasswordCallback(null);
-        }}
+        onClose={closePassword}
+        title="Wallet password"
+        footer={
+          <View>
+            <GradientButton label="Confirm" icon="key" onPress={handlePasswordSubmit} disabled={passwordAttempts >= MAX_PASSWORD_ATTEMPTS} />
+            <View style={{ height: space.sm }} />
+            <GhostButton label="Cancel" onPress={closePassword} />
+          </View>
+        }
       >
-        <View style={styles.passwordModalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.keyboardAvoidingView}
-          >
-            <Animated.View
-              entering={FadeIn.duration(300)}
-              exiting={FadeOut.duration(300)}
-              style={styles.passwordModalContent}
-            >
-              <Text style={styles.passwordModalTitle}>Enter Wallet Password</Text>
-              <TextInput
-                style={[styles.passwordInput, passwordError ? styles.inputError : null]}
-                placeholder="Password"
-                placeholderTextColor="#888"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  setPasswordError(null);
-                }}
-                secureTextEntry={true}
-                autoFocus={true}
-                accessibilityLabel="Wallet password input"
-              />
-              {passwordError && (
-                <Text style={styles.passwordErrorText}>
-                  {passwordError}
-                  {passwordAttempts >= MAX_PASSWORD_ATTEMPTS
-                    ? ''
-                    : ` (${MAX_PASSWORD_ATTEMPTS - passwordAttempts} attempts left)`}
-                </Text>
-              )}
-              <View style={styles.passwordModalButtonRow}>
-                <TouchableOpacity
-                  style={styles.passwordModalConfirmButton}
-                  onPress={() => {
-                    console.log('Password modal Confirm pressed');
-                    handlePasswordSubmit();
-                  }}
-                  disabled={passwordAttempts >= MAX_PASSWORD_ATTEMPTS}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.passwordModalButtonText}>Confirm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.passwordModalCancelButton}
-                  onPress={() => {
-                    console.log('Password modal Cancel pressed');
-                    setShowPasswordModal(false);
-                    setPassword('');
-                    setPasswordError(null);
-                    setPasswordAttempts(0);
-                    setPasswordCallback(null);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.passwordModalButtonText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          </KeyboardAvoidingView>
+        <Field
+          label="Enter your password to sign"
+          error={
+            passwordError
+              ? `${passwordError}${passwordAttempts >= MAX_PASSWORD_ATTEMPTS ? '' : ` (${MAX_PASSWORD_ATTEMPTS - passwordAttempts} attempts left)`}`
+              : undefined
+          }
+        >
+          <Input
+            icon="lock"
+            value={password}
+            onChangeText={(t) => {
+              setPassword(t);
+              setPasswordError(null);
+            }}
+            placeholder="Password"
+            secureTextEntry
+            autoFocus
+            autoCapitalize="none"
+            accessibilityLabel="Wallet password input"
+            onSubmitEditing={handlePasswordSubmit}
+          />
+        </Field>
+      </Sheet>
+
+      {/* Pioneer Badge Modal */}
+      <Sheet
+        visible={showPioneerModal}
+        onClose={() => setShowPioneerModal(false)}
+        title="🏆 Pioneer Badge"
+        tall
+      >
+        <View style={{ alignItems: 'center', marginBottom: space.lg }}>
+          <Image source={pioneerBadge} style={{ width: 120, height: 48, resizeMode: 'contain' }} />
+          <Text style={[type.h2, { marginTop: space.md, color: colors.gold }]}>You're a Pioneer!</Text>
+          <Text style={[type.body, { marginTop: space.sm, textAlign: 'center' }]}>
+            You're the first reader to support this writer. As a thank you, you can claim a special Pioneer badge for your profile.
+          </Text>
         </View>
-      </Modal>
+
+        <Panel style={{ marginBottom: space.lg }}>
+          <SectionHeader title="Writer ATA Payload" icon="code" />
+          <View style={{ backgroundColor: colors.bgCard, padding: space.md, borderRadius: radius.md, marginTop: space.sm }}>
+            <Text style={[type.caption, { color: colors.textMute, marginBottom: space.xs }]}>Mint:</Text>
+            <Text style={[type.body, { fontFamily: 'monospace', marginBottom: space.sm }]}>{pioneerPayload?.mint}</Text>
+            <Text style={[type.caption, { color: colors.textMute, marginBottom: space.xs }]}>Owner:</Text>
+            <Text style={[type.body, { fontFamily: 'monospace', marginBottom: space.sm }]}>{pioneerPayload?.owner}</Text>
+            <Text style={[type.caption, { color: colors.textMute, marginBottom: space.xs }]}>ATA:</Text>
+            <Text style={[type.body, { fontFamily: 'monospace' }]}>{pioneerPayload?.ata}</Text>
+          </View>
+        </Panel>
+
+        <View style={{ marginTop: space.lg }}>
+          <GradientButton
+            label="Claim Pioneer Badge"
+            icon="award"
+            onPress={() => {
+              // Badge was already granted server-side by claim-pioneer-badge
+              setSuccessMessage('🏆 Congratulations! You have earned the Pioneer badge!');
+              setTimeout(() => setSuccessMessage(''), 5000);
+              setShowPioneerModal(false);
+            }}
+          />
+          <View style={{ height: space.sm }} />
+          <GhostButton
+            label="Decline"
+            onPress={() => setShowPioneerModal(false)}
+          />
+        </View>
+      </Sheet>
+
+      {/* ATA Funding Modal */}
+      <Sheet
+        visible={showAtaFundingModal}
+        onClose={() => setShowAtaFundingModal(false)}
+        title="💰 Writer ATA Setup"
+        tall
+      >
+        <View style={{ alignItems: 'center', marginBottom: space.lg }}>
+          <Text style={[type.h2, { marginTop: space.md, color: colors.gold }]}>Writer Missing ATA</Text>
+          <Text style={[type.body, { marginTop: space.sm, textAlign: 'center' }]}>
+            This writer doesn't have an SMP Associated Token Account (ATA) yet. Without it, their payment share will be rerouted to the treasury.
+          </Text>
+          <Text style={[type.body, { marginTop: space.sm, textAlign: 'center' }]}>
+            Would you like to fund the ATA creation (~0.002 SOL) so the writer can receive their payment directly?
+          </Text>
+        </View>
+
+        <Panel style={{ marginBottom: space.lg }}>
+          <SectionHeader title="ATA Details" icon="code" />
+          <View style={{ backgroundColor: colors.bgCard, padding: space.md, borderRadius: radius.md, marginTop: space.sm }}>
+            <Text style={[type.caption, { color: colors.textMute, marginBottom: space.xs }]}>Writer Wallet:</Text>
+            <Text style={[type.body, { fontFamily: 'monospace', marginBottom: space.sm }]}>{mangaOwner?.wallet_address?.slice(0, 8)}...</Text>
+            <Text style={[type.caption, { color: colors.textMute, marginBottom: space.xs }]}>ATA Address:</Text>
+            <Text style={[type.body, { fontFamily: 'monospace', marginBottom: space.sm }]}>{writerAtaAddress?.slice(0, 8)}...</Text>
+            <Text style={[type.caption, { color: colors.textMute, marginBottom: space.xs }]}>Funding Cost:</Text>
+            <Text style={[type.body, { fontFamily: 'monospace' }]}>~0.002 SOL</Text>
+          </View>
+        </Panel>
+
+        <View style={{ marginTop: space.lg }}>
+          <GradientButton
+            label="Fund ATA & Proceed"
+            icon="send"
+            onPress={async () => {
+              setShowAtaFundingModal(false);
+              // Show transaction popup with ATA funding included
+              setShowTransactionPopup(true);
+            }}
+          />
+          <View style={{ height: space.sm }} />
+          <GhostButton
+            label="Skip ATA Funding"
+            onPress={() => {
+              setShowAtaFundingModal(false);
+              // Proceed without ATA funding
+              setShowTransactionPopup(true);
+            }}
+          />
+        </View>
+      </Sheet>
     </SafeAreaView>
   );
 };

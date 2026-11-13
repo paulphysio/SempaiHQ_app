@@ -56,6 +56,12 @@ dapp-store-signing-keys/
 
 # Supabase
 supabase/.temp
+supabase/.env.kaiji
+
+# Kaiji game secrets
+devnet-admin.json
+escrow-keypair.json
+kaiji-secrets.txt
 
 # Sensitive key files
 certificate.pem
@@ -91,3 +97,25 @@ dapp-store/node_modules/
 sempaihq-push-notification-firebase-adminsdk-fbsvc-6d29802fb1.json
 
 google-services.json
+
+# Local archives/exports
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# Local Solana/devnet artifacts and one-off scripts
+/function.js
+/generate-escrow.js
+/devnet-mint.txt
+/scripts/devnet-setup.js
+/kaiji-clean/
+/kaiji-clean-new/
+
+# Unused local test/check scripts
+/calculate_smp_price.js
+/calculate_smp_price_fixed.js
+/components/GoogleSignInTest.js
+/supabase/functions/weekly-rewards/test.js

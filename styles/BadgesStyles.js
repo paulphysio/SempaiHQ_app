@@ -1,13 +1,12 @@
 // ./styles/BadgesStyles.js
 //
-// Kaito Adventure design system — Badges screen.
-// Theme-aware styles for badge purchase and display.
+// Kaito Adventure design system — Badges screen (rewrite).
+// Exports:
+//   getBadgesPalette(isDark)  -> raw colour tokens (for icon colours etc.)
+//   getBadgesStyles(isDark)   -> StyleSheet
+//   TIER_COLORS               -> accent colour per badge tier
 
-import { StyleSheet, Platform } from 'react-native';
-
-// ---------------------------------------------------------------------------
-// Design tokens
-// ---------------------------------------------------------------------------
+import { StyleSheet } from 'react-native';
 
 const PALETTE = {
   dark: {
@@ -15,323 +14,425 @@ const PALETTE = {
     bgCard: '#141210',
     bgElevated: '#1a1714',
     bgElevated2: '#211c15',
-    bgInput: '#181410',
-
     accent: '#cc5500',
     accentBright: '#ff6b35',
     accentSoft: 'rgba(230,126,34,0.16)',
-    accentDim: '#8b4513',
-
     gold: '#c9a84c',
     goldBright: '#ffd700',
     goldSoft: 'rgba(201,168,76,0.16)',
-
     textPrimary: '#f5e6d3',
     textSecondary: '#a8987f',
     textMuted: '#6b5d4f',
     textOnAccent: '#fff8ef',
-    textOnGold: '#1b1710',
-
     border: '#2c2419',
     borderStrong: '#3d3221',
-    divider: '#221c14',
-
     success: '#5fa876',
-    successSoft: 'rgba(95,168,118,0.14)',
+    successSoft: 'rgba(95,168,118,0.16)',
     error: '#e2495f',
     errorSoft: 'rgba(226,73,95,0.14)',
-    warning: '#c9a84c',
-    warningSoft: 'rgba(201,168,76,0.14)',
-
-    overlay: 'rgba(5,4,2,0.88)',
-    shadow: '#000000',
-    skeleton: '#211c15',
+    overlay: 'rgba(5,4,2,0.72)',
   },
   light: {
     bg: '#faf5ea',
     bgCard: '#ffffff',
     bgElevated: '#f2e9d8',
     bgElevated2: '#ece0c6',
-    bgInput: '#ffffff',
-
-    accent: '#3b82f6',
-    accentBright: '#60a5fa',
-    accentSoft: 'rgba(59, 130, 246, 0.12)',
-    accentDim: '#2563eb',
-
+    accent: '#c2500f',
+    accentBright: '#d9622b',
+    accentSoft: 'rgba(194,80,15,0.12)',
     gold: '#96762f',
     goldBright: '#b28f3a',
-    goldSoft: 'rgba(150,118,47,0.12)',
-
+    goldSoft: 'rgba(150,118,47,0.14)',
     textPrimary: '#2a2216',
     textSecondary: '#6d5f49',
     textMuted: '#a2937a',
     textOnAccent: '#fffaf3',
-    textOnGold: '#fffaf3',
-
     border: '#e7d9bd',
     borderStrong: '#d6c39c',
-    divider: '#efe3cc',
-
     success: '#3c7a52',
-    successSoft: 'rgba(60,122,82,0.10)',
+    successSoft: 'rgba(60,122,82,0.12)',
     error: '#c13a52',
     errorSoft: 'rgba(193,58,82,0.10)',
-    warning: '#96762f',
-    warningSoft: 'rgba(150,118,47,0.10)',
-
     overlay: 'rgba(38,30,18,0.55)',
-    shadow: '#2a2216',
-    skeleton: '#f2e9d8',
   },
 };
 
-const RADIUS = { xs: 8, sm: 12, md: 16, lg: 20, xl: 26, pill: 999 };
-const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
-const FONT = Platform.select({ ios: 'Yoruka', android: 'Yoruka', default: 'Yoruka' });
+export const TIER_COLORS = {
+  blue: '#4f8ef7',
+  iron: '#8d8d8d',
+  silver: '#c3c9d3',
+  gold: '#e0b84a',
+};
 
-// ---------------------------------------------------------------------------
-// Style factory
-// ---------------------------------------------------------------------------
+const R = { xs: 8, sm: 12, md: 16, lg: 22, pill: 999 };
+const S = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
+
+export const getBadgesPalette = (isDark) => (isDark ? PALETTE.dark : PALETTE.light);
 
 export const getBadgesStyles = (isDark) => {
-  const p = isDark ? PALETTE.dark : PALETTE.light;
+  const p = getBadgesPalette(isDark);
 
   return StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: p.bg,
-    },
+    container: { flex: 1, backgroundColor: p.bg },
+
+    // ---- Header ----------------------------------------------------------
     header: {
-      padding: SPACE.lg,
-      backgroundColor: p.bgCard,
-      borderBottomWidth: 1,
-      borderBottomColor: p.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: S.lg,
+      paddingTop: S.lg,
+      paddingBottom: S.md,
     },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: p.textPrimary,
-      marginBottom: SPACE.xs,
+    headerText: { flex: 1 },
+    title: { fontSize: 28, fontWeight: '800', color: p.textPrimary },
+    subtitle: { fontSize: 14, color: p.textSecondary, marginTop: 2 },
+    walletChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: S.md,
+      paddingVertical: 6,
+      borderRadius: R.pill,
+      backgroundColor: p.bgElevated,
+      borderWidth: 1,
+      borderColor: p.border,
     },
-    subtitle: {
-      fontSize: 14,
-      color: p.textSecondary,
+    walletDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: p.textMuted },
+    walletDotOn: { backgroundColor: p.success },
+    walletChipText: { fontSize: 12, fontWeight: '600', color: p.textSecondary },
+
+    // ---- Segmented control ----------------------------------------------
+    segment: {
+      flexDirection: 'row',
+      marginHorizontal: S.lg,
+      padding: 4,
+      borderRadius: R.sm,
+      backgroundColor: p.bgElevated,
+      borderWidth: 1,
+      borderColor: p.border,
     },
-    writerSection: {
-      padding: SPACE.lg,
-      backgroundColor: p.bgCard,
-      borderBottomWidth: 1,
-      borderBottomColor: p.border,
+    segmentItem: {
+      flex: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderRadius: R.xs,
     },
-    writerSectionTitle: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: p.textPrimary,
-      marginBottom: SPACE.md,
-    },
+    segmentItemActive: { backgroundColor: p.accent },
+    segmentText: { fontSize: 14, fontWeight: '700', color: p.textSecondary },
+    segmentTextActive: { color: p.textOnAccent },
+
+    // ---- Search + filters -----------------------------------------------
+    searchWrap: { paddingHorizontal: S.lg, paddingTop: S.md },
     searchBar: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: p.bgElevated,
-      borderRadius: RADIUS.sm,
-      paddingHorizontal: SPACE.md,
-      paddingVertical: SPACE.sm,
-      marginBottom: SPACE.md,
-    },
-    searchIcon: {
-      marginRight: SPACE.sm,
-    },
-    searchInput: {
-      flex: 1,
-      fontSize: 14,
-      color: p.textPrimary,
-    },
-    writerList: {
-      marginBottom: SPACE.sm,
-    },
-    writerChip: {
-      paddingHorizontal: SPACE.lg,
-      paddingVertical: SPACE.sm,
-      backgroundColor: p.bgElevated,
-      borderRadius: RADIUS.pill,
-      marginRight: SPACE.sm,
-      borderWidth: 1,
-      borderColor: p.border,
-    },
-    writerChipSelected: {
-      backgroundColor: p.accent,
-      borderColor: p.accent,
-    },
-    writerChipText: {
-      fontSize: 14,
-      color: p.textSecondary,
-    },
-    writerChipTextSelected: {
-      color: p.textPrimary,
-      fontWeight: 'bold',
-    },
-    content: {
-      flex: 1,
-    },
-    contentContainer: {
-      paddingBottom: 100,
-      paddingHorizontal: SPACE.lg,
-    },
-    section: {
-      marginBottom: SPACE.xxl,
-    },
-    sectionTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: p.textPrimary,
-      marginBottom: SPACE.lg,
-    },
-    badgesGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: SPACE.md,
-    },
-    badgeCard: {
-      width: '48%',
+      gap: S.sm,
       backgroundColor: p.bgCard,
-      borderRadius: RADIUS.md,
-      padding: SPACE.lg,
       borderWidth: 1,
       borderColor: p.border,
-      alignItems: 'center',
+      borderRadius: R.sm,
+      paddingHorizontal: S.md,
+      height: 46,
     },
-    ownedBadge: {
-      borderColor: p.gold,
-      backgroundColor: p.goldSoft,
+    searchInput: { flex: 1, fontSize: 15, color: p.textPrimary, paddingVertical: 0 },
+    filterRow: {
+      flexDirection: 'row',
+      gap: S.sm,
+      paddingHorizontal: S.lg,
+      paddingTop: S.md,
+      paddingBottom: S.xs,
     },
-    badgeImage: {
-      width: 80,
-      height: 80,
-      marginBottom: SPACE.md,
+    chip: {
+      paddingHorizontal: 14,
+      paddingVertical: 7,
+      borderRadius: R.pill,
+      borderWidth: 1,
+      borderColor: p.border,
+      backgroundColor: p.bgCard,
     },
-    badgeName: {
-      fontSize: 16,
-      fontWeight: 'bold',
-      color: p.textPrimary,
-      marginBottom: SPACE.xs,
-      textAlign: 'center',
-    },
-    badgeDescription: {
-      fontSize: 12,
+    chipActive: { backgroundColor: p.accentSoft, borderColor: p.accent },
+    chipText: { fontSize: 13, fontWeight: '600', color: p.textSecondary },
+    chipTextActive: { color: p.accentBright },
+
+    // ---- Lists / empty states -------------------------------------------
+    listContent: { padding: S.lg, paddingBottom: 60, gap: S.sm },
+    centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    emptyWrap: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: S.xxl },
+    emptyTitle: { fontSize: 17, fontWeight: '700', color: p.textPrimary, marginTop: S.md },
+    emptyText: {
+      fontSize: 14,
       color: p.textSecondary,
       textAlign: 'center',
-      marginBottom: SPACE.md,
+      marginTop: S.xs,
+      lineHeight: 20,
     },
-    purchaseButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: SPACE.sm,
+    emptyButton: {
+      marginTop: S.lg,
+      paddingHorizontal: S.xl,
+      paddingVertical: 11,
+      borderRadius: R.pill,
       backgroundColor: p.accent,
-      paddingHorizontal: SPACE.lg,
-      paddingVertical: SPACE.sm,
-      borderRadius: RADIUS.pill,
     },
-    purchaseButtonText: {
-      color: p.textPrimary,
-      fontWeight: 'bold',
-      fontSize: 14,
-    },
-    ownedBadgeContainer: {
+    emptyButtonText: { color: p.textOnAccent, fontWeight: '700', fontSize: 14 },
+
+    // ---- Writer card ----------------------------------------------------
+    writerCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: SPACE.sm,
+      gap: S.md,
+      padding: S.md,
+      borderRadius: R.md,
+      backgroundColor: p.bgCard,
+      borderWidth: 1,
+      borderColor: p.border,
     },
-    ownedText: {
-      color: p.goldBright,
-      fontWeight: 'bold',
-      fontSize: 14,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: p.overlay,
+    avatar: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      alignItems: 'center',
       justifyContent: 'center',
-      alignItems: 'center',
-      padding: SPACE.lg,
+      backgroundColor: p.accentSoft,
+      borderWidth: 1,
+      borderColor: p.accent,
+      overflow: 'hidden',
     },
-    modalContent: {
+    avatarLg: { width: 84, height: 84, borderRadius: 42 },
+    avatarText: { fontSize: 20, fontWeight: '800', color: p.accentBright },
+    avatarTextLg: { fontSize: 32 },
+    writerInfo: { flex: 1 },
+    writerName: { fontSize: 16, fontWeight: '700', color: p.textPrimary },
+    writerMetaText: { fontSize: 12, color: p.textSecondary, marginTop: 2 },
+    tagRow: { flexDirection: 'row', gap: 6, marginTop: 6 },
+    tag: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: R.xs },
+    tagOngoing: { backgroundColor: p.successSoft },
+    tagComplete: { backgroundColor: p.goldSoft },
+    tagText: { fontSize: 11, fontWeight: '700' },
+    tagTextOngoing: { color: p.success },
+    tagTextComplete: { color: p.gold },
+
+    // ---- My badges grid -------------------------------------------------
+    gridRow: { gap: S.md },
+    mineCard: {
+      flex: 1,
+      alignItems: 'center',
+      padding: S.lg,
+      borderRadius: R.md,
+      backgroundColor: p.bgCard,
+      borderWidth: 1,
+      borderColor: p.gold,
+    },
+    mineImage: { width: 76, height: 76, marginBottom: S.sm },
+    mineName: { fontSize: 15, fontWeight: '700', color: p.textPrimary, textAlign: 'center' },
+    mineWriter: { fontSize: 12, color: p.gold, marginTop: 2, textAlign: 'center' },
+    mineDesc: { fontSize: 12, color: p.textSecondary, marginTop: 6, textAlign: 'center' },
+
+    // ---- Bottom sheet ---------------------------------------------------
+    overlay: { flex: 1, backgroundColor: p.overlay, justifyContent: 'flex-end' },
+    sheet: {
+      height: '90%',
+      backgroundColor: p.bg,
+      borderTopLeftRadius: R.lg,
+      borderTopRightRadius: R.lg,
+      borderWidth: 1,
+      borderBottomWidth: 0,
+      borderColor: p.borderStrong,
+      overflow: 'hidden',
+    },
+    sheetHandle: {
+      alignSelf: 'center',
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: p.borderStrong,
+      marginTop: 10,
+    },
+    sheetTopBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: S.md,
+      paddingTop: S.sm,
+      minHeight: 44,
+    },
+    iconButton: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: p.bgElevated,
+    },
+    sheetTopTitle: { fontSize: 16, fontWeight: '700', color: p.textPrimary },
+    sheetScroll: { flex: 1 },
+    sheetScrollContent: { paddingHorizontal: S.lg, paddingBottom: 40 },
+
+    // ---- Writer hero ----------------------------------------------------
+    hero: { alignItems: 'center', paddingTop: S.sm, paddingBottom: S.xl },
+    heroName: { fontSize: 22, fontWeight: '800', color: p.textPrimary, marginTop: S.md },
+    heroStats: {
+      flexDirection: 'row',
+      marginTop: S.lg,
+      borderRadius: R.md,
       backgroundColor: p.bgCard,
       borderWidth: 1,
       borderColor: p.border,
-      borderRadius: RADIUS.md,
-      padding: SPACE.xl,
-      width: '100%',
-      maxWidth: 400,
     },
-    closeButton: {
+    stat: { paddingVertical: S.md, paddingHorizontal: S.xl, alignItems: 'center' },
+    statDivider: { width: 1, backgroundColor: p.border },
+    statValue: { fontSize: 18, fontWeight: '800', color: p.textPrimary },
+    statLabel: { fontSize: 12, color: p.textSecondary, marginTop: 2 },
+
+    // ---- Sections -------------------------------------------------------
+    section: { marginBottom: S.xxl },
+    sectionTitle: { fontSize: 18, fontWeight: '800', color: p.textPrimary, marginBottom: S.md },
+    novelScroll: { gap: S.md, paddingRight: S.lg },
+    novelCard: { width: 120 },
+    novelCover: {
+      width: 120,
+      height: 168,
+      borderRadius: R.sm,
+      backgroundColor: p.bgElevated,
+      borderWidth: 1,
+      borderColor: p.border,
+    },
+    novelCoverPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+    novelTitle: { fontSize: 13, fontWeight: '700', color: p.textPrimary, marginTop: S.sm },
+    novelStatus: { fontSize: 12, color: p.textSecondary, marginTop: 2 },
+    noticeText: { fontSize: 14, color: p.textSecondary, paddingVertical: S.md },
+    inlineLoader: { paddingVertical: S.xxl, alignItems: 'center' },
+
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: S.sm,
+      padding: S.md,
+      marginBottom: S.md,
+      borderRadius: R.sm,
+      backgroundColor: p.successSoft,
+    },
+    bannerText: { flex: 1, fontSize: 13, color: p.success, fontWeight: '600' },
+
+    // ---- Badge tier rows ------------------------------------------------
+    badgeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: S.md,
+      padding: S.md,
+      marginBottom: S.sm,
+      borderRadius: R.md,
+      backgroundColor: p.bgCard,
+      borderWidth: 1,
+      borderColor: p.border,
+      borderLeftWidth: 4,
+    },
+    badgeRowOwned: { backgroundColor: p.goldSoft, borderColor: p.gold },
+    badgeRowImage: { width: 56, height: 56 },
+    badgeRowInfo: { flex: 1 },
+    badgeRowName: { fontSize: 16, fontWeight: '700', color: p.textPrimary },
+    badgeRowDesc: { fontSize: 13, color: p.textSecondary, marginTop: 2 },
+    buyButton: {
+      paddingHorizontal: S.lg,
+      paddingVertical: 9,
+      borderRadius: R.pill,
+      backgroundColor: p.accent,
+    },
+    buyButtonDisabled: { backgroundColor: p.bgElevated2 },
+    buyButtonText: { color: p.textOnAccent, fontWeight: '800', fontSize: 14 },
+    buyButtonTextDisabled: { color: p.textMuted },
+    ownedPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: S.md,
+      paddingVertical: 8,
+    },
+    ownedPillText: { color: p.goldBright, fontWeight: '700', fontSize: 13 },
+
+    // ---- Checkout -------------------------------------------------------
+    summaryCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: S.md,
+      padding: S.lg,
+      borderRadius: R.md,
+      backgroundColor: p.bgCard,
+      borderWidth: 1,
+      borderColor: p.border,
+      marginBottom: S.xl,
+    },
+    summaryImage: { width: 64, height: 64 },
+    summaryInfo: { flex: 1 },
+    summaryName: { fontSize: 17, fontWeight: '800', color: p.textPrimary },
+    summaryWriter: { fontSize: 13, color: p.textSecondary, marginTop: 2 },
+    summaryPrice: { fontSize: 22, fontWeight: '800', color: p.gold },
+    label: { fontSize: 14, fontWeight: '700', color: p.textSecondary, marginBottom: S.sm },
+    currencyRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: S.md,
+      padding: S.md,
+      marginBottom: S.sm,
+      borderRadius: R.md,
+      backgroundColor: p.bgCard,
+      borderWidth: 1,
+      borderColor: p.border,
+    },
+    currencyRowSelected: { borderColor: p.accent, backgroundColor: p.accentSoft },
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: p.borderStrong,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    radioSelected: { borderColor: p.accentBright },
+    radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: p.accentBright },
+    currencyInfo: { flex: 1 },
+    currencyName: { fontSize: 15, fontWeight: '700', color: p.textPrimary },
+    currencyBalance: { fontSize: 12, color: p.textSecondary, marginTop: 2 },
+    currencyAmount: { fontSize: 15, fontWeight: '700', color: p.textPrimary },
+    lowTag: {
+      marginTop: 4,
       alignSelf: 'flex-end',
-      padding: SPACE.sm,
-      marginBottom: SPACE.md,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 6,
+      backgroundColor: p.errorSoft,
     },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: p.textPrimary,
-      marginBottom: SPACE.xs,
+    lowTagText: { fontSize: 10, fontWeight: '700', color: p.error },
+    warnBox: {
+      padding: S.md,
+      borderRadius: R.sm,
+      backgroundColor: p.errorSoft,
+      marginTop: S.sm,
     },
-    modalSubtitle: {
-      fontSize: 14,
-      color: p.textSecondary,
-      marginBottom: SPACE.xs,
+    warnText: { fontSize: 13, color: p.error, fontWeight: '600' },
+
+    footer: {
+      padding: S.lg,
+      borderTopWidth: 1,
+      borderTopColor: p.border,
+      backgroundColor: p.bgCard,
     },
-    modalPrice: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: p.gold,
-      marginBottom: SPACE.xl,
-    },
-    currencySelector: {
+    totalRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      marginBottom: SPACE.xl,
-    },
-    currencyOption: {
-      flex: 1,
-      marginHorizontal: SPACE.xs,
       alignItems: 'center',
-      backgroundColor: p.bgElevated,
-      borderWidth: 1,
-      borderColor: p.border,
-      borderRadius: RADIUS.sm,
-      paddingVertical: SPACE.md,
-      paddingHorizontal: SPACE.xs,
-      gap: SPACE.xs,
+      marginBottom: S.md,
     },
-    currencyOptionSelected: {
-      borderColor: p.gold,
-      backgroundColor: p.goldSoft,
-    },
-    currencyOptionText: {
-      color: p.textSecondary,
-      fontSize: 14,
-    },
-    currencyOptionTextSelected: {
-      color: p.gold,
-      fontWeight: 'bold',
-    },
-    currencyBalance: {
-      color: p.textMuted,
-      fontSize: 12,
-    },
+    totalLabel: { fontSize: 14, color: p.textSecondary },
+    totalValue: { fontSize: 16, fontWeight: '800', color: p.textPrimary },
     confirmButton: {
-      paddingVertical: SPACE.lg,
-      borderRadius: RADIUS.sm,
+      height: 52,
+      borderRadius: R.sm,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: p.accent,
     },
-    confirmButtonDisabled: {
-      opacity: 0.6,
-    },
-    confirmButtonText: {
-      color: p.textPrimary,
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
+    confirmButtonDisabled: { opacity: 0.45 },
+    confirmText: { color: p.textOnAccent, fontSize: 16, fontWeight: '800' },
   });
 };

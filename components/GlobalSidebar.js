@@ -74,7 +74,7 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
         { name: 'Chat', screen: 'Chat', icon: 'comments' },
         { name: 'Badges', screen: 'Badges', icon: 'award' },
         { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
-        { name: 'Kaito Leaderboard', screen: 'KaitoLeaderboard', icon: 'crown' },
+        { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
       ],
     },
     {
@@ -95,10 +95,20 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
       ],
     },
     {
+      title: 'Bazaar',
+      icon: 'store',
+      items: [
+        { name: 'Bazaar', screen: 'Bazaar', icon: 'book' },
+        { name: 'Upload Book', screen: 'UploadBook', icon: 'cloud-upload-alt' },
+        { name: 'My Bazaar', screen: 'BazaarDashboard', icon: 'chart-line' },
+      ],
+    },
+    {
       title: 'Other',
       icon: 'ellipsis-h',
       items: [
         { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
+        { name: 'Reader', screen: 'Reader', icon: 'book-reader' },
         { name: 'Apply', screen: 'Apply', icon: 'user-plus' },
         { name: 'Download', screen: 'Download', icon: 'download' },
         { name: 'Add Gif', screen: 'AddGif', icon: 'image' },

@@ -7,6 +7,7 @@ const ALLOWED_DOMAINS = [
   'xqeimsncmnqsiowftdmz.supabase.co',
   'sempaihq.com',
   'api.sempaihq.com',
+  'lite-api.jup.ag',
 ];
 
 /**

@@ -14,9 +14,14 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Connection, PublicKey, VersionedTransaction } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
+import { Connection, PublicKey, Transaction, SystemProgram, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import {
+  getAssociatedTokenAddressSync,
+  unpackAccount,
+  getAccount,
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+} from '@solana/spl-token';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -67,6 +72,7 @@ const TOKEN_DECIMALS = {
 };
 
 const PRICE_REFRESH_MS = 30000;
+const SOL_SEND_FEE_RESERVE = 0.00001;
 const PRICE_ENDPOINT = (ids) => `https://lite-api.jup.ag/price/v3?ids=${ids.join(',')}`;
 const QUOTE_ENDPOINT = (inputMint, amountBaseUnits) =>
   `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amountBaseUnits}&slippageBps=50`;
@@ -119,6 +125,17 @@ const formatToken = (value, decimals = 4) => {
   return value.toLocaleString('en-US', { maximumFractionDigits: decimals });
 };
 
+const tokenAccountExists = async (mint, owner) => {
+  try {
+    const ata = getAssociatedTokenAddressSync(mint, owner);
+    await getAccount(connection, ata);
+    return true;
+  } catch (err) {
+    if (err.name === 'TokenAccountNotFoundError') return false;
+    throw err;
+  }
+};
+
 // ---------------------------------------------------------------------------
 // Price hook
 // ---------------------------------------------------------------------------
@@ -157,7 +174,7 @@ function useTokenPrices() {
           const webFallback = await fetchSmpFallbackPrice();
           if (webFallback) {
             next.SMP = webFallback;
-            console.log('[useTokenPrices] Using web API fallback for SMP price');
+            if (__DEV__) console.log('[useTokenPrices] Using web API fallback for SMP price');
           }
         }
       }
@@ -181,7 +198,6 @@ function useTokenPrices() {
 }
 
 const SwapScreen = () => {
-  const navigation = useNavigation();
   const { wallet, signAndSendTransaction, signTransactionOnly, setShowModal } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
@@ -195,8 +211,6 @@ const SwapScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [password, setPassword] = useState('');
   const [showFromModal, setShowFromModal] = useState(false);
   const [showToModal, setShowToModal] = useState(false);
   const [showBalanceModal, setShowBalanceModal] = useState(false);
@@ -279,6 +293,8 @@ const SwapScreen = () => {
 
   const animatedPortfolioTotal = useCountUp(portfolioUsdTotal, { duration: 600 });
   const animatedBalance = useCountUp(balance, { duration: 450 });
+  const maxSendableBalance = coinFrom === 'SOL' ? Math.max(0, balance - SOL_SEND_FEE_RESERVE) : balance;
+  const formatSendAmount = (value) => value.toFixed(TOKEN_DECIMALS[coinFrom]).replace(/\.?0+$/, '');
 
   // -------------------------------------------------------------------------
   // Balance fetching
@@ -358,36 +374,91 @@ const SwapScreen = () => {
   };
 
   const handleSend = async () => {
-    if (!sendAmount || !sendAddress) {
-      setError('Please enter amount and recipient address');
+    if (!isWalletConnected) {
+      setError('Please connect your wallet to send.');
       return;
     }
-    if (parseFloat(sendAmount) > balance) {
-      setError(`Insufficient ${coinFrom} balance`);
-      return;
-    }
-    setShowPasswordModal(true);
-  };
 
-  const handleSendSubmit = async () => {
-    if (!password) {
-      setError('Please enter your wallet password');
+    const trimmedAddress = sendAddress.trim();
+    const amountNumber = parseFloat(sendAmount);
+    if (!sendAmount || !trimmedAddress || !Number.isFinite(amountNumber) || amountNumber <= 0) {
+      setError('Please enter a valid amount and recipient address');
       return;
     }
+
+    let recipientPublicKey;
+    try {
+      recipientPublicKey = new PublicKey(trimmedAddress);
+    } catch (_) {
+      setError('Invalid recipient wallet address');
+      return;
+    }
+
+    const maxSendable = coinFrom === 'SOL' ? maxSendableBalance : balance;
+    if (amountNumber > maxSendable) {
+      setError(
+        coinFrom === 'SOL'
+          ? `Insufficient SOL balance. Leave at least ${SOL_SEND_FEE_RESERVE} SOL for the network fee.`
+          : `Insufficient ${coinFrom} balance`
+      );
+      return;
+    }
+
+    const sender = wallet.publicKey;
+    const mint = TOKEN_MINTS[coinFrom];
+    const rawAmount = coinFrom === 'SOL'
+      ? Math.floor(amountNumber * LAMPORTS_PER_SOL)
+      : Math.floor(amountNumber * 10 ** TOKEN_DECIMALS[coinFrom]);
+
+    if (rawAmount <= 0) {
+      setError('Amount is too small to send');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-    setShowSendModal(false);
+
     try {
-      setSuccessMessage('Send functionality requires additional implementation');
-      setTimeout(() => setSuccessMessage(''), 4000);
-    } catch (err) {
-      console.error('Error sending:', err);
-      setError(`Send failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-      setPassword('');
+      let transaction;
+      if (coinFrom === 'SOL') {
+        transaction = new Transaction().add(
+          SystemProgram.transfer({
+            fromPubkey: sender,
+            toPubkey: recipientPublicKey,
+            lamports: rawAmount,
+          })
+        );
+      } else {
+        const senderATA = getAssociatedTokenAddressSync(mint, sender);
+        const recipientATA = getAssociatedTokenAddressSync(mint, recipientPublicKey);
+        const instructions = [];
+
+        if (!(await tokenAccountExists(mint, sender))) {
+          instructions.push(createAssociatedTokenAccountInstruction(sender, senderATA, sender, mint));
+        }
+        if (!(await tokenAccountExists(mint, recipientPublicKey))) {
+          instructions.push(createAssociatedTokenAccountInstruction(sender, recipientATA, recipientPublicKey, mint));
+        }
+        instructions.push(createTransferInstruction(senderATA, recipientATA, sender, rawAmount));
+
+        transaction = new Transaction().add(...instructions);
+      }
+
+      transaction.feePayer = sender;
+      const signature = await signAndSendTransaction(transaction);
+
+      setSuccessMessage(`Sent ${amountNumber} ${coinFrom}. Signature: ${signature}`);
       setSendAmount('');
       setSendAddress('');
+      setShowSendModal(false);
+      await Promise.all([checkBalance(), checkAllBalances()]);
+    } catch (err) {
+      console.error('Error sending:', err);
+      if (err?.message !== 'Password entry cancelled') {
+        setError(`Send failed: ${err.message}`);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -419,29 +490,6 @@ const SwapScreen = () => {
     setJupiterSwapUrl(`https://jup.ag/swap/${inputMint}-${outputMint}`);
     setJupiterPrefillAmount(amount);
     setShowJupiterWebView(true);
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!password) {
-      setError('Please enter your wallet password.');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setShowPasswordModal(false);
-
-    try {
-      if (showSendModal) {
-        await handleSendSubmit();
-        return;
-      }
-    } catch (err) {
-      console.error('Error:', err);
-      setError(`Failed: ${err.message}`);
-    } finally {
-      setLoading(false);
-      setPassword('');
-    }
   };
 
   // -------------------------------------------------------------------------
@@ -662,30 +710,6 @@ const SwapScreen = () => {
         </Animated.View>
       </ScrollView>
 
-      {/* Password Modal */}
-      <Modal isVisible={showPasswordModal} onBackdropPress={() => setShowPasswordModal(false)} avoidKeyboard useNativeDriver>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowPasswordModal(false)}>
-            <Icon name="times" size={20} color="#ff6200" />
-          </TouchableOpacity>
-          <Icon name="lock" size={28} color="#ff6200" style={{ alignSelf: 'center', marginBottom: 10 }} />
-          <Text style={styles.modalTitle}>Enter Wallet Password</Text>
-          <Text style={styles.modalMessage}>Confirm your password to authorize this transaction.</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            placeholderTextColor="#888"
-            autoFocus
-          />
-          <AnimatedPressable style={styles.submitButton} onPress={handlePasswordSubmit} disabled={loading}>
-            {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.submitButtonText}>Confirm</Text>}
-          </AnimatedPressable>
-        </View>
-      </Modal>
-
       {/* Token Selection Modal */}
       {(showFromModal || showToModal) && (
         <Modal isVisible={true} onBackdropPress={() => { setShowFromModal(false); setShowToModal(false); }} useNativeDriver>
@@ -770,9 +794,14 @@ const SwapScreen = () => {
       </Modal>
 
       {/* Send Modal */}
-      <Modal isVisible={showSendModal} onBackdropPress={() => setShowSendModal(false)} avoidKeyboard useNativeDriver>
+      <Modal
+        isVisible={showSendModal}
+        onBackdropPress={() => { if (!loading) setShowSendModal(false); }}
+        avoidKeyboard
+        useNativeDriver
+      >
         <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowSendModal(false)}>
+          <TouchableOpacity style={styles.closeButton} onPress={() => setShowSendModal(false)} disabled={loading}>
             <Icon name="times" size={20} color="#ff6200" />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Send {coinFrom}</Text>
@@ -784,6 +813,8 @@ const SwapScreen = () => {
               placeholderTextColor="#888"
               value={sendAddress}
               onChangeText={setSendAddress}
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
           <View style={styles.inputGroup}>
@@ -802,12 +833,23 @@ const SwapScreen = () => {
           </View>
           <View style={styles.tokenPanelBottomRow}>
             <Text style={styles.balancePillText}>Available: {formatToken(balance)} {coinFrom}</Text>
-            <AnimatedPressable onPress={() => setSendAmount(String(balance))} scaleTo={0.9}>
+            <AnimatedPressable onPress={() => setSendAmount(formatSendAmount(maxSendableBalance))} scaleTo={0.9} disabled={loading}>
               <Text style={styles.maxText}>MAX</Text>
             </AnimatedPressable>
           </View>
-          <AnimatedPressable style={styles.submitButton} onPress={handleSend}>
-            <Text style={styles.submitButtonText}>Continue</Text>
+          <AnimatedPressable
+            style={[styles.submitButton, loading ? styles.disabledButton : null]}
+            onPress={handleSend}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Icon name="paper-plane" size={16} color="#ffffff" style={{ marginRight: 8 }} />
+                <Text style={styles.submitButtonText}>Send</Text>
+              </>
+            )}
           </AnimatedPressable>
         </View>
       </Modal>

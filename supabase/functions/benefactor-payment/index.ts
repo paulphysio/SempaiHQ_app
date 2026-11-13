@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const solanaRpcUrl = Deno.env.get("SOLANA_RPC_URL") || "https://api.devnet.solana.com";
-const treasuryWallet = Deno.env.get("TREASURY_WALLET") || "4ZFvgNZygfiCSAS4aKBbQEgwJgBq5fRT9oLAH56GrF6H";
+const treasuryWallet = Deno.env.get("TREASURY_WALLET") || "71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 function throwOnError({ data, error }: any) {
