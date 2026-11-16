@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { isWalletInstalled, connectExternalWallet, getSupportedWallets } from '../services/externalWalletService';
-import { styles } from '../styles/ExternalWalletSelectorStyles';
+import { getExternalWalletStyles } from '../styles/ExternalWalletSelectorStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const WALLET_COLORS = {
   phantom: ['#AB9FF2', '#8B5CF6'],
@@ -18,6 +19,8 @@ const WALLET_ICONS = {
 };
 
 const ExternalWalletSelector = ({ visible, onClose, onConnect }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getExternalWalletStyles(colors), [isDark]);
   const [wallets, setWallets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(null);

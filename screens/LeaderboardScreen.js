@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,11 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 const LeaderboardScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getLeaderboardStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
 
@@ -124,7 +127,7 @@ const LeaderboardScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#F36316" />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Loading leaderboard…</Text>
         </View>
       </SafeAreaView>
@@ -154,7 +157,7 @@ const LeaderboardScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <LinearGradient colors={['#1A1730', '#0A0A14']} style={styles.header}>
+      <LinearGradient colors={[colors.bgCardAlt, colors.bg]} style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
             <FontAwesome5 name="arrow-left" size={16} color="#FFFFFF" />
@@ -164,7 +167,7 @@ const LeaderboardScreen = () => {
             <Text style={styles.pageTitle}>Leaderboard</Text>
           </View>
           <View style={styles.headerTrophyWrap}>
-            <FontAwesome5 name="trophy" size={18} color="#FFD84D" />
+            <FontAwesome5 name="trophy" size={18} color={colors.accent} />
           </View>
         </View>
 
@@ -198,7 +201,7 @@ const LeaderboardScreen = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F36316" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
         showsVerticalScrollIndicator={false}
       >
@@ -345,7 +348,7 @@ const LeaderboardScreen = () => {
             {/* Share Card */}
             <View style={styles.shareCard}>
               <LinearGradient
-                colors={['#211D38', '#0A0A14']}
+                colors={[colors.bgCard, colors.bg]}
                 style={styles.shareCardGradient}
               >
                 <View style={[styles.shareCardBadge, { borderColor: getRankColor(selectedReader?.rank || 0) }]}>
@@ -394,10 +397,10 @@ const COLORS = {
   danger: '#FF6B6B',
 };
 
-const styles = StyleSheet.create({
+export const getLeaderboardStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
+    backgroundColor: c.bg,
   },
   centerContainer: {
     flex: 1,
@@ -405,7 +408,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: COLORS.textMid,
+    color: c.textSecondary,
     marginTop: 16,
     fontSize: 15,
     fontWeight: '500',
@@ -427,27 +430,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   errorText: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 18,
      
     marginTop: 20,
     textAlign: 'center',
   },
   errorMessage: {
-    color: COLORS.textMid,
+    color: c.textSecondary,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: COLORS.brand,
+    backgroundColor: c.accent,
     borderRadius: 14,
     paddingHorizontal: 28,
     paddingVertical: 14,
     marginTop: 24,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 15,
      
   },
@@ -455,7 +458,7 @@ const styles = StyleSheet.create({
   // Header
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.line,
+    borderBottomColor: c.border,
     paddingBottom: 18,
   },
   headerContent: {
@@ -469,7 +472,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -478,13 +481,13 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   eyebrow: {
-    color: COLORS.brand,
+    color: c.accent,
     fontSize: 11,
      
     letterSpacing: 1.4,
   },
   pageTitle: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 24,
      
     marginTop: 2,
@@ -511,24 +514,24 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: c.border,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.line,
+    borderColor: c.border,
     flex: 1,
     justifyContent: 'center',
   },
   timeButtonActive: {
-    backgroundColor: COLORS.brand,
-    borderColor: COLORS.brand,
+    backgroundColor: c.accent,
+    borderColor: c.accent,
   },
   timeButtonText: {
-    color: COLORS.textLow,
+    color: c.textMuted,
     fontSize: 13,
      
   },
   timeButtonTextActive: {
-    color: '#FFFFFF',
+    color: '#fff',
   },
 
   scrollView: {
@@ -547,18 +550,18 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   noResultsTitle: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 18,
      
     marginTop: 18,
   },
   noResultsText: {
-    color: COLORS.textMid,
+    color: c.textSecondary,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
@@ -584,7 +587,7 @@ const styles = StyleSheet.create({
   podiumCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: COLORS.line,
+    borderColor: c.border,
     alignItems: 'center',
     paddingVertical: 18,
     paddingHorizontal: 8,
@@ -607,7 +610,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: c.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -618,24 +621,24 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   podiumAvatarText: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 16,
      
   },
   podiumName: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 12,
      
     maxWidth: 90,
   },
   podiumPoints: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 15,
      
     marginTop: 4,
   },
   podiumRank: {
-    color: COLORS.textLow,
+    color: c.textMuted,
     fontSize: 11,
      
     marginTop: 2,
@@ -648,7 +651,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   legendText: {
-    color: COLORS.textLow,
+    color: c.textMuted,
     fontSize: 10,
      
     letterSpacing: 0.8,
@@ -665,10 +668,10 @@ const styles = StyleSheet.create({
   readerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: c.bgCard,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: COLORS.line,
+    borderColor: c.border,
     paddingVertical: 12,
     paddingHorizontal: 12,
   },
@@ -677,7 +680,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   rankNumber: {
-    color: COLORS.textLow,
+    color: c.textMuted,
     fontSize: 13,
      
   },
@@ -685,13 +688,13 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: COLORS.surfaceRaised,
+    backgroundColor: c.bgElevated,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
   },
   avatarText: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 13,
      
   },
@@ -701,7 +704,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   readerName: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 14,
      
   },
@@ -715,13 +718,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: c.border,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
   walletAddress: {
-    color: COLORS.textLow,
+    color: c.textMuted,
     fontSize: 10,
      
   },
@@ -737,12 +740,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(163,89,255,0.2)',
   },
   gemChipText: {
-    color: COLORS.gem,
+    color: c.sakura,
     fontSize: 10,
      
   },
   gemChipBonus: {
-    color: COLORS.gem,
+    color: c.sakura,
     fontSize: 9,
      
     opacity: 0.75,
@@ -752,12 +755,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   effectivePoints: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 15,
      
   },
   subStat: {
-    color: COLORS.textLow,
+    color: c.textMuted,
     fontSize: 10,
      
     marginTop: 2,
@@ -781,7 +784,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareModalContent: {
-    backgroundColor: COLORS.bg,
+    backgroundColor: c.bg,
     borderWidth: 1,
     borderColor: 'rgba(163,89,255,0.25)',
     borderRadius: 22,
@@ -795,10 +798,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.line,
+    borderBottomColor: c.border,
   },
   shareModalTitle: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 17,
      
   },
@@ -806,7 +809,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: c.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -831,19 +834,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.25)',
   },
   shareCardRank: {
-    color: COLORS.textHi,
+    color: c.textPrimary,
     fontSize: 15,
      
     letterSpacing: 0.5,
   },
   shareCardUsername: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 22,
      
     marginTop: 6,
   },
   shareCardPoints: {
-    color: COLORS.textMid,
+    color: c.textSecondary,
     fontSize: 15,
      
     marginTop: 6,
@@ -858,7 +861,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   shareCardTimeFrame: {
-    color: COLORS.gem,
+    color: c.sakura,
     fontSize: 12,
      
     letterSpacing: 0.4,
@@ -870,12 +873,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginHorizontal: 20,
     marginBottom: 20,
-    backgroundColor: COLORS.brand,
+    backgroundColor: c.accent,
     borderRadius: 14,
     paddingVertical: 15,
   },
   shareButtonXText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
      
   },

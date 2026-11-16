@@ -25,7 +25,7 @@ import _ from 'lodash';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
-import { styles } from '../styles/KaitoStyles';
+import { getKaitoStyles } from '../styles/KaitoStyles';
 import Orientation from 'react-native-orientation-locker';
 // Import new React Native components
 import Navbar from '../components/KaitoAdventure/Navbar';
@@ -54,6 +54,7 @@ import LeaderboardModal from '../components/KaitoAdventure/modals/LeaderboardMod
 import CombatModal from '../components/KaitoAdventure/modals/CombatModal';
 import WaveModal from '../components/KaitoAdventure/modals/WaveModal';
 import NexusTransitionModal from '../components/KaitoAdventure/modals/NexusTransitionModal';
+import { useTheme } from '../context/ThemeContext';
 
 // ---- Constants Section ----
 const avatarImages = {
@@ -230,6 +231,8 @@ const LOW_HEALTH_WARNING_THRESHOLD = 0.3;
 
 // ---- KaitoAdventure Component ----
 const KaitoAdventureScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getKaitoStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet, connected, isConnected, isWalletConnected } = useContext(EmbeddedWalletContext);
   const defaultPlayerMemo = useMemo(
@@ -1955,7 +1958,7 @@ const KaitoAdventureScreen = () => {
             style={styles.leaderboardButton}
             onPress={() => toggleModal('leaderboard')}
           >
-            <Icon name="star" size={20} color="#ff6200" style={styles.iconPulse} />
+            <Icon name="star" size={20} color={colors.accent} style={styles.iconPulse} />
             <Text style={styles.buttonText}>Leaderboard</Text>
           </TouchableOpacity>
         );
@@ -2573,7 +2576,7 @@ const KaitoAdventureScreen = () => {
           style={styles.leaderboardButton}
           onPress={() => toggleModal('leaderboard')}
         >
-          <Icon name="star" size={20} color="#ff6200" style={styles.iconPulse} />
+          <Icon name="star" size={20} color={colors.accent} style={styles.iconPulse} />
           <Text style={styles.buttonText}>Leaderboard</Text>
         </TouchableOpacity>
         <PlayerStats player={player} xpProgress={xpProgress} />

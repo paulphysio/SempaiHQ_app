@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getQRCodeStyles = (c) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -10,12 +10,12 @@ export const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 400,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#9B59B6',
-    shadowColor: '#9B59B6',
+    borderColor: c.accent,
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -37,12 +37,12 @@ export const styles = StyleSheet.create({
     padding: 30,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
   },
   title: {
     fontSize: 24,
     
-    color: '#FFFFFF',
+    color: c.bgCard,
     marginTop: 15,
     fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -64,12 +64,12 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginTop: 15,
     fontFamily: 'Yoruka',
   },
   qrContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.textPrimary,
     padding: 20,
     borderRadius: 15,
     marginBottom: 20,
@@ -82,7 +82,7 @@ export const styles = StyleSheet.create({
   },
   qrPlaceholderText: {
     fontSize: 12,
-    color: '#888',
+    color: c.textMuted,
     marginTop: 10,
     textAlign: 'center',
     fontFamily: 'Yoruka',
@@ -97,13 +97,13 @@ export const styles = StyleSheet.create({
   },
   addressLabel: {
     fontSize: 12,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   addressText: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   actions: {
@@ -116,11 +116,11 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     padding: 14,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#8E44AD',
+    borderColor: c.accent,
   },
   actionIcon: {
     marginRight: 8,
@@ -128,7 +128,7 @@ export const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   infoBox: {
@@ -141,7 +141,7 @@ export const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
     fontFamily: 'Yoruka',

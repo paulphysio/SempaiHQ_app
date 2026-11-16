@@ -2,10 +2,12 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
+import { useTheme } from '../context/ThemeContext';
 
 const SignInScreen = () => {
   const { signIn, skipSignIn } = useAuth();
   const navigation = useNavigation();
+  const { isDark, colors } = useTheme();
 
   const handleSignIn = async () => {
     try {
@@ -30,18 +32,18 @@ const SignInScreen = () => {
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg }}>
       <TouchableOpacity
-        style={{ backgroundColor: '#333', padding: 15, borderRadius: 10, marginBottom: 10 }}
+        style={{ backgroundColor: colors.accent, padding: 15, borderRadius: 10, marginBottom: 10 }}
         onPress={handleSignIn}
       >
         <Text style={{ color: '#fff', fontSize: 16 }}>Sign In with Google</Text>
       </TouchableOpacity>
       <TouchableOpacity
-        style={{ backgroundColor: '#666', padding: 15, borderRadius: 10 }}
+        style={{ backgroundColor: colors.bgCard, padding: 15, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
         onPress={handleSkip}
       >
-        <Text style={{ color: '#fff', fontSize: 16 }}>Skip Sign-In</Text>
+        <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Skip Sign-In</Text>
       </TouchableOpacity>
     </View>
   );

@@ -1062,6 +1062,42 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
 
+  // Continue Reading cards
+  continueCard: {
+    width: 180,
+    marginHorizontal: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  continueCardImage: {
+    width: '100%',
+    height: 110,
+    backgroundColor: 'rgba(128,128,128,0.15)',
+  },
+  continueCardInfo: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  continueCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  continueCardMeta: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  continueCardTrack: {
+    height: 4,
+    borderRadius: 2,
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  continueCardFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+
   // -------------------------------------------------------------------------
   // Content cards (novel/manga) — poster-style: image reads as a book/manga
   // cover (tall aspect, not a squashed landscape thumbnail), rank + rating

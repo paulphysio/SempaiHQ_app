@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
-import { styles } from '../styles/ComprehensionChallengeStyles';
+import { getComprehensionStyles } from '../styles/ComprehensionChallengeStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const DIFFICULTY_COLORS = {
   easy: ['#4CAF50', '#45A049'],
@@ -19,6 +20,8 @@ const DIFFICULTY_ICONS = {
 };
 
 const ComprehensionChallenge = ({ visible, novelId, chapterNumber, onComplete, onClose }) => {
+  const { isDark, colors: themeColors } = useTheme();
+  const styles = useMemo(() => getComprehensionStyles(themeColors), [isDark]);
   const { wallet } = useContext(EmbeddedWalletContext);
   const [challenge, setChallenge] = useState(null);
   const [loading, setLoading] = useState(true);

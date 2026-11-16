@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, RPC_URL } from '../constants';
+import { useTheme } from '../context/ThemeContext';
 
 const TREASURY_WALLET = 'HSxUYwGM3NFzDmeEJ6o4bhyn8knmQmq7PLUZ6nZs4F58';
 
 const TreasuryBalance = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getTreasuryStyles(colors), [isDark]);
   const [amethystBalance, setAmethystBalance] = useState(null);
   const [smpBalance, setSmpBalance] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,7 +68,7 @@ const TreasuryBalance = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="small" color="#E67E22" />
+        <ActivityIndicator size="small" color={colors.accent} />
       </View>
     );
   }
@@ -105,7 +108,7 @@ const TreasuryBalance = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getTreasuryStyles = (c) => StyleSheet.create({
   container: {
     backgroundColor: 'rgba(8, 8, 14, 0.5)',
     borderRadius: 20,
@@ -136,7 +139,7 @@ const styles = StyleSheet.create({
   balanceRowBorder: {
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    borderTopColor: c.border,
     marginBottom: 0,
   },
   tokenLogo: {
@@ -158,7 +161,7 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 22,
     
-    color: '#ffffff',
+    color: c.textPrimary,
     marginTop: 4,
   },
 });

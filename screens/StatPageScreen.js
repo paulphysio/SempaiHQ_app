@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, {useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -19,13 +20,16 @@ import { Dimensions } from 'react-native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { SMP_MINT_ADDRESS, TREASURY_PUBLIC_KEY, RPC_URL, SMP_DECIMALS } from '../constants';
-import { styles } from '../styles/StatStyles';
+import { getStatStyles } from '../styles/StatStyles';
 import { formatNumber } from '../utils/formatNumber';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const connection = new Connection(RPC_URL, 'confirmed');
 
 const StatPageScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getStatStyles(colors), [isDark]);
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
@@ -45,6 +49,7 @@ const StatPageScreen = () => {
   const [avgWeeklyPoints, setAvgWeeklyPoints] = useState(0);
   const [commentActivity, setCommentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
   // Timeout wrapper for async operations
@@ -66,9 +71,9 @@ const StatPageScreen = () => {
     });
   };
 
-  const fetchStats = useCallback(async () => {
+  const fetchStats = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       console.log('Fetching stats for wallet:', activeWalletAddress);
 
       // Total User Count
@@ -269,9 +274,19 @@ const StatPageScreen = () => {
       setTimeout(() => setErrorMessage(null), 5000);
     } finally {
       console.log('Fetch stats completed');
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, [activeWalletAddress]);
+
+  // Pull-to-refresh: silent reload — keeps the dashboard visible.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchStats(false);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const groupByDate = (data, key, uniqueKey = null) => {
     const result = {};
@@ -309,7 +324,7 @@ const StatPageScreen = () => {
     datasets: [
       {
         data: usersOverTime.length ? sanitizeChartData(usersOverTime.map((d) => d.count)) : [0],
-        color: () => '#F28C38',
+        color: () => colors.accent,
         strokeWidth: 2,
       },
     ],
@@ -320,7 +335,7 @@ const StatPageScreen = () => {
     datasets: [
       {
         data: sanitizeChartData([activeUsers.last7, activeUsers.last30]),
-        color: () => '#E67E22',
+        color: () => colors.accentDeep,
         strokeWidth: 2,
       },
     ],
@@ -329,12 +344,12 @@ const StatPageScreen = () => {
   const smpDistributionData = [
     {
       value: Number.isFinite(smpDistribution['<1K']) ? smpDistribution['<1K'] : 0,
-      color: '#F28C38',
+      color: colors.accent,
       name: '<1K SMP',
     },
     {
       value: Number.isFinite(smpDistribution['1K-10K']) ? smpDistribution['1K-10K'] : 0,
-      color: '#E67E22',
+      color: colors.accentDeep,
       name: '1K-10K SMP',
     },
     {
@@ -354,7 +369,7 @@ const StatPageScreen = () => {
     datasets: [
       {
         data: Object.keys(activityTypes).length ? sanitizeChartData(Object.values(activityTypes)) : [0],
-        color: () => '#F28C38',
+        color: () => colors.accent,
         strokeWidth: 2,
       },
     ],
@@ -365,7 +380,7 @@ const StatPageScreen = () => {
     datasets: [
       {
         data: commentActivity.length ? sanitizeChartData(commentActivity.map((d) => d.count)) : [0],
-        color: () => '#E67E22',
+        color: () => colors.accentDeep,
         strokeWidth: 2,
       },
     ],
@@ -378,14 +393,14 @@ const StatPageScreen = () => {
     backgroundGradientToOpacity: 0.95,
     color: (opacity = 1) => `rgba(242, 140, 56, ${opacity})`, // vibrant orange
     labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-    fillShadowGradient: '#F28C38',
+    fillShadowGradient: colors.accent,
     fillShadowGradientOpacity: 0.18,
     propsForDots: {
       r: '7',
       strokeWidth: '3',
       stroke: '#FFD580',
-      fill: '#F28C38',
-      shadowColor: '#F28C38',
+      fill: colors.accent,
+      shadowColor: colors.accent,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.4,
       shadowRadius: 4,
@@ -418,7 +433,7 @@ const StatPageScreen = () => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#F28C38" />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Loading Stats...</Text>
         </View>
       </SafeAreaView>
@@ -437,7 +452,12 @@ const StatPageScreen = () => {
         </Animated.View>
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
+      >
         <Text style={styles.title}>Platform Statistics</Text>
 
         <View style={styles.statGrid}>

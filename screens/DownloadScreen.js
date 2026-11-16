@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,14 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { styles } from '../styles/DownloadStyles';
+import { getDownloadStyles } from '../styles/DownloadStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
 const DownloadScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getDownloadStyles(colors), [isDark]);
   const [downloadInfo, setDownloadInfo] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

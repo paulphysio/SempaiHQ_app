@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useContext, createContext } from 'react';
+import React, { useState, useCallback, useEffect, useContext, createContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform, TextInput, Clipboard, ToastAndroid, ActivityIndicator } from 'react-native';
 import Modal from 'react-native-modal';
 import * as SecureStore from 'expo-secure-store';
@@ -10,10 +10,11 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { RPC_URL } from '../constants';
-import { styles } from '../styles/ConnectButtonStyles';
+import { getConnectButtonStyles } from '../styles/ConnectButtonStyles';
 import TokenClaimModal from './TokenClaimModal';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 export const EmbeddedWalletContext = createContext();
 
@@ -267,11 +268,20 @@ export const EmbeddedWalletProvider = ({ children }) => {
       const userMetadata = authUser.user.user_metadata || {};
       const name = userMetadata.full_name || user.email.split('@')[0];
       const email = user.email;
-      const image = userMetadata.avatar_url || null;
+
+      // Preserve an uploaded profile picture and profile-completed flag —
+      // the Google avatar is only a fallback for brand-new users.
+      const { data: existingUserRow } = await supabase
+        .from('users')
+        .select('image, has_updated_profile')
+        .eq('id', actualUser.id)
+        .maybeSingle();
+      const image = existingUserRow?.image || userMetadata.avatar_url || null;
+      const hasUpdatedProfile = existingUserRow?.has_updated_profile ?? false;
 
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .upsert({ id: user.id, email, name, image, wallet_address: publicKey.toString(), referral_code: referralCode, has_updated_profile: false }, { onConflict: 'id' })
+        .upsert({ id: user.id, email, name, image, wallet_address: publicKey.toString(), referral_code: referralCode, has_updated_profile: hasUpdatedProfile }, { onConflict: 'id' })
         .select('id')
         .single();
 
@@ -487,6 +497,8 @@ export const EmbeddedWalletProvider = ({ children }) => {
 };
 
 const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
   const [password, setPassword] = useState('');
 
   const handleSubmit = () => {
@@ -526,6 +538,8 @@ const PasswordModal = ({ isVisible, onClose, onSubmit }) => {
 
 // Compact, header-friendly wallet button
 const ConnectButton = ({ compact = false, label }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const isLoading = walletContext?.isLoading;
@@ -561,7 +575,7 @@ const ConnectButton = ({ compact = false, label }) => {
           disabled={isLoading}
         >
           <LinearGradient
-            colors={wallet ? ['#FF5733', '#FF7F50'] : ['#FF5733', '#FF7F50']}
+            colors={[colors.accent, colors.accentDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.connectButtonGradient, compact && styles.connectButtonGradientCompact]}

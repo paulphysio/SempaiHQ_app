@@ -15,6 +15,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import axios from 'axios';
 import { supabase } from '../services/supabaseClient';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -639,7 +640,9 @@ const EditProfileScreen = () => {
 
   const handleImageChange = async () => {
     try {
+      console.log('[ProfileImage] Starting upload flow');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('[ProfileImage] Media library permission status:', status);
       if (status !== 'granted') {
         setError('Permission to access gallery was denied.');
         return;
@@ -650,6 +653,7 @@ const EditProfileScreen = () => {
         allowsEditing: true,
         quality: 1,
       });
+      console.log('[ProfileImage] Picker result canceled:', result.canceled, 'assets:', result.assets?.length);
 
       if (result.canceled) {
         setError('No image selected.');
@@ -657,29 +661,50 @@ const EditProfileScreen = () => {
       }
 
       const file = result.assets[0];
+      console.log('[ProfileImage] Picked asset:', JSON.stringify({ uri: file.uri, mimeType: file.mimeType, fileName: file.fileName, fileSize: file.fileSize }));
       if (!file.mimeType?.startsWith('image/')) {
         setError('Please upload a valid image file.');
         return;
       }
 
       const walletAddress = embeddedWallet?.publicKey.toString();
+      console.log('[ProfileImage] Wallet address:', walletAddress);
+      if (!walletAddress) {
+        setError('Wallet not connected. Please connect your wallet first.');
+        return;
+      }
       const fileExtension = file.mimeType.split('/')[1] || 'jpg';
       const fileName = `${walletAddress}-${Date.now()}.${fileExtension}`;
+      const storagePath = `profile-images/${fileName}`;
+      console.log('[ProfileImage] Uploading to sempai bucket, path:', storagePath);
 
-      const { error: uploadError } = await supabase.storage
+      const base64 = await FileSystem.readAsStringAsync(file.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      console.log('[ProfileImage] Read image as ArrayBuffer, bytes:', bytes.length);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('sempai')
-        .upload(`profile-images/${fileName}`, { uri: file.uri, type: file.mimeType, name: fileName }, {
+        .upload(storagePath, bytes.buffer, {
+          contentType: file.mimeType,
           cacheControl: '3600',
           upsert: true,
         });
 
+      console.log('[ProfileImage] Upload response:', JSON.stringify({ data: uploadData, error: uploadError }));
       if (uploadError) throw new Error('Image upload failed: ' + uploadError.message);
 
-      const { data } = supabase.storage.from('sempai').getPublicUrl(`profile-images/${fileName}`);
+      const { data } = supabase.storage.from('sempai').getPublicUrl(storagePath);
+      console.log('[ProfileImage] Public URL:', data.publicUrl);
       setImageUrl(data.publicUrl);
     } catch (err) {
       setError(err.message);
-      console.error('Image upload error:', err);
+      console.error('[ProfileImage] Image upload error:', err);
     }
   };
 
@@ -711,7 +736,8 @@ const EditProfileScreen = () => {
       if (fetchError) throw new Error('Error fetching user data: ' + fetchError.message);
 
       const walletAddress = embeddedWallet.publicKey.toString();
-      const { error: userError } = await supabase
+      console.log('[ProfileImage] Saving profile — imageUrl:', imageUrl, '| wallet:', walletAddress);
+      const { data: updatedRows, error: userError } = await supabase
         .from('users')
         .update({
           name: name.trim(),
@@ -721,7 +747,13 @@ const EditProfileScreen = () => {
           image: imageUrl,
           has_updated_profile: true,
         })
-        .eq('wallet_address', walletAddress);
+        .eq('wallet_address', walletAddress)
+        .select('id, image');
+
+      console.log('[ProfileImage] Users update result:', JSON.stringify({ updatedRows, error: userError }));
+      if (!userError && (!updatedRows || updatedRows.length === 0)) {
+        console.warn('[ProfileImage] WARNING: update matched 0 rows — no users row with wallet_address =', walletAddress);
+      }
 
       if (userError) {
         if (userError.message.includes('duplicate key value violates unique constraint')) {

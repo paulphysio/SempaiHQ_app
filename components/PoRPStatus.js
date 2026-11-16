@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { getUserReputation } from '../services/porp/ReadingTracker';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 import { supabase } from '../services/supabaseClient';
-import { styles } from '../styles/PoRPStyles';
+import { getPoRPStyles } from '../styles/PoRPStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -24,6 +25,8 @@ const TIER_ICONS = {
 };
 
 const PoRPStatus = ({ visible, onClose }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getPoRPStyles(colors), [isDark]);
   const { wallet } = useContext(EmbeddedWalletContext);
   const [reputation, setReputation] = useState(null);
   const [loading, setLoading] = useState(true);

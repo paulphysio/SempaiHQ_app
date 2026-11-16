@@ -16,6 +16,15 @@ function throwOnError({ data, error }: any) {
   return data;
 }
 
+// Public money-activity feed (DAO Governance). Fire-and-forget: never breaks payments.
+async function logFeed(row: Record<string, unknown>) {
+  try {
+    await supabaseAdmin.from("money_events").insert(row);
+  } catch (e: any) {
+    console.warn("[money_events] insert failed:", e?.message);
+  }
+}
+
 async function verifyPayment({ signature, payer, mint, minRaw }: {
   signature: string; payer: string; mint: string | null; minRaw: bigint;
 }): Promise<void> {
@@ -256,6 +265,22 @@ serve(async (req) => {
     }
 
     console.log(`[benefactor-payment] Success - ${tier.name} writer subscription activated for user ${userData.id}, writer ${finalWriterId}`);
+
+    await logFeed({
+      event_type: badgeId ? "badge_purchase" : "writer_subscription",
+      direction: "in",
+      asset: currency || "SMP",
+      amount: tier.price,
+      usd_value: tier.price,
+      wallet: userPublicKey,
+      counterparty: finalWriterId,
+      user_id: userData.id,
+      title: badgeId ? `${tier.name} badge` : `${tier.name} writer subscription`,
+      detail: `${tier.chapters === 999 ? "all chapters" : tier.chapters + " chapters"} · ${tier.durationDays}d`,
+      tx_sig: signature,
+      meta: { writer_id: finalWriterId, badge_id: finalBadgeId, plan_type: finalPlanType },
+    });
+
     return Response.json({
       success: true,
       signature,

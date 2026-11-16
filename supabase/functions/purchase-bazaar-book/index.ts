@@ -13,6 +13,15 @@ function json(data: any, status = 200) {
   });
 }
 
+// Public money-activity feed (DAO Governance). Fire-and-forget: never breaks payments.
+async function logFeed(row: Record<string, unknown>) {
+  try {
+    await supabaseAdmin.from("money_events").insert(row);
+  } catch (e: any) {
+    console.warn("[money_events] insert failed:", e?.message);
+  }
+}
+
 // Verifies the caller's JWT against Supabase Auth (signature-checked).
 async function authenticate(req: Request) {
   const jwt = req.headers.get("authorization")?.replace(/^Bearer /, "");
@@ -315,6 +324,27 @@ serve(async (req) => {
       throw new Error(insertError.message);
     }
     console.log(`[purchase] book ${book.id} -> buyer ${buyer.id} (${currency}/${type}) sig=${signature}`);
+
+    const feedAmount = type === "lend"
+      ? result.platform
+      : currency === "USDC" ? result.author + result.platform
+      : result.author + result.platform;
+    const feedAsset = type === "lend" ? "SMP" : currency;
+    await logFeed({
+      event_type: type === "lend" ? "bazaar_lend" : "bazaar_purchase",
+      direction: "in",
+      asset: feedAsset,
+      amount: feedAmount,
+      usd_value: type === "lend" ? null : Number(book.price_usd),
+      wallet: walletAddress,
+      counterparty: author.wallet_address,
+      user_id: buyer.id,
+      title: `${type === "lend" ? "Bazaar lend" : "Bazaar purchase"}: book ${book.id.slice(0, 8)}`,
+      detail: `${currency} · author ${result.author} / platform ${result.platform}`,
+      tx_sig: signature,
+      meta: { book_id: book.id, access_type: type, author_amount: result.author, platform_amount: result.platform },
+    });
+
     return json({ success: true, purchaseId: purchase.id });
   } catch (error: any) {
     console.error("[purchase-bazaar-book] Error:", error?.message);

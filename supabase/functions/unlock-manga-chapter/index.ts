@@ -39,6 +39,15 @@ function throwOnError({ data, error }: { data: any; error: any }) {
   return data;
 }
 
+// Public money-activity feed (DAO Governance). Fire-and-forget: never breaks payments.
+async function logFeed(row: Record<string, unknown>) {
+  try {
+    await supabaseAdmin.from("money_events").insert(row);
+  } catch (e: any) {
+    console.warn("[money_events] insert failed:", e?.message);
+  }
+}
+
 // Helper: Fetch and decrypt user private key
 async function getUserPrivateKey(userId: string) {
   const wallet = await supabaseAdmin
@@ -328,6 +337,22 @@ serve(async (req) => {
         unlocked_at: new Date().toISOString(),
       })
       .then(throwOnError);
+
+    const feedDecimals = currency === "SOL" ? 9 : 6;
+    await logFeed({
+      event_type: "manga_unlock",
+      direction: "in",
+      asset: currency,
+      amount: paymentAmount / 10 ** feedDecimals,
+      usd_value: usdAmount,
+      wallet: userPub.toBase58(),
+      counterparty: author.toBase58(),
+      user_id: userData.id,
+      title: `Manga chapter ${chapterId} unlock`,
+      detail: `manga ${mangaId}`,
+      tx_sig: signature,
+      meta: { manga_id: mangaId, chapter_id: chapterId },
+    });
 
     return new Response(JSON.stringify({ success: true, signature }), { status: 200 });
   } catch (error: any) {

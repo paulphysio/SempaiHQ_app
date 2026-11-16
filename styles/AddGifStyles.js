@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
-const styles = StyleSheet.create({
+export const getAddGifStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: c.bgCard,
   },
   keyboardContainer: {
     flex: 1,
@@ -15,14 +15,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   backButton: {
     padding: 8,
     marginRight: 12,
   },
   headerTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 20,
     
     fontFamily: 'Yoruka',
@@ -36,17 +36,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: '#9B59B6',
+    color: c.accent,
     fontSize: 14,
     
     fontFamily: 'Yoruka',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   fileButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -102,8 +102,7 @@ const styles = StyleSheet.create({
     color: '#2ECC71',
   },
   messageError: {
-    color: '#E74C3C',
+    color: c.danger,
   },
 });
 
-export default styles;

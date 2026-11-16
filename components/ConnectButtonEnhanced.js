@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useContext, createContext } from 'react';
+import React, { useState, useCallback, useEffect, useContext, createContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Alert, Platform, TextInput, Clipboard, ToastAndroid, ActivityIndicator, ScrollView, Animated } from 'react-native';
 import Modal from 'react-native-modal';
 import * as SecureStore from 'expo-secure-store';
@@ -10,11 +10,12 @@ import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { RPC_URL } from '../constants';
-import { styles } from '../styles/ConnectButtonStyles';
+import { getConnectButtonStyles } from '../styles/ConnectButtonStyles';
 import TokenClaimModal from './TokenClaimModal';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { confirmWalletChange } from '../services/kaijiGuard'; // KAIJI: blocks wallet changes in a tourney, warns during a match
+import { useTheme } from '../context/ThemeContext';
 
 export const EmbeddedWalletContext = createContext();
 
@@ -335,12 +336,21 @@ export const EmbeddedWalletProvider = ({ children }) => {
       const userMetadata = actualUser.user_metadata || {};
       const name  = userMetadata.full_name || actualUser.email.split('@')[0];
       const email = actualUser.email;
-      const image = userMetadata.avatar_url || null;
+
+      // Preserve an uploaded profile picture and profile-completed flag —
+      // the Google avatar is only a fallback for brand-new users.
+      const { data: existingUserRow } = await supabase
+        .from('users')
+        .select('image, has_updated_profile')
+        .eq('id', actualUser.id)
+        .maybeSingle();
+      const image = existingUserRow?.image || userMetadata.avatar_url || null;
+      const hasUpdatedProfile = existingUserRow?.has_updated_profile ?? false;
 
       const { data: userData, error: userError } = await supabase
         .from('users')
         .upsert(
-          { id: actualUser.id, email, name, image, wallet_address: publicKey.toString(), referral_code: referralCode, has_updated_profile: false },
+          { id: actualUser.id, email, name, image, wallet_address: publicKey.toString(), referral_code: referralCode, has_updated_profile: hasUpdatedProfile },
           { onConflict: 'id' }
         )
         .select('id')
@@ -848,6 +858,8 @@ export const EmbeddedWalletProvider = ({ children }) => {
 // ─── Password Modal ───────────────────────────────────────────────────────────
 
 const PasswordModal = ({ isVisible, onClose, onSubmit, onUseBiometrics }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
   const [password, setPassword] = useState('');
   const [biometricsAvailable, setBiometricsAvailable] = useState(false);
 
@@ -920,6 +932,8 @@ const PasswordModal = ({ isVisible, onClose, onSubmit, onUseBiometrics }) => {
 // ─── Wallet Selection Modal ───────────────────────────────────────────────────
 
 const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
 
   return (
     <Modal
@@ -935,7 +949,7 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded }) => {
 
         <TouchableOpacity style={styles.walletOption} onPress={onSelectEmbedded}>
           <View style={styles.walletOptionHeader}>
-            <MaterialCommunityIcons name="wallet-outline" size={24} color="#FF5733" />
+            <MaterialCommunityIcons name="wallet-outline" size={24} color={colors.accent} />
             <Text style={styles.walletOptionTitle}>Sempai Embedded Wallet</Text>
           </View>
           <Text style={styles.walletOptionDescription}>
@@ -959,6 +973,8 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded }) => {
 // ─── Connect Button ───────────────────────────────────────────────────────────
 
 const ConnectButton = ({ compact = false, label }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet          = walletContext?.wallet;
   const walletType      = walletContext?.walletType;
@@ -978,7 +994,7 @@ const ConnectButton = ({ compact = false, label }) => {
           style={[styles.connectButtonWrapper, compact && styles.connectButtonWrapperCompact]}
         >
           <LinearGradient
-            colors={['#FF5733', '#F36316']}
+            colors={[colors.accent, colors.accentDeep]}
             style={styles.connectButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
@@ -1087,7 +1103,7 @@ const ConnectButton = ({ compact = false, label }) => {
           disabled={isLoading}
         >
           <LinearGradient
-            colors={['#FF5733', '#FF7F50']}
+            colors={[colors.accent, colors.accentDeep]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={[styles.connectButtonGradient, compact && styles.connectButtonGradientCompact]}
@@ -1137,6 +1153,8 @@ const ConnectButton = ({ compact = false, label }) => {
 // ─── Wallet Connection Modal ──────────────────────────────────────────────────
 
 const WalletConnectionModal = ({ isVisible, onClose }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
   const walletContext = useContext(EmbeddedWalletContext);
   const createEmbeddedWallet  = walletContext?.createEmbeddedWallet;
   const retrieveEmbeddedWallet = walletContext?.retrieveEmbeddedWallet;
@@ -1331,7 +1349,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
         {mode === 'menu' && (
           <>
             <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="wallet-outline" size={48} color="#FF5733" />
+              <MaterialCommunityIcons name="wallet-outline" size={48} color={colors.accent} />
               <Text style={styles.modalTitle}>Choose Your Wallet</Text>
               <Text style={styles.modalSubtitle}>Select how you want to manage your crypto assets</Text>
             </View>
@@ -1340,13 +1358,13 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
               <LinearGradient colors={['rgba(255, 87, 51, 0.1)', 'rgba(255, 87, 51, 0.05)']} style={styles.walletOptionGradient}>
                 <View style={styles.walletOptionHeader}>
                   <View style={styles.walletIconContainer}>
-                    <MaterialCommunityIcons name="plus-circle" size={28} color="#FF5733" />
+                    <MaterialCommunityIcons name="plus-circle" size={28} color={colors.accent} />
                   </View>
                   <View style={styles.walletOptionTextContainer}>
                     <Text style={styles.walletOptionTitle}>Create New Wallet</Text>
                     <Text style={styles.walletOptionDescription}>Generate a new secure wallet with password protection</Text>
                   </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#FF5733" />
+                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.accent} />
                 </View>
               </LinearGradient>
             </TouchableOpacity>
@@ -1392,12 +1410,12 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
         {mode === 'create' && (
           <>
             <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#FF5733" />
+              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.accent} />
               <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
             <View style={styles.formHeader}>
               <View style={[styles.formIconContainer, { backgroundColor: 'rgba(255, 87, 51, 0.15)' }]}>
-                <MaterialCommunityIcons name="plus-circle" size={32} color="#FF5733" />
+                <MaterialCommunityIcons name="plus-circle" size={32} color={colors.accent} />
               </View>
               <Text style={styles.modalTitle}>Create New Wallet</Text>
               <Text style={styles.modalSubtitle}>Set a secure password to protect your wallet</Text>
@@ -1411,7 +1429,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
               <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" />
             </View>
             <TouchableOpacity style={styles.actionButton} onPress={handleCreateWallet} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={['#FF5733', '#FF7F50']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={[colors.accent, colors.accentDeep]} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Create Wallet</Text>}
               </LinearGradient>
             </TouchableOpacity>

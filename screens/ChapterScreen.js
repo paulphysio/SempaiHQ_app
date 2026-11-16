@@ -37,6 +37,7 @@ import {
   SMP_MINT_ADDRESS,
   USDC_MINT_ADDRESS,
   SKR_MINT_ADDRESS,
+  SKR_DECIMALS,
   SMP_DECIMALS,
   AMETHYST_MINT_ADDRESS,
   AMETHYST_DECIMALS,
@@ -51,6 +52,7 @@ import { useTheme } from '../context/ThemeContext';
 import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
 import pioneerBadge from '../assets/Pioneer.png';
 import { useReadingTimer, formatReadingTime } from '../hooks/useReadingTimer';
+import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
 
 const { height } = Dimensions.get('window');
 
@@ -1946,6 +1948,92 @@ const ChapterScreen = () => {
     return !isLocked;
   }, [isWalletConnected, isUnlockedViaSubscription, isLocked, chapterId, loading]);
 
+  // Reading progress ("continue reading"): remember the last chapter + scroll
+  // position per novel so the user can resume where they left off.
+  const contentScrollRef = useRef(null);
+  const progressLayoutRef = useRef({ viewH: 0, contentH: 0 });
+  const pendingProgressRef = useRef(null);
+  const lastProgressSaveRef = useRef(0);
+  const resumePctRef = useRef(null);
+  const resumeAppliedRef = useRef(false);
+
+  const flushReadingProgress = useCallback((force = false) => {
+    const pending = pendingProgressRef.current;
+    if (!pending || !userId || !novelId) return;
+    const now = Date.now();
+    if (!force && now - lastProgressSaveRef.current < 2000) return;
+    lastProgressSaveRef.current = now;
+    pendingProgressRef.current = null;
+    saveReadingProgress({
+      userId,
+      contentType: 'novel',
+      contentId: novelId,
+      chapterKey: pending.chapterKey,
+      chapterNumber: parseInt(pending.chapterKey, 10),
+      scrollPct: pending.pct,
+    });
+  }, [userId, novelId]);
+
+  const handleContentScroll = useCallback((e) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent || {};
+    if (!contentSize || !layoutMeasurement) return;
+    const scrollable = contentSize.height - layoutMeasurement.height;
+    const pct = scrollable > 0 ? (contentOffset.y / scrollable) * 100 : 0;
+    pendingProgressRef.current = { pct, chapterKey: chapterId };
+    flushReadingProgress();
+  }, [chapterId, flushReadingProgress]);
+
+  const tryApplyResume = useCallback(() => {
+    const { viewH, contentH } = progressLayoutRef.current;
+    if (resumeAppliedRef.current || resumePctRef.current == null || !viewH || !contentH) return;
+    const max = contentH - viewH;
+    if (max <= 0) return;
+    resumeAppliedRef.current = true;
+    contentScrollRef.current?.scrollTo({ y: (resumePctRef.current / 100) * max, animated: false });
+  }, []);
+
+  const handleContentViewLayout = useCallback((e) => {
+    progressLayoutRef.current.viewH = e?.nativeEvent?.layout?.height || 0;
+    tryApplyResume();
+  }, [tryApplyResume]);
+
+  const handleContentSizeChange = useCallback((w, h) => {
+    progressLayoutRef.current.contentH = h || 0;
+    tryApplyResume();
+  }, [tryApplyResume]);
+
+  // Load the saved position once the chapter content is actually readable.
+  useEffect(() => {
+    resumeAppliedRef.current = false;
+    resumePctRef.current = null;
+    progressLayoutRef.current = { viewH: 0, contentH: 0 };
+    if (!shouldShowContent || !userId || !novelId || !chapterId || !novel?.chaptercontents?.[chapterId]) return;
+    let alive = true;
+    getContentReadingProgress(userId, 'novel', novelId).then((row) => {
+      if (!alive) return;
+      const pct = row ? Number(row.scroll_pct) || 0 : 0;
+      if (row && String(row.chapter_key) === String(chapterId)) {
+        if (pct > 0 && pct < 100) resumePctRef.current = pct;
+      } else {
+        // Different chapter (or first read ever): mark this one as current so
+        // "continue reading" points here even if the user never scrolls.
+        saveReadingProgress({
+          userId,
+          contentType: 'novel',
+          contentId: novelId,
+          chapterKey: chapterId,
+          chapterNumber: parseInt(chapterId, 10),
+          scrollPct: 0,
+        });
+      }
+      tryApplyResume();
+    });
+    return () => { alive = false; };
+  }, [shouldShowContent, userId, novelId, chapterId, novel, tryApplyResume]);
+
+  // Flush the final scroll position when leaving the chapter or switching chapters.
+  useEffect(() => () => flushReadingProgress(true), [flushReadingProgress, chapterId]);
+
   const processChapterPayment = useCallback(
     async (targetChapterId, paymentType = 'SINGLE', currency = 'SMP') => {
       // Prevent multiple simultaneous payments
@@ -2515,7 +2603,7 @@ const ChapterScreen = () => {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E67E22" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.loadingText}>Loading Chapter...</Text>
       </SafeAreaView>
     );
@@ -2704,7 +2792,12 @@ const ChapterScreen = () => {
         </TouchableOpacity>
 
         {/* Chapter Content - Full Screen */}
-        <ScrollView style={styles.fullscreenScrollView} contentContainerStyle={styles.fullscreenContent}>
+        <ScrollView
+          style={styles.fullscreenScrollView}
+          contentContainerStyle={styles.fullscreenContent}
+          scrollEventThrottle={200}
+          onScroll={handleContentScroll}
+        >
           <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
             {chapterTitle}
           </Text>
@@ -2945,7 +3038,14 @@ const ChapterScreen = () => {
         </View>
       ) : (
         <View style={styles.contentContainer}>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            ref={contentScrollRef}
+            contentContainerStyle={styles.scrollContent}
+            scrollEventThrottle={200}
+            onScroll={handleContentScroll}
+            onLayout={handleContentViewLayout}
+            onContentSizeChange={handleContentSizeChange}
+          >
             {/* Audio controls and share */}
             <View style={styles.audioControls}>
               <TouchableOpacity style={styles.audioButton} onPress={readText} disabled={isSpeaking}>

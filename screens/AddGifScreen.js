@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,9 +13,12 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
-import { styles } from '../styles/AddGifStyles';
+import { getAddGifStyles } from '../styles/AddGifStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const AddGifScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getAddGifStyles(colors), [isDark]);
   const [title, setTitle] = useState('');
   const [tags, setTags] = useState('');
   const [file, setFile] = useState(null);

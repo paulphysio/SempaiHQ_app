@@ -2,10 +2,10 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const styles = StyleSheet.create({
+export const getPrivacyPolicyStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: c.bgCard,
   },
   header: {
     flexDirection: 'row',
@@ -14,7 +14,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   backButton: {
     flexDirection: 'row',
@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   headerTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 20,
     
     fontFamily: 'Yoruka',
@@ -41,7 +41,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   lastUpdated: {
-    color: '#9B59B6',
+    color: c.accent,
     fontSize: 14,
     fontStyle: 'italic',
     marginBottom: 20,
@@ -51,13 +51,13 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   paragraph: {
-    color: '#CCC',
+    color: c.textSecondary,
     fontSize: 16,
     lineHeight: 24,
     fontFamily: 'Yoruka',
   },
   heading: {
-    color: '#9B59B6',
+    color: c.accent,
     fontSize: 18,
     
     marginTop: 10,
@@ -70,21 +70,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   listItem: {
-    color: '#CCC',
+    color: c.textSecondary,
     fontSize: 16,
     lineHeight: 22,
     fontFamily: 'Yoruka',
   },
   bold: {
     
-    color: '#FFF',
+    color: c.textPrimary,
   },
   contactInfo: {
-    color: '#9B59B6',
+    color: c.accent,
     fontSize: 16,
     marginBottom: 8,
     fontFamily: 'Yoruka',
   },
 });
 
-export default styles;

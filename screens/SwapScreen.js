@@ -28,6 +28,8 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, WEB_API_BASE_URL } from '../constants';
 import { AnimatedPressable, useCountUp, usePulse, useEntrance, useAnimatedVisibility, useStaggeredEntrance } from '../utils/animations';
+import { logMoneyEvent } from '../services/moneyFeed';
+import bs58 from 'bs58';
 import { useTheme } from '../context/ThemeContext';
 
 const connection = new Connection(RPC_URL, 'confirmed');
@@ -198,6 +200,8 @@ function useTokenPrices() {
 }
 
 const SwapScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getSwapScreenStyles(colors), [isDark]);
   const { wallet, signAndSendTransaction, signTransactionOnly, setShowModal } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
@@ -447,6 +451,18 @@ const SwapScreen = () => {
       transaction.feePayer = sender;
       const signature = await signAndSendTransaction(transaction);
 
+      logMoneyEvent({
+        event_type: 'token_send',
+        direction: 'out',
+        asset: coinFrom,
+        amount: amountNumber,
+        wallet: activeWalletAddress,
+        counterparty: trimmedAddress,
+        title: `Send ${amountNumber} ${coinFrom}`,
+        tx_sig: signature,
+        meta: { to: trimmedAddress },
+      });
+
       setSuccessMessage(`Sent ${amountNumber} ${coinFrom}. Signature: ${signature}`);
       setSendAmount('');
       setSendAddress('');
@@ -487,9 +503,41 @@ const SwapScreen = () => {
 
     const inputMint = TOKEN_MINTS[coinFrom].toString();
     const outputMint = TOKEN_MINTS[coinTo].toString();
-    setJupiterSwapUrl(`https://jup.ag/swap/${inputMint}-${outputMint}`);
+    setJupiterSwapUrl(`https://jup.ag/swap?inputMint=${inputMint}&outputMint=${outputMint}`);
     setJupiterPrefillAmount(amount);
     setShowJupiterWebView(true);
+  };
+
+  // Log a completed Jupiter swap signing to the DAO money feed. The signed tx's
+  // first signature is the txid. Works for both signAndSendTransaction and
+  // signTransaction flows — Jupiter may use either.
+  const logJupiterSwap = (signedB64) => {
+    try {
+      console.log('[moneyFeed] jupiter swap signed, logging to feed…');
+      // Versioned tx wire format: [sig-count (shortvec)] [64-byte sigs…] [message…].
+      // signatures[] objects deserialize unreliably, so read the raw bytes directly.
+      const raw = Buffer.from(signedB64, 'base64');
+      const sigCount = raw[0]; // shortvec; <128 fits in one byte (always true here)
+      if (!sigCount || sigCount > 8 || raw.length < 1 + sigCount * 64) {
+        console.warn('[moneyFeed] jupiter swap: unexpected tx layout');
+        return;
+      }
+      const sig = bs58.encode(raw.slice(1, 65)); // first signature = fee payer's = txid
+      console.log('[moneyFeed] jupiter swap sig:', sig);
+      logMoneyEvent({
+        event_type: 'jupiter_swap',
+        direction: 'swap',
+        asset: coinFrom,
+        amount: parseFloat(amount) || null,
+        wallet: activeWalletAddress,
+        title: `Swap ${coinFrom} → ${coinTo}`,
+        detail: `${amount || '?'} ${coinFrom}`,
+        tx_sig: sig,
+        meta: { from: coinFrom, to: coinTo, amountIn: amount },
+      });
+    } catch (e) {
+      console.warn('[moneyFeed] jupiter swap log failed:', e?.message);
+    }
   };
 
   // -------------------------------------------------------------------------
@@ -510,7 +558,7 @@ const SwapScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#141414" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       <View style={styles.screenHeader}>
         <Text style={styles.screenTitle}>Swap</Text>
@@ -523,7 +571,7 @@ const SwapScreen = () => {
           style={styles.headerIconButton}
         >
           <Animated.View style={spinStyle}>
-            <Icon name="sync-alt" size={16} color="#ff6200" />
+            <Icon name="sync-alt" size={16} color={colors.accent} />
           </Animated.View>
         </AnimatedPressable>
       </View>
@@ -563,7 +611,7 @@ const SwapScreen = () => {
       )}
       {priceWarnVis.shouldRender && (
         <Animated.View style={[styles.messageBanner, styles.warnBanner, { opacity: priceWarnVis.anim }]}>
-          <Icon name="wifi" size={12} color="#ffcc44" />
+          <Icon name="wifi" size={12} color={colors.accent} />
           <Text style={styles.warnText}>{pricesError || 'Live prices unavailable'} — showing last known values</Text>
         </Animated.View>
       )}
@@ -573,7 +621,7 @@ const SwapScreen = () => {
           {!isWalletConnected ? (
             <View style={styles.connectPrompt}>
               <View style={styles.connectIconWrap}>
-                <Icon name="wallet" size={40} color="#ff6200" />
+                <Icon name="wallet" size={40} color={colors.accent} />
               </View>
               <Text style={styles.connectPromptTitle}>Connect your wallet</Text>
               <Text style={styles.connectPromptText}>
@@ -607,7 +655,7 @@ const SwapScreen = () => {
                   <AnimatedPressable style={styles.tokenPicker} onPress={() => setShowFromModal(true)}>
                     <Image source={TOKEN_LOGOS[coinFrom]} style={styles.tokenLogoSm} />
                     <Text style={styles.tokenPickerText}>{coinFrom}</Text>
-                    <Icon name="chevron-down" size={12} color="#ff6200" />
+                    <Icon name="chevron-down" size={12} color={colors.accent} />
                   </AnimatedPressable>
                 </View>
 
@@ -643,7 +691,7 @@ const SwapScreen = () => {
                   <AnimatedPressable style={styles.tokenPicker} onPress={() => setShowToModal(true)}>
                     <Image source={TOKEN_LOGOS[coinTo]} style={styles.tokenLogoSm} />
                     <Text style={styles.tokenPickerText}>{coinTo}</Text>
-                    <Icon name="chevron-down" size={12} color="#ff6200" />
+                    <Icon name="chevron-down" size={12} color={colors.accent} />
                   </AnimatedPressable>
                 </View>
 
@@ -687,19 +735,19 @@ const SwapScreen = () => {
                       onPress={() => { checkAllBalances(); setShowBalanceModal(true); }}
                       style={styles.portfolioButton}
                     >
-                      <Icon name="wallet" size={16} color="#ff6200" />
+                      <Icon name="wallet" size={16} color={colors.accent} />
                       <Text style={styles.portfolioButtonText}>Balances</Text>
                     </AnimatedPressable>
                   </Animated.View>
                   <Animated.View style={[{ flex: 1 }, portfolioButtonAnims[1]]}>
                     <AnimatedPressable onPress={() => setShowSendModal(true)} style={styles.portfolioButton}>
-                      <Icon name="paper-plane" size={16} color="#ff6200" />
+                      <Icon name="paper-plane" size={16} color={colors.accent} />
                       <Text style={styles.portfolioButtonText}>Send</Text>
                     </AnimatedPressable>
                   </Animated.View>
                   <Animated.View style={[{ flex: 1 }, portfolioButtonAnims[2]]}>
                     <AnimatedPressable onPress={handleReceive} style={styles.portfolioButton}>
-                      <Icon name="qrcode" size={16} color="#ff6200" />
+                      <Icon name="qrcode" size={16} color={colors.accent} />
                       <Text style={styles.portfolioButtonText}>Receive</Text>
                     </AnimatedPressable>
                   </Animated.View>
@@ -715,7 +763,7 @@ const SwapScreen = () => {
         <Modal isVisible={true} onBackdropPress={() => { setShowFromModal(false); setShowToModal(false); }} useNativeDriver>
           <View style={styles.modalContainer}>
             <TouchableOpacity style={styles.closeButton} onPress={() => { setShowFromModal(false); setShowToModal(false); }}>
-              <Icon name="times" size={20} color="#ff6200" />
+              <Icon name="times" size={20} color={colors.accent} />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{showFromModal ? 'Select token to pay with' : 'Select token to receive'}</Text>
             <ScrollView style={styles.tokenList}>
@@ -741,7 +789,7 @@ const SwapScreen = () => {
                       <Text style={styles.tokenSymbolMuted}>{token}</Text>
                     </View>
                     <PriceTag token={token} />
-                    {isSelected && <Icon name="check" size={14} color="#ff6200" style={{ marginLeft: 10 }} />}
+                    {isSelected && <Icon name="check" size={14} color={colors.accent} style={{ marginLeft: 10 }} />}
                   </AnimatedPressable>
                 );
               })}
@@ -754,7 +802,7 @@ const SwapScreen = () => {
       <Modal isVisible={showBalanceModal} onBackdropPress={() => setShowBalanceModal(false)} useNativeDriver>
         <View style={styles.modalContainer}>
           <TouchableOpacity style={styles.closeButton} onPress={() => setShowBalanceModal(false)}>
-            <Icon name="times" size={20} color="#ff6200" />
+            <Icon name="times" size={20} color={colors.accent} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Your Balances</Text>
           <View style={styles.portfolioTotalBox}>
@@ -766,7 +814,7 @@ const SwapScreen = () => {
               scaleTo={0.85}
             >
               <Animated.View style={spinStyle}>
-                <Icon name="sync-alt" size={14} color="#ff6200" />
+                <Icon name="sync-alt" size={14} color={colors.accent} />
               </Animated.View>
             </AnimatedPressable>
           </View>
@@ -802,7 +850,7 @@ const SwapScreen = () => {
       >
         <View style={styles.modalContainer}>
           <TouchableOpacity style={styles.closeButton} onPress={() => setShowSendModal(false)} disabled={loading}>
-            <Icon name="times" size={20} color="#ff6200" />
+            <Icon name="times" size={20} color={colors.accent} />
           </TouchableOpacity>
           <Text style={styles.modalTitle}>Send {coinFrom}</Text>
           <View style={styles.inputGroup}>
@@ -858,15 +906,15 @@ const SwapScreen = () => {
       <Modal isVisible={showReceiveModal} onBackdropPress={() => setShowReceiveModal(false)} useNativeDriver>
         <View style={styles.modalContainer}>
           <TouchableOpacity style={styles.closeButton} onPress={() => setShowReceiveModal(false)}>
-            <Icon name="times" size={20} color="#ff6200" />
+            <Icon name="times" size={20} color={colors.accent} />
           </TouchableOpacity>
-          <Icon name="qrcode" size={28} color="#ff6200" style={{ alignSelf: 'center', marginBottom: 10 }} />
+          <Icon name="qrcode" size={28} color={colors.accent} style={{ alignSelf: 'center', marginBottom: 10 }} />
           <Text style={styles.modalTitle}>Receive Crypto</Text>
           <Text style={styles.modalMessage}>Share this address to receive crypto:</Text>
           <View style={styles.addressContainer}>
             <Text style={styles.addressText} selectable>{receiveAddress}</Text>
             <TouchableOpacity onPress={() => { setSuccessMessage('Address copied to clipboard'); setTimeout(() => setSuccessMessage(''), 2000); }}>
-              <Icon name="copy" size={20} color="#ff6200" />
+              <Icon name="copy" size={20} color={colors.accent} />
             </TouchableOpacity>
           </View>
           <AnimatedPressable style={styles.submitButton} onPress={() => setShowReceiveModal(false)}>
@@ -879,9 +927,9 @@ const SwapScreen = () => {
       <Modal isVisible={showRampSuggestion} onBackdropPress={() => setShowRampSuggestion(false)} useNativeDriver>
         <View style={styles.modalContainer}>
           <TouchableOpacity style={styles.closeButton} onPress={() => setShowRampSuggestion(false)}>
-            <Icon name="times" size={20} color="#ff6200" />
+            <Icon name="times" size={20} color={colors.accent} />
           </TouchableOpacity>
-          <Icon name="exclamation-triangle" size={28} color="#ffcc44" style={{ alignSelf: 'center', marginBottom: 10 }} />
+          <Icon name="exclamation-triangle" size={28} color={colors.accent} style={{ alignSelf: 'center', marginBottom: 10 }} />
           <Text style={styles.modalTitle}>Insufficient Balance</Text>
           <Text style={styles.modalMessage}>
             You don't have enough {coinFrom} to complete this swap. Would you like to buy more crypto using Ramp?
@@ -912,12 +960,16 @@ const SwapScreen = () => {
         onSignAndSendTransaction={async (base64Tx) => {
           const bytes = Buffer.from(base64Tx, 'base64');
           const tx = VersionedTransaction.deserialize(bytes);
-          return await signTransactionOnly(tx);
+          const signedB64 = await signTransactionOnly(tx);
+          logJupiterSwap(signedB64);
+          return signedB64;
         }}
         onSignTransaction={async (base64Tx) => {
           const bytes = Buffer.from(base64Tx, 'base64');
           const tx = VersionedTransaction.deserialize(bytes);
-          return await signTransactionOnly(tx);
+          const signedB64 = await signTransactionOnly(tx);
+          logJupiterSwap(signedB64);
+          return signedB64;
         }}
       />
     </SafeAreaView>
@@ -927,8 +979,8 @@ const SwapScreen = () => {
 // ---------------------------------------------------------------------------
 // Styles — original dark/orange design, unchanged palette
 // ---------------------------------------------------------------------------
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#141414' },
+export const getSwapScreenStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bgCard },
   screenHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -937,7 +989,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 4,
   },
-  screenTitle: { color: '#fff', fontSize: 22, fontWeight: '800' },
+  screenTitle: { color: c.textPrimary, fontSize: 22, fontWeight: '800' },
   headerIconButton: {
     width: 34,
     height: 34,
@@ -970,37 +1022,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 20,
   },
-  connectPromptTitle: { color: '#fff', fontSize: 18,   marginBottom: 8 },
-  connectPromptText: { color: '#999', fontSize: 14, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  connectButton: { backgroundColor: '#ff6200', paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12 },
+  connectPromptTitle: { color: c.textPrimary, fontSize: 18,   marginBottom: 8 },
+  connectPromptText: { color: c.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  connectButton: { backgroundColor: c.accent, paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12 },
   connectButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   swapCard: { backgroundColor: '#1c1c1c', borderRadius: 20, padding: 16 },
   tokenPanel: { backgroundColor: '#242424', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#2f2f2f' },
   tokenPanelTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   tokenPanelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   tokenPanelBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  amountInput: { color: '#fff', fontSize: 26,   flex: 1, padding: 0 },
-  amountOutput: { color: '#e0e0e0' },
+  amountInput: { color: c.textPrimary, fontSize: 26,   flex: 1, padding: 0 },
+  amountOutput: { color: c.border },
   tokenPicker: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: c.bgCard,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 30,
     gap: 6,
     borderWidth: 1,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
   },
   tokenLogoSm: { width: 22, height: 22, borderRadius: 11 },
-  tokenPickerText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  tokenPickerText: { color: c.textPrimary, fontSize: 14, fontWeight: '700' },
   balancePill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  balancePillText: { color: '#aaa', fontSize: 12 },
-  usdValueText: { color: '#888', fontSize: 13 },
-  maxText: { color: '#ff6200', fontSize: 12, fontWeight: '700' },
-  rateText: { color: '#888', fontSize: 12 },
-  priceTagSm: { color: '#ffd700', fontSize: 12, fontWeight: '600' },
-  priceTagLg: { color: '#ffd700', fontSize: 14, fontWeight: '700' },
+  balancePillText: { color: c.textMuted, fontSize: 12 },
+  usdValueText: { color: c.textMuted, fontSize: 13 },
+  maxText: { color: c.accent, fontSize: 12, fontWeight: '700' },
+  rateText: { color: c.textMuted, fontSize: 12 },
+  priceTagSm: { color: c.gold, fontSize: 12, fontWeight: '600' },
+  priceTagLg: { color: c.gold, fontSize: 14, fontWeight: '700' },
   priceSkeleton: { width: 40, height: 12, borderRadius: 4, backgroundColor: '#3a3a3a' },
   priceSkeletonLg: { width: 50, height: 14 },
   swapDirectionWrap: { alignItems: 'center', justifyContent: 'center', height: 0 },
@@ -1011,17 +1063,17 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
     borderColor: '#1c1c1c',
     zIndex: 2,
   },
-  label: { color: '#999', fontSize: 12, fontWeight: '600' },
+  label: { color: c.textMuted, fontSize: 12, fontWeight: '600' },
   input: {
-    backgroundColor: '#1a1a1a',
-    color: '#fff',
+    backgroundColor: c.bgCard,
+    color: c.textPrimary,
     padding: 14,
     borderRadius: 10,
     borderWidth: 1,
@@ -1031,8 +1083,8 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 14 },
   portfolioSection: { marginTop: 18 },
   portfolioHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  portfolioTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  portfolioTotal: { color: '#ffd700', fontSize: 14, fontWeight: '700' },
+  portfolioTitle: { color: c.textPrimary, fontSize: 14, fontWeight: '700' },
+  portfolioTotal: { color: c.gold, fontSize: 14, fontWeight: '700' },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   portfolioButton: {
     backgroundColor: '#242424',
@@ -1042,10 +1094,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2f2f2f',
   },
-  portfolioButtonText: { color: '#ff6200', fontSize: 12, marginTop: 5, fontWeight: '600' },
+  portfolioButtonText: { color: c.accent, fontSize: 12, marginTop: 5, fontWeight: '600' },
   swapButton: {
     flexDirection: 'row',
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
@@ -1059,10 +1111,10 @@ const styles = StyleSheet.create({
   warnText: { color: '#ffcc44', fontSize: 12, flex: 1 },
   modalContainer: { backgroundColor: '#1c1c1c', borderRadius: 18, padding: 20, borderWidth: 1, borderColor: '#2f2f2f' },
   closeButton: { alignSelf: 'flex-end', padding: 5 },
-  modalTitle: { color: '#fff', fontSize: 18,   marginBottom: 6, textAlign: 'center' },
+  modalTitle: { color: c.textPrimary, fontSize: 18,   marginBottom: 6, textAlign: 'center' },
   submitButton: {
     flexDirection: 'row',
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -1072,28 +1124,28 @@ const styles = StyleSheet.create({
   submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   tokenList: { maxHeight: 340 },
   tokenItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#242424' },
-  tokenItemSelected: { borderWidth: 1, borderColor: '#ff6200' },
-  modalMessage: { color: '#999', fontSize: 13, textAlign: 'center', marginBottom: 14, lineHeight: 19 },
+  tokenItemSelected: { borderWidth: 1, borderColor: c.accent },
+  modalMessage: { color: c.textMuted, fontSize: 13, textAlign: 'center', marginBottom: 14, lineHeight: 19 },
   balanceItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#242424' },
-  balanceAmount: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  balanceValueText: { color: '#ffd700', fontSize: 12, marginTop: 2 },
+  balanceAmount: { color: c.textPrimary, fontSize: 15, fontWeight: '700' },
+  balanceValueText: { color: c.gold, fontSize: 12, marginTop: 2 },
   tokenLogo: { width: 34, height: 34, borderRadius: 17, marginRight: 12 },
-  tokenName: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  tokenSymbolMuted: { color: '#888', fontSize: 12, marginTop: 1 },
+  tokenName: { color: c.textPrimary, fontSize: 14, fontWeight: '600' },
+  tokenSymbolMuted: { color: c.textMuted, fontSize: 12, marginTop: 1 },
   portfolioTotalBox: { backgroundColor: '#242424', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 14 },
-  portfolioTotalLabel: { color: '#888', fontSize: 12 },
-  portfolioTotalValue: { color: '#fff', fontSize: 26,   marginTop: 4 },
+  portfolioTotalLabel: { color: c.textMuted, fontSize: 12 },
+  portfolioTotalValue: { color: c.textPrimary, fontSize: 26,   marginTop: 4 },
   portfolioRefreshBtn: { position: 'absolute', right: 12, top: 12, padding: 6 },
   addressContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: c.bgCard,
     padding: 14,
     borderRadius: 10,
     marginBottom: 15,
     gap: 10,
   },
-  addressText: { color: '#fff', fontSize: 12, flex: 1, fontFamily: 'monospace' },
+  addressText: { color: c.textPrimary, fontSize: 12, flex: 1, fontFamily: 'monospace' },
   cancelButton: { backgroundColor: '#2f2f2f', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   cancelButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

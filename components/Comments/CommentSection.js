@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,11 +14,12 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import { EmbeddedWalletContext } from '../../components/ConnectButtonEnhanced';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../../constants';
+import { useTheme } from '../../context/ThemeContext';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
 // Kaito Adventure Design System
-const KA_COLORS = {
+const KA_COLORS_BASE = {
   bgPrimary: '#0c0c0c',
   bgCard: '#141210',
   bgElevated: '#1a1714',
@@ -38,15 +39,25 @@ const KA_COLORS = {
   error: '#c41e3a',
   warning: '#c9a84c',
 };
+const kaColors = (isDark, c) => isDark ? KA_COLORS_BASE : {
+  ...KA_COLORS_BASE,
+  bgPrimary: c.bg, bgCard: c.bgCard, bgElevated: c.bgElevated,
+  orangePrimary: c.accent, orangeBright: c.accent, orangeSoft: c.accentDeep, orangeDim: c.accentDeep,
+  gold: c.gold, goldBright: c.gold,
+  ivory: c.textPrimary, ivoryDim: c.textSecondary,
+  border: c.border, textPrimary: c.textPrimary, textSecondary: c.textSecondary, textMuted: c.textMuted,
+  success: '#16a34a', error: c.danger, warning: c.gold,
+};
 
-const styles = StyleSheet.create({
+
+export const getCommentSectionStyles = (c) => StyleSheet.create({
   commentSection: {
     padding: 16,
   },
   commentSectionContainer: {
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: c.bgCard,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: c.border,
     borderRadius: 8,
     padding: 16,
   },
@@ -56,7 +67,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    color: KA_COLORS.gold,
+    color: c.gold,
     fontSize: 20,
     
     marginLeft: 8,
@@ -66,15 +77,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: c.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.error,
+    borderColor: c.danger,
     borderRadius: 4,
     padding: 12,
     marginBottom: 16,
   },
   errorMessageText: {
-    color: KA_COLORS.ivory,
+    color: c.textPrimary,
     fontSize: 14,
     flex: 1,
   },
@@ -83,42 +94,42 @@ const styles = StyleSheet.create({
   },
   connectPrompt: {
     alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: c.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: c.border,
     borderRadius: 4,
     padding: 16,
     marginBottom: 16,
   },
   connectPromptText: {
-    color: KA_COLORS.textSecondary,
+    color: c.textSecondary,
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
   },
   connectButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: c.accent,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
   },
   connectButtonText: {
-    color: KA_COLORS.ivory,
+    color: c.textPrimary,
     fontSize: 14,
   },
   inputContainer: {
     marginBottom: 16,
   },
   textarea: {
-    backgroundColor: KA_COLORS.bgElevated,
-    color: KA_COLORS.ivory,
+    backgroundColor: c.bgElevated,
+    color: c.textPrimary,
     fontSize: 14,
     padding: 12,
     borderRadius: 4,
     minHeight: 80,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: c.border,
   },
   textareaDisabled: {
     opacity: 0.5,
@@ -130,23 +141,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   charCounter: {
-    color: KA_COLORS.textMuted,
+    color: c.textMuted,
     fontSize: 12,
   },
   postButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: c.accent,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 4,
   },
   postButtonDisabled: {
-    backgroundColor: KA_COLORS.orangeDim,
+    backgroundColor: c.accentDeep,
     opacity: 0.5,
   },
   postButtonText: {
-    color: KA_COLORS.ivory,
+    color: c.textPrimary,
     fontSize: 14,
     marginLeft: 8,
   },
@@ -157,9 +168,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   commentCard: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: c.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: c.border,
     borderRadius: 4,
     padding: 12,
   },
@@ -170,19 +181,19 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   commentUsername: {
-    color: KA_COLORS.orangePrimary,
+    color: c.accent,
     fontSize: 14,
     
   },
   commentTimestamp: {
-    color: KA_COLORS.textMuted,
+    color: c.textMuted,
     fontSize: 12,
   },
   commentContent: {
     marginBottom: 8,
   },
   commentText: {
-    color: KA_COLORS.ivory,
+    color: c.textPrimary,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -197,7 +208,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   actionButtonText: {
-    color: KA_COLORS.ivory,
+    color: c.textPrimary,
     fontSize: 12,
     marginLeft: 4,
   },
@@ -205,19 +216,19 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginLeft: 16,
     borderLeftWidth: 2,
-    borderLeftColor: KA_COLORS.orangePrimary,
+    borderLeftColor: c.accent,
     paddingLeft: 12,
   },
   replyInput: {
-    backgroundColor: KA_COLORS.bgElevated,
-    color: KA_COLORS.ivory,
+    backgroundColor: c.bgElevated,
+    color: c.textPrimary,
     fontSize: 14,
     padding: 10,
     borderRadius: 4,
     minHeight: 60,
     textAlignVertical: 'top',
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: c.border,
   },
   replyActions: {
     flexDirection: 'row',
@@ -231,21 +242,21 @@ const styles = StyleSheet.create({
   },
   cancelReplyButton: {
     padding: 8,
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: c.bgCard,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: c.border,
     borderRadius: 4,
     marginRight: 8,
   },
   postReplyButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: c.accent,
     padding: 8,
     borderRadius: 4,
   },
   postReplyButtonDisabled: {
-    backgroundColor: KA_COLORS.orangeDim,
+    backgroundColor: c.accentDeep,
     opacity: 0.5,
   },
   replies: {
@@ -256,7 +267,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   noComments: {
-    color: KA_COLORS.textMuted,
+    color: c.textMuted,
     fontSize: 14,
     textAlign: 'center',
     marginVertical: 16,
@@ -302,7 +313,7 @@ const Comment = ({
         value={newComment}
         onChangeText={setNewComment}
         placeholder="Type your reply..."
-        placeholderTextColor={KA_COLORS.textMuted}
+        placeholderTextColor={c.textMuted}
         multiline
         maxLength={500}
       />
@@ -313,14 +324,14 @@ const Comment = ({
             style={styles.cancelReplyButton}
             onPress={cancelReply}
           >
-            <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
+            <FontAwesome5 name="times" size={16} color={c.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.postReplyButton, !newComment && styles.postReplyButtonDisabled]}
             onPress={handleCommentSubmit}
             disabled={!newComment}
           >
-            <FontAwesome5 name="paper-plane" size={16} color={KA_COLORS.ivory} />
+            <FontAwesome5 name="paper-plane" size={16} color={c.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -350,7 +361,7 @@ const Comment = ({
             <FontAwesome5
               name="reply"
               size={16}
-              color={replyingTo === comment.id ? KA_COLORS.orangePrimary : KA_COLORS.ivory}
+              color={replyingTo === comment.id ? c.accent : c.textPrimary}
             />
             <Text style={styles.actionButtonText}>{replyingTo === comment.id ? 'Replying' : 'Reply'}</Text>
           </TouchableOpacity>
@@ -362,7 +373,7 @@ const Comment = ({
               <FontAwesome5
                 name={areRepliesVisible[comment.id] ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color={KA_COLORS.ivory}
+                color={c.textPrimary}
               />
               <Text style={styles.actionButtonText}>({replies.length})</Text>
             </TouchableOpacity>
@@ -372,7 +383,7 @@ const Comment = ({
               style={styles.actionButton}
               onPress={() => deleteComment(comment.id)}
             >
-              <FontAwesome5 name="trash" size={16} color={KA_COLORS.error} />
+              <FontAwesome5 name="trash" size={16} color={c.danger} />
             </TouchableOpacity>
           )}
         </View>
@@ -409,6 +420,9 @@ const Comment = ({
 };
 
 const CommentSection = ({ novelId, chapter }) => {
+  const { isDark, colors } = useTheme();
+  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark]);
+  const styles = useMemo(() => getCommentSectionStyles(colors), [isDark]);
   const { wallet } = useContext(EmbeddedWalletContext);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -513,23 +527,32 @@ const CommentSection = ({ novelId, chapter }) => {
   useEffect(() => {
     fetchComments();
     const channelName = `comments-${novelId}-${chapter}`;
-    const existing = supabase.getChannels().find((c) => c.topic === channelName);
-    if (existing) {
-      supabase.removeChannel(existing);
+    // Supabase prefixes channel topics with "realtime:" — match both forms or
+    // the stale channel is never removed and re-subscribing throws.
+    const topic = `realtime:${channelName}`;
+    supabase
+      .getChannels()
+      .filter((c) => c.topic === topic || c.topic === channelName)
+      .forEach((c) => supabase.removeChannel(c));
+    let channel;
+    try {
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'comments',
+            filter: `novel_id=eq.${novelId},chapter=eq.${chapter}`,
+          },
+          fetchComments
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn('[CommentSection] realtime subscribe failed:', err?.message);
+      return undefined;
     }
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'comments',
-          filter: `novel_id=eq.${novelId},chapter=eq.${chapter}`,
-        },
-        fetchComments
-      )
-      .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
@@ -701,7 +724,7 @@ const CommentSection = ({ novelId, chapter }) => {
     <View style={styles.commentSection}>
       <View style={styles.commentSectionContainer}>
         <View style={styles.titleContainer}>
-          <FontAwesome5 name="comment" size={20} color={KA_COLORS.gold} />
+          <FontAwesome5 name="comment" size={20} color={c.gold} />
           <Text style={styles.title}>Comments</Text>
         </View>
         {error && (
@@ -711,7 +734,7 @@ const CommentSection = ({ novelId, chapter }) => {
               style={styles.clearErrorButton}
               onPress={() => setError(null)}
             >
-              <FontAwesome5 name="times" size={16} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="times" size={16} color={c.textPrimary} />
             </TouchableOpacity>
           </View>
         )}
@@ -729,7 +752,7 @@ const CommentSection = ({ novelId, chapter }) => {
             value={newComment}
             onChangeText={setNewComment}
             placeholder={replyingTo ? 'Type your reply...' : 'Add your comment...'}
-            placeholderTextColor={KA_COLORS.textMuted}
+            placeholderTextColor={c.textMuted}
             multiline
             editable={isWalletConnected}
             maxLength={500}
@@ -741,7 +764,7 @@ const CommentSection = ({ novelId, chapter }) => {
               onPress={handleCommentSubmit}
               disabled={!isWalletConnected || !newComment}
             >
-              <FontAwesome5 name="paper-plane" size={16} color={KA_COLORS.ivory} />
+              <FontAwesome5 name="paper-plane" size={16} color={c.textPrimary} />
               <Text style={styles.postButtonText}>{replyingTo ? 'Post Reply' : 'Post Comment'}</Text>
             </TouchableOpacity>
           </View>

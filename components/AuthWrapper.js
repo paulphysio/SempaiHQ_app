@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, StyleSheet, StatusBar, Platform, Text, Image, Animated, Dimensions, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGoogleAuth } from './GoogleAuthProvider';
@@ -7,8 +7,11 @@ import * as NavigationBar from 'expo-navigation-bar';
 import { BlurView } from 'expo-blur';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { EmbeddedWalletContext } from './EmbeddedWalletProvider';
+import { useTheme } from '../context/ThemeContext';
 
 export const AuthWrapper = ({ children }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getAuthWrapperStyles(colors), [isDark]);
   const [showAuth, setShowAuth] = useState(true);
   const { session, loading } = useGoogleAuth();
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -140,7 +143,7 @@ export const AuthWrapper = ({ children }) => {
   return children;
 };
 
-const styles = StyleSheet.create({
+export const getAuthWrapperStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -152,7 +155,7 @@ const styles = StyleSheet.create({
     width: 400,
     height: 400,
     borderRadius: 200,
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
   },
   contentContainer: {
     width: '100%',
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderColor: 'rgba(255, 255, 255, 0.2)',
     borderWidth: 1,
     padding: 30,
@@ -178,7 +181,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 50,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: c.bg,
   },
   title: {
     fontSize: 34,
@@ -220,7 +223,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   skipButtonText: {
-    color: '#FF5733',
+    color: c.accent,
     fontSize: 16,
     
   },

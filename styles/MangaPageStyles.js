@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
-import { colors, space, radius, type, layout } from '../theme/theme';
+import { space, radius, layout } from '../theme/theme';
 
-export const styles = StyleSheet.create({
+export const getStyles = ({ colors, type }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   barRight: { flexDirection: 'row', alignItems: 'center' },
 
@@ -47,6 +47,15 @@ export const styles = StyleSheet.create({
     marginBottom: space.md,
   },
   clearText: { ...type.caption, color: colors.primaryHi, fontWeight: '700' },
+  progressChip: {
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: colors.primary + '66',
+  },
+  progressChipText: { ...type.caption, color: colors.primaryHi, fontWeight: '700', fontSize: 10 },
 
   pillWrap: { position: 'absolute', left: layout.gutter, right: layout.gutter, bottom: space.lg },
   tileRow: { flexDirection: 'row' },

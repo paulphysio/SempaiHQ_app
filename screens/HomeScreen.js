@@ -12,6 +12,7 @@ import {
   Text,
   Clipboard,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -24,6 +25,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { supabase } from '../services/supabaseClient';
+import { getAllReadingProgress } from '../services/readingProgress';
 import { getCachedNovelsOffline, isErrorNetworkError, saveNovelForOffline, clearOldCache, clearAllSmpFiles, clearCorruptedFiles, isNovelSavedOffline } from '../services/offlineCache';
 import { styles, HOME_GRADIENTS, HOME_COLORS, CARD_STEP, getThemedStyles } from '../styles/HomeStyles';
 import { AnimatedPressable, useDelayedUnmount, usePulse } from '../utils/homeAnimation';
@@ -67,6 +69,8 @@ const Home = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [novelsLoading, setNovelsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isOnline, setIsOnline] = useState(null); // null = unknown, will be set on check
   const [error, setError] = useState(null);
   const [showMessages, setShowMessages] = useState(false);
@@ -75,6 +79,7 @@ const Home = () => {
 
   const [publicKey, setPublicKey] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [continueItems, setContinueItems] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [isWriter, setIsWriter] = useState(false);
   const [isArtist, setIsArtist] = useState(false);
@@ -185,9 +190,9 @@ const Home = () => {
       requiresWallet: true,
     },
     {
-      title: 'Hoard',
+      title: 'Bazaar',
       image: { uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/novel-3.jpg' },
-      path: 'NovelsPage', // Updated from 'Novels'
+      path: 'Bazaar',
       requiresWallet: false,
     },
     {
@@ -233,9 +238,12 @@ const Home = () => {
 
   // Pop the notification badge whenever the unread count goes up, instead
   // of it just silently changing number.
-  const unreadCount = unreadNotifications + announcements.length;
+  // Announcements already create per-user `notifications` rows (type 'announcement')
+  // when they're sent, so they're counted via unreadNotifications. Counting
+  // announcements.length here double-counted them and never cleared on read.
+  const unreadCount = unreadNotifications;
   useEffect(() => {
-    if (__DEV__) console.log('[HomeScreen] Unread count updated:', unreadCount, '(notifications:', unreadNotifications, ', announcements:', announcements.length, ')');
+    if (__DEV__) console.log('[HomeScreen] Unread count updated:', unreadCount, '(notifications:', unreadNotifications, ')');
     if (unreadCount > 0) {
       badgePop.setValue(0.6);
       Animated.spring(badgePop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }).start();
@@ -549,7 +557,7 @@ const Home = () => {
     return () => {
       isCancelled = true;
     };
-  }, [userId, isWriter, isArtist, isOnline]);
+  }, [userId, isWriter, isArtist, isOnline, refreshKey]);
 
   // Fetch notifications
   useEffect(() => {
@@ -603,7 +611,7 @@ const Home = () => {
     return () => {
       isCancelled = true;
     };
-  }, [userId, isOnline]);
+  }, [userId, isOnline, refreshKey]);
 
   // Listen for notification updates from App.js
   useEffect(() => {
@@ -781,7 +789,7 @@ const Home = () => {
       }
     };
     fetchNovel();
-  }, [isOnline]);
+  }, [isOnline, refreshKey]);
 
   // Debug novels state changes
   useEffect(() => {
@@ -899,7 +907,58 @@ const Home = () => {
       }
     };
     fetchManga();
-  }, [isOnline]);
+  }, [isOnline, refreshKey]);
+
+  // Continue Reading: merge reading_progress rows with novel/manga metadata.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!userId || isOnline === false) {
+        if (alive) setContinueItems([]);
+        return;
+      }
+      const rows = await getAllReadingProgress(userId);
+      if (!alive) return;
+      const novelRows = rows.filter((r) => r.content_type === 'novel');
+      const mangaRows = rows.filter((r) => r.content_type === 'manga');
+      const [novelRes, mangaRes] = await Promise.all([
+        novelRows.length
+          ? supabase.from('novels').select('id, title, image').in('id', novelRows.map((r) => r.content_id))
+          : Promise.resolve({ data: [] }),
+        mangaRows.length
+          ? supabase.from('manga').select('id, title, cover_image').in('id', mangaRows.map((r) => r.content_id))
+          : Promise.resolve({ data: [] }),
+      ]);
+      if (!alive) return;
+      const novelMap = Object.fromEntries((novelRes.data || []).map((n) => [n.id, n]));
+      const mangaMap = Object.fromEntries((mangaRes.data || []).map((m) => [m.id, m]));
+      const items = [];
+      for (const row of rows) {
+        if (row.content_type === 'novel') {
+          const n = novelMap[row.content_id];
+          if (n) items.push({ ...row, kind: 'novel', title: n.title, image: n.image });
+        } else {
+          const m = mangaMap[row.content_id];
+          if (m) items.push({ ...row, kind: 'manga', title: m.title, image: m.cover_image });
+        }
+      }
+      setContinueItems(items.slice(0, 10));
+    })();
+    return () => { alive = false; };
+  }, [userId, isOnline, refreshKey]);
+
+  // Pull-to-refresh: bump refreshKey to re-run every data effect above.
+  // novelsLoading flips true->false when the novels fetch settles, which
+  // is what clears the spinner below.
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setNovelsLoading(true);
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  useEffect(() => {
+    if (refreshing && !novelsLoading) setRefreshing(false);
+  }, [novelsLoading, refreshing]);
 
   // Toggle sidebar — spring instead of a flat timing curve, so it has a
   // touch of natural overshoot/settle rather than a mechanical slide.
@@ -1656,8 +1715,10 @@ const Home = () => {
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-        bounces={false}
         scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
         onScroll={({ nativeEvent }) => {
           scrollY.setValue(nativeEvent.contentOffset.y);
         }}
@@ -1723,6 +1784,57 @@ const Home = () => {
           </View>
         ) : (
           <>
+            {/* Continue Reading — resumes the last-read chapter/position */}
+            {continueItems.length > 0 && (
+              <View style={styles.section}>
+                <SectionHeader title="Continue Reading" />
+                <FlatList
+                  data={continueItems}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(item) => `${item.content_type}-${item.content_id}`}
+                  contentContainerStyle={styles.carouselContainer}
+                  renderItem={({ item }) => {
+                    const chapterLabel =
+                      item.kind === 'manga'
+                        ? `Ch. ${item.chapter_number ?? '—'}`
+                        : `Ch. ${isNaN(parseInt(item.chapter_key, 10)) ? '—' : parseInt(item.chapter_key, 10) + 1}`;
+                    const pct = Math.max(0, Math.min(100, Number(item.scroll_pct) || 0));
+                    return (
+                      <TouchableOpacity
+                        style={[styles.continueCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}
+                        onPress={() =>
+                          item.kind === 'novel'
+                            ? navigation.navigate('Chapter', { novelId: item.content_id, chapterId: item.chapter_key })
+                            : navigation.navigate('MangaChapter', { mangaId: item.content_id, chapterId: item.chapter_key })
+                        }
+                        activeOpacity={0.85}
+                        accessible
+                        accessibilityLabel={`Continue reading ${item.title}`}
+                      >
+                        <Image
+                          source={{ uri: item.image || 'https://via.placeholder.com/150x200' }}
+                          style={styles.continueCardImage}
+                          resizeMode="cover"
+                        />
+                        <View style={styles.continueCardInfo}>
+                          <Text style={[styles.continueCardTitle, { color: colors.textPrimary }]} numberOfLines={2}>
+                            {item.title}
+                          </Text>
+                          <Text style={[styles.continueCardMeta, { color: colors.textSecondary }]}>
+                            {chapterLabel} · {Math.round(pct)}%
+                          </Text>
+                          <View style={[styles.continueCardTrack, { backgroundColor: colors.border }]}>
+                            <View style={[styles.continueCardFill, { width: `${pct}%`, backgroundColor: colors.accent }]} />
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              </View>
+            )}
+
             {/* Novels section */}
             <View style={styles.section}>
               <SectionHeader title="Featured Novels" onSeeAll={() => handleNavigation('NovelsPage', {})} />

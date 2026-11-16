@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,16 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { getUserDetails, getUserActivity } from '../utils/userManagement';
+import { useTheme } from '../context/ThemeContext';
 
 const UserDetailsScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getUserDetailsStyles(colors), [isDark]);
   const route = useRoute();
   const navigation = useNavigation();
   const { userId } = route.params;
@@ -21,15 +25,16 @@ const UserDetailsScreen = () => {
   const [user, setUser] = useState(null);
   const [activity, setActivity] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     loadUserData();
   }, [userId]);
 
-  const loadUserData = async () => {
+  const loadUserData = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       setError(null);
       const [userDetails, userActivity] = await Promise.all([
         getUserDetails(userId),
@@ -41,7 +46,17 @@ const UserDetailsScreen = () => {
       console.error('Error loading user data:', error);
       setError('Failed to load user data');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  // Pull-to-refresh: silent reload — keeps the profile visible.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadUserData(false);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -69,7 +84,7 @@ const UserDetailsScreen = () => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#E67E22" />
+        <ActivityIndicator size="large" color={colors.accent} />
         <Text style={styles.loadingText}>Loading user details...</Text>
       </View>
     );
@@ -104,7 +119,12 @@ const UserDetailsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.content}>
+      <ScrollView
+        style={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
+      >
         {/* Profile Section */}
         <View style={styles.section}>
           <View style={styles.profileHeader}>
@@ -133,7 +153,7 @@ const UserDetailsScreen = () => {
                 style={styles.socialButton}
                 onPress={() => handleSocialLink('x', user.x_account)}
               >
-                <Icon name="twitter" size={20} color="#E67E22" />
+                <Icon name="twitter" size={20} color={colors.accent} />
                 <Text style={styles.socialText}>{user.x_account}</Text>
               </TouchableOpacity>
             )}
@@ -143,7 +163,7 @@ const UserDetailsScreen = () => {
                 style={styles.socialButton}
                 onPress={() => handleSocialLink('discord', user.discord)}
               >
-                <Icon name="discord" size={20} color="#E67E22" />
+                <Icon name="discord" size={20} color={colors.accent} />
                 <Text style={styles.socialText}>{user.discord}</Text>
               </TouchableOpacity>
             )}
@@ -153,7 +173,7 @@ const UserDetailsScreen = () => {
                 style={styles.socialButton}
                 onPress={() => handleSocialLink('website', user.website)}
               >
-                <Icon name="globe" size={20} color="#E67E22" />
+                <Icon name="globe" size={20} color={colors.accent} />
                 <Text style={styles.socialText}>{user.website}</Text>
               </TouchableOpacity>
             )}
@@ -165,19 +185,19 @@ const UserDetailsScreen = () => {
           <Text style={styles.sectionTitle}>Statistics</Text>
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
-              <Icon name="book-reader" size={24} color="#E67E22" />
+              <Icon name="book-reader" size={24} color={colors.accent} />
               <Text style={styles.statNumber}>{user.totalPayments}</Text>
               <Text style={styles.statLabel}>Chapters Read</Text>
             </View>
             
             <View style={styles.statCard}>
-              <Icon name="comments" size={24} color="#E67E22" />
+              <Icon name="comments" size={24} color={colors.accent} />
               <Text style={styles.statNumber}>{user.totalComments}</Text>
               <Text style={styles.statLabel}>Comments</Text>
             </View>
             
             <View style={styles.statCard}>
-              <Icon name="unlock" size={24} color="#E67E22" />
+              <Icon name="unlock" size={24} color={colors.accent} />
               <Text style={styles.statNumber}>{user.totalUnlocked}</Text>
               <Text style={styles.statLabel}>Unlocked</Text>
             </View>
@@ -190,13 +210,13 @@ const UserDetailsScreen = () => {
           {user.wallet_address ? (
             <View style={styles.walletCard}>
               <View style={styles.walletHeader}>
-                <Icon name="wallet" size={20} color="#E67E22" />
+                <Icon name="wallet" size={20} color={colors.accent} />
                 <Text style={styles.walletLabel}>Address</Text>
               </View>
               <Text style={styles.walletAddress}>{user.wallet_address}</Text>
               <View style={styles.walletStats}>
                 <View style={styles.walletStat}>
-                  <Icon name="star" size={16} color="#E67E22" />
+                  <Icon name="star" size={16} color={colors.accent} />
                   <Text style={styles.walletStatText}>
                     {user.weekly_points || 0} Points
                   </Text>
@@ -222,7 +242,7 @@ const UserDetailsScreen = () => {
                 <Text style={styles.activityTitle}>Recent Payments</Text>
                 {activity.recentPayments.map((payment, index) => (
                   <View key={payment.id} style={styles.activityItem}>
-                    <Icon name="book" size={16} color="#E67E22" />
+                    <Icon name="book" size={16} color={colors.accent} />
                     <Text style={styles.activityText}>
                       Paid {payment.amount} SMP for Chapter {payment.chapter_number}
                     </Text>
@@ -240,7 +260,7 @@ const UserDetailsScreen = () => {
                 <Text style={styles.activityTitle}>Recent Comments</Text>
                 {activity.recentComments.map((comment, index) => (
                   <View key={comment.id} style={styles.activityItem}>
-                    <Icon name="comment" size={16} color="#E67E22" />
+                    <Icon name="comment" size={16} color={colors.accent} />
                     <Text style={styles.activityText} numberOfLines={2}>
                       {comment.content}
                     </Text>
@@ -258,10 +278,10 @@ const UserDetailsScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getUserDetailsStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
   },
   header: {
     flexDirection: 'row',
@@ -269,12 +289,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A3E',
+    borderBottomColor: 'c.bgCard',
   },
   headerTitle: {
     fontSize: 20,
      
-    color: '#ffffff',
+    color: c.textPrimary,
   },
   backButton: {
     padding: 8,
@@ -288,12 +308,12 @@ const styles = StyleSheet.create({
   section: {
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A3E',
+    borderBottomColor: 'c.bgCard',
   },
   sectionTitle: {
     fontSize: 18,
      
-    color: '#ffffff',
+    color: c.textPrimary,
     marginBottom: 16,
   },
   profileHeader: {
@@ -308,17 +328,17 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
      
-    color: '#ffffff',
+    color: c.textPrimary,
   },
   userDate: {
     fontSize: 14,
-    color: '#888888',
+    color: c.textMuted,
     marginTop: 4,
   },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'c.bgCard',
     borderRadius: 16,
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -329,7 +349,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   bio: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
     marginBottom: 16,
   },
@@ -341,7 +361,7 @@ const styles = StyleSheet.create({
   socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'c.bgCard',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -349,7 +369,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   socialText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     marginLeft: 8,
     fontSize: 14,
   },
@@ -359,7 +379,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'c.bgCard',
     borderRadius: 8,
     padding: 16,
     marginHorizontal: 4,
@@ -368,16 +388,16 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
      
-    color: '#E67E22',
+    color: c.accent,
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#ffffff',
+    color: c.textPrimary,
     marginTop: 4,
   },
   walletCard: {
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'c.bgCard',
     borderRadius: 8,
     padding: 16,
   },
@@ -387,12 +407,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   walletLabel: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
     marginLeft: 8,
   },
   walletAddress: {
-    color: '#E67E22',
+    color: c.accent,
     fontSize: 14,
     marginBottom: 12,
   },
@@ -405,18 +425,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   walletStatText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     marginLeft: 8,
     fontSize: 14,
   },
   noWalletCard: {
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'c.bgCard',
     borderRadius: 8,
     padding: 24,
     alignItems: 'center',
   },
   noWalletText: {
-    color: '#666666',
+    color: c.textMuted,
     marginTop: 8,
     fontSize: 16,
   },
@@ -424,7 +444,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   activityTitle: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
      
     marginBottom: 8,
@@ -432,19 +452,19 @@ const styles = StyleSheet.create({
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2A2A3E',
+    backgroundColor: 'c.bgCard',
     borderRadius: 8,
     padding: 12,
     marginBottom: 8,
   },
   activityText: {
     flex: 1,
-    color: '#ffffff',
+    color: c.textPrimary,
     marginLeft: 8,
     fontSize: 14,
   },
   activityDate: {
-    color: '#888888',
+    color: c.textMuted,
     fontSize: 12,
     marginLeft: 8,
   },
@@ -452,18 +472,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
   },
   loadingText: {
     marginTop: 16,
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
   },
   errorText: {
     color: '#FF5252',
@@ -472,13 +492,13 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   retryButton: {
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
   },
   retryText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
   },
 });

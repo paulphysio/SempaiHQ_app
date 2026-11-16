@@ -8,7 +8,7 @@ const scale = (size) => {
   return size;
 };
 
-export const styles = StyleSheet.create({
+export const getLoadingStyles = (c) => StyleSheet.create({
   loadingContainer: {
     position: 'absolute',
     top: 0,
@@ -37,7 +37,7 @@ export const styles = StyleSheet.create({
     borderRadius: scale(50),
     borderWidth: 3,
     borderColor: 'rgba(243, 99, 22, 0.8)',
-    shadowColor: '#F36316',
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 0 },
   },
   logoGlow: {

@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
 } from 'react-native';
-import { styles } from '../styles/PrivacyPolicyStyles';
+import { getPrivacyPolicyStyles } from '../styles/PrivacyPolicyStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const PrivacyPolicyScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getPrivacyPolicyStyles(colors), [isDark]);
   return (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.lastUpdated}>Updated at 2025-05-25</Text>

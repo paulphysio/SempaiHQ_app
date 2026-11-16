@@ -1,18 +1,18 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getExternalWalletStyles = (c) => StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'flex-end',
   },
   container: {
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '80%',
     borderWidth: 2,
-    borderColor: '#9B59B6',
+    borderColor: c.accent,
   },
   header: {
     flexDirection: 'row',
@@ -20,20 +20,20 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   closeButton: {
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   title: {
     fontSize: 20,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   placeholder: {
@@ -44,7 +44,7 @@ export const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     fontFamily: 'Yoruka',
@@ -56,7 +56,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginTop: 15,
     fontFamily: 'Yoruka',
   },
@@ -86,7 +86,7 @@ export const styles = StyleSheet.create({
   walletName: {
     fontSize: 18,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   walletStatus: {
@@ -98,7 +98,7 @@ export const styles = StyleSheet.create({
     color: '#4CAF50',
   },
   notInstalled: {
-    color: '#888',
+    color: c.textMuted,
   },
   infoBox: {
     flexDirection: 'row',
@@ -112,7 +112,7 @@ export const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
     fontFamily: 'Yoruka',

@@ -1,9 +1,10 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Animated } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
 import { AnimatedPressable, usePulse } from '../utils/animations';
+import { useTheme } from '../context/ThemeContext';
 
 const WALLET_NAME = 'Sempai Wallet';
 const WALLET_ICON =
@@ -219,6 +220,8 @@ const JupiterSwapWebView = ({
   onSignAndSendTransaction,
   onSignTransaction,
 }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getJupiterStyles(colors), [isDark]);
   const webViewRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
@@ -295,7 +298,7 @@ const JupiterSwapWebView = ({
         <View style={styles.webviewContainer}>
           {loading && (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#f36316" />
+              <ActivityIndicator size="large" color={colors.accent} />
               <Animated.Text style={[styles.loadingText, { opacity: loadingPulse }]}>Loading Jupiter...</Animated.Text>
             </View>
           )}
@@ -338,7 +341,7 @@ const JupiterSwapWebView = ({
   );
 };
 
-const styles = StyleSheet.create({
+export const getJupiterStyles = (c) => StyleSheet.create({
   modal: { margin: 0, justifyContent: 'flex-end' },
   container: { flex: 1, backgroundColor: '#000' },
   header: {
@@ -351,7 +354,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(243, 99, 22, 0.3)',
   },
   headerButton: { padding: 8, opacity: 0.8 },
-  headerTitle: { color: '#fff', fontSize: 18, },
+  headerTitle: { color: c.textPrimary, fontSize: 18, },
   webviewContainer: { flex: 1, backgroundColor: '#000' },
   webview: { flex: 1 },
   loadingContainer: {
@@ -365,7 +368,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     zIndex: 1,
   },
-  loadingText: { color: '#fff', marginTop: 12, fontSize: 14 },
+  loadingText: { color: c.textPrimary, marginTop: 12, fontSize: 14 },
   footer: {
     padding: 16,
     backgroundColor: 'rgba(10, 10, 15, 0.95)',

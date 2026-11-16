@@ -12,9 +12,10 @@ import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
-import styles, { BAZAAR_COLORS } from '../styles/BazaarStyles';
+import { useBazaarTheme } from '../styles/BazaarStyles';
 
 const BazaarScreen = () => {
+  const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   // Clear the floating GlobalBottomNav (68px) so the last row stays visible.

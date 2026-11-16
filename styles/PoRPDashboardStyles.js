@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getPoRPDashStyles = (c) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -16,12 +16,12 @@ export const styles = StyleSheet.create({
     width: '95%',
     maxWidth: 500,
     maxHeight: '85%',
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#9B59B6',
-    shadowColor: '#9B59B6',
+    borderColor: c.accent,
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
     padding: 30,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
   },
   closeButton: {
     position: 'absolute',
@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
   tierTitle: {
     fontSize: 32,
     
-    color: '#FFFFFF',
+    color: c.bgCard,
     marginTop: 15,
     fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -63,7 +63,7 @@ export const styles = StyleSheet.create({
   tabs: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
   },
   tab: {
     flex: 1,
@@ -76,15 +76,15 @@ export const styles = StyleSheet.create({
   activeTab: {
     backgroundColor: 'rgba(155, 89, 182, 0.2)',
     borderBottomWidth: 2,
-    borderBottomColor: '#9B59B6',
+    borderBottomColor: c.accent,
   },
   tabText: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
   activeTabText: {
-    color: '#FFFFFF',
+    color: c.bgCard,
     
   },
   content: {
@@ -93,7 +93,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     textAlign: 'center',
     fontFamily: 'Yoruka',
     padding: 40,
@@ -114,14 +114,14 @@ export const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   statValue: {
     fontSize: 22,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   progressCard: {
@@ -134,7 +134,7 @@ export const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 10,
   },
@@ -147,12 +147,12 @@ export const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     borderRadius: 4,
   },
   progressText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     textAlign: 'right',
     fontFamily: 'Yoruka',
   },
@@ -171,14 +171,14 @@ export const styles = StyleSheet.create({
   },
   challengesLabel: {
     fontSize: 12,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   challengesValue: {
     fontSize: 18,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   infoCard: {
@@ -192,7 +192,7 @@ export const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 13,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
     fontFamily: 'Yoruka',
@@ -208,7 +208,7 @@ export const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 10,
   },
@@ -218,7 +218,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(155, 89, 182, 0.5)',
     borderRadius: 10,
     padding: 15,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     marginBottom: 15,
@@ -227,11 +227,11 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#8E44AD',
+    borderColor: c.accent,
   },
   buttonIcon: {
     marginRight: 10,
@@ -239,7 +239,7 @@ export const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: c.bgCard,
     fontFamily: 'Yoruka',
   },
   multiplierCard: {
@@ -252,7 +252,7 @@ export const styles = StyleSheet.create({
   multiplierTitle: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
     marginBottom: 15,
   },
@@ -261,11 +261,11 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   multiplierLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
   multiplierValue: {
@@ -286,7 +286,7 @@ export const styles = StyleSheet.create({
   cooldownTitle: {
     fontSize: 18,
     
-    color: '#E74C3C',
+    color: c.danger,
     fontFamily: 'Yoruka',
     textAlign: 'center',
   },
@@ -300,7 +300,7 @@ export const styles = StyleSheet.create({
   tierCardTitle: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
     marginBottom: 15,
   },
@@ -312,7 +312,7 @@ export const styles = StyleSheet.create({
   },
   tierText: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
 });

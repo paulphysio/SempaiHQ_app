@@ -1,6 +1,6 @@
 import { StyleSheet, Platform, Dimensions } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getConnectButtonStyles = (c) => StyleSheet.create({
   container: {
     position: 'relative',
     zIndex: 999,
@@ -103,7 +103,7 @@ export const styles = StyleSheet.create({
   dropdownText: {
     fontSize: 13,
     fontFamily: 'Yoruka',
-    color: '#333',
+    color: c.textPrimary,
     marginLeft: 8,
     
   },
@@ -127,10 +127,10 @@ export const styles = StyleSheet.create({
   },
   disconnectModalContent: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    maxWidth: 320,
+    borderRadius: 16,
+    padding: 18,
+    width: '80%',
+    maxWidth: 300,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
@@ -145,19 +145,19 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   disconnectModalTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontFamily: 'Yoruka',
     
-    color: '#333',
+    color: c.textPrimary,
     marginBottom: 12,
   },
   disconnectModalText: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
+    marginBottom: 16,
+    lineHeight: 18,
   },
   disconnectModalButtons: {
     flexDirection: 'row',
@@ -166,25 +166,25 @@ export const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: '#f5f5f5',
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: c.bgCard,
     flex: 1,
     marginRight: 8,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#333',
+    color: c.textPrimary,
     
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'Yoruka',
   },
   confirmButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: '#FF5733',
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    backgroundColor: c.accent,
     flex: 1,
     marginLeft: 8,
     alignItems: 'center',
@@ -192,7 +192,7 @@ export const styles = StyleSheet.create({
   confirmButtonText: {
     color: 'white',
     
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'Yoruka',
   },
 
@@ -204,35 +204,35 @@ export const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 24,
-    width: '85%',
-    maxWidth: 320,
+    borderRadius: 16,
+    padding: 18,
+    width: '80%',
+    maxWidth: 300,
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontFamily: 'Yoruka',
     
     marginBottom: 16,
-    color: '#333',
+    color: c.textPrimary,
   },
   modalText: {
-    fontSize: 15,
+    fontSize: 13,
     fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
   },
   input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: c.bgCard,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
     width: '100%',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Yoruka',
-    color: '#333',
+    color: c.textPrimary,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
   },
@@ -247,13 +247,13 @@ export const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: '#FF5733',
+    borderColor: c.accent,
     marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
   },
   checkboxText: {
     color: 'white',
@@ -265,28 +265,28 @@ export const styles = StyleSheet.create({
     color: '#666',
   },
   actionButton: {
-    backgroundColor: '#FF5733',
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: c.accent,
+    borderRadius: 10,
+    paddingVertical: 11,
     paddingHorizontal: 20,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   actionButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Yoruka',
     
   },
   secondaryButton: {
-    paddingVertical: 14,
+    paddingVertical: 11,
     width: '100%',
     alignItems: 'center',
   },
   secondaryButtonText: {
-    color: '#FF5733',
-    fontSize: 16,
+    color: c.accent,
+    fontSize: 14,
     fontFamily: 'Yoruka',
     
   },
@@ -302,10 +302,10 @@ export const styles = StyleSheet.create({
   },
   modalHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 14,
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
@@ -313,7 +313,7 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
   },
   walletOption: {
-    backgroundColor: '#ffffff',
+    backgroundColor: c.bgCard,
     borderRadius: 16,
     marginBottom: 12,
     width: '100%',
@@ -327,7 +327,7 @@ export const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   walletOptionGradient: {
-    padding: 16,
+    padding: 12,
   },
   walletOptionHeader: {
     flexDirection: 'row',
@@ -335,35 +335,35 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   walletIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: 'rgba(255, 87, 51, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    marginRight: 12,
   },
   walletOptionTextContainer: {
     flex: 1,
   },
   walletOptionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Yoruka',
     
-    color: '#FF5733',
+    color: c.accent,
     marginBottom: 4,
   },
   walletOptionDescription: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Yoruka',
     color: '#666',
-    lineHeight: 18,
+    lineHeight: 16,
   },
   walletOptionFeatures: {
     gap: 4,
   },
   walletOptionFeature: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Yoruka',
     color: '#28a745',
     
@@ -371,51 +371,51 @@ export const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Yoruka',
     
-    color: '#FF5733',
+    color: c.accent,
     marginLeft: 8,
   },
   formHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 14,
   },
   formIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 87, 51, 0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   inputContainer: {
     marginBottom: 16,
     width: '100%',
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Yoruka',
     
-    color: '#333',
+    color: c.textPrimary,
     marginBottom: 8,
   },
   actionButtonGradient: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     width: '100%',
   },
   cancelButton: {
-    paddingVertical: 14,
+    paddingVertical: 10,
     paddingHorizontal: 24,
-    borderRadius: 12,
-    backgroundColor: '#f5f5f5',
+    borderRadius: 10,
+    backgroundColor: c.bgCard,
     alignItems: 'center',
     width: '100%',
     marginTop: 8,
@@ -423,7 +423,7 @@ export const styles = StyleSheet.create({
   cancelButtonText: {
     color: '#666',
     
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Yoruka',
   },
 
@@ -441,7 +441,7 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Yoruka',
     
-    color: '#333',
+    color: c.textPrimary,
   },
   dropdownItemText: {
     fontSize: 14,
@@ -458,7 +458,7 @@ export const styles = StyleSheet.create({
   dropdownActionText: {
     fontSize: 14,
     fontFamily: 'Yoruka',
-    color: '#333',
+    color: c.textPrimary,
     
   },
   disconnectAction: {

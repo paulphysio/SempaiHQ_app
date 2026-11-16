@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
-import { View, Text, FlatList, SafeAreaView, StatusBar, Alert, Image, ScrollView } from 'react-native';
+import { View, Text, FlatList, SafeAreaView, StatusBar, Alert, Image, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { supabase } from '../services/supabaseClient';
+import { getReadingProgressMap } from '../services/readingProgress';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import { fetchSmpTokenBalance } from '../utils/solana';
@@ -15,8 +16,8 @@ import {
   Screen, AppBar, IconButton, Input, Chip, Tap, PosterCard, PosterGridSkeleton, EmptyState,
   WalletPill, Sheet, StatTile, GradientButton, GhostButton, Toast, Field,
 } from '../components/ui';
-import { colors, gradients, radius, space, type, layout, glow } from '../theme/theme';
-import { styles } from '../styles/MangaPageStyles';
+import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
+import { getStyles as getPageStyles } from '../styles/MangaPageStyles';
 
 const TAG_OPTIONS = [
   'Action', 'Adult(18+)', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance',
@@ -29,6 +30,9 @@ const MIN_WITHDRAWAL = 2500;
 const MangaPageScreen = () => {
   const navigation = useNavigation();
   const { isDark, colors: themeColors } = useTheme();
+  const mangaTheme = useMangaTheme();
+  const { colors, gradients, type } = mangaTheme;
+  const styles = useMemo(() => getPageStyles(mangaTheme), [mangaTheme]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const secretKey = walletContext?.secretKey;
@@ -37,6 +41,7 @@ const MangaPageScreen = () => {
   const [onChainBalance, setOnChainBalance] = useState(0);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [mangaList, setMangaList] = useState([]);
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -46,6 +51,7 @@ const MangaPageScreen = () => {
   const [walletOpen, setWalletOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
+  const [progressMap, setProgressMap] = useState({});
 
   /* ───── on-chain balance when the wallet sheet opens ───── */
   useEffect(() => {
@@ -131,6 +137,9 @@ const MangaPageScreen = () => {
         .single();
       if (error || !user) throw new Error('User not found');
       setWeeklyPoints(user.weekly_points || 0);
+
+      // Reading progress badges on cards
+      getReadingProgressMap(user.id).then(setProgressMap);
 
       const { data: walletBalance } = await supabase
         .from('wallet_balances')
@@ -319,17 +328,38 @@ const MangaPageScreen = () => {
     };
   }, []);
 
-  useEffect(() => {
-    setLoading(true);
-    if (isWalletConnected && wallet?.publicKey) {
-      Promise.all([checkBalance(), fetchManga()]).finally(() => setLoading(false));
-    } else {
-      fetchManga().finally(() => setLoading(false));
+  const loadData = useCallback(async (showLoader = true) => {
+    if (showLoader) setLoading(true);
+    try {
+      if (isWalletConnected && wallet?.publicKey) {
+        await Promise.all([checkBalance(), fetchManga()]);
+      } else {
+        await fetchManga();
+      }
+    } finally {
+      if (showLoader) setLoading(false);
     }
   }, [isWalletConnected, wallet?.publicKey]);
 
+  useEffect(() => {
+    loadData(true);
+  }, [loadData]);
+
+  // Pull-to-refresh: silent reload — keeps the grid visible, no skeleton flash.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadData(false);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const renderItem = useCallback(
-    ({ item, index }) => (
+    ({ item, index }) => {
+      const prog = progressMap?.[`manga:${item.id}`];
+      const progPct = prog ? Math.max(0, Math.min(100, Number(prog.scroll_pct) || 0)) : 0;
+      return (
       <PosterCard
         index={index}
         cover={item.cover_image}
@@ -337,11 +367,20 @@ const MangaPageScreen = () => {
         author={item.users?.name}
         views={formatNumber(item.uniqueViewers)}
         adult={item.tags?.includes('Adult(18+)')}
+        progress={prog ? progPct : undefined}
+        badge={prog ? (
+          <View style={styles.progressChip}>
+            <Text style={styles.progressChipText}>
+              Ch. {prog.chapter_number ?? '—'} · {Math.round(progPct)}%
+            </Text>
+          </View>
+        ) : undefined}
         onPress={() => navigation.navigate('MangaDetail', { id: item.id })}
         onAuthor={() => navigation.navigate('CreatorsProfile', { userId: item.user_id })}
       />
-    ),
-    [navigation]
+      );
+    },
+    [navigation, progressMap]
   );
 
   /* ───── header: search + genre rail ───── */
@@ -411,6 +450,9 @@ const MangaPageScreen = () => {
             windowSize={9}
             removeClippedSubviews
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />
+            }
           />
         )}
 

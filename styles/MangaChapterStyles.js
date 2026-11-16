@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native';
-import { colors, space, radius, type, layout } from '../theme/theme';
+import { space, radius, layout } from '../theme/theme';
 
-export const styles = StyleSheet.create({
+export const getStyles = ({ colors, type }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
 
@@ -140,6 +140,19 @@ export const styles = StyleSheet.create({
     borderBottomLeftRadius: radius.md,
   },
   ribbonText: { color: '#3b2600', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
+
+  planPayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  planPayText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
   /* transaction sheet */
   txHero: { alignItems: 'center', paddingVertical: space.lg },

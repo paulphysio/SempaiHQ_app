@@ -246,17 +246,15 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
           .single();
         
         if (userData) {
-          await supabase
+          // notifications.is_read is the real column; announcements have no
+          // per-user read state (they already fan out into notifications rows).
+          const { error: markError } = await supabase
             .from('notifications')
-            .update({ read: true })
+            .update({ is_read: true })
             .eq('user_id', userData.id)
-            .is('read', null);
-          
-          await supabase
-            .from('announcements')
-            .update({ read: true })
-            .is('read', null);
-          
+            .or('is_read.is.null,is_read.eq.false');
+          if (markError) console.warn('[GlobalBottomNav] mark-read failed:', markError.message);
+
           // Refresh to update unread count
           setUnreadCount(0);
         }
@@ -341,10 +339,16 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
       ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       setCombinedMessages(combined);
       
-      // Calculate unread count from both notifications (where read is false or null) and announcements
-      const unreadNotifs = (notifData || []).filter(n => !n.read);
-      const unreadAnnouncements = (filteredAnnouncements || []).filter(a => !a.read);
-      setUnreadCount(unreadNotifs.length + unreadAnnouncements.length);
+      // Unread = notifications with is_read false/null, counted across ALL rows
+      // (the list above is limited to 20 for the modal). Announcements are NOT
+      // counted: they have no per-user read column and already generate
+      // notification rows when sent.
+      const { count: unreadCountResult } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userData.id)
+        .or('is_read.is.null,is_read.eq.false');
+      setUnreadCount(unreadCountResult ?? (notifData || []).filter(n => !n.is_read).length);
     } catch (error) {
       console.error('[GlobalBottomNav] Error in fetchMessages:', error);
       setNotifications([]);

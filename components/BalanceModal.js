@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import {
   RPC_URL,
 } from '../constants';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
+import { useTheme } from '../context/ThemeContext';
 
 const connection = new Connection(RPC_URL);
 
@@ -65,6 +66,8 @@ const TOKEN_MINTS = {
 };
 
 const BalanceModal = ({ isOpen, onClose, activeWalletAddress }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getBalanceModalStyles(colors), [isDark]);
   const { wallet: embeddedWallet } = useContext(EmbeddedWalletContext);
   const [balances, setBalances] = useState({});
   const [loading, setLoading] = useState(true);
@@ -143,7 +146,7 @@ const BalanceModal = ({ isOpen, onClose, activeWalletAddress }) => {
             style={styles.copyButton}
             onPress={() => copyToClipboard(activeWalletAddress)}
           >
-            <Icon name="copy" size={14} color="#E67E22" />
+            <Icon name="copy" size={14} color={colors.accent} />
           </TouchableOpacity>
         </View>
 
@@ -153,7 +156,7 @@ const BalanceModal = ({ isOpen, onClose, activeWalletAddress }) => {
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#E67E22" />
+              <ActivityIndicator size="small" color={colors.accent} />
               <Text style={styles.loadingText}>Loading balances...</Text>
             </View>
           ) : (
@@ -196,14 +199,14 @@ const BalanceModal = ({ isOpen, onClose, activeWalletAddress }) => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getBalanceModalStyles = (c) => StyleSheet.create({
   modal: {
     margin: 0,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContainer: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderRadius: 24,
     padding: 24,
     width: '90%',
@@ -221,7 +224,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     
-    color: '#ffffff',
+    color: c.textPrimary,
     marginBottom: 24,
   },
   walletAddressContainer: {
@@ -295,7 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   tokenSymbol: {
-    color: '#ffffff',
+    color: c.textPrimary,
     
     fontSize: 14,
   },
@@ -309,7 +312,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   balanceAmount: {
-    color: '#ffffff',
+    color: c.textPrimary,
     
     fontSize: 16,
   },
@@ -344,7 +347,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     
     fontSize: 14,
   },

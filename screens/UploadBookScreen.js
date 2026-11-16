@@ -19,7 +19,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import styles, { BAZAAR_COLORS } from '../styles/BazaarStyles';
+import { useBazaarTheme } from '../styles/BazaarStyles';
 import { BAZAAR_AUTHOR_SHARE_PCT, BAZAAR_BOOK_PRICE_USD, BAZAAR_LEND_PRICE_SMP } from '../utils/bazaar';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
@@ -33,7 +33,40 @@ const base64ToArrayBuffer = (base64) => {
   return bytes.buffer;
 };
 
+// Turn raw Supabase/storage errors into something a user can act on.
+const friendlyUploadError = (err) => {
+  const msg = String(err?.message || err || '');
+  const lower = msg.toLowerCase();
+
+  if (lower.includes('row-level security') || lower.includes('row security') || lower.includes('42501')) {
+    return 'You need to be signed in to publish a book. Please sign out and sign back in with Google, then try again.';
+  }
+  if (lower.includes('jwt') || lower.includes('session') || lower.includes('401') || lower.includes('403')) {
+    return 'Your session has expired. Please sign out and sign back in, then try again.';
+  }
+  if (lower.includes('file upload failed')) {
+    if (lower.includes('payload') || lower.includes('size') || lower.includes('too large')) {
+      return 'The file is too large. Please choose a book under 50MB.';
+    }
+    if (lower.includes('mime') || lower.includes('type')) {
+      return 'That file type is not supported. Please upload a PDF or EPUB.';
+    }
+    if (lower.includes('duplicate') || lower.includes('already exists')) {
+      return 'A file with that name was already uploaded. Please try again.';
+    }
+    return 'The book file could not be uploaded. Check your internet connection and try again.';
+  }
+  if (lower.includes('failed to save book')) {
+    return 'The book details could not be saved. Please try again — if it keeps failing, contact support.';
+  }
+  if (lower.includes('network') || lower.includes('fetch') || lower.includes('timeout')) {
+    return 'Network problem. Check your connection and try again.';
+  }
+  return 'Something went wrong while publishing. Please try again.';
+};
+
 const UploadBookScreen = () => {
+  const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
@@ -63,7 +96,7 @@ const UploadBookScreen = () => {
       try {
         const { data } = await supabase
           .from('users')
-          .select('id, name, wallet_address')
+          .select('id, name, wallet_address, email')
           .eq('wallet_address', activePublicKey.toString())
           .maybeSingle();
         setUser(data || null);
@@ -149,6 +182,26 @@ const UploadBookScreen = () => {
       return;
     }
 
+    // Storage + table RLS key off the Supabase Auth session (Google sign-in),
+    // not the wallet. Catch a missing/mismatched session before uploading.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      Alert.alert(
+        'Sign in required',
+        'Publishing needs an active Google sign-in session. Please sign out and sign back in with the Google account linked to your profile, then try again.'
+      );
+      return;
+    }
+    const sessionEmail = (session.user?.email || '').toLowerCase();
+    const profileEmail = (user.email || '').toLowerCase();
+    if (profileEmail && sessionEmail && sessionEmail !== profileEmail) {
+      Alert.alert(
+        'Wrong Google account',
+        `You're signed in as ${session.user?.email}, but this profile belongs to ${user.email}. Sign out and sign in with the matching Google account.`
+      );
+      return;
+    }
+
     setUploading(true);
     try {
       const timestamp = Date.now();
@@ -208,7 +261,7 @@ const UploadBookScreen = () => {
       navigation.goBack();
     } catch (err) {
       console.error('[UploadBook] Submit error:', err.message);
-      Alert.alert('Upload failed', err.message || 'Something went wrong.');
+      Alert.alert('Upload failed', friendlyUploadError(err));
     } finally {
       setUploading(false);
     }

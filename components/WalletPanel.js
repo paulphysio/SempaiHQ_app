@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { styles } from '../styles/WalletPanelStyles';
+import { getWalletPanelStyles } from '../styles/WalletPanelStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const WalletPanel = ({
   isWalletConnected,
@@ -26,6 +27,8 @@ const WalletPanel = ({
   errorMessage,
   timeLeft,
 }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getWalletPanelStyles(colors), [isDark]);
   const [isOpen, setIsOpen] = useState(false); // Start collapsed
   const panelAnim = useRef(new Animated.Value(0)).current; // 0: hidden, 1: visible
   const buttonAnim = useRef(new Animated.Value(1)).current; // 1: visible, 0: hidden
@@ -96,7 +99,7 @@ const WalletPanel = ({
       >
         <TouchableOpacity onPress={togglePanel}>
           <LinearGradient
-            colors={['#F36316', '#D94A00']}
+            colors={[colors.accent, colors.accentDeep]}
             style={styles.placeholderButton}
           >
             <FontAwesome5 name="plug" size={20} color="#FFF" />
@@ -120,7 +123,7 @@ const WalletPanel = ({
       >
         <TouchableOpacity onPress={togglePanel} accessible={true} accessibilityLabel="Open wallet panel">
           <LinearGradient
-            colors={['#F36316', '#D94A00']}
+            colors={[colors.accent, colors.accentDeep]}
             style={styles.floatingButtonGradient}
           >
             <FontAwesome5 name="wallet" size={20} color="#FFF" />
@@ -160,7 +163,7 @@ const WalletPanel = ({
             accessibilityLabel="Collapse wallet panel"
           >
             <LinearGradient
-              colors={['#F36316', '#D94A00']}
+              colors={[colors.accent, colors.accentDeep]}
               style={styles.closeButtonGradient}
             >
               <FontAwesome5 name="chevron-down" size={20} color="#FFF" />
@@ -171,23 +174,23 @@ const WalletPanel = ({
           <View style={styles.panelContent}>
             <View style={styles.infoSection}>
               <View style={styles.infoItem}>
-                <FontAwesome5 name="coins" size={16} color="#F36316" />
+                <FontAwesome5 name="coins" size={16} color={colors.accent} />
                 <Text style={styles.infoLabel}>SMP (Off-chain)</Text>
                 <Text style={styles.infoValue}>{balance.toLocaleString()} SMP</Text>
               </View>
               <View style={styles.infoItem}>
-                <FontAwesome5 name="wallet" size={16} color="#F36316" />
+                <FontAwesome5 name="wallet" size={16} color={colors.accent} />
                 <Text style={styles.infoLabel}>SMP (On-chain)</Text>
                 <Text style={styles.infoValue}>{onChainBalance?.toLocaleString(undefined, {maximumFractionDigits: 6}) || 0} SMP</Text>
               </View>
               <View style={styles.infoItem}>
-                <FontAwesome5 name="star" size={16} color="#F36316" />
+                <FontAwesome5 name="star" size={16} color={colors.accent} />
                 <Text style={styles.infoLabel}>Points</Text>
                 <Text style={styles.infoValue}>{weeklyPoints.toLocaleString()}</Text>
               </View>
               {pendingWithdrawal > 0 && (
                 <View style={styles.infoItem}>
-                  <FontAwesome5 name="hourglass-half" size={16} color="#F36316" />
+                  <FontAwesome5 name="hourglass-half" size={16} color={colors.accent} />
                   <Text style={styles.infoLabel}>Pending</Text>
                   <Text style={styles.infoValue}>
                     {pendingWithdrawal.toLocaleString()} SMP
@@ -195,7 +198,7 @@ const WalletPanel = ({
                 </View>
               )}
               <View style={styles.infoItem}>
-                <FontAwesome5 name="clock" size={16} color="#F36316" />
+                <FontAwesome5 name="clock" size={16} color={colors.accent} />
                 <Text style={styles.infoLabel}>Next Reset</Text>
                 <Text style={styles.infoValue}>{timeLeft || 'Paused'}</Text>
               </View>
@@ -217,7 +220,7 @@ const WalletPanel = ({
                   disabled={isWithdrawing}
                 >
                   <LinearGradient
-                    colors={isWithdrawing ? ['#333', '#333'] : ['#F36316', '#D94A00']}
+                    colors={isWithdrawing ? ['#999999', '#999999'] : [colors.accent, colors.accentDeep]}
                     style={styles.buttonGradient}
                   >
                     {isWithdrawing ? (
@@ -233,7 +236,7 @@ const WalletPanel = ({
                   disabled={isWithdrawing}
                 >
                   <LinearGradient
-                    colors={['#F36316', '#D94A00']}
+                    colors={[colors.accent, colors.accentDeep]}
                     style={styles.buttonGradient}
                   >
                     <FontAwesome5 name="sync-alt" size={16} color="#FFF" />

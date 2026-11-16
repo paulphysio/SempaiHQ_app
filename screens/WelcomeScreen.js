@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { View, Text, Image, Animated, StyleSheet, Dimensions, Easing } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '../context/NavigationContext';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 const CENTER = { x: width / 2, y: height / 2 };
@@ -32,6 +33,8 @@ const STAR_COUNT = 46;
 const PARTICLE_COUNT = 24;
 
 const WelcomeScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getWelcomeStyles(colors), [isDark]);
   const { handleWelcomeComplete } = useNavigation();
 
   // Entrance / exit choreography
@@ -376,7 +379,7 @@ const WelcomeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getWelcomeStyles = (c) => StyleSheet.create({
   root: { flex: 1, backgroundColor: NAVY_DEEP },
   flash: {
     position: 'absolute',
@@ -384,11 +387,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: ORANGE_BRIGHT,
+    backgroundColor: c.accent,
     zIndex: 10,
   },
   scene: { flex: 1 },
-  star: { position: 'absolute', backgroundColor: '#ffffff' },
+  star: { position: 'absolute', backgroundColor: c.textPrimary },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -397,7 +400,7 @@ const styles = StyleSheet.create({
   wordmark: {
     position: 'absolute',
     top: height * 0.16,
-    color: ORANGE_BRIGHT,
+    color: c.accent,
     fontSize: 13,
      
     letterSpacing: 8,
@@ -446,15 +449,15 @@ const styles = StyleSheet.create({
     height: 170,
     borderRadius: 85,
     borderWidth: 1.5,
-    borderColor: ORANGE_BRIGHT,
+    borderColor: c.accent,
   },
   particle: {
     position: 'absolute',
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: ORANGE_BRIGHT,
-    shadowColor: ORANGE_BRIGHT,
+    backgroundColor: c.accent,
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
     shadowRadius: 5,
@@ -497,7 +500,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 13,
      
-    color: ORANGE,
+    color: c.accentDeep,
     letterSpacing: 2,
     textTransform: 'uppercase',
     marginBottom: 14,
@@ -506,12 +509,12 @@ const styles = StyleSheet.create({
     width: 140,
     height: 3,
     borderRadius: 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: ORANGE,
+    backgroundColor: c.accentDeep,
     borderRadius: 2,
   },
 });

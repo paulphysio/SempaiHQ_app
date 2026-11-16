@@ -2,7 +2,7 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-export const styles = StyleSheet.create({
+export const getHavenStyles = (c) => StyleSheet.create({
   page: {
     flex: 1,
     minHeight: '100%',
@@ -21,7 +21,7 @@ export const styles = StyleSheet.create({
     top: 0,
     width: '100%',
     zIndex: 1000,
-    shadowColor: '#ff6200',
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 15,
@@ -43,13 +43,13 @@ export const styles = StyleSheet.create({
     height: width <= 480 ? 35 : width <= 768 ? 40 : 45,
     borderRadius: 22.5,
     borderWidth: 2,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
   },
   logoText: {
     fontSize: width <= 480 ? 20 : width <= 768 ? 22 : 26,
     fontFamily: 'Yoruka',
     
-    color: '#ff6200',
+    color: c.accent,
     marginLeft: 12,
   },
   menuToggle: {
@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     width: width <= 480 ? 20 : 25,
     height: 3,
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
   },
   menuIconBefore: {
     top: width <= 480 ? -6 : -8,
@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingVertical: width <= 768 ? 20 : 0,
-    shadowColor: width <= 768 ? '#ff6200' : 'transparent',
+    shadowColor: width <= 768 ? c.accent : 'transparent',
     shadowOffset: width <= 768 ? { width: 0, height: 4 } : { width: 0, height: 0 },
     shadowOpacity: width <= 768 ? 0.2 : 0,
     shadowRadius: width <= 768 ? 15 : 0,
@@ -100,7 +100,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   navLinkText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: width <= 768 ? 18 : 18,
     fontFamily: 'Yoruka',
     
@@ -116,7 +116,7 @@ export const styles = StyleSheet.create({
     padding: width <= 768 ? 20 : 25,
     borderRadius: 12,
     marginBottom: 40,
-    shadowColor: '#ff6200',
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
@@ -126,7 +126,7 @@ export const styles = StyleSheet.create({
     fontSize: width <= 480 ? 26 : width <= 768 ? 28 : 32,
     fontFamily: 'Yoruka',
     
-    color: '#ff6200',
+    color: c.accent,
     textAlign: 'center',
     marginBottom: 20,
     textShadowColor: 'rgba(255, 98, 0, 0.3)',
@@ -146,7 +146,7 @@ export const styles = StyleSheet.create({
     left: 0,
     width: width <= 480 ? 22 : width <= 768 ? 25 : 28,
     height: width <= 480 ? 22 : width <= 768 ? 25 : 28,
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -157,7 +157,7 @@ export const styles = StyleSheet.create({
     elevation: 2,
   },
   howToListNumberText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     
     fontSize: width <= 480 ? 12 : width <= 768 ? 13 : 14,
     fontFamily: 'Yoruka',
@@ -178,7 +178,7 @@ export const styles = StyleSheet.create({
     fontSize: width <= 480 ? 28 : width <= 768 ? 32 : 40,
     fontFamily: 'Yoruka',
     
-    color: '#ff6200',
+    color: c.accent,
     marginBottom: 15,
     textShadowColor: 'rgba(255, 98, 0, 0.4)',
     textShadowOffset: { width: 0, height: 3 },
@@ -198,7 +198,7 @@ export const styles = StyleSheet.create({
     fontSize: width <= 480 ? 22 : width <= 768 ? 24 : 28,
     fontFamily: 'Yoruka',
     
-    color: '#ff6200',
+    color: c.accent,
     marginVertical: 35,
     textAlign: 'center',
     textShadowColor: 'rgba(255, 98, 0, 0.3)',
@@ -215,7 +215,7 @@ export const styles = StyleSheet.create({
     textAlign: 'justify',
   },
   highlight: {
-    color: '#ff6200',
+    color: c.accent,
     
     backgroundColor: 'rgba(255, 98, 0, 0.1)',
     paddingHorizontal: 6,

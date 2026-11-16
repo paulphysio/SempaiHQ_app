@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Modal, FlatList } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
-import styles from '../styles/ReaderStyles';
+import { getReaderStyles } from '../styles/ReaderStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const JSZIP_CDN = 'https://cdn.jsdelivr.net/npm/jszip@3.1.5/dist/jszip.min.js';
 const EPUBJS_CDN = 'https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js';
 const CHUNK_SIZE = 512 * 1024; // base64 chars per injected chunk
 
-const WEBVIEW_HTML = `
+const buildWebViewHtml = (isDark) => `
 <!DOCTYPE html>
 <html>
 <head>
@@ -39,7 +40,7 @@ const WEBVIEW_HTML = `
       left: 0;
       right: 0;
       text-align: center;
-      color: #8A8AA3;
+      color: ${isDark ? '#8A8AA3' : '#64748B'};
       font-family: sans-serif;
       font-size: 14px;
       transform: translateY(-50%);
@@ -103,15 +104,15 @@ const WEBVIEW_HTML = `
     function applyTheme() {
       rendition.themes.register('sempai', {
         'body': {
-          'color': '#E8E6F0',
-          'background': '#0B0B14',
+          'color': '${isDark ? '#E8E6F0' : '#1E293B'}',
+          'background': '${isDark ? '#0B0B14' : '#FFFFFF'}',
           'padding': '0 16px',
           'font-family': 'serif',
           'line-height': '1.7'
         },
         'p': { 'margin': '0 0 0.9em 0' },
-        'h1, h2, h3, h4': { 'color': '#FF5733', 'font-family': 'sans-serif' },
-        'a': { 'color': '#FF8C42', 'text-decoration': 'none' }
+        'h1, h2, h3, h4': { 'color': '${isDark ? '#FF5733' : '#3B82F6'}', 'font-family': 'sans-serif' },
+        'a': { 'color': '${isDark ? '#FF8C42' : '#2563EB'}', 'text-decoration': 'none' }
       });
       rendition.themes.select('sempai');
     }
@@ -194,7 +195,10 @@ const WEBVIEW_HTML = `
 </html>
 `;
 
-const EPUBReader = ({ file, onBack }) => {
+const EPUBReader = ({ file, onBack, onProgress }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getReaderStyles(isDark), [isDark]);
+  const epubStyles = useMemo(() => getEpubLocalStyles(colors), [isDark]);
   const [fileLoading, setFileLoading] = useState(true);
   const [bookLoading, setBookLoading] = useState(false);
   const [statusText, setStatusText] = useState('Reading file...');
@@ -274,6 +278,7 @@ const EPUBReader = ({ file, onBack }) => {
     if (currentChapter > 0) {
       const next = currentChapter - 1;
       setCurrentChapter(next);
+      onProgress?.({ index: next, total: chapters.length });
       webViewRef.current?.injectJavaScript(
         'window.displayChapter(' + next + '); true;'
       );
@@ -284,6 +289,7 @@ const EPUBReader = ({ file, onBack }) => {
     if (currentChapter < chapters.length - 1) {
       const next = currentChapter + 1;
       setCurrentChapter(next);
+      onProgress?.({ index: next, total: chapters.length });
       webViewRef.current?.injectJavaScript(
         'window.displayChapter(' + next + '); true;'
       );
@@ -293,6 +299,7 @@ const EPUBReader = ({ file, onBack }) => {
   const handleSelectChapter = (index) => {
     setTocOpen(false);
     setCurrentChapter(index);
+    onProgress?.({ index, total: chapters.length });
     webViewRef.current?.injectJavaScript(
       'window.displayChapter(' + index + '); true;'
     );
@@ -302,9 +309,12 @@ const EPUBReader = ({ file, onBack }) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
       if (data.type === 'toc') {
-        setChapters(data.chapters || []);
+        const tocChapters = data.chapters || [];
+        setChapters(tocChapters);
+        onProgress?.({ index: currentChapter, total: tocChapters.length });
       } else if (data.type === 'chapter') {
         setCurrentChapter(data.index);
+        onProgress?.({ index: data.index, total: chapters.length });
       } else if (data.type === 'ready') {
         setBookLoading(false);
         setStatusText('');
@@ -353,7 +363,7 @@ const EPUBReader = ({ file, onBack }) => {
 
       <WebView
         ref={webViewRef}
-        source={{ html: WEBVIEW_HTML }}
+        source={{ html: buildWebViewHtml(isDark) }}
         style={styles.epubContainer}
         onMessage={handleWebViewMessage}
         onLoadEnd={handleWebViewLoad}
@@ -422,10 +432,10 @@ const EPUBReader = ({ file, onBack }) => {
         animationType="slide"
         onRequestClose={() => setTocOpen(false)}
       >
-        <View style={localStyles.modalOverlay}>
-          <View style={localStyles.modalContent}>
-            <View style={localStyles.modalHeader}>
-              <Text style={localStyles.modalTitle}>Contents</Text>
+        <View style={epubStyles.modalOverlay}>
+          <View style={epubStyles.modalContent}>
+            <View style={epubStyles.modalHeader}>
+              <Text style={epubStyles.modalTitle}>Contents</Text>
               <TouchableOpacity onPress={() => setTocOpen(false)}>
                 <Ionicons name="close" size={24} color="#E8E6F0" />
               </TouchableOpacity>
@@ -435,14 +445,14 @@ const EPUBReader = ({ file, onBack }) => {
               keyExtractor={(item, index) => index.toString()}
               renderItem={({ item, index }) => (
                 <TouchableOpacity
-                  style={[localStyles.tocItem, index === currentChapter && localStyles.tocItemActive]}
+                  style={[epubStyles.tocItem, index === currentChapter && epubStyles.tocItemActive]}
                   onPress={() => handleSelectChapter(index)}
                 >
                   <Text
                     style={[
-                      localStyles.tocItemText,
+                      epubStyles.tocItemText,
                       (item.depth || 0) > 0 && { paddingLeft: 16 + (item.depth || 0) * 12 },
-                      index === currentChapter && localStyles.tocItemTextActive,
+                      index === currentChapter && epubStyles.tocItemTextActive,
                     ]}
                     numberOfLines={2}
                   >
@@ -458,7 +468,7 @@ const EPUBReader = ({ file, onBack }) => {
   );
 };
 
-const localStyles = StyleSheet.create({
+const getEpubLocalStyles = (c) => StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
@@ -480,7 +490,7 @@ const localStyles = StyleSheet.create({
     borderBottomColor: '#2A2A45',
   },
   modalTitle: {
-    color: '#E8E6F0',
+    color: c.textPrimary,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -494,11 +504,11 @@ const localStyles = StyleSheet.create({
     backgroundColor: 'rgba(255,87,51,0.12)',
   },
   tocItemText: {
-    color: '#C9C7E0',
+    color: c.textSecondary,
     fontSize: 15,
   },
   tocItemTextActive: {
-    color: '#FF5733',
+    color: c.accent,
     fontWeight: '600',
   },
 });

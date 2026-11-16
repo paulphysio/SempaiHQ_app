@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 const NavigationLoadingOverlay = ({ visible }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getNavLoadingStyles(colors), [isDark]);
   return (
     <Modal
       visible={visible}
@@ -16,14 +19,14 @@ const NavigationLoadingOverlay = ({ visible }) => {
           style={styles.gradient}
         />
         <View style={styles.content}>
-          <ActivityIndicator size="large" color="#FF5733" />
+          <ActivityIndicator size="large" color={colors.accent} />
         </View>
       </View>
     </Modal>
   );
 };
 
-const styles = StyleSheet.create({
+export const getNavLoadingStyles = (c) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',

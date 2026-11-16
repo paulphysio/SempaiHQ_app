@@ -1,5 +1,5 @@
 // ./screens/NexusScreen.js
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,9 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
-import { styles } from '../styles/SwapStyles';
+import { getSwapStyles } from '../styles/SwapStyles';
+import { logMoneyEvent } from '../services/moneyFeed';
+import { useTheme } from '../context/ThemeContext';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -33,6 +35,8 @@ const TOKEN_MINTS = {
 };
 
 const NexusScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getSwapStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet, signAndSendTransaction, setShowModal } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
@@ -266,6 +270,18 @@ const NexusScreen = () => {
         signature,
       });
 
+      logMoneyEvent({
+        event_type: 'token_send',
+        direction: 'out',
+        asset: selectedToken,
+        amount: parseFloat(amount) || null,
+        wallet: activeWalletAddress,
+        counterparty: recipientAddress,
+        title: `Send ${amount} ${selectedToken}`,
+        tx_sig: signature,
+        meta: { to: recipientAddress },
+      });
+
       setSuccessMessage(`Transfer successful! Signature: ${signature}`);
       setTimeout(() => setSuccessMessage(''), 5000);
       await checkBalance();
@@ -354,7 +370,7 @@ const NexusScreen = () => {
         <View style={styles.swapCard}>
           {!isWalletConnected ? (
             <View style={styles.connectPrompt}>
-              <Icon name="wallet" size={48} color="#E67E22" style={styles.walletIcon} />
+              <Icon name="wallet" size={48} color={colors.accent} style={styles.walletIcon} />
               <Text style={styles.connectPromptText}>Please connect your wallet to send tokens.</Text>
               <TouchableOpacity
                 style={styles.connectButton}
@@ -367,7 +383,7 @@ const NexusScreen = () => {
             <View style={styles.swapForm}>
               <Text style={styles.formTitle}>Send Tokens</Text>
               <View style={styles.balanceDisplay}>
-                <Icon name="gem" size={16} color="#E67E22" />
+                <Icon name="gem" size={16} color={colors.accent} />
                 <Text style={styles.balanceText}>
                   Balance: {balance.toFixed(4)} {selectedToken}
                 </Text>
@@ -433,7 +449,7 @@ const NexusScreen = () => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.swapButton, { marginTop: 10, backgroundColor: '#D94F04' }]}
+                style={[styles.swapButton, { marginTop: 10, backgroundColor: colors.accent }]}
                 onPress={() => Linking.openURL('https://ramp.network')}
               >
                 <Icon name="credit-card" size={16} color="#ffffff" style={styles.buttonIcon} />

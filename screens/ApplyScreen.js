@@ -1,11 +1,14 @@
 // screens/ApplyScreen.js
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { supabase } from '../services/supabaseClient'; // Adjust path if needed
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced'; // Adjust path if needed
 import Popup from '../components/Popup';
+import { useTheme } from '../context/ThemeContext';
 
 const ApplyScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getApplyStyles(colors), [isDark]);
   const { wallet, isWalletConnected, activePublicKey } = useContext(EmbeddedWalletContext);
   const [userId, setUserId] = useState(null);
   const [name, setName] = useState('');
@@ -236,7 +239,7 @@ const ApplyScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getApplyStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
@@ -245,7 +248,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   title: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 28,
      
     marginBottom: 20,
@@ -256,7 +259,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   message: {
-    color: '#ccc',
+    color: c.textSecondary,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 10,
@@ -272,13 +275,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   label: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 16,
     marginBottom: 8,
   },
   input: {
     backgroundColor: '#2c2c2c',
-    color: '#fff',
+    color: c.textPrimary,
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderRadius: 8,
@@ -292,19 +295,19 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 15,
     borderRadius: 8,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     marginHorizontal: 5,
     alignItems: 'center',
   },
   roleButtonActive: {
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
   },
   roleButtonText: {
     color: '#fff',
      
   },
   reasonButton: {
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
     padding: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -330,14 +333,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   submitButton: {
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
     padding: 18,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 20,
   },
   disabledButton: {
-    backgroundColor: '#555',
+    backgroundColor: c.textMuted,
   },
   submitButtonText: {
     color: '#fff',

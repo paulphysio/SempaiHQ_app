@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, {useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,8 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { styles } from '../styles/MarketplaceStyles';
+import { getMarketplaceStyles } from '../styles/MarketplaceStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -35,6 +36,8 @@ const RARITY_ICONS = {
 };
 
 const MarketplaceScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getMarketplaceStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
   
@@ -251,7 +254,7 @@ const MarketplaceScreen = () => {
                 </View>
                 
                 <View style={styles.infoRow}>
-                  <FontAwesome5 name="gem" size={16} color="#F39C12" />
+                  <FontAwesome5 name="gem" size={16} color={colors.accent} />
                   <Text style={styles.infoLabel}>Price:</Text>
                   <Text style={styles.infoValue}>{selectedItem.price_smp?.toLocaleString()} SMP</Text>
                 </View>

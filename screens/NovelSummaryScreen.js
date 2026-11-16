@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   StyleSheet,
   Dimensions,
   Animated,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -23,7 +24,7 @@ import { getNovelPageStyles } from '../styles/NovelPageStyles';
 const { width, height } = Dimensions.get('window');
 
 // Kaito Adventure Design System - Japanese Dark-Orange
-const KA_COLORS = {
+const KA_COLORS_BASE = {
   bgPrimary: '#0c0c0c',
   bgCard: '#141210',
   bgElevated: '#1a1714',
@@ -43,13 +44,23 @@ const KA_COLORS = {
   error: '#c41e3a',
   warning: '#c9a84c',
 };
+const kaColors = (isDark, c) => isDark ? KA_COLORS_BASE : {
+  ...KA_COLORS_BASE,
+  bgPrimary: c.bg, bgCard: c.bgCard, bgElevated: c.bgElevated,
+  orangePrimary: c.accent, orangeBright: c.accent, orangeSoft: c.accentDeep, orangeDim: c.accentDeep,
+  gold: c.gold, goldBright: c.gold,
+  ivory: c.textPrimary, ivoryDim: c.textSecondary,
+  border: c.border, textPrimary: c.textPrimary, textSecondary: c.textSecondary, textMuted: c.textMuted,
+  success: '#16a34a', error: c.danger, warning: c.gold,
+};
+
 
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: KA_COLORS.bgPrimary,
+    backgroundColor: KA_COLORS_BASE.bgPrimary,
   },
   backgroundGradient: {
     position: 'absolute',
@@ -57,7 +68,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: KA_COLORS.bgPrimary,
+    backgroundColor: KA_COLORS_BASE.bgPrimary,
   },
   emberContainer: {
     position: 'absolute',
@@ -72,8 +83,8 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: KA_COLORS.orangePrimary,
-    shadowColor: KA_COLORS.orangeBright,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
+    shadowColor: KA_COLORS_BASE.orangeBright,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
@@ -84,7 +95,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 16,
     marginTop: 16,
     letterSpacing: 1,
@@ -96,14 +107,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   errorText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 24,
      
     marginBottom: 12,
     letterSpacing: 2,
   },
   errorMessage: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 14,
     marginBottom: 24,
     textAlign: 'center',
@@ -113,15 +124,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
   backHomeText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     letterSpacing: 1,
   },
@@ -133,22 +144,22 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   singleSummaryTitle: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 24,
      
     marginBottom: 16,
     letterSpacing: 1,
   },
   singleSummaryText: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 16,
     lineHeight: 28,
     letterSpacing: 0.5,
   },
   summaryHeader: {
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: KA_COLORS_BASE.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS.border,
+    borderBottomColor: KA_COLORS_BASE.border,
     paddingVertical: 16,
     paddingHorizontal: 20,
   },
@@ -168,13 +179,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   logoText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 18,
      
     letterSpacing: 1,
   },
   summaryPageTitle: {
-    color: KA_COLORS.gold,
+    color: KA_COLORS_BASE.gold,
     fontSize: 18,
      
     letterSpacing: 2,
@@ -185,9 +196,9 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -198,7 +209,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     letterSpacing: 1,
   },
@@ -208,7 +219,7 @@ const styles = StyleSheet.create({
   summaryNovelCard: {
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -218,20 +229,20 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   summaryCardGradient: {
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: KA_COLORS_BASE.bgCard,
     padding: 16,
   },
   summaryCardContent: {
     gap: 12,
   },
   summaryNovelTitle: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 18,
      
     letterSpacing: 1,
   },
   summaryPreview: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 14,
     lineHeight: 22,
     letterSpacing: 0.5,
@@ -243,7 +254,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   readMoreText: {
-    color: KA_COLORS.orangePrimary,
+    color: KA_COLORS_BASE.orangePrimary,
     fontSize: 14,
      
     letterSpacing: 1,
@@ -258,14 +269,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   noResultsTitle: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 20,
      
     marginBottom: 8,
     letterSpacing: 1,
   },
   noResultsText: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 14,
     textAlign: 'center',
     letterSpacing: 1,
@@ -274,16 +285,17 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: KA_COLORS.border,
+    borderTopColor: KA_COLORS_BASE.border,
   },
   footerText: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 12,
     letterSpacing: 1,
   },
 });
 
 const NovelSummaryScreen = () => {
+  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark]);
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params || {};
@@ -293,6 +305,7 @@ const NovelSummaryScreen = () => {
   const [novels, setNovels] = useState([]);
   const [singleNovel, setSingleNovel] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const emberAnims = useRef([]);
@@ -322,9 +335,8 @@ const NovelSummaryScreen = () => {
   }, []);
 
   // Fetch single novel summary if id is provided, otherwise fetch all novels
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
+  const fetchData = useCallback(async (showLoader = true) => {
+    try {
         if (id) {
           // Fetch single novel summary
           let { data, error } = await supabase
@@ -361,12 +373,23 @@ const NovelSummaryScreen = () => {
         console.error('Error fetching data:', error);
         setError('Failed to load summaries.');
       } finally {
-        setLoading(false);
+        if (showLoader) setLoading(false);
       }
-    };
-
-    fetchData();
   }, [id]);
+
+  useEffect(() => {
+    fetchData(true);
+  }, [fetchData]);
+
+  // Pull-to-refresh: silent reload — keeps content visible.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchData(false);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   // Filter novels based on search term (only for list view)
   const filteredNovels = novels.filter(novel =>
@@ -390,7 +413,7 @@ const NovelSummaryScreen = () => {
           </Text>
           <View style={styles.readMore}>
             <Text style={styles.readMoreText}>Read Full Summary</Text>
-            <FontAwesome5 name="arrow-right" size={14} color={KA_COLORS.orangePrimary} />
+            <FontAwesome5 name="arrow-right" size={14} color={KA_COLORS_BASE.orangePrimary} />
           </View>
         </View>
       </View>
@@ -424,7 +447,7 @@ const NovelSummaryScreen = () => {
           ))}
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={KA_COLORS.orangePrimary} />
+          <ActivityIndicator size="large" color={KA_COLORS_BASE.orangePrimary} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       </SafeAreaView>
@@ -464,7 +487,7 @@ const NovelSummaryScreen = () => {
             style={styles.backHomeLink}
             onPress={() => navigation.navigate('Home')}
           >
-            <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
+            <FontAwesome5 name="home" size={16} color={KA_COLORS_BASE.ivory} />
             <Text style={styles.backHomeText}>Back to Home</Text>
           </TouchableOpacity>
         </View>
@@ -500,7 +523,12 @@ const NovelSummaryScreen = () => {
           ))}
         </View>
 
-        <ScrollView style={styles.summaryMain}>
+        <ScrollView
+          style={styles.summaryMain}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={KA_COLORS_BASE.orangeBright} colors={[KA_COLORS_BASE.orangeBright]} />
+          }
+        >
           <View style={styles.singleSummaryContainer}>
             <Text style={styles.singleSummaryTitle}>{singleNovel.title}</Text>
             <Text style={styles.singleSummaryText}>
@@ -569,11 +597,11 @@ const NovelSummaryScreen = () => {
       {/* Search Bar */}
       <View style={styles.searchSection}>
         <View style={styles.searchContainer}>
-          <FontAwesome5 name="search" size={16} color={KA_COLORS.textMuted} style={styles.searchIcon} />
+          <FontAwesome5 name="search" size={16} color={KA_COLORS_BASE.textMuted} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search novels..."
-            placeholderTextColor={KA_COLORS.textMuted}
+            placeholderTextColor={KA_COLORS_BASE.textMuted}
             value={searchTerm}
             onChangeText={setSearchTerm}
           />
@@ -584,7 +612,7 @@ const NovelSummaryScreen = () => {
       <View style={styles.summaryMain}>
         {filteredNovels.length === 0 ? (
           <View style={styles.noResults}>
-            <FontAwesome5 name="book-open" size={48} color={KA_COLORS.orangePrimary} style={styles.noResultsIcon} />
+            <FontAwesome5 name="book-open" size={48} color={KA_COLORS_BASE.orangePrimary} style={styles.noResultsIcon} />
             <Text style={styles.noResultsTitle}>No novels found</Text>
             <Text style={styles.noResultsText}>Try adjusting your search terms.</Text>
           </View>
@@ -596,6 +624,9 @@ const NovelSummaryScreen = () => {
             numColumns={1}
             contentContainerStyle={styles.summaryNovelsGrid}
             showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={KA_COLORS_BASE.orangeBright} colors={[KA_COLORS_BASE.orangeBright]} />
+            }
           />
         )}
       </View>

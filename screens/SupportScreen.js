@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,14 @@ import {
   Alert,
 } from 'react-native';
 import { supabase } from '../services/supabaseClient';
-import { styles } from '../styles/SupportStyles';
+import { getSupportStyles } from '../styles/SupportStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
 const SupportScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getSupportStyles(colors), [isDark]);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [subject, setSubject] = useState('');

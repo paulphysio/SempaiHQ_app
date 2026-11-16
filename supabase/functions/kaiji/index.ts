@@ -10,12 +10,15 @@
 //   KAIJI_ALLOWED_WALLETS  comma-separated wallets allowed to play (leave out to allow everyone)
 //   PUBLIC_RPC_URL         RPC the app uses (defaults to KAIJI_RPC_URL; it is sent to the app, so no private keys)
 //   KAIJI_DECIMALS (6), MIN_WAGER (1000000), MAX_WAGER (100000000), PICK_SECONDS (35), WAIT_SECONDS (45)
+//   SOL_FEE_SHARE_BPS (2500)  share of the 10% fee kept for conversion to SOL (2500 = 25%)
+//   SOL_FEE_SWAP_MIN (20000000)  SKR base units of accumulated fee share needed before a SOL swap runs
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided automatically by Supabase.
 //
 // Actions (POST json { action, ... }): config, health, join, pick, cancel, state, sweep
 // =====================================================================================================
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { Connection, Keypair, PublicKey, Transaction } from 'npm:@solana/web3.js@1.98.0';
+import bs58 from 'npm:bs58@5.0.0';
+import { Connection, Keypair, PublicKey, Transaction, VersionedTransaction, SystemProgram } from 'npm:@solana/web3.js@1.98.0';
 import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountIdempotentInstruction,
@@ -43,7 +46,21 @@ const RULES = {
   waitingSeconds: Number(envFirst('WAIT_SECONDS') ?? '45'),
   maxIdleRounds: 2, // two rounds in a row where nobody picks voids the match
   feeBps: 1000, // 10%
+  feeSolShareBps: Number(envFirst('SOL_FEE_SHARE_BPS') ?? '2500'), // 25% of the fee, converted to SOL in batches
 };
+
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+const JUP_API = 'https://lite-api.jup.ag/swap/v1';
+const SOL_FEE_SWAP_MIN = BigInt(envFirst('SOL_FEE_SWAP_MIN') ?? '20000000'); // 20 SKR (6 decimals)
+
+// Public money-activity feed (DAO Governance). Fire-and-forget: never breaks the game.
+async function logFeed(row: Record<string, unknown>) {
+  try {
+    await db().from('money_events').insert(row);
+  } catch (e: any) {
+    console.warn('[money_events] insert failed:', e?.message);
+  }
+}
 
 let _cfg: any = null;
 // Read lazily so that a missing secret shows up as a clear JSON error instead of a crash on boot.
@@ -241,9 +258,272 @@ async function sendTransfers(
   tx.sign(c.escrow);
   const sig = await c.conn.sendRawTransaction(tx.serialize());
   if (onSent) await onSent(sig);
-  const res = await c.conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
-  if (res.value.err) throw new Error('payout_failed_onchain');
+  await confirmSig(sig); // poll-based; websocket confirmTransaction hangs in edge runtimes
   return sig;
+}
+
+// Poll-based confirmation — websocket confirmTransaction is unreliable in edge runtimes.
+async function confirmSig(sig: string, timeoutMs = 60_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { value } = await cfg().conn.getSignatureStatuses([sig], { searchTransactionHistory: true });
+    const st = value[0];
+    if (st?.err) throw new Error('tx_failed_onchain');
+    if (st && (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized')) return;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  throw new Error('confirm_timeout');
+}
+
+// The 25%-of-fee share that stays in the escrow ATA after a win settlement.
+// Upsert keyed by match id so settlement retries never double-count.
+async function recordSolShare(m: any) {
+  if (m.outcome !== 'win') return;
+  const { fee } = settlementAmounts(BigInt(m.wager));
+  const solShare = (fee * BigInt(RULES.feeSolShareBps)) / 10000n;
+  if (solShare <= 0n) return;
+  const { error } = await db()
+    .from('kaiji_sol_share')
+    .upsert({ match_id: m.id, amount: solShare.toString() }, { onConflict: 'match_id', ignoreDuplicates: true });
+  if (error) throw new Error('sol_share_record_failed: ' + error.message);
+}
+
+// KAIJI SOL-swap state machine (pure: no Solana/Supabase imports, so it is unit-testable).
+// Paste this block into index.ts above maybeSwapFeeToSol (drop the `export` keywords if you want).
+//
+// Safety rules enforced here:
+//  1. Only ONE swap exists at a time and only the lease holder acts on it (enforced in SQL).
+//  2. The transaction signature is saved BEFORE the transaction is broadcast, so a crash can never lose it.
+//  3. A swap is released (its shares freed to be swapped again) ONLY when its signature definitely can no longer
+//     land: it failed on-chain, or its blockhash has expired and the signature is still not on-chain.
+//  4. Once the swap landed (status 'swapped') it is NEVER swapped again. Only the SOL forward is retried.
+
+type SigState = 'confirmed' | 'failed' | 'unknown';
+type SwapRow = {
+  id: string;
+  status: 'claimed' | 'sent' | 'swapped';
+  total: string | number;
+  swap_sig: string | null;
+  swap_last_valid: number | string | null;
+  min_out: string | number | null;
+  forward_sig: string | null;
+  forward_last_valid: number | string | null;
+};
+type Prepared = { signature: string; lastValidBlockHeight: number; broadcast: () => Promise<void> };
+interface SwapDeps {
+  acquire(): Promise<SwapRow | null>;
+  patch(id: string, patch: Record<string, unknown>): Promise<void>;
+  release(id: string, reason: string): Promise<boolean>;
+  finish(id: string): Promise<boolean>;
+  prepareSwap(total: bigint): Promise<Prepared & { minOut: bigint }>; // signs, must NOT broadcast
+  prepareForward(lamports: bigint): Promise<Prepared>; // signs, must NOT broadcast
+  sigState(sig: string): Promise<SigState>;
+  blockHeight(): Promise<number>;
+  log(msg: string): void;
+  onDone?(row: SwapRow): Promise<void>; // called once per swap after finish() succeeds
+}
+
+const EXPIRY_MARGIN = 20; // blocks of extra patience before declaring a blockhash expired
+
+type Resolution = 'confirmed' | 'failed' | 'expired' | 'pending';
+async function resolveSig(d: SwapDeps, sig: string, lastValid: number | string | null): Promise<Resolution> {
+  const s = await d.sigState(sig);
+  if (s === 'confirmed') return 'confirmed';
+  if (s === 'failed') return 'failed';
+  if (lastValid == null) return 'pending'; // never guess: without an expiry height we cannot prove it is dead
+  const h = await d.blockHeight();
+  if (h > Number(lastValid) + EXPIRY_MARGIN) {
+    const s2 = await d.sigState(sig); // one last look, in case it landed right at the end
+    if (s2 === 'confirmed') return 'confirmed';
+    if (s2 === 'failed') return 'failed';
+    return 'expired';
+  }
+  return 'pending';
+}
+
+async function runSwapStep(d: SwapDeps): Promise<{ result: string }> {
+  const sw = await d.acquire();
+  if (!sw) return { result: 'idle' };
+  let row: SwapRow = sw;
+
+  // ---- step 1: build + sign + SAVE the signature, then broadcast
+  if (row.status === 'claimed') {
+    let prep: Prepared & { minOut: bigint };
+    try {
+      prep = await d.prepareSwap(BigInt(row.total));
+    } catch (e) {
+      await d.release(row.id, 'prepare_failed'); // nothing was signed or sent, so this is safe
+      throw e;
+    }
+    await d.patch(row.id, {
+      status: 'sent',
+      swap_sig: prep.signature,
+      swap_last_valid: prep.lastValidBlockHeight,
+      min_out: prep.minOut.toString(),
+    });
+    row = { ...row, status: 'sent', swap_sig: prep.signature, swap_last_valid: prep.lastValidBlockHeight, min_out: prep.minOut.toString() };
+    try {
+      await prep.broadcast();
+    } catch (e) {
+      d.log('swap broadcast error (outcome unknown, will be resolved by signature): ' + String((e as Error)?.message ?? e));
+    }
+  }
+
+  // ---- step 2: resolve what happened to the swap transaction
+  if (row.status === 'sent') {
+    const r = await resolveSig(d, row.swap_sig!, row.swap_last_valid);
+    if (r === 'pending') return { result: 'swap_pending' };
+    if (r === 'failed' || r === 'expired') {
+      await d.release(row.id, r);
+      return { result: 'released_' + r };
+    }
+    await d.patch(row.id, { status: 'swapped' });
+    row = { ...row, status: 'swapped' };
+  }
+
+  // ---- step 3: forward the SOL (retryable; never re-swaps)
+  if (row.status === 'swapped') {
+    if (row.min_out == null) throw new Error('swap_missing_min_out');
+    if (row.forward_sig) {
+      const r = await resolveSig(d, row.forward_sig, row.forward_last_valid);
+      if (r === 'pending') return { result: 'forward_pending' };
+      if (r === 'confirmed') {
+        await d.finish(row.id);
+        if (d.onDone) await d.onDone(row);
+        return { result: 'done' };
+      }
+      await d.patch(row.id, { forward_sig: null, forward_last_valid: null }); // dead: safe to rebuild
+    }
+    const prep = await d.prepareForward(BigInt(row.min_out));
+    await d.patch(row.id, { forward_sig: prep.signature, forward_last_valid: prep.lastValidBlockHeight });
+    try {
+      await prep.broadcast();
+    } catch (e) {
+      d.log('forward broadcast error: ' + String((e as Error)?.message ?? e));
+    }
+    const r = await resolveSig(d, prep.signature, prep.lastValidBlockHeight);
+    if (r === 'confirmed') {
+      await d.finish(row.id);
+      if (d.onDone) await d.onDone(row);
+      return { result: 'done' };
+    }
+    if (r === 'pending') return { result: 'forward_pending' };
+    await d.patch(row.id, { forward_sig: null, forward_last_valid: null });
+    return { result: 'forward_retry' };
+  }
+  return { result: 'idle' };
+}
+
+// KAIJI: replaces your existing maybeSwapFeeToSol(). Needs, at the top of index.ts:
+//    import bs58 from 'npm:bs58@5.0.0';
+// and the swap_engine.ts block pasted above this function.
+async function maybeSwapFeeToSol(): Promise<{ result: string }> {
+  const c = cfg();
+  const rpcRow = (data: any) => (Array.isArray(data) ? data[0] : data);
+
+  const deps: SwapDeps = {
+    log: (m) => console.log('[kaiji swap]', m),
+
+    acquire: async () => {
+      const { data, error } = await db().rpc('kaiji_acquire_sol_swap', {
+        p_min: SOL_FEE_SWAP_MIN.toString(),
+        p_lease_secs: 120,
+      });
+      if (error) throw new Error('swap_acquire_failed: ' + error.message);
+      const row = rpcRow(data);
+      return row?.id ? (row as SwapRow) : null;
+    },
+    patch: async (id, patch) => {
+      const { error } = await db().from('kaiji_sol_swaps').update({ ...patch, updated_at: iso() }).eq('id', id);
+      if (error) throw new Error('swap_patch_failed: ' + error.message);
+    },
+    release: async (id, reason) => {
+      const { data, error } = await db().rpc('kaiji_release_sol_swap', { p_swap: id, p_reason: reason });
+      if (error) throw new Error('swap_release_failed: ' + error.message);
+      return !!data;
+    },
+    finish: async (id) => {
+      const { data, error } = await db().rpc('kaiji_finish_sol_swap', { p_swap: id });
+      if (error) throw new Error('swap_finish_failed: ' + error.message);
+      return !!data;
+    },
+    onDone: async (row) => {
+      await logFeed({
+        event_type: 'kaiji_sol_swap',
+        direction: 'swap',
+        asset: 'SOL',
+        amount: Number(row.min_out) / 1e9,
+        wallet: c.escrowAddress,
+        counterparty: c.feeWallet,
+        title: 'Kaiji fee → SOL swap',
+        detail: `${Number(row.total) / 10 ** c.decimals} SKR → SOL`,
+        tx_sig: row.forward_sig,
+        meta: { swap_id: row.id, skr_amount: row.total, sol_lamports: row.min_out },
+      });
+    },
+    sigState: async (sig) => {
+      const { value } = await c.conn.getSignatureStatuses([sig], { searchTransactionHistory: true });
+      const st = value[0];
+      if (!st) return 'unknown';
+      if (st.err) return 'failed';
+      return st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized' ? 'confirmed' : 'unknown';
+    },
+    blockHeight: () => c.conn.getBlockHeight('confirmed'),
+
+    // Build + sign only. The engine saves the signature, THEN calls broadcast().
+    prepareSwap: async (total) => {
+      const qRes = await fetch(
+        `${JUP_API}/quote?inputMint=${c.mintAddress}&outputMint=${SOL_MINT}&amount=${total.toString()}&slippageBps=50`,
+      );
+      if (!qRes.ok) throw new Error('jupiter_quote_http_' + qRes.status);
+      const quote = await qRes.json();
+      if (!quote?.outAmount) throw new Error('jupiter_no_route');
+      const sRes = await fetch(`${JUP_API}/swap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quoteResponse: quote,
+          userPublicKey: c.escrowAddress,
+          wrapAndUnwrapSOL: true,
+          dynamicComputeUnitLimit: true,
+        }),
+      });
+      if (!sRes.ok) throw new Error('jupiter_swap_http_' + sRes.status);
+      const swapJson = await sRes.json();
+      if (!swapJson?.swapTransaction) throw new Error('jupiter_no_tx');
+
+      const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(swapJson.swapTransaction), (ch) => ch.charCodeAt(0)));
+      tx.sign([c.escrow]);
+      const lastValid = Number(swapJson.lastValidBlockHeight) || (await c.conn.getBlockHeight('confirmed')) + 150;
+      // Jupiter guarantees at least otherAmountThreshold; forward only that so we never spend SOL we did not receive.
+      const minOut = BigInt(quote.otherAmountThreshold ?? (BigInt(quote.outAmount) * 99n) / 100n);
+      return {
+        signature: bs58.encode(tx.signatures[0]),
+        lastValidBlockHeight: lastValid,
+        minOut,
+        broadcast: async () => {
+          await c.conn.sendRawTransaction(tx.serialize(), { maxRetries: 3 });
+        },
+      };
+    },
+    prepareForward: async (lamports) => {
+      const ftx = new Transaction().add(
+        SystemProgram.transfer({ fromPubkey: c.escrow.publicKey, toPubkey: new PublicKey(c.feeWallet), lamports }),
+      );
+      const { blockhash, lastValidBlockHeight } = await c.conn.getLatestBlockhash('confirmed');
+      ftx.recentBlockhash = blockhash;
+      ftx.feePayer = c.escrow.publicKey;
+      ftx.sign(c.escrow);
+      return {
+        signature: bs58.encode(ftx.signature!),
+        lastValidBlockHeight,
+        broadcast: async () => {
+          await c.conn.sendRawTransaction(ftx.serialize(), { maxRetries: 3 });
+        },
+      };
+    },
+  };
+  return await runSwapStep(deps);
 }
 
 // --------------------------------------------------------------------------------------- identity
@@ -318,6 +598,7 @@ async function settleMatch(matchId: string) {
   let sent: string | null = null;
   try {
     if (m.settle_sig && (await signatureConfirmed(m.settle_sig))) {
+      await recordSolShare(m);
       await markSettled(m.id, m.settle_sig);
       return;
     }
@@ -326,9 +607,12 @@ async function settleMatch(matchId: string) {
     if (m.outcome === 'win') {
       const { fee, payout } = settlementAmounts(wager);
       const winnerWallet = m.winner === 'a' ? m.wallet_a : m.wallet_b;
+      // feeSolShareBps of the fee stays in the escrow ATA for later SOL conversion;
+      // the rest goes to the fee wallet as SKR.
+      const solShare = (fee * BigInt(RULES.feeSolShareBps)) / 10000n;
       items = [
         { wallet: winnerWallet, amount: payout },
-        { wallet: cfg().feeWallet, amount: fee },
+        { wallet: cfg().feeWallet, amount: fee - solShare },
       ];
     } else if (m.outcome === 'cancelled') {
       items = [{ wallet: m.wallet_a, amount: wager }];
@@ -342,7 +626,27 @@ async function settleMatch(matchId: string) {
       sent = s;
       await db().from('kaiji_matches').update({ settle_sig: s }).eq('id', m.id);
     });
+    await recordSolShare(m); // idempotent upsert; must happen first or a crash here loses the share forever
     await markSettled(m.id, sig);
+
+    // One feed row per recipient so draws (two refunds) and win+fee splits both show.
+    const isWin = m.outcome === 'win';
+    const wagerHuman = Number(wager) / 10 ** cfg().decimals;
+    for (const it of items) {
+      const isFeeShare = it.wallet === cfg().feeWallet;
+      await logFeed({
+        event_type: isWin ? 'kaiji_payout' : 'kaiji_refund',
+        direction: 'out',
+        asset: 'SKR',
+        amount: Number(it.amount) / 10 ** cfg().decimals,
+        wallet: isFeeShare ? null : (m.winner === 'a' ? m.wallet_a : m.wallet_b),
+        counterparty: isFeeShare ? cfg().feeWallet : (isWin ? (m.winner === 'a' ? m.wallet_b : m.wallet_a) : null),
+        title: isFeeShare ? 'Kaiji fee' : `Kaiji ${isWin ? 'payout' : m.outcome === 'cancelled' ? 'cancel refund' : 'draw refund'}`,
+        detail: `match ${m.id.slice(0, 8)} · wager ${wagerHuman} SKR`,
+        tx_sig: sig,
+        meta: { match_id: m.id, wager: wager.toString(), outcome: m.outcome, role: isFeeShare ? 'fee' : 'player' },
+      });
+    }
   } catch (e) {
     console.error('[kaiji settle failed]', matchId, errMsg(e));
     const patch: Record<string, unknown> = { status: 'settle_failed', error: errMsg(e).slice(0, 300), updated_at: iso() };
@@ -430,9 +734,29 @@ async function submitPick(secret: unknown, matchId: string, card: unknown) {
 
 // --------------------------------------------------------------------- joining, cancelling, state
 async function refundDeposit(wallet: string, wager: bigint, signature: string) {
+  // Atomic claim: only ONE caller can ever refund a deposit, and never one already attached to a match.
+  const { data: claimed, error: claimErr } = await db().rpc('kaiji_claim_deposit_refund', {
+    p_sig: signature,
+    p_stale_before: iso(-180_000),
+  });
+  if (claimErr) {
+    console.error('[kaiji refund claim failed]', signature, claimErr.message);
+    return;
+  }
+  if (!claimed) return;
   try {
     const sig = await sendTransfers([{ wallet, amount: wager }]);
     await db().from('kaiji_deposits').update({ refund_sig: sig }).eq('sig', signature);
+    await logFeed({
+      event_type: 'kaiji_deposit_refund',
+      direction: 'out',
+      asset: 'SKR',
+      amount: Number(wager) / 10 ** cfg().decimals,
+      wallet,
+      title: 'Kaiji deposit refund',
+      tx_sig: sig,
+      meta: { deposit_sig: signature },
+    });
   } catch (e) {
     console.error('[kaiji refund failed]', signature, errMsg(e));
     await db().from('kaiji_deposits').update({ refund_error: errMsg(e).slice(0, 300) }).eq('sig', signature);
@@ -477,6 +801,8 @@ async function joinMatch(signature: string, wagerStr: string, secret: unknown) {
       }
       throw new Error('deposit_already_used');
     }
+    // Another request is (or just was) joining with this same deposit. Only take over a stale attempt (a crash).
+    if (Date.now() - new Date(dep.created_at).getTime() < 120_000) throw new Error('join_in_progress');
     // recorded earlier but never matched (for example a crash in between): carry on and join now
   }
 
@@ -498,7 +824,23 @@ async function joinMatch(signature: string, wagerStr: string, secret: unknown) {
     p_deadline: iso(RULES.pickSeconds * 1000),
   });
   if (error || !data) return reject(error?.message ?? 'join_failed');
-  await db().from('kaiji_deposits').update({ match_id: data.id }).eq('sig', signature);
+  for (let i = 0; i < 3; i++) {
+    const { error: linkErr } = await db().from('kaiji_deposits').update({ match_id: data.id }).eq('sig', signature);
+    if (!linkErr) break;
+    console.error('[kaiji deposit link failed]', signature, linkErr.message);
+    await sleep(300);
+  }
+  await logFeed({
+    event_type: 'kaiji_deposit',
+    direction: 'in',
+    asset: 'SKR',
+    amount: Number(wager) / 10 ** cfg().decimals,
+    wallet,
+    title: 'Kaiji wager deposit',
+    detail: `match ${data.id.slice(0, 8)}`,
+    tx_sig: signature,
+    meta: { match_id: data.id, wager: wager.toString() },
+  });
   return { match: publicMatch(data), side: (data.token_a === hash ? 'a' : 'b') as Side };
 }
 
@@ -549,7 +891,7 @@ async function getState(secret: unknown, matchId?: string) {
 // Safe for anyone to call: it only advances things that are already due, and money only ever goes to
 // the wallets recorded on the match.
 async function sweep() {
-  const stats = { expired: 0, timeouts: 0, settled: 0 };
+  const stats: { expired: number; timeouts: number; settled: number; solSwap?: string } = { expired: 0, timeouts: 0, settled: 0 };
 
   const { data: waiting } = await db()
     .from('kaiji_matches')
@@ -568,6 +910,14 @@ async function sweep() {
   for (const r of pending ?? []) {
     await settleMatch(r.id);
     stats.settled++;
+  }
+
+  // Convert accumulated fee shares to SOL once enough has piled up.
+  try {
+    const swap = await maybeSwapFeeToSol();
+    if (swap.result !== 'idle') stats.solSwap = swap.result;
+  } catch (e) {
+    console.error('[kaiji sol swap]', errMsg(e));
   }
   return stats;
 }

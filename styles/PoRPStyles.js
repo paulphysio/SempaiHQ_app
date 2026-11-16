@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getPoRPStyles = (c) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -15,7 +15,7 @@ export const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 400,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     padding: 30,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
   },
   closeButton: {
     position: 'absolute',
@@ -46,7 +46,7 @@ export const styles = StyleSheet.create({
   tierTitle: {
     fontSize: 28,
     
-    color: '#FFFFFF',
+    color: c.bgCard,
     marginTop: 15,
     fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -64,7 +64,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     textAlign: 'center',
     fontFamily: 'Yoruka',
   },
@@ -84,14 +84,14 @@ export const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   statValue: {
     fontSize: 20,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   progressContainer: {
@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 8,
   },
@@ -116,12 +116,12 @@ export const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     borderRadius: 4,
   },
   progressText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginTop: 8,
     textAlign: 'right',
     fontFamily: 'Yoruka',

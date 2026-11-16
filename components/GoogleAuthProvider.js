@@ -140,7 +140,7 @@ export const GoogleAuthProvider = ({ children }) => {
       // Trigger animations
       modalScale.value = withSpring(1, { damping: 10, stiffness: 120 });
       modalOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.exp) });
-      backdropOpacity.value = withTiming(0.8, { duration: 500 });
+      backdropOpacity.value = withTiming(0.88, { duration: 500 });
       buttonGlow.value = withTiming(1, { 
         duration: 1000, 
         easing: Easing.inOut(Easing.sin),
@@ -289,11 +289,15 @@ export const GoogleAuthProvider = ({ children }) => {
         <Animated.View style={[styles.modalContainer, animatedBackdropStyle]}>
           <Animated.View style={[styles.modalContent, animatedModalStyle]}>
             <LinearGradient
-              colors={['rgba(255, 87, 51, 0.3)', 'rgba(255, 147, 0, 0.3)']}
+              colors={['rgba(255, 87, 51, 0.35)', 'rgba(255, 147, 0, 0.35)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.modalBackground}
             >
-              <Text style={styles.modalTitle}>Sempai HQ Awaits!</Text>
-              <Text style={styles.modalSubtitle}>Unleash Your Anime Adventure!</Text>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Sempai HQ Awaits!</Text>
+                <Text style={styles.modalSubtitle}>Unleash Your Anime Adventure!</Text>
+              </View>
               {error && <Text style={styles.errorText}>{error}</Text>}
               <Animated.View style={[styles.googleButtonContainer, animatedButtonStyle]}>
                 <TouchableOpacity
@@ -347,111 +351,101 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0)', // Animated backdrop
   },
+  modalContent: {
+    backgroundColor: 'rgba(12, 12, 18, 0.98)',
+    borderRadius: 18,
+    width: '78%',
+    maxWidth: 300,
+    alignItems: 'center',
+    shadowColor: '#FF4500',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 14,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 69, 0, 0.45)',
+    overflow: 'hidden',
+  },
   modalBackground: {
-    borderRadius: 28,
-    padding: 28,
+    borderRadius: 18,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
     width: '100%',
     alignItems: 'center',
   },
-  modalContent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Stronger glassmorphism
-    borderRadius: 28,
-    width: '92%',
-    maxWidth: 360,
+  modalHeader: {
     alignItems: 'center',
-    shadowColor: '#FF4500',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 15,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 69, 0, 0.4)',
-    overflow: 'hidden',
+    marginBottom: 14,
   },
   modalTitle: {
     fontFamily: ' Yoruka',
-    fontSize: 28,
-    
-    color: '#1A1A1A',
-    marginBottom: 16,
-    textShadowColor: 'rgba(255, 69, 0, 0.5)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 6,
-  },
-  modalSubtitle: {
-    fontFamily: ' Yoruka',
-    fontSize: 18,
-    color: '#333333',
-    textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 26,
-    
-    textShadowColor: 'rgba(255, 147, 0, 0.3)',
+    fontSize: 20,
+    color: '#FFFFFF',
+    marginBottom: 4,
+    textShadowColor: 'rgba(255, 69, 0, 0.6)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4,
   },
+  modalSubtitle: {
+    fontFamily: ' Yoruka',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.75)',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
   errorText: {
     fontFamily: ' Yoruka',
-    fontSize: 16,
-    color: '#FF3333',
-    marginBottom: 20,
+    fontSize: 12,
+    color: '#FF6B6B',
+    marginBottom: 12,
     textAlign: 'center',
-    backgroundColor: 'rgba(255, 51, 51, 0.2)',
-    padding: 10,
-    borderRadius: 10,
-    
+    backgroundColor: 'rgba(255, 51, 51, 0.15)',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+    width: '100%',
   },
   googleButtonContainer: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   googleButton: {
-    borderRadius: 20,
+    borderRadius: 12,
     overflow: 'hidden',
     width: '100%',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 215, 0, 0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 215, 0, 0.4)',
   },
   googleButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 28,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     justifyContent: 'center',
-    borderRadius: 20,
+    borderRadius: 12,
   },
   googleLogo: {
-    width: 32,
-    height: 32,
-    marginRight: 14,
+    width: 20,
+    height: 20,
+    marginRight: 10,
   },
   googleButtonText: {
     fontFamily: ' Yoruka',
-    fontSize: 18,
-    
+    fontSize: 14,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   cancelButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    width: '100%',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 69, 0, 0.5)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   cancelButtonText: {
     fontFamily: ' Yoruka',
-    fontSize: 17,
-    
-    color: '#FF4500',
-    textShadowColor: 'rgba(255, 69, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.6)',
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useContext, useCallback } from 'react';
-import { View, Text, Image, FlatList, SafeAreaView, StatusBar, Alert, ScrollView } from 'react-native';
+import { View, Text, Image, FlatList, SafeAreaView, StatusBar, Alert, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -10,19 +10,23 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButtonEnhanced';
 import MangaDetailCommentSection from '../components/MangaDetailCommentSection';
 import { formatNumber } from '../utils/formatNumber';
+import { getContentReadingProgress } from '../services/readingProgress';
 import { useTheme } from '../context/ThemeContext';
 import {
   Screen, AppBar, IconButton, Chip, Tap, StatusBadge, AdultBadge, GradientButton, GhostButton,
   SectionHeader, Toast, Skeleton, EmptyState, WalletPill, Sheet, StatTile, Divider,
 } from '../components/ui';
-import { colors, gradients, radius, space, type, glow, layout } from '../theme/theme';
-import { styles } from '../styles/MangaDetailStyles';
+import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
+import { getStyles as getDetailStyles } from '../styles/MangaDetailStyles';
 
 const MangaDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params || {};
   const { isDark, colors: themeColors } = useTheme();
+  const mangaTheme = useMangaTheme();
+  const { colors, gradients, type } = mangaTheme;
+  const styles = useMemo(() => getDetailStyles(mangaTheme), [mangaTheme]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
@@ -30,12 +34,15 @@ const MangaDetailScreen = () => {
   const [manga, setManga] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
   const [balance, setBalance] = useState(0);
   const [weeklyPoints, setWeeklyPoints] = useState(0);
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [newestFirst, setNewestFirst] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const [readingProgress, setReadingProgress] = useState(null);
 
   const flashError = (msg) => {
     setError(msg);
@@ -87,6 +94,7 @@ const MangaDetailScreen = () => {
         .eq('wallet_address', activePublicKey.toString())
         .single();
       if (userErr || !user) throw new Error('User not found');
+      setUserId(user.id);
       setWeeklyPoints(user.weekly_points || 0);
 
       const { data: walletBalance, error: balanceError } = await supabase
@@ -110,6 +118,32 @@ const MangaDetailScreen = () => {
     if (isWalletConnected && activePublicKey) jobs.push(checkBalance());
     Promise.all(jobs).finally(() => setLoading(false));
   }, [id, isWalletConnected, activePublicKey]);
+
+  // Pull-to-refresh: same jobs as the mount effect, without touching `loading`.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const jobs = [fetchMangaDetails()];
+      if (isWalletConnected && activePublicKey) jobs.push(checkBalance());
+      await Promise.all(jobs);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Reading progress: last-read chapter + page position for this series.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!userId || !id) {
+        if (alive) setReadingProgress(null);
+        return;
+      }
+      const row = await getContentReadingProgress(userId, 'manga', id);
+      if (alive) setReadingProgress(row);
+    })();
+    return () => { alive = false; };
+  }, [userId, id, refreshing]);
 
   const openChapter = useCallback(
     (chapterId) => navigation.navigate('MangaChapter', { mangaId: id, chapterId }),
@@ -158,10 +192,18 @@ const MangaDetailScreen = () => {
           <View style={{ flex: 1 }}>
             <GradientButton
               size="lg"
-              icon="play"
-              label={first ? 'Start Reading' : 'No chapters yet'}
-              disabled={!first}
-              onPress={() => first && openChapter(first.id)}
+              icon={readingProgress ? 'play' : 'book-open'}
+              label={
+                readingProgress
+                  ? `Continue · Ch.${readingProgress.chapter_number ?? '—'}`
+                  : first
+                  ? 'Start Reading'
+                  : 'No chapters yet'
+              }
+              disabled={!readingProgress && !first}
+              onPress={() =>
+                readingProgress ? openChapter(readingProgress.chapter_key) : first && openChapter(first.id)
+              }
             />
           </View>
           {latest && chapters.length > 1 ? (
@@ -214,13 +256,19 @@ const MangaDetailScreen = () => {
           </View>
           <View style={{ flex: 1 }}>
             <Text numberOfLines={1} style={styles.chapterTitle}>{item.title || `Chapter ${item.chapter_number}`}</Text>
-            <Text style={type.caption}>{item.is_premium ? 'Premium · unlock to read' : 'Free to read'}</Text>
+            {readingProgress && String(readingProgress.chapter_key) === String(item.id) ? (
+              <Text style={{ ...type.caption, color: colors.primaryHi, fontWeight: '700' }}>
+                Resume · {Math.round(Math.max(0, Math.min(100, Number(readingProgress.scroll_pct) || 0)))}%
+              </Text>
+            ) : (
+              <Text style={type.caption}>{item.is_premium ? 'Premium · unlock to read' : 'Free to read'}</Text>
+            )}
           </View>
           <Icon name={item.is_premium ? 'lock' : 'chevron-right'} size={14} color={item.is_premium ? colors.gold : colors.textMute} solid />
         </Tap>
       </Animated.View>
     ),
-    [openChapter]
+    [openChapter, readingProgress]
   );
 
   const footer = manga ? (
@@ -291,6 +339,9 @@ const MangaDetailScreen = () => {
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           windowSize={9}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />
+          }
         />
 
         {isWalletConnected ? (

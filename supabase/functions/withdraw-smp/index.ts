@@ -351,6 +351,24 @@ serve(async (req: Request) => {
         destination_transaction_signature: signature,
       });
 
+      // Public money-activity feed (DAO Governance). Fire-and-forget.
+      try {
+        await supabase.from("money_events").insert({
+          event_type: "withdrawal",
+          direction: "out",
+          asset: "SMP",
+          amount: validatedAmount,
+          wallet: walletAddress,
+          user_id: userId,
+          title: "SMP withdrawal",
+          detail: `withdrawal ${withdrawalId}`,
+          tx_sig: signature,
+          meta: { withdrawal_id: withdrawalId },
+        });
+      } catch (feedErr: any) {
+        console.warn("[money_events] insert failed:", feedErr?.message);
+      }
+
       return new Response(
         JSON.stringify({ success: true, signature }),
         { status: 200, headers: { "Content-Type": "application/json" } }

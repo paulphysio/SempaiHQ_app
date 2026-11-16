@@ -1,10 +1,10 @@
 // ../styles/StatStyles.js
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getStatStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     // Gradient background (fallback for now, can use react-native-linear-gradient in component)
     // background: 'linear-gradient(135deg, #1A1A2E 0%, #23234A 100%)',
   },
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: 1,
     fontFamily: 'System', // Use a modern font if available
   },
@@ -43,10 +43,10 @@ export const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     fontFamily: 'Yoruka',
-    color: '#FFFFFF',
+    color: c.textPrimary,
   },
   errorContainer: {
-    backgroundColor: '#EF5350',
+    backgroundColor: c.danger,
     padding: 10,
     marginHorizontal: 20,
     borderRadius: 12,
@@ -58,7 +58,7 @@ export const styles = StyleSheet.create({
     elevation: 4,
   },
   errorText: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 14,
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -71,7 +71,7 @@ export const styles = StyleSheet.create({
     fontSize: 28,
     fontFamily: 'Yoruka',
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginBottom: 24,
     textAlign: 'center',
     letterSpacing: 1.2,
@@ -103,7 +103,7 @@ export const styles = StyleSheet.create({
   statTitle: {
     fontSize: 16,
     fontFamily: 'Yoruka',
-    color: '#F28C38',
+    color: c.accent,
     marginBottom: 5,
     textAlign: 'center',
     
@@ -148,7 +148,7 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Yoruka',
     
-    color: '#F28C38',
+    color: c.accent,
     marginBottom: 10,
     textAlign: 'center',
     letterSpacing: 0.7,
@@ -174,7 +174,7 @@ export const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     letterSpacing: 0.5,
     fontFamily: 'System',
   },

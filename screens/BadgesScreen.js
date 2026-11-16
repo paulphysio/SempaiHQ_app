@@ -305,6 +305,17 @@ const BadgesScreen = () => {
     if (activeWalletAddress) fetchBalances();
   }, [activeWalletAddress, fetchBalances]);
 
+  // Shared pull-to-refresh for both tabs.
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    Promise.all([
+      fetchWriters(),
+      fetchUserBadges(),
+      fetchSolPrice(),
+      activeWalletAddress ? fetchBalances() : Promise.resolve(),
+    ]).finally(() => setRefreshing(false));
+  }, [fetchWriters, fetchUserBadges, fetchSolPrice, fetchBalances, activeWalletAddress]);
+
   const openWriter = useCallback(
     (writer) => {
       setSelectedWriter(writer);
@@ -933,10 +944,7 @@ const BadgesScreen = () => {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
               refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                fetchWriters();
-              }}
+              onRefresh={handleRefresh}
               ListEmptyComponent={
                 <Empty
                   icon="user-slash"
@@ -957,6 +965,8 @@ const BadgesScreen = () => {
           columnWrapperStyle={styles.gridRow}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
           ListEmptyComponent={
             <Empty
               icon="medal"

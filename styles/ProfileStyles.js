@@ -1,22 +1,14 @@
-// ./styles/ProfileStyles.js
+// styles/ProfileMangaStyles.js
 //
-// Kaito Adventure design system — Creator profile page.
-// Same public API as before: getProfileStyles(isDark) returns a
-// StyleSheet. All class names referenced by ProfileScreen.js
-// are defined here.
+// Manga / anime-novel design system for the Creator Profile page.
+// The PALETTE below is a copy of the dark + light colours from your original ProfileStyles.js,
+// value for value. Your old ProfileStyles.js is NOT touched, so any other screen importing it keeps working.
 
 import { StyleSheet, Dimensions, Platform } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-// ---------------------------------------------------------------------------
-// Design tokens
-// ---------------------------------------------------------------------------
-// Both palettes share the same warm "ink & ember" identity (deep orange +
-// aged gold) so the brand reads identically in either mode — dark leans into
-// lantern-lit paper, light leans into sun-bleached parchment.
-
-const PALETTE = {
+export const PALETTE = {
   dark: {
     bg: '#0c0c0c',
     bgCard: '#141210',
@@ -26,7 +18,7 @@ const PALETTE = {
 
     accent: '#cc5500',
     accentBright: '#ff6b35',
-    accentSoft: "rgba(230,126,34,0.16)",
+    accentSoft: 'rgba(230,126,34,0.16)',
     accentDim: '#8b4513',
 
     gold: '#c9a84c',
@@ -93,7 +85,341 @@ const PALETTE = {
   },
 };
 
-const RADIUS = { xs: 8, sm: 12, md: 16, lg: 20, xl: 26, pill: 999 };
+export const getProfilePalette = (isDark = true) => (isDark ? PALETTE.dark : PALETTE.light);
+
+// How far the hard "ink" shadow sits behind each panel.
+export const INK = 5;
+
+export const getProfileMangaStyles = (isDark = true) => {
+  const c = getProfilePalette(isDark);
+
+  return StyleSheet.create({
+    // ---------------------------------------------------------------- shell
+    root: { flex: 1, backgroundColor: c.bg },
+    sunDisc: {
+      position: 'absolute',
+      top: -190,
+      right: -150,
+      width: 380,
+      height: 380,
+      borderRadius: 190,
+      backgroundColor: c.accentSoft,
+    },
+    sunRing: {
+      position: 'absolute',
+      top: -150,
+      right: -110,
+      width: 300,
+      height: 300,
+      borderRadius: 150,
+      borderWidth: 2,
+      borderColor: c.accentDim,
+      opacity: 0.45,
+    },
+    scroll: { flex: 1 },
+    scrollContent: { paddingHorizontal: 16, paddingTop: 20 },
+
+    // ---------------------------------------------------------------- title
+    titleWrap: { alignItems: 'center', marginBottom: 26 },
+    title: {
+      color: c.textPrimary,
+      fontSize: 30,
+      fontWeight: '900',
+      letterSpacing: 4,
+      textAlign: 'center',
+      textShadowColor: c.accent,
+      textShadowOffset: { width: 3, height: 3 },
+      textShadowRadius: 0,
+    },
+    titleSlashRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
+    titleSlash: {
+      width: 64,
+      height: 4,
+      backgroundColor: c.accent,
+      transform: [{ skewX: '-30deg' }],
+    },
+    titleSlashThin: {
+      width: 26,
+      height: 2,
+      marginLeft: 6,
+      backgroundColor: c.gold,
+      transform: [{ skewX: '-30deg' }],
+    },
+    subtitle: {
+      color: c.textSecondary,
+      fontSize: 12,
+      letterSpacing: 3,
+      marginTop: 10,
+      textAlign: 'center',
+    },
+
+    // ----------------------------------------------------------------- hero
+    heroBody: { paddingTop: 34, paddingBottom: 22, paddingHorizontal: 18, alignItems: 'center' },
+    avatarWrap: { width: 132, height: 132, alignItems: 'center', justifyContent: 'center' },
+    avatarPulse: {
+      position: 'absolute',
+      width: 132,
+      height: 132,
+      borderRadius: 66,
+      borderWidth: 3,
+      borderColor: c.accent,
+    },
+    avatarDashed: {
+      position: 'absolute',
+      width: 124,
+      height: 124,
+      borderRadius: 62,
+      borderWidth: 2,
+      borderStyle: 'dashed',
+      borderColor: c.gold,
+    },
+    avatarCore: {
+      width: 106,
+      height: 106,
+      borderRadius: 53,
+      borderWidth: 4,
+      borderColor: c.textPrimary,
+      backgroundColor: c.bgElevated2,
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarImg: { width: '100%', height: '100%' },
+    avatarInitial: { color: c.accent, fontSize: 46, fontWeight: '900' },
+
+    nameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 18,
+      flexWrap: 'wrap',
+    },
+    namePlate: {
+      backgroundColor: c.accent,
+      borderWidth: 3,
+      borderColor: c.textPrimary,
+      paddingHorizontal: 20,
+      paddingVertical: 6,
+      overflow: 'hidden',
+      transform: [{ skewX: '-8deg' }],
+      maxWidth: 240,
+    },
+    nameText: {
+      color: c.textOnAccent,
+      fontSize: 20,
+      fontWeight: '900',
+      letterSpacing: 2,
+      transform: [{ skewX: '8deg' }],
+    },
+    nameBadge: { width: 32, height: 32, marginLeft: 8, resizeMode: 'contain' },
+
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginTop: 14 },
+    chip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      marginHorizontal: 4,
+      marginBottom: 6,
+      transform: [{ skewX: '-10deg' }],
+    },
+    chipInner: { flexDirection: 'row', alignItems: 'center', transform: [{ skewX: '10deg' }] },
+    chipText: { fontSize: 11, fontWeight: '800', letterSpacing: 2, marginLeft: 6 },
+
+    bioText: {
+      color: c.textSecondary,
+      fontSize: 13,
+      lineHeight: 20,
+      textAlign: 'center',
+      fontStyle: 'italic',
+    },
+
+    // ---------------------------------------------------------------- stats
+    panelPad: { padding: 16 },
+    statsRow: { flexDirection: 'row', marginHorizontal: -4 },
+    statTile: {
+      flex: 1,
+      marginHorizontal: 4,
+      backgroundColor: c.bgElevated,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      paddingVertical: 14,
+      paddingHorizontal: 4,
+      alignItems: 'center',
+      overflow: 'hidden',
+    },
+    statTileTop: { position: 'absolute', top: 0, left: 0, right: 0, height: 4 },
+    statIconWrap: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: c.bgCard,
+      marginTop: 4,
+    },
+    statValue: { color: c.textPrimary, fontSize: 18, fontWeight: '900', marginTop: 10 },
+    statLabel: {
+      color: c.textMuted,
+      fontSize: 10,
+      letterSpacing: 2,
+      marginTop: 2,
+      textTransform: 'uppercase',
+    },
+    lastRead: {
+      color: c.textMuted,
+      fontSize: 11,
+      textAlign: 'center',
+      marginTop: 14,
+      fontStyle: 'italic',
+    },
+
+    rankBox: {
+      marginTop: 16,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      backgroundColor: c.bgElevated,
+      padding: 12,
+    },
+    rankTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+    rankLevel: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      borderWidth: 3,
+      borderColor: c.textPrimary,
+      backgroundColor: c.gold,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rankLevelLv: { color: c.textOnGold, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+    rankLevelNum: { color: c.textOnGold, fontSize: 18, fontWeight: '900', marginTop: -2 },
+    rankTitle: { color: c.textPrimary, fontSize: 15, fontWeight: '900', letterSpacing: 1 },
+    rankJp: { color: c.gold, fontSize: 12, letterSpacing: 2, marginTop: 2 },
+    rankHint: { color: c.textMuted, fontSize: 11, marginTop: 8, letterSpacing: 0.5 },
+
+    // --------------------------------------------------------------- badges
+    badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+    badgeCell: { width: '33.333%', alignItems: 'center', paddingHorizontal: 6, marginBottom: 14 },
+    badgeFrame: {
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      borderWidth: 3,
+      borderColor: c.textPrimary,
+      backgroundColor: c.bgElevated2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    badgeImg: { width: '84%', height: '84%', resizeMode: 'contain' },
+    badgeName: {
+      color: c.textSecondary,
+      fontSize: 10,
+      letterSpacing: 1,
+      marginTop: 6,
+      textAlign: 'center',
+    },
+
+    // ------------------------------------------------------------ creations
+    workGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    workCell: { width: '48%', marginBottom: 18 },
+    workCover: {
+      flexDirection: 'row',
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      backgroundColor: c.bgElevated,
+      overflow: 'hidden',
+    },
+    workSpine: { width: 9, backgroundColor: c.accent, borderRightWidth: 2, borderRightColor: c.textPrimary },
+    workImg: { flex: 1, height: 168, backgroundColor: c.bgElevated2 },
+    workImgEmpty: { alignItems: 'center', justifyContent: 'center' },
+    workTitle: {
+      color: c.textPrimary,
+      fontSize: 13,
+      fontWeight: '800',
+      letterSpacing: 1,
+      marginTop: 8,
+    },
+    workSummary: { color: c.textSecondary, fontSize: 11, lineHeight: 16, marginTop: 2 },
+
+    // --------------------------------------------------------------- social
+    socialRow: { flexDirection: 'row', flexWrap: 'wrap' },
+    socialChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: c.bgElevated,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      marginRight: 10,
+      marginBottom: 10,
+    },
+    socialText: { color: c.textPrimary, fontSize: 12, letterSpacing: 1, marginLeft: 8 },
+    walletRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: c.bgElevated,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      marginTop: 4,
+    },
+    walletLeft: { flexDirection: 'row', alignItems: 'center', flexShrink: 1 },
+    walletText: { color: c.gold, fontSize: 13, letterSpacing: 1, marginLeft: 10, fontWeight: '700' },
+    copyBtn: {
+      width: 34,
+      height: 34,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      backgroundColor: c.bgCard,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    copiedTag: { color: c.success, fontSize: 11, fontWeight: '800', letterSpacing: 2, marginRight: 8 },
+
+    // -------------------------------------------------------------- actions
+    actionsRow: { flexDirection: 'row', marginTop: 18, marginHorizontal: -5 },
+    actionCell: { flex: 1, marginHorizontal: 5 },
+
+    // --------------------------------------------------------- states/misc
+    centerBox: { alignItems: 'center', paddingVertical: 34, paddingHorizontal: 20 },
+    stateIconWrap: {
+      width: 74,
+      height: 74,
+      borderRadius: 37,
+      borderWidth: 3,
+      borderColor: c.textPrimary,
+      backgroundColor: c.bgElevated2,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 16,
+    },
+    stateText: { color: c.textSecondary, fontSize: 14, lineHeight: 22, textAlign: 'center', letterSpacing: 0.5 },
+    errorText: { color: c.error, fontSize: 14, lineHeight: 22, textAlign: 'center', letterSpacing: 0.5 },
+    loadingText: { color: c.textPrimary, marginTop: 14, fontSize: 14, letterSpacing: 4, fontWeight: '800' },
+    placeholder: { color: c.textMuted, fontSize: 12, textAlign: 'center', fontStyle: 'italic', letterSpacing: 1, paddingVertical: 6 },
+    ownTag: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      backgroundColor: c.gold,
+      borderWidth: 2,
+      borderColor: c.textPrimary,
+      paddingHorizontal: 8,
+      paddingVertical: 2,
+      transform: [{ rotate: '4deg' }],
+    },
+    ownTagText: { color: c.textOnGold, fontSize: 10, fontWeight: '900', letterSpacing: 2 },
+  });
+};const RADIUS = { xs: 8, sm: 12, md: 16, lg: 20, xl: 26, pill: 999 };
 const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };
 const FONT = Platform.select({ ios: 'Yoruka', android: 'Yoruka', default: 'Yoruka' });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Alert,
   Image,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -24,22 +25,24 @@ const InboxScreen = () => {
   const isWalletConnected = walletContext?.isWalletConnected || !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
   const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getInboxStyles(colors), [isDark]);
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchMessages();
   }, [activeWalletAddress]);
 
-  const fetchMessages = async () => {
+  const fetchMessages = async (showLoader = true) => {
     if (!activeWalletAddress) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (showLoader) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('private_messages')
@@ -66,7 +69,17 @@ const InboxScreen = () => {
       console.error('[InboxScreen] Error fetching messages:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  // Pull-to-refresh: silent reload — keeps the list visible, no full-screen loader.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchMessages(false);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -92,26 +105,33 @@ const InboxScreen = () => {
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Inbox</Text>
       </View>
 
-      {!isWalletConnected ? (
-        <View style={styles.centerContainer}>
-          <Icon name="wallet" size={60} color={colors.textMuted} />
-          <Text style={[styles.promptText, { color: colors.textPrimary }]}>
-            Connect your wallet to view messages.
-          </Text>
-        </View>
-      ) : error ? (
-        <View style={styles.centerContainer}>
-          <Icon name="exclamation-circle" size={60} color={colors.accent} />
-          <Text style={[styles.errorText, { color: colors.textPrimary }]}>{error}</Text>
-        </View>
-      ) : messages.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Icon name="envelope-open" size={60} color={colors.textMuted} />
-          <Text style={[styles.emptyText, { color: colors.textPrimary }]}>No messages yet</Text>
-        </View>
-      ) : (
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          {messages.map((message) => (
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { flexGrow: 1 }]}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
+      >
+        {!isWalletConnected ? (
+          <View style={styles.centerContainer}>
+            <Icon name="wallet" size={60} color={colors.textMuted} />
+            <Text style={[styles.promptText, { color: colors.textPrimary }]}>
+              Connect your wallet to view messages.
+            </Text>
+          </View>
+        ) : error ? (
+          <View style={styles.centerContainer}>
+            <Icon name="exclamation-circle" size={60} color={colors.accent} />
+            <Text style={[styles.errorText, { color: colors.textPrimary }]}>{error}</Text>
+          </View>
+        ) : messages.length === 0 ? (
+          <View style={styles.centerContainer}>
+            <Icon name="envelope-open" size={60} color={colors.textMuted} />
+            <Text style={[styles.emptyText, { color: colors.textPrimary }]}>No messages yet</Text>
+          </View>
+        ) : (
+          messages.map((message) => (
             <View key={message.id} style={[styles.messageCard, { backgroundColor: colors.bgCard, borderColor: colors.border }]}>
               <View style={styles.messageHeader}>
                 <View style={styles.senderInfo}>
@@ -135,14 +155,14 @@ const InboxScreen = () => {
                 {message.content}
               </Text>
             </View>
-          ))}
-        </ScrollView>
-      )}
+          ))
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
+export const getInboxStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
   },

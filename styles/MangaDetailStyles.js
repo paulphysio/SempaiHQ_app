@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
-import { colors, space, radius, type, layout } from '../theme/theme';
+import { space, radius, layout } from '../theme/theme';
 
 const COVER_W = layout.SCREEN_W * 0.46;
 
-export const styles = StyleSheet.create({
+export const getStyles = ({ colors, type }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   barRight: { flexDirection: 'row', alignItems: 'center' },
 

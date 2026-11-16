@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,11 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { LinearGradient } from 'expo-linear-gradient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import * as WebBrowser from 'expo-web-browser';
+import { useTheme } from '../context/ThemeContext';
 
 const RampScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getRampStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet: embeddedWallet } = useContext(EmbeddedWalletContext);
   const [selectedProvider, setSelectedProvider] = useState('moonpay');
@@ -79,15 +82,15 @@ const RampScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-left" size={20} color="#D94F04" />
+          <Icon name="arrow-left" size={20} color={colors.accent} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
-          <Icon name="credit-card" size={24} color="#D94F04" />
+          <Icon name="credit-card" size={24} color={colors.accent} />
           <Text style={styles.headerText}>Ramp - Buy Crypto</Text>
         </View>
         <View style={styles.placeholder} />
@@ -113,7 +116,7 @@ const RampScreen = () => {
             </View>
           ) : (
             <View style={styles.infoBox}>
-              <Icon name="info-circle" size={20} color="#D94F04" />
+              <Icon name="info-circle" size={20} color={colors.accent} />
               <Text style={styles.infoText}>
                 Connect your wallet to see your address and make purchases
               </Text>
@@ -214,19 +217,19 @@ const RampScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getRampStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 15,
-    backgroundColor: '#16213E',
+    backgroundColor: 'c.bgCard',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   backButton: {
     padding: 10,
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerText: {
-    color: '#D94F04',
+    color: 'c.accent',
     fontSize: 18,
      
   },
@@ -252,13 +255,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    color: '#D94F04',
+    color: 'c.accent',
     fontSize: 28,
      
     marginBottom: 10,
   },
   subtitle: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 16,
     lineHeight: 24,
   },
@@ -270,7 +273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(217, 79, 4, 0.1)',
     borderWidth: 1,
-    borderColor: '#D94F04',
+    borderColor: 'c.accent',
     borderRadius: 8,
     padding: 15,
     gap: 10,
@@ -280,7 +283,7 @@ const styles = StyleSheet.create({
     borderColor: '#4CAF50',
   },
   infoText: {
-    color: '#D94F04',
+    color: 'c.accent',
     fontSize: 14,
     flex: 1,
   },
@@ -288,21 +291,21 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   sectionTitle: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 22,
      
     marginBottom: 15,
   },
   providerCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: c.border,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
     borderRadius: 12,
     padding: 20,
     marginBottom: 15,
   },
   selectedProvider: {
-    borderColor: '#D94F04',
+    borderColor: 'c.accent',
     backgroundColor: 'rgba(217, 79, 4, 0.1)',
   },
   providerHeader: {
@@ -315,12 +318,12 @@ const styles = StyleSheet.create({
     fontSize: 32,
   },
   providerName: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 18,
      
   },
   providerDescription: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 15,
     marginBottom: 15,
   },
@@ -334,16 +337,16 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   featureBullet: {
-    color: '#D94F04',
+    color: 'c.accent',
     fontSize: 16,
      
   },
   featureText: {
-    color: '#888',
+    color: c.textMuted,
     fontSize: 14,
   },
   buyButton: {
-    backgroundColor: '#D94F04',
+    backgroundColor: 'c.accent',
     paddingVertical: 12,
     borderRadius: 6,
     alignItems: 'center',
@@ -367,13 +370,13 @@ const styles = StyleSheet.create({
   stepNumber: {
     width: 40,
     height: 40,
-    backgroundColor: '#D94F04',
+    backgroundColor: 'c.accent',
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepNumberText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 18,
      
   },
@@ -381,24 +384,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stepTitle: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 16,
      
     marginBottom: 5,
   },
   stepDescription: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },
   supportSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: c.border,
     borderRadius: 12,
     padding: 20,
     marginBottom: 20,
   },
   supportText: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 15,
     lineHeight: 24,
     textAlign: 'center',

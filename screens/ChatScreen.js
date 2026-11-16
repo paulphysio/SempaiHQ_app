@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef, useCallback, useContext } from 'react';
+import React, { memo, useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import Modal from 'react-native-modal';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButton';
-import { styles } from '../styles/ChatStyles';
+import { getChatStyles } from '../styles/ChatStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -70,7 +71,7 @@ const Message = memo(
                     <FontAwesome5
                       name="check-circle"
                       size={10}
-                      color="#F28C38"
+                      color={colors.accent}
                       style={styles.badge}
                     />
                   )}
@@ -128,7 +129,7 @@ const Message = memo(
             style={styles.replyButton}
             onPress={() => onReply(msg.id)}
           >
-            <FontAwesome5 name="reply" size={12} color="#F28C38" />
+            <FontAwesome5 name="reply" size={12} color={colors.accent} />
           </TouchableOpacity>
         </View>
       </View>
@@ -184,6 +185,8 @@ const ChatItem = memo(
 );
 
 const GifPicker = ({ onSelect, onClose }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getChatStyles(colors), [isDark]);
   const [searchTerm, setSearchTerm] = useState('');
   const [gifs, setGifs] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -242,11 +245,11 @@ const GifPicker = ({ onSelect, onClose }) => {
             autoFocus
           />
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <FontAwesome5 name="times" size={16} color="#F28C38" />
+            <FontAwesome5 name="times" size={16} color={colors.accent} />
           </TouchableOpacity>
         </View>
         {loading ? (
-          <ActivityIndicator size="small" color="#F28C38" />
+          <ActivityIndicator size="small" color={colors.accent} />
         ) : gifs.length > 0 ? (
           <FlatList
             data={gifs}
@@ -271,6 +274,8 @@ const GifPicker = ({ onSelect, onClose }) => {
 };
 
 const ChatScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getChatStyles(colors), [isDark]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const isWalletConnected = walletContext?.isWalletConnected || !!wallet?.publicKey;
@@ -1081,17 +1086,17 @@ const ChatScreen = () => {
           <TextInput
             value={editText}
             onChangeText={setEditText}
-            style={{ borderWidth: 1, borderColor: '#F28C38', borderRadius: 8, padding: 10, fontSize: 15, marginBottom: 16 }}
+            style={{ borderWidth: 1, borderColor: colors.accent, borderRadius: 8, padding: 10, fontSize: 15, marginBottom: 16 }}
             multiline
             maxLength={1000}
             autoFocus
           />
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
             <TouchableOpacity onPress={handleCancelEdit} style={{ marginRight: 16 }}>
-              <Text style={{ color: '#EF5350',   fontSize: 15 }}>Cancel</Text>
+              <Text style={{ color: colors.danger,   fontSize: 15 }}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleSaveEdit}>
-              <Text style={{ color: '#F28C38',   fontSize: 15 }}>Save</Text>
+              <Text style={{ color: colors.accent,   fontSize: 15 }}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1198,7 +1203,7 @@ const ChatScreen = () => {
 
       {loading && (
         <View style={styles.loadingIndicator}>
-          <ActivityIndicator size="small" color="#F28C38" />
+          <ActivityIndicator size="small" color={colors.accent} />
           <Text style={styles.loadingText}>Loading...</Text>
         </View>
       )}
@@ -1298,7 +1303,7 @@ const ChatScreen = () => {
             onPress={() => setReplyingTo(null)}
             style={styles.cancelReply}
           >
-            <FontAwesome5 name="times" size={14} color="#EF5350" />
+            <FontAwesome5 name="times" size={14} color={colors.danger} />
           </TouchableOpacity>
         </View>
       )}
@@ -1321,14 +1326,14 @@ const ChatScreen = () => {
           style={styles.inputButton}
           disabled={uploading}
         >
-          <FontAwesome5 name="paperclip" size={18} color="#F28C38" />
+          <FontAwesome5 name="paperclip" size={18} color={colors.accent} />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => setShowGifPicker(true)}
           style={styles.inputButton}
           disabled={uploading}
         >
-          <FontAwesome5 name="image" size={18} color="#F28C38" />
+          <FontAwesome5 name="image" size={18} color={colors.accent} />
         </TouchableOpacity>
         <TouchableOpacity
           onPress={() => handleSend()}

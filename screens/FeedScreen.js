@@ -13,6 +13,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
@@ -31,6 +32,7 @@ const FeedScreen = () => {
   
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [postContent, setPostContent] = useState('');
   const [userId, setUserId] = useState(null);
   const [editingPost, setEditingPost] = useState(null);
@@ -62,9 +64,9 @@ const FeedScreen = () => {
     }
   };
 
-  const loadPosts = async () => {
+  const loadPosts = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       const response = await fetch(`${API_BASE_URL}/feed/posts`, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
@@ -97,7 +99,17 @@ const FeedScreen = () => {
         setPosts([]);
       }
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  // Pull-to-refresh: silent reload — keeps posts visible, no full-screen loader.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadUserId(), loadPosts(false)]);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -573,6 +585,9 @@ const FeedScreen = () => {
           style={themedStyles.feedContent}
           contentContainerStyle={themedStyles.feedList}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+          }
         >
           {/* Header */}
           <View style={themedStyles.header}>

@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   ScrollView,
 } from 'react-native';
-import { styles } from '../styles/TermsStyles';
+import { getTermsStyles } from '../styles/TermsStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const TermsScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getTermsStyles(colors), [isDark]);
   return (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.lastUpdated}>Updated at 2025-05-25</Text>

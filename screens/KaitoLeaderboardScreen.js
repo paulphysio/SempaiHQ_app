@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,15 +10,17 @@ import {
   Linking,
   StyleSheet,
   SafeAreaView,
+  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
-const styles = StyleSheet.create({
+export const getKaitoLbStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: c.bg,
   },
   scrollView: {
     flex: 1,
@@ -31,11 +33,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   campaignBanner: {
-    backgroundColor: '#161b22',
+    backgroundColor: c.bgCard,
     borderRadius: 12,
     padding: 20,
     borderWidth: 2,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
   },
   campaignTitle: {
     flexDirection: 'row',
@@ -50,13 +52,13 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   campaignTitleText: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 20,
      
     letterSpacing: 1,
   },
   campaignSubtitle: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 16,
@@ -69,15 +71,15 @@ const styles = StyleSheet.create({
   campaignBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#21262d',
+    backgroundColor: c.bgCardAlt,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: c.bgElevated,
   },
   campaignBadgeText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
     marginLeft: 6,
@@ -86,11 +88,11 @@ const styles = StyleSheet.create({
   timeFrameSelector: {
     flexDirection: 'row',
     marginBottom: 16,
-    backgroundColor: '#161b22',
+    backgroundColor: c.bgCard,
     borderRadius: 8,
     padding: 4,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: c.bgElevated,
   },
   timeFrameButton: {
     flex: 1,
@@ -99,39 +101,39 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   timeFrameButtonActive: {
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
   },
   timeFrameButtonText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 13,
      
   },
   timeFrameButtonTextActive: {
-    color: '#ffffff',
+    color: '#fff',
      
   },
   // Leaderboard Container
   leaderboardContainer: {
-    backgroundColor: '#161b22',
+    backgroundColor: c.bgCard,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#30363d',
+    borderColor: c.bgElevated,
     overflow: 'hidden',
   },
   leaderboardHeader: {
     flexDirection: 'row',
-    backgroundColor: '#21262d',
+    backgroundColor: c.bgCardAlt,
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#30363d',
+    borderBottomColor: c.bgElevated,
   },
   headerRank: {
     width: 50,
     alignItems: 'center',
   },
   headerRankText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
   },
@@ -139,7 +141,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerPlayerText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
   },
@@ -148,7 +150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerScoreText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
   },
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerLevelText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
   },
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerTierText: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
   },
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#21262d',
+    borderBottomColor: c.bgCardAlt,
     alignItems: 'center',
   },
   rankCell: {
@@ -198,28 +200,28 @@ const styles = StyleSheet.create({
   rankBadge1: {
     backgroundColor: 'rgba(255, 215, 0, 0.2)',
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: c.gold,
   },
   rankBadge2: {
     backgroundColor: 'rgba(192, 192, 192, 0.2)',
     borderWidth: 1,
-    borderColor: '#c0c0c0',
+    borderColor: c.textSecondary,
   },
   rankBadge3: {
     backgroundColor: 'rgba(205, 127, 50, 0.2)',
     borderWidth: 1,
-    borderColor: '#cd7f32',
+    borderColor: c.gold,
   },
   rankIcon: {
     marginRight: 4,
   },
   rankBadgeText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 12,
      
   },
   rankNumber: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 13,
      
   },
@@ -234,13 +236,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#21262d',
+    backgroundColor: c.bgCardAlt,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   playerAvatarText: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 14,
      
   },
@@ -248,13 +250,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   playerName: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 13,
      
     marginBottom: 2,
   },
   playerAddress: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 11,
   },
   scoreCell: {
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreValue: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 13,
      
   },
@@ -271,7 +273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   levelValue: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 12,
      
   },
@@ -285,7 +287,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   tierBadgeText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 10,
      
   },
@@ -297,7 +299,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#21262d',
+    backgroundColor: c.bgCardAlt,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -309,7 +311,7 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   loadingText: {
-    color: '#8b949e',
+    color: c.textMuted,
     marginTop: 16,
     fontSize: 14,
   },
@@ -328,13 +330,13 @@ const styles = StyleSheet.create({
      
   },
   retryButton: {
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     borderRadius: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
   retryButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 14,
      
   },
@@ -346,50 +348,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareModal: {
-    backgroundColor: '#161b22',
+    backgroundColor: c.bgCard,
     borderRadius: 12,
     padding: 24,
     width: '85%',
     borderWidth: 2,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
   },
   closeModalButton: {
     alignSelf: 'flex-end',
     padding: 8,
   },
   shareModalTitle: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 18,
      
     textAlign: 'center',
     marginBottom: 20,
   },
   shareCard: {
-    backgroundColor: '#0d1117',
+    backgroundColor: c.bg,
     borderRadius: 8,
     padding: 20,
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 2,
-    borderColor: '#ffd700',
+    borderColor: c.gold,
   },
   shareCardIcon: {
     marginBottom: 12,
   },
   shareCardName: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 18,
      
     marginBottom: 8,
   },
   shareCardRank: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 32,
      
     marginBottom: 4,
   },
   shareCardPoints: {
-    color: '#8b949e',
+    color: c.textMuted,
     fontSize: 14,
     marginBottom: 8,
   },
@@ -407,7 +409,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   shareToXButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 14,
      
     marginLeft: 8,
@@ -415,15 +417,18 @@ const styles = StyleSheet.create({
 });
 
 const KaitoLeaderboardScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getKaitoLbStyles(colors), [isDark]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [timeFrame, setTimeFrame] = useState('week');
   const [selectedReader, setSelectedReader] = useState(null);
   const [showShareModal, setShowShareModal] = useState(false);
 
-  const fetchLeaderboard = async () => {
-    setLoading(true);
+  const fetchLeaderboard = async (showLoader = true) => {
+    if (showLoader) setLoading(true);
     setError(null);
 
     try {
@@ -438,7 +443,17 @@ const KaitoLeaderboardScreen = () => {
     } catch (err) {
       setError(err.message);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  // Pull-to-refresh: silent reload — keeps the list visible.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchLeaderboard(false);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -483,9 +498,9 @@ const KaitoLeaderboardScreen = () => {
   };
 
   const getRankColor = (index) => {
-    if (index === 0) return '#ffd700';
-    if (index === 1) return '#c0c0c0';
-    if (index === 2) return '#cd7f32';
+    if (index === 0) return colors.gold;
+    if (index === 1) return colors.textSecondary;
+    if (index === 2) return colors.gold;
     return null;
   };
 
@@ -500,7 +515,7 @@ const KaitoLeaderboardScreen = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#ff6200" />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Loading leaderboard...</Text>
         </View>
       </SafeAreaView>
@@ -523,12 +538,18 @@ const KaitoLeaderboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
+      >
         {/* Military Campaign Header */}
         <View style={styles.campaignHeader}>
           <View style={styles.campaignBanner}>
             <View style={styles.campaignTitle}>
-              <Icon name="shield-alt" size={24} color="#ff6200" style={styles.shieldIcon} />
+              <Icon name="shield-alt" size={24} color={colors.accent} style={styles.shieldIcon} />
               <Text style={styles.campaignTitleText}>Kaito Military Campaign</Text>
               <Icon name="flag" size={24} color="#ffd700" style={styles.flagIcon} />
             </View>
@@ -537,15 +558,15 @@ const KaitoLeaderboardScreen = () => {
             </Text>
             <View style={styles.campaignBadges}>
               <View style={styles.campaignBadge}>
-                <Icon name="crosshairs" size={14} color="#ff6200" />
+                <Icon name="crosshairs" size={14} color={colors.accent} />
                 <Text style={styles.campaignBadgeText}>Tactical</Text>
               </View>
               <View style={styles.campaignBadge}>
-                <Icon name="fire" size={14} color="#ff6200" />
+                <Icon name="fire" size={14} color={colors.accent} />
                 <Text style={styles.campaignBadgeText}>Elite</Text>
               </View>
               <View style={styles.campaignBadge}>
-                <Icon name="dragon" size={14} color="#ff6200" />
+                <Icon name="dragon" size={14} color={colors.accent} />
                 <Text style={styles.campaignBadgeText}>Legendary</Text>
               </View>
             </View>
@@ -645,7 +666,7 @@ const KaitoLeaderboardScreen = () => {
               </View>
               <View style={styles.shareCell}>
                 <TouchableOpacity style={styles.shareButton} onPress={() => handleShare(reader)}>
-                  <Icon name="share-alt" size={14} color="#8b949e" />
+                  <Icon name="share-alt" size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -670,7 +691,7 @@ const KaitoLeaderboardScreen = () => {
               style={styles.closeModalButton}
               onPress={() => setShowShareModal(false)}
             >
-              <Icon name="times" size={20} color="#8b949e" />
+              <Icon name="times" size={20} color={colors.textMuted} />
             </TouchableOpacity>
             <Text style={styles.shareModalTitle}>Share Your Achievement</Text>
             

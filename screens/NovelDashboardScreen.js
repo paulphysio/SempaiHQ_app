@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -35,7 +35,7 @@ import * as Notifications from 'expo-notifications';
 const { width, height } = Dimensions.get('window');
 
 // Kaito Adventure Design System - Japanese Dark-Orange
-const KA_COLORS = {
+const KA_COLORS_BASE = {
   bgPrimary: '#0c0c0c',
   bgCard: '#141210',
   bgElevated: '#1a1714',
@@ -55,6 +55,16 @@ const KA_COLORS = {
   error: '#c41e3a',
   warning: '#c9a84c',
 };
+const kaColors = (isDark, c) => isDark ? KA_COLORS_BASE : {
+  ...KA_COLORS_BASE,
+  bgPrimary: c.bg, bgCard: c.bgCard, bgElevated: c.bgElevated,
+  orangePrimary: c.accent, orangeBright: c.accent, orangeSoft: c.accentDeep, orangeDim: c.accentDeep,
+  gold: c.gold, goldBright: c.gold,
+  ivory: c.textPrimary, ivoryDim: c.textSecondary,
+  border: c.border, textPrimary: c.textPrimary, textSecondary: c.textSecondary, textMuted: c.textMuted,
+  success: '#16a34a', error: c.danger, warning: c.gold,
+};
+
 
 // Predefined tag options
 const TAG_OPTIONS = [
@@ -170,6 +180,7 @@ const sendPushNotification = async (userIds, title, body, data = {}) => {
 };
 
 const NovelDashboardScreen = () => {
+  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark]);
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
@@ -1677,10 +1688,10 @@ const NovelDashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: KA_COLORS.bgPrimary,
+    backgroundColor: KA_COLORS_BASE.bgPrimary,
   },
   darkContainer: {
-    backgroundColor: KA_COLORS.bgPrimary,
+    backgroundColor: KA_COLORS_BASE.bgPrimary,
   },
   backgroundGradient: {
     position: 'absolute',
@@ -1688,7 +1699,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: KA_COLORS.bgPrimary,
+    backgroundColor: KA_COLORS_BASE.bgPrimary,
   },
   emberContainer: {
     position: 'absolute',
@@ -1702,14 +1713,14 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 2,
-    backgroundColor: KA_COLORS.orangePrimary,
-    shadowColor: KA_COLORS.orangeBright,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
+    shadowColor: KA_COLORS_BASE.orangeBright,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 6,
   },
   darkText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
   },
   main: {
     padding: 16,
@@ -1725,7 +1736,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   connectText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 24,
@@ -1741,7 +1752,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   accessDeniedText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 18,
     textAlign: 'center',
     marginBottom: 24,
@@ -1751,15 +1762,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
   backButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     letterSpacing: 1,
   },
@@ -1773,7 +1784,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    color: KA_COLORS.gold,
+    color: KA_COLORS_BASE.gold,
     fontSize: 20,
      
     letterSpacing: 2,
@@ -1785,33 +1796,33 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
   },
   input: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
   },
   darkInput: {
-    backgroundColor: KA_COLORS.bgElevated,
-    color: KA_COLORS.ivory,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
+    color: KA_COLORS_BASE.ivory,
   },
   textarea: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     minHeight: 80,
     textAlignVertical: 'top',
@@ -1823,27 +1834,27 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   placeholderText: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 14,
     marginBottom: 12,
   },
   fileButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 4,
     alignItems: 'center',
   },
   fileButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
   },
   tagButton: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -1852,7 +1863,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tagButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     flexShrink: 1,
   },
@@ -1864,27 +1875,27 @@ const styles = StyleSheet.create({
   statusOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 8,
   },
   statusOptionActive: {
-    borderColor: KA_COLORS.gold,
+    borderColor: KA_COLORS_BASE.gold,
     backgroundColor: 'rgba(244, 208, 63, 0.1)',
   },
   statusOptionText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
   },
   chapterSection: {
     marginTop: 16,
   },
   chapterTitle: {
-    color: KA_COLORS.gold,
+    color: KA_COLORS_BASE.gold,
     fontSize: 18,
      
     letterSpacing: 1,
@@ -1895,7 +1906,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkboxLabel: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
   },
   formActions: {
@@ -1905,7 +1916,7 @@ const styles = StyleSheet.create({
   },
   addChapterButton: {
     flex: 1,
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
@@ -1918,15 +1929,15 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   addChapterButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
   },
   resetButton: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
@@ -1936,7 +1947,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   resetButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     letterSpacing: 1,
   },
@@ -1944,9 +1955,9 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   chapterItem: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     marginBottom: 12,
     padding: 16,
@@ -1954,10 +1965,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   darkChapterItem: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
   },
   chapterItemActive: {
-    borderColor: KA_COLORS.orangePrimary,
+    borderColor: KA_COLORS_BASE.orangePrimary,
     opacity: 0.9,
   },
   dragHandle: {
@@ -1967,18 +1978,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chapterTitleText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 16,
      
     marginBottom: 8,
   },
   chapterPreview: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 12,
     marginBottom: 8,
   },
   advanceInfo: {
-    color: KA_COLORS.gold,
+    color: KA_COLORS_BASE.gold,
     fontSize: 12,
   },
   chapterActions: {
@@ -1986,13 +1997,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   actionButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 4,
   },
   submitButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
@@ -2003,7 +2014,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   submitButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
@@ -2015,7 +2026,7 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   announcementButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
@@ -2025,7 +2036,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   announcementButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
@@ -2037,15 +2048,15 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   novelCard: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     marginBottom: 16,
     padding: 16,
   },
   darkNovelCard: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
   },
   novelImage: {
     width: 100,
@@ -2057,23 +2068,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   novelTitle: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 16,
      
     marginBottom: 8,
   },
   novelSummary: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 12,
     marginBottom: 8,
   },
   novelTags: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 12,
     marginBottom: 8,
   },
   novelViewers: {
-    color: KA_COLORS.gold,
+    color: KA_COLORS_BASE.gold,
     fontSize: 12,
     marginBottom: 12,
   },
@@ -2083,7 +2094,7 @@ const styles = StyleSheet.create({
   },
   editNovelButton: {
     flex: 1,
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 4,
@@ -2093,12 +2104,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   editNovelButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 12,
      
   },
   deleteButton: {
-    backgroundColor: KA_COLORS.error,
+    backgroundColor: KA_COLORS_BASE.error,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 4,
@@ -2110,32 +2121,32 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   writerItem: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
     padding: 16,
   },
   darkWriterItem: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
   },
   writerText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     marginBottom: 8,
   },
   writerId: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 12,
   },
   noNovels: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 16,
     textAlign: 'center',
     marginTop: 32,
   },
   noWriters: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 16,
     textAlign: 'center',
     marginTop: 32,
@@ -2148,24 +2159,24 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: width * 0.86,
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: KA_COLORS_BASE.bgCard,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 8,
     padding: 24,
   },
   darkModal: {
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: KA_COLORS_BASE.bgCard,
   },
   modalTitle: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 20,
      
     marginBottom: 16,
     letterSpacing: 2,
   },
   modalText: {
-    color: KA_COLORS.textSecondary,
+    color: KA_COLORS_BASE.textSecondary,
     fontSize: 14,
     marginBottom: 24,
     lineHeight: 22,
@@ -2176,30 +2187,30 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     flex: 1,
-    backgroundColor: KA_COLORS.error,
+    backgroundColor: KA_COLORS_BASE.error,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
     alignItems: 'center',
   },
   confirmButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
     letterSpacing: 1,
   },
@@ -2209,9 +2220,9 @@ const styles = StyleSheet.create({
     margin: 0,
   },
   sheetContent: {
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: KA_COLORS_BASE.bgCard,
     borderTopWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: 24,
@@ -2224,7 +2235,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: KA_COLORS.border,
+    backgroundColor: KA_COLORS_BASE.border,
     marginBottom: 16,
   },
   tagScroll: {
@@ -2237,17 +2248,17 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS.border,
+    borderBottomColor: KA_COLORS_BASE.border,
   },
   tagOptionText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
   },
   tagList: {
     paddingBottom: 12,
   },
   modalCloseButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 4,
@@ -2255,7 +2266,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   modalCloseButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 14,
      
     letterSpacing: 1,
@@ -2270,25 +2281,25 @@ const styles = StyleSheet.create({
     minWidth: 60,
   },
   datePicker: {
-    backgroundColor: KA_COLORS.bgElevated,
+    backgroundColor: KA_COLORS_BASE.bgElevated,
     borderWidth: 1,
-    borderColor: KA_COLORS.border,
+    borderColor: KA_COLORS_BASE.border,
     borderRadius: 4,
   },
   pickerItem: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
   },
   footer: {
     padding: 16,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: KA_COLORS.border,
+    borderTopColor: KA_COLORS_BASE.border,
   },
   darkFooter: {
-    backgroundColor: KA_COLORS.bgCard,
+    backgroundColor: KA_COLORS_BASE.bgCard,
   },
   footerText: {
-    color: KA_COLORS.textMuted,
+    color: KA_COLORS_BASE.textMuted,
     fontSize: 12,
     letterSpacing: 1,
   },
@@ -2301,7 +2312,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   successTitle: {
-    color: KA_COLORS.orangePrimary,
+    color: KA_COLORS_BASE.orangePrimary,
     fontSize: 28,
     marginBottom: 12,
   },
@@ -2311,7 +2322,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   successButton: {
-    backgroundColor: KA_COLORS.orangePrimary,
+    backgroundColor: KA_COLORS_BASE.orangePrimary,
     paddingHorizontal: 32,
     paddingVertical: 16,
     borderRadius: 8,
@@ -2322,7 +2333,7 @@ const styles = StyleSheet.create({
     minWidth: 200,
   },
   successButtonText: {
-    color: KA_COLORS.ivory,
+    color: KA_COLORS_BASE.ivory,
     fontSize: 16,
      
     letterSpacing: 1,

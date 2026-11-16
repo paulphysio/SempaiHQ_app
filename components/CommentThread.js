@@ -6,14 +6,15 @@ import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import { supabase } from '../services/supabaseClient';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
-import { colors, radius, space, type, Tap, Input, GradientButton, Toast, SectionHeader } from './ui';
+import { radius, space, Tap, Input, GradientButton, Toast, SectionHeader } from './ui';
+import { useMangaTheme } from '../theme/theme';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
 const COMMENT_COOLDOWN = 60 * 1000;
 const DAILY_REWARD_LIMIT = 10;
 const MIN_COMMENT_LENGTH = 2;
-const AVATAR_COLORS = [colors.primary, colors.sakura, colors.electric, colors.info, colors.mint, colors.gold];
+const avatarColors = (colors) => [colors.primary, colors.sakura, colors.electric, colors.info, colors.mint, colors.gold];
 
 const rewardFor = (bal) =>
   bal >= 5000000 ? 25 : bal >= 1000000 ? 20 : bal >= 500000 ? 17 : bal >= 250000 ? 15 : bal >= 100000 ? 12 : 10;
@@ -33,6 +34,8 @@ const timeAgo = (iso) => {
 };
 
 const Avatar = ({ name = '?' }) => {
+  const { colors, type } = useMangaTheme();
+  const AVATAR_COLORS = avatarColors(colors);
   const c = AVATAR_COLORS[(name.charCodeAt(0) || 0) % AVATAR_COLORS.length];
   return (
     <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: c + '30', borderWidth: 1.5, borderColor: c, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
@@ -42,6 +45,7 @@ const Avatar = ({ name = '?' }) => {
 };
 
 const Comment = ({ comment, replies, depth = 0, ctx }) => {
+  const { colors, type } = useMangaTheme();
   const { addReply, replyingTo, cancelReply, toggleReplies, showReplies, deleteComment, currentUserId } = ctx;
   const isOwner = comment.user_id === currentUserId;
   const isReplying = replyingTo === comment.id;
@@ -120,6 +124,7 @@ const Comment = ({ comment, replies, depth = 0, ctx }) => {
  *  replyMessage  – (userName) => string
  */
 const CommentThread = ({ table, scope, notifyContext = {}, replyMessage, isWalletConnected, activePublicKey }) => {
+  const { colors, type } = useMangaTheme();
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
@@ -196,14 +201,26 @@ const CommentThread = ({ table, scope, notifyContext = {}, replyMessage, isWalle
   useEffect(() => {
     fetchComments();
     // Realtime filters accept ONE condition, so subscribe on manga_id and refetch (RLS/scope handled in the query).
-    const channel = supabase
-      .channel(`${table}:${scopeKey}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table, filter: `manga_id=eq.${scope.manga_id}` },
-        fetchComments
-      )
-      .subscribe();
+    const channelName = `${table}:${scopeKey}`;
+    const topic = `realtime:${channelName}`;
+    supabase
+      .getChannels()
+      .filter((c) => c.topic === topic || c.topic === channelName)
+      .forEach((c) => supabase.removeChannel(c));
+    let channel;
+    try {
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `manga_id=eq.${scope.manga_id}` },
+          fetchComments
+        )
+        .subscribe();
+    } catch (err) {
+      console.warn('[CommentThread] realtime subscribe failed:', err?.message);
+      return undefined;
+    }
     return () => {
       supabase.removeChannel(channel);
     };

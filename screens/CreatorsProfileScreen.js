@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,26 @@ import {
   Linking,
   ActivityIndicator,
   Alert,
-  StyleSheet,
-  Dimensions,
   Animated,
   Easing,
   TextInput,
+  RefreshControl,
+  Clipboard,
+  Share,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
 import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
-import { getProfileStyles } from '../styles/ProfileStyles';
-import UBBadge from '../components/UBBadge';
+import { getProfileStyles, getProfileMangaStyles, getProfilePalette, INK } from '../styles/ProfileStyles';
+import pioneerBadgeImg from '../assets/Pioneer.png';
+import { getUserReadingTime, formatReadingTime } from '../hooks/useReadingTimer';
+import { logMoneyEvent } from '../services/moneyFeed';
+import { getReaderRank, buildTwitterUrl, buildWebsiteUrl } from './ProfileScreen';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, createTransferInstruction } from '@solana/spl-token';
 import {
@@ -32,14 +37,31 @@ import {
   USDC_DECIMALS,
   SKR_DECIMALS,
 } from '../constants';
+import {
+  useReduceMotion,
+  PressScale,
+  StaggerIn,
+  MangaPanel,
+  Halftone,
+  SpeedLines,
+  SakuraField,
+  CountUp,
+  SfxText,
+  SlashBanner,
+  ShineSweep,
+  InkBar,
+  SpeechBubble,
+  InkButton,
+} from '../components/MangaUI';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
-const { width, height } = Dimensions.get('window');
+const EMPTY_STATS = { total_seconds: 0, total_chapters: 0, total_novels: 0, last_read_at: null };
 
-  const CreatorsProfileScreen = () => {
+const CreatorsProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { id } = route.params || {};
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
@@ -47,11 +69,17 @@ const { width, height } = Dimensions.get('window');
   const isWalletConnected = !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
   const { isDark, colors } = useTheme();
-  const themedStyles = getProfileStyles(isDark);
+  const palette = useMemo(() => getProfilePalette(isDark), [isDark]);
+  const styles = useMemo(() => getProfileMangaStyles(isDark), [isDark]);
+  const themedStyles = getProfileStyles(isDark); // modals only
+  const reduceMotion = useReduceMotion();
 
   const [creatorData, setCreatorData] = useState(null);
   const [novels, setNovels] = useState([]);
+  const [userBadges, setUserBadges] = useState([]);
+  const [readingStats, setReadingStats] = useState(EMPTY_STATS);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [isOwnProfile, setIsOwnProfile] = useState(false);
   const [isWriter, setIsWriter] = useState(false);
@@ -59,6 +87,9 @@ const { width, height } = Dimensions.get('window');
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [isBenefactor, setIsBenefactor] = useState(false);
   const [benefactorLevel, setBenefactorLevel] = useState(null);
+  const [isPioneer, setIsPioneer] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [showBadgePurchaseModal, setShowBadgePurchaseModal] = useState(false);
   const [writerBadges, setWriterBadges] = useState([]);
   const [selectedBadge, setSelectedBadge] = useState(null);
@@ -68,18 +99,45 @@ const { width, height } = Dimensions.get('window');
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  
-  // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const emberAnims = useRef([]);
+  const [showTipModal, setShowTipModal] = useState(false);
+  const [tipAmount, setTipAmount] = useState('');
+  const [tipCurrency, setTipCurrency] = useState('SOL');
+  const [tipSending, setTipSending] = useState(false);
+  const [canMessageCreator, setCanMessageCreator] = useState(null); // null = checking
+
+  const reqRef = useRef(0);
+  const copiedTimer = useRef(null);
+
+  // Avatar ring animations (same as ProfileScreen)
+  const pulse = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+  const sunPulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const p = Animated.loop(Animated.timing(pulse, { toValue: 1, duration: 2200, easing: Easing.out(Easing.quad), useNativeDriver: true }));
+    const s = Animated.loop(Animated.timing(spin, { toValue: 1, duration: 16000, easing: Easing.linear, useNativeDriver: true }));
+    const sun = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sunPulse, { toValue: 1, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(sunPulse, { toValue: 0, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ]),
+    );
+    p.start();
+    s.start();
+    sun.start();
+    return () => {
+      p.stop();
+      s.stop();
+      sun.stop();
+    };
+  }, [reduceMotion]);
+
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
   const getBadgeImage = (badge) => {
     if (badge.image_url && badge.image_url !== 'local') {
       return { uri: badge.image_url };
     }
-    // Use local images for default badges
     const type = badge.type?.toLowerCase();
     if (type === 'gold') return require('../assets/plan-image/Gold.png');
     if (type === 'silver') return require('../assets/plan-image/Sliver.png');
@@ -88,53 +146,14 @@ const { width, height } = Dimensions.get('window');
     return require('../assets/plan-image/Blue.png');
   };
 
-  // Initialize ember particles
-  useEffect(() => {
-    const embers = Array.from({ length: 12 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 8,
-      duration: 6 + Math.random() * 4,
-    }));
-    emberAnims.current = embers.map(() => new Animated.Value(0));
-    
-    // Animate embers
-    emberAnims.current.forEach((anim, index) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(embers[index].delay * 1000),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: embers[index].duration * 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    });
-  }, []);
-
-  // Entrance animation
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 8,
-        tension: 40,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+  const getBenefactorBadgeImage = () => {
+    if (!isBenefactor) return null;
+    const level = benefactorLevel?.toLowerCase();
+    if (level === 'gold') return require('../assets/plan-image/Gold.png');
+    if (level === 'silver') return require('../assets/plan-image/Sliver.png');
+    if (level === 'blue') return require('../assets/plan-image/Blue.png');
+    return require('../assets/plan-image/Black.png');
+  };
 
   // Fetch live SOL price
   useEffect(() => {
@@ -147,47 +166,13 @@ const { width, height } = Dimensions.get('window');
         }
       } catch (error) {
         console.error('[CreatorsProfileScreen] Error fetching SOL price:', error);
-        // Fallback to a reasonable default
         setSolPrice(150);
       }
     };
-
     fetchSolPrice();
   }, []);
 
-  const getDashboardButtonProps = () => {
-    if (isSuperuser || (isWriter && isArtist)) {
-      return { text: 'Dashboard', action: () => Alert.alert('Choose Dashboard', '', [
-        { text: 'Novel', onPress: () => navigation.navigate('NovelDashboard') },
-        { text: 'Manga', onPress: () => navigation.navigate('MangaDashboard') },
-        { text: 'Cancel', style: 'cancel' }
-      ])};
-    } else if (isWriter) {
-      return { text: 'Novel Dashboard', action: () => navigation.navigate('NovelDashboard') };
-    } else if (isArtist) {
-      return { text: 'Manga Dashboard', action: () => navigation.navigate('MangaDashboard') };
-    }
-    return { text: 'Apply', action: () => navigation.navigate('Apply') };
-  };
-
-  const handleNavigation = (screen, params) => {
-    navigation.navigate(screen, params);
-  };
-
-  const normalizeWebsiteUrl = (url) => {
-    if (!url) return null;
-    if (/^https?:\/\//i.test(url)) return url;
-    return `https://${url}`;
-  };
-
-  useEffect(() => {
-    if (activeWalletAddress) {
-      setIsOwnProfile(activeWalletAddress === creatorData?.wallet_address);
-    }
-    fetchWriterBadges();
-  }, [id, activeWalletAddress, creatorData?.wallet_address]);
-
-  const fetchWriterBadges = async () => {
+  const fetchWriterBadges = useCallback(async () => {
     if (!id) return;
     try {
       const { data: badgesData, error: badgesError } = await supabase
@@ -198,61 +183,176 @@ const { width, height } = Dimensions.get('window');
 
       if (badgesError) throw badgesError;
 
-      // If writer has no custom badges, use default badges
       if (!badgesData || badgesData.length === 0) {
-        const defaultBadges = [
-          {
-            id: 'default-blue',
-            name: 'Blue Badge',
-            description: 'Unlock 3 chapters',
-            price: 1,
-            type: 'blue',
-            image_url: 'local',
-            writer_id: id,
-          },
-          {
-            id: 'default-iron',
-            name: 'Iron Badge',
-            description: 'Unlock 6 chapters',
-            price: 2,
-            type: 'iron',
-            image_url: 'local',
-            writer_id: id,
-          },
-          {
-            id: 'default-silver',
-            name: 'Silver Badge',
-            description: 'Unlock 10 chapters',
-            price: 3,
-            type: 'silver',
-            image_url: 'local',
-            writer_id: id,
-          },
-          {
-            id: 'default-gold',
-            name: 'Gold Badge',
-            description: 'Unlock all chapters',
-            price: 5,
-            type: 'gold',
-            image_url: 'local',
-            writer_id: id,
-          },
-        ];
-        setWriterBadges(defaultBadges);
+        setWriterBadges([
+          { id: 'default-blue', name: 'Blue Badge', description: 'Unlock 3 chapters', price: 1, type: 'blue', image_url: 'local', writer_id: id },
+          { id: 'default-iron', name: 'Iron Badge', description: 'Unlock 6 chapters', price: 2, type: 'iron', image_url: 'local', writer_id: id },
+          { id: 'default-silver', name: 'Silver Badge', description: 'Unlock 10 chapters', price: 3, type: 'silver', image_url: 'local', writer_id: id },
+          { id: 'default-gold', name: 'Gold Badge', description: 'Unlock all chapters', price: 5, type: 'gold', image_url: 'local', writer_id: id },
+        ]);
       } else {
         setWriterBadges(badgesData);
       }
     } catch (error) {
       console.error('[CreatorsProfileScreen] Error fetching writer badges:', error);
     }
+  }, [id]);
+
+  const fetchProfileDetails = useCallback(async ({ silent = false } = {}) => {
+    const req = ++reqRef.current;
+    const alive = () => req === reqRef.current;
+
+    if (!id) {
+      setError('No profile ID provided. Please select a profile.');
+      setLoading(false);
+      return;
+    }
+    if (!silent) setLoading(true);
+    setError('');
+
+    try {
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('id, isWriter, isArtist, isSuperuser, name, wallet_address, image, is_benefactor, benefactor_level')
+        .eq('id', id)
+        .single();
+
+      if (userError || !user) throw new Error(`User not found: ${userError?.message || 'No user data'}`);
+      if (!alive()) return;
+
+      const [badgesRes, profileRes, novelsRes, readingRes] = await Promise.all([
+        supabase.from('user_badges').select('*, badges(*)').eq('user_id', user.id),
+        supabase.from('writer_profiles').select('bio, twitter, discord, website').eq('user_id', user.id).maybeSingle(),
+        supabase.from('novels').select('id, title, image, summary').eq('user_id', user.id).eq('is_visible', true),
+        Promise.resolve(getUserReadingTime(user.id)).catch(() => null),
+      ]);
+      if (!alive()) return;
+
+      const badgeRows = Array.isArray(badgesRes?.data) ? badgesRes.data : [];
+      const normalised = badgeRows
+        .filter((b) => b?.badges)
+        .map((b) => ({
+          id: b.id || b.badge_id,
+          name: b.badges.name || 'Badge',
+          type: b.badges.type || null,
+          image_url: b.badges.image_url || null,
+          acquired_at: b.acquired_at || null,
+        }))
+        .sort((a, b) => new Date(b.acquired_at || 0) - new Date(a.acquired_at || 0));
+
+      setIsWriter(!!user.isWriter);
+      setIsArtist(!!user.isArtist);
+      setIsSuperuser(!!user.isSuperuser);
+      setIsBenefactor(!!user.is_benefactor);
+      setBenefactorLevel(user.benefactor_level || null);
+      setIsPioneer(normalised.some((b) => b.type === 'pioneer'));
+      setUserBadges(normalised);
+      setReadingStats(readingRes ? { ...EMPTY_STATS, ...readingRes } : EMPTY_STATS);
+      setIsOwnProfile(!!activeWalletAddress && activeWalletAddress === user.wallet_address);
+      setAvatarFailed(false);
+      setCreatorData({ ...user, ...(profileRes?.data || {}) });
+      setNovels(Array.isArray(novelsRes?.data) ? novelsRes.data : []);
+    } catch (err) {
+      if (alive()) setError(err?.message || 'Something went wrong.');
+    } finally {
+      if (alive()) setLoading(false);
+    }
+  }, [id, activeWalletAddress]);
+
+  useEffect(() => {
+    fetchProfileDetails();
+    fetchWriterBadges();
+    return () => {
+      reqRef.current += 1;
+    };
+  }, [fetchProfileDetails, fetchWriterBadges]);
+
+  // Messaging is subscribers-only: an active (unexpired) writer_subscriptions
+  // row for this creator + the viewer's wallet. Profile stays public for all.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!id || !activeWalletAddress) {
+        if (alive) setCanMessageCreator(null);
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('writer_subscriptions')
+          .select('id')
+          .eq('writer_id', id)
+          .eq('benefactor_wallet', activeWalletAddress)
+          .eq('is_active', true)
+          .gt('expires_at', new Date().toISOString())
+          .limit(1);
+        if (error) throw error;
+        if (alive) setCanMessageCreator(!!data?.length);
+      } catch (err) {
+        console.warn('[CreatorsProfileScreen] subscription check failed:', err?.message);
+        if (alive) setCanMessageCreator(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [id, activeWalletAddress]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchProfileDetails({ silent: true });
+    fetchWriterBadges();
+    setRefreshing(false);
+  }, [fetchProfileDetails, fetchWriterBadges]);
+
+  const getDashboardButtonProps = () => {
+    if (isSuperuser || (isWriter && isArtist)) {
+      return {
+        text: 'Dashboard',
+        action: () =>
+          Alert.alert('Choose Dashboard', '', [
+            { text: 'Novel', onPress: () => navigation.navigate('NovelDashboard') },
+            { text: 'Manga', onPress: () => navigation.navigate('MangaDashboard') },
+            { text: 'Cancel', style: 'cancel' },
+          ]),
+      };
+    } else if (isWriter) {
+      return { text: 'Novel Dashboard', action: () => navigation.navigate('NovelDashboard') };
+    } else if (isArtist) {
+      return { text: 'Manga Dashboard', action: () => navigation.navigate('MangaDashboard') };
+    }
+    return { text: 'Apply', action: () => navigation.navigate('Apply') };
+  };
+  const dashboardButton = getDashboardButtonProps();
+
+  const openUrl = (url) => {
+    if (!url) return;
+    Linking.openURL(url).catch(() => Alert.alert('Could not open link', url));
+  };
+
+  const copyWallet = async () => {
+    const addr = creatorData?.wallet_address;
+    if (!addr) return;
+    try {
+      Clipboard.setString(addr);
+    } catch (e) {
+      try {
+        await Share.share({ message: addr });
+      } catch (e2) {
+        return;
+      }
+    }
+    setCopied(true);
+    clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 1800);
   };
 
   const handleSendMessage = async () => {
+    if (canMessageCreator === false) {
+      Alert.alert('Subscribers only', `Buy ${creatorData?.name || 'this creator'}'s badge to send them a message.`);
+      return;
+    }
     if (!messageText.trim()) {
       Alert.alert('Error', 'Please enter a message');
       return;
     }
-
     if (!isWalletConnected) {
       Alert.alert('Error', 'Please connect your wallet to send messages');
       return;
@@ -282,12 +382,144 @@ const { width, height } = Dimensions.get('window');
     }
   };
 
+  const handleTip = () => {
+    const amount = parseFloat(tipAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      Alert.alert('Invalid amount', 'Enter a tip amount greater than 0.');
+      return;
+    }
+    if (amount > 100000) {
+      Alert.alert('Amount too large', 'Please keep tips under 100,000.');
+      return;
+    }
+    if (!creatorData?.wallet_address) {
+      Alert.alert('Unavailable', 'This creator has no wallet address to receive tips.');
+      return;
+    }
+    if (!isWalletConnected || !wallet?.publicKey || !signAndSendTransaction) {
+      Alert.alert('Wallet required', 'Please connect your wallet to send a tip.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirm tip',
+      `Send ${amount} ${tipCurrency} to ${creatorData?.name || 'this creator'}?\n\nThis will prompt your wallet to sign the transaction.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Yes, send tip', onPress: () => { void sendTip(amount); } },
+      ]
+    );
+  };
+
+  const sendTip = async (amount) => {
+    setTipSending(true);
+    try {
+      const activePublicKey = wallet.publicKey;
+      const creatorWallet = creatorData.wallet_address;
+      const creatorPublicKey = new PublicKey(creatorWallet);
+      const instructions = [];
+      let baseUnits;
+
+      if (tipCurrency === 'SOL') {
+        baseUnits = Math.floor(amount * 1e9);
+        if (baseUnits <= 0) throw new Error('Amount too small.');
+        const solBalance = await connection.getBalance(activePublicKey);
+        const required = baseUnits + 10000;
+        if (solBalance < required) {
+          throw new Error(`Insufficient SOL. You have ${(solBalance / 1e9).toFixed(4)} SOL.`);
+        }
+        instructions.push(
+          SystemProgram.transfer({ fromPubkey: activePublicKey, toPubkey: creatorPublicKey, lamports: baseUnits })
+        );
+      } else {
+        const mint = new PublicKey(tipCurrency === 'USDC' ? USDC_MINT_ADDRESS : SKR_MINT_ADDRESS);
+        const decimals = tipCurrency === 'USDC' ? USDC_DECIMALS : SKR_DECIMALS;
+        baseUnits = Math.floor(amount * 10 ** decimals);
+        if (baseUnits <= 0) throw new Error('Amount too small.');
+        const userAta = getAssociatedTokenAddressSync(mint, activePublicKey);
+        const creatorAta = getAssociatedTokenAddressSync(mint, creatorPublicKey, true);
+        const ataInfo = await connection.getAccountInfo(userAta);
+        if (!ataInfo) throw new Error(`No ${tipCurrency} account found in your wallet.`);
+        const tokenBalance = Number(ataInfo.data.readBigUInt64LE(64));
+        if (tokenBalance < baseUnits) {
+          throw new Error(`Insufficient ${tipCurrency}. You have ${(tokenBalance / 10 ** decimals).toFixed(2)}.`);
+        }
+        instructions.push(createTransferInstruction(userAta, creatorAta, activePublicKey, baseUnits));
+      }
+
+      const transaction = new Transaction();
+      transaction.add(...instructions);
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = activePublicKey;
+
+      const signature = await signAndSendTransaction(transaction);
+
+      let confirmation;
+      let retries = 0;
+      while (retries < 3) {
+        try {
+          confirmation = await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+          break;
+        } catch (e) {
+          retries++;
+          if (retries >= 3) throw new Error('Transaction confirmation failed');
+          await new Promise((r) => setTimeout(r, 1000 * retries));
+        }
+      }
+      if (confirmation?.value?.err) throw new Error('Transaction failed on-chain.');
+
+      logMoneyEvent({
+        event_type: 'creator_tip',
+        direction: 'out',
+        asset: tipCurrency,
+        amount,
+        usd_value: tipCurrency === 'SOL' ? amount * (solPrice || 0) : amount,
+        wallet: activeWalletAddress,
+        counterparty: creatorWallet,
+        title: `Tip ${creatorData?.name || 'creator'} ${amount} ${tipCurrency}`,
+        tx_sig: signature,
+        meta: { creator_id: id, currency: tipCurrency },
+      });
+
+      // Record the tip (non-fatal if it fails — the transfer already landed).
+      try {
+        const { data: tipper } = await supabase
+          .from('users')
+          .select('id')
+          .eq('wallet_address', activeWalletAddress)
+          .maybeSingle();
+        await supabase.from('creator_tips').insert({
+          creator_id: id,
+          tipper_id: tipper?.id || null,
+          tipper_wallet: activeWalletAddress,
+          creator_wallet: creatorWallet,
+          currency: tipCurrency,
+          amount,
+          tx_signature: signature,
+        });
+      } catch (recordErr) {
+        console.warn('[CreatorsProfileScreen] tip record failed:', recordErr?.message);
+      }
+
+      Alert.alert('Tip sent', `Thank you for supporting ${creatorData?.name || 'the creator'}!`);
+      setShowTipModal(false);
+      setTipAmount('');
+      setTipCurrency('SOL');
+    } catch (error) {
+      console.error('[CreatorsProfileScreen] Tip error:', error.message);
+      Alert.alert('Tip failed', error.message || 'Something went wrong.');
+    } finally {
+      setTipSending(false);
+    }
+  };
+
   const handleBadgePurchase = useCallback(async () => {
     if (!selectedBadge) {
       alert('Please select a badge');
       return;
     }
-    
+
     if (!wallet || !wallet.publicKey) {
       alert('Please connect your wallet first');
       return;
@@ -309,7 +541,7 @@ const { width, height } = Dimensions.get('window');
         paymentMint = new PublicKey(USDC_MINT_ADDRESS);
         paymentAmount = Math.floor(badgePrice * 1e6);
       } else if (selectedCurrency === 'SOL') {
-        const currentSolPrice = solPrice || 150; // Fallback if price not loaded
+        const currentSolPrice = solPrice || 150;
         paymentAmount = Math.floor((badgePrice / currentSolPrice) * 1e9);
       } else if (selectedCurrency === 'SKR') {
         paymentMint = new PublicKey(SKR_MINT_ADDRESS);
@@ -318,16 +550,13 @@ const { width, height } = Dimensions.get('window');
         throw new Error('Invalid currency');
       }
 
-      // Comprehensive balance checking BEFORE transaction
       if (!paymentMint) {
-        // SOL balance check
         const solBalance = await connection.getBalance(wallet.publicKey);
-        const requiredLamports = paymentAmount + 10000; // Add buffer for transaction fee
+        const requiredLamports = paymentAmount + 10000;
         if (solBalance < requiredLamports) {
           throw new Error(`Insufficient SOL balance. You have ${(solBalance / 1e9).toFixed(4)} SOL but need ${(requiredLamports / 1e9).toFixed(4)} SOL. Please use USDC or SKR instead.`);
         }
       } else {
-        // Token balance check
         try {
           const userAta = getAssociatedTokenAddressSync(paymentMint, wallet.publicKey);
           const ataInfo = await connection.getAccountInfo(userAta);
@@ -343,18 +572,16 @@ const { width, height } = Dimensions.get('window');
         } catch (balanceError) {
           console.error('[CreatorsProfileScreen] Token balance check failed:', balanceError);
           if (balanceError.message.includes('No') || balanceError.message.includes('Insufficient')) {
-            throw balanceError; // Re-throw our custom error
+            throw balanceError;
           }
           throw new Error(`Failed to check ${selectedCurrency} balance. Please try SOL instead.`);
         }
       }
 
-      // Build transaction
       const instructions = [];
       const activePublicKey = wallet.publicKey;
 
       if (!paymentMint) {
-        // SOL transfer to treasury
         const treasuryWallet = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD');
         instructions.push(
           SystemProgram.transfer({
@@ -364,7 +591,6 @@ const { width, height } = Dimensions.get('window');
           })
         );
       } else {
-        // Token transfer to treasury
         const userAta = getAssociatedTokenAddressSync(paymentMint, activePublicKey);
         const treasuryWallet = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD');
         const treasuryAta = getAssociatedTokenAddressSync(paymentMint, treasuryWallet, true);
@@ -381,10 +607,8 @@ const { width, height } = Dimensions.get('window');
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = activePublicKey;
 
-      // Sign and send transaction
       const signature = await signAndSendTransaction(transaction);
 
-      // Confirm transaction
       let retryCount = 0;
       const maxRetries = 3;
       let confirmation;
@@ -406,7 +630,6 @@ const { width, height } = Dimensions.get('window');
       }
 
       if (confirmation.value.err) {
-        // Check for specific insufficient balance error
         const errorString = JSON.stringify(confirmation.value.err);
         if (errorString.includes('insufficient') || errorString.includes('lamports')) {
           throw new Error('Insufficient balance. Please check your wallet balance and try again.');
@@ -414,7 +637,6 @@ const { width, height } = Dimensions.get('window');
         throw new Error('Transaction failed on blockchain');
       }
 
-      // Call benefactor-payment edge function
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
@@ -447,275 +669,451 @@ const { width, height } = Dimensions.get('window');
         throw new Error(data.error || 'Failed to record purchase');
       }
 
-      alert('Badge purchased successfully!');
+      Alert.alert('Success', 'Badge purchased successfully!');
       setShowBadgePurchaseModal(false);
       setSelectedBadge(null);
       await fetchWriterBadges();
 
     } catch (error) {
       console.error('[CreatorsProfileScreen] Purchase error:', error.message);
-      alert(error.message || 'Purchase failed. Please try again.');
+      Alert.alert('Error', error.message || 'Purchase failed. Please try again.');
     } finally {
       setIsProcessingBadgePurchase(false);
     }
-  }, [selectedBadge, selectedCurrency, wallet, signAndSendTransaction, id, activeWalletAddress]);
+  }, [selectedBadge, selectedCurrency, wallet, signAndSendTransaction, id, activeWalletAddress, solPrice, fetchWriterBadges]);
 
-  useEffect(() => {
-    console.log('Route params:', route.params);
-    console.log('Wallet:', wallet);
+  // ------------------------------------------------------------------ derived
+  const displayName = creatorData?.name || creatorData?.wallet_address?.slice(0, 8) || 'Unknown';
+  const shortWallet = creatorData?.wallet_address
+    ? `${creatorData.wallet_address.slice(0, 6)}...${creatorData.wallet_address.slice(-4)}`
+    : '';
+  const rank = useMemo(() => getReaderRank(readingStats.total_seconds), [readingStats.total_seconds]);
+  const benefactorImg = getBenefactorBadgeImage();
+  const twitterUrl = buildTwitterUrl(creatorData?.twitter);
+  const websiteUrl = buildWebsiteUrl(creatorData?.website);
+  const hasSocials = !!(creatorData?.twitter || creatorData?.discord || creatorData?.website);
+  const bottomPad = Math.max(insets?.bottom || 0, 8) + 12 + 68 + 28;
 
-    const fetchProfileDetails = async () => {
-      if (!id) {
-        setError('No profile ID provided. Please select a profile.');
-        setLoading(false);
-        setTimeout(() => {
-          navigation.navigate('Home');
-        }, 2000);
-        return;
-      }
+  const roleChips = [
+    isSuperuser && { key: 'admin', label: 'ADMIN', icon: 'shield-alt', color: palette.error },
+    isWriter && { key: 'writer', label: 'WRITER', icon: 'pen-nib', color: palette.accent },
+    isArtist && { key: 'artist', label: 'ARTIST', icon: 'palette', color: palette.gold },
+    isBenefactor && {
+      key: 'benefactor',
+      label: `${(benefactorLevel || 'benefactor').toString().toUpperCase()}`,
+      icon: 'crown',
+      color: palette.goldBright,
+    },
+  ].filter(Boolean);
 
-      try {
-        const { data: user, error: userError } = await supabase
-          .from('users')
-          .select('id, isWriter, isArtist, isSuperuser, name, wallet_address, image')
-          .eq('id', id)
-          .single();
+  const iconBox = (name, color, brand) => <FontAwesome5 name={name} size={18} color={color} brand={brand} />;
 
-        if (userError || !user) throw new Error(`User not found: ${userError?.message || 'No user data'}`);
-
-        setIsWriter(user.isWriter || false);
-        setIsArtist(user.isArtist || false);
-        setIsSuperuser(user.isSuperuser || false);
-
-        if (activeWalletAddress === user.wallet_address) {
-          setIsOwnProfile(true);
-        }
-
-        const { data: profile, error: profileError } = await supabase
-          .from('writer_profiles')
-          .select('bio, twitter, discord, website')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (profileError && profileError.code !== 'PGRST116') console.error('Profile fetch error:', profileError);
-
-        console.log('Fetching novels for user ID:', user.id); // Debug log
-        const { data: novelsData, error: novelsError } = await supabase
-          .from('novels')
-          .select('id, title, image, summary')
-          .eq('user_id', user.id);
-
-        if (novelsError) throw new Error(`Novels fetch error: ${novelsError.message}`);
-
-        console.log('Fetched novels:', novelsData);
-        setCreatorData({ ...user, ...profile });
-        setNovels(novelsData || []);
-      } catch (err) {
-        console.error('Fetch error:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfileDetails();
-  }, [id, activeWalletAddress, navigation, route.params]);
-
-  if (loading) {
-    return (
-      <View style={themedStyles.container}>
-        <View style={themedStyles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={themedStyles.loadingText}>LOADING...</Text>
+  // ------------------------------------------------------------------ panels
+  const renderHero = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <SpeedLines color={palette.accent} reduceMotion={reduceMotion} />
+      <Halftone color={palette.accent} corner="tr" />
+      <Halftone color={palette.gold} corner="bl" rows={4} cols={6} />
+      {isOwnProfile ? (
+        <View style={styles.ownTag}>
+          <Text style={styles.ownTagText}>YOU</Text>
         </View>
-      </View>
-    );
-  }
+      ) : null}
+      <SfxText
+        color={palette.accentBright}
+        outline={isDark ? palette.bg : palette.textPrimary}
+        size={26}
+        tilt={-10}
+        reduceMotion={reduceMotion}
+        style={{ top: 10, left: 14 }}
+      >
+        ドン!
+      </SfxText>
 
-  const dashboardButton = getDashboardButtonProps();
-
-  return (
-    <View style={themedStyles.container}>
-      <View style={themedStyles.backgroundGradient} />
-      <View style={themedStyles.emberContainer}>
-        {emberAnims.current.map((anim, index) => (
+      <View style={styles.heroBody}>
+        <View style={styles.avatarWrap}>
           <Animated.View
-            key={index}
+            pointerEvents="none"
             style={[
-              themedStyles.ember,
+              styles.avatarPulse,
               {
-                left: `${Math.random() * 100}%`,
-                opacity: anim,
-                transform: [
-                  {
-                    translateY: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, -50],
-                    }),
-                  },
-                ],
+                opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
+                transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1.22] }) }],
               },
             ]}
           />
-        ))}
-      </View>
-      
-      <ScrollView style={themedStyles.scrollView} contentContainerStyle={themedStyles.scrollContent}>
-        {error ? (
-          <View style={themedStyles.errorContainer}>
-            <Text style={themedStyles.errorText}>{error}</Text>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.avatarDashed,
+              { transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] },
+            ]}
+          />
+          <View style={styles.avatarCore}>
+            {creatorData?.image && !avatarFailed ? (
+              <Image source={{ uri: creatorData.image }} style={styles.avatarImg} onError={() => setAvatarFailed(true)} accessibilityLabel="Profile picture" />
+            ) : (
+              <Text style={styles.avatarInitial}>{String(displayName).charAt(0).toUpperCase()}</Text>
+            )}
           </View>
-        ) : (
-          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] }}>
-            <Text style={themedStyles.title}>CREATOR PROFILE</Text>
-            <Text style={themedStyles.subtitle}>武士道 • Bushido</Text>
-            
-            <View style={themedStyles.card}>
-              <View style={themedStyles.cardTopBorder} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-              
-              <View style={themedStyles.profileHeader}>
-                <View style={themedStyles.avatarFrame}>
-                  <Image
-                    source={{ uri: creatorData?.image || 'https://via.placeholder.com/80' }}
-                    style={themedStyles.profileImage}
-                  />
+        </View>
+
+        <View style={styles.nameRow}>
+          <View style={styles.namePlate}>
+            <Text style={styles.nameText} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <ShineSweep color={palette.textOnAccent} reduceMotion={reduceMotion} />
+          </View>
+          {isPioneer ? <Image source={pioneerBadgeImg} style={styles.nameBadge} accessibilityLabel="Pioneer badge" /> : null}
+          {benefactorImg ? <Image source={benefactorImg} style={styles.nameBadge} accessibilityLabel="Benefactor badge" /> : null}
+        </View>
+
+        {roleChips.length > 0 ? (
+          <View style={styles.chipRow}>
+            {roleChips.map((r) => (
+              <View key={r.key} style={[styles.chip, { backgroundColor: palette.bgElevated }]}>
+                <View style={styles.chipInner}>
+                  <FontAwesome5 name={r.icon} size={11} color={r.color} />
+                  <Text style={[styles.chipText, { color: r.color }]}>{r.label}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Text style={themedStyles.profileName}>
-                    {creatorData?.name || creatorData?.wallet_address?.slice(0, 8)}
-                  </Text>
-                  {isBenefactor && getBenefactorBadgeImage() && (
-                    <Image source={getBenefactorBadgeImage()} style={themedStyles.benefactorBadge} />
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        <SpeechBubble palette={palette}>
+          <Text style={styles.bioText}>{creatorData?.bio || 'No bio provided.'}</Text>
+        </SpeechBubble>
+
+        {!isOwnProfile && isWalletConnected && (
+          <View style={styles.actionsRow}>
+            <View style={styles.actionCell}>
+              <InkButton
+                label={canMessageCreator === false ? 'MESSAGE 🔒' : 'MESSAGE'}
+                palette={palette}
+                isDark={isDark}
+                variant={canMessageCreator === false ? 'ghost' : 'primary'}
+                icon={<FontAwesome5 name={canMessageCreator === false ? 'lock' : 'envelope'} size={14} color={canMessageCreator === false ? palette.textPrimary : palette.textOnAccent} />}
+                onPress={() => {
+                  if (canMessageCreator !== false) {
+                    setShowMessageModal(true);
+                  } else {
+                    Alert.alert(
+                      'Subscribers only',
+                      `Buy ${creatorData?.name || 'this creator'}'s badge to unlock messaging.`
+                    );
+                  }
+                }}
+              />
+            </View>
+            <View style={styles.actionCell}>
+              <InkButton
+                label="BUY BADGE"
+                palette={palette}
+                isDark={isDark}
+                icon={<FontAwesome5 name="shopping-cart" size={14} color={palette.textOnAccent} />}
+                onPress={() => setShowBadgePurchaseModal(true)}
+              />
+            </View>
+          </View>
+        )}
+
+        {!isOwnProfile && isWalletConnected && (
+          <View style={styles.actionsRow}>
+            <View style={styles.actionCell}>
+              <InkButton
+                label={`TIP ${displayName.toUpperCase()}`}
+                palette={palette}
+                isDark={isDark}
+                variant="ghost"
+                icon={<FontAwesome5 name="gift" size={14} color={palette.goldBright} />}
+                onPress={() => setShowTipModal(true)}
+              />
+            </View>
+          </View>
+        )}
+      </View>
+    </MangaPanel>
+  );
+
+  const renderStats = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.panelPad}>
+        <SlashBanner title="READING STATS" subtitle="読書記録" palette={palette} />
+        <View style={styles.statsRow}>
+          {[
+            { key: 'time', icon: 'clock', color: palette.gold, value: readingStats.total_seconds, label: 'Total Time', fmt: formatReadingTime },
+            { key: 'chapters', icon: 'book-open', color: palette.accent, value: readingStats.total_chapters, label: 'Chapters', fmt: (n) => String(n) },
+            { key: 'novels', icon: 'layer-group', color: palette.success, value: readingStats.total_novels, label: 'Novels', fmt: (n) => String(n) },
+          ].map((s) => (
+            <View key={s.key} style={styles.statTile}>
+              <View style={[styles.statTileTop, { backgroundColor: s.color }]} />
+              <View style={styles.statIconWrap}>{iconBox(s.icon, s.color)}</View>
+              <CountUp value={s.value} format={s.fmt} style={styles.statValue} reduceMotion={reduceMotion} />
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.rankBox}>
+          <View style={styles.rankTop}>
+            <View style={styles.rankLevel}>
+              <Text style={styles.rankLevelLv}>LV</Text>
+              <Text style={styles.rankLevelNum}>{rank.level}</Text>
+            </View>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={styles.rankTitle}>{rank.cur.title.toUpperCase()}</Text>
+              <Text style={styles.rankJp}>{rank.cur.jp}</Text>
+            </View>
+          </View>
+          <InkBar progress={rank.progress} palette={palette} reduceMotion={reduceMotion} />
+          <Text style={styles.rankHint}>
+            {rank.next ? `${formatReadingTime(rank.remaining)} more to become “${rank.next.title}”` : 'Maximum rank reached. A true legend.'}
+          </Text>
+        </View>
+
+        {readingStats.last_read_at ? (
+          <Text style={styles.lastRead}>Last read: {new Date(readingStats.last_read_at).toLocaleDateString()}</Text>
+        ) : null}
+      </View>
+    </MangaPanel>
+  );
+
+  const renderBadges = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.panelPad}>
+        <SlashBanner title="BADGES" subtitle="称号" palette={palette} />
+        {userBadges.length > 0 ? (
+          <View style={styles.badgeGrid}>
+            {userBadges.map((b, i) => (
+              <StaggerIn key={b.id || i} index={i} base={500} step={70} from={14} reduceMotion={reduceMotion} style={styles.badgeCell}>
+                <View style={[styles.badgeFrame, { transform: [{ rotate: i % 2 ? '4deg' : '-4deg' }] }]}>
+                  {b.type === 'pioneer' ? (
+                    <Image source={pioneerBadgeImg} style={styles.badgeImg} />
+                  ) : b.image_url ? (
+                    <Image source={{ uri: b.image_url }} style={styles.badgeImg} />
+                  ) : (
+                    <FontAwesome5 name="medal" size={26} color={palette.gold} />
                   )}
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  {isWriter && <UBBadge type="writer" size="small" />}
-                  {isArtist && <UBBadge type="artist" size="small" />}
-                </View>
-                {!isOwnProfile && isWalletConnected && (
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-                    <TouchableOpacity
-                      style={[themedStyles.actionButton, { flex: 1 }]}
-                      onPress={() => setShowMessageModal(true)}
-                      activeOpacity={0.8}
-                    >
-                      <FontAwesome5 name="envelope" size={16} color={colors.textOnAccent} />
-                      <Text style={themedStyles.actionButtonText}>MESSAGE</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[themedStyles.actionButton, { flex: 1 }]}
-                      onPress={() => setShowBadgePurchaseModal(true)}
-                      activeOpacity={0.8}
-                    >
-                      <FontAwesome5 name="shopping-cart" size={16} color={colors.textOnAccent} />
-                      <Text style={themedStyles.actionButtonText}>BUY BADGE</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-              
-              <Text style={themedStyles.bio}>{creatorData?.bio || 'No bio provided.'}</Text>
-              
-              <View style={themedStyles.divider}>
-                <View style={themedStyles.dividerLine} />
-                <Text style={themedStyles.dividerText}>SOCIAL</Text>
-                <View style={themedStyles.dividerLine} />
-              </View>
-              
-              <View style={themedStyles.socials}>
-                {creatorData?.twitter ? (
-                  <TouchableOpacity style={themedStyles.socialButton} onPress={() => Linking.openURL(`https://x.com/${creatorData.twitter}`)}>
-                    <FontAwesome5 name="twitter" size={16} color="#1DA1F2" />
-                    <Text style={themedStyles.socialText}>@{creatorData.twitter}</Text>
-                  </TouchableOpacity>
-                ) : creatorData?.discord ? (
-                  <View style={themedStyles.socialButton}>
-                    <FontAwesome5 name="discord" size={16} color="#7289DA" />
-                    <Text style={themedStyles.socialText}>{creatorData.discord}</Text>
-                  </View>
-                ) : creatorData?.website ? (
-                  <TouchableOpacity style={themedStyles.socialButton} onPress={() => Linking.openURL(normalizeWebsiteUrl(creatorData.website))}>
-                    <FontAwesome5 name="globe" size={16} color={colors.accent} />
-                    <Text style={themedStyles.socialText}>Website</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={themedStyles.placeholder}>No social links added</Text>
-                )}
-              </View>
-              
-              <View style={themedStyles.walletInfo}>
-                <FontAwesome5 name="wallet" size={14} color={colors.gold} />
-                <Text style={themedStyles.walletText}>{creatorData?.wallet_address?.slice(0, 8)}...</Text>
-              </View>
-            </View>
-
-            <View style={themedStyles.card}>
-              <View style={themedStyles.cardTopBorder} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-              
-              <Text style={themedStyles.sectionTitle}>CREATIONS</Text>
-              
-              {novels.length > 0 ? (
-                <View style={themedStyles.novelGrid}>
-                  {novels.map((novel) => (
-                    <TouchableOpacity
-                      key={novel.id}
-                      style={themedStyles.novelCard}
-                      onPress={() => navigation.navigate('NovelDetail', { id: novel.id })}
-                      activeOpacity={0.8}
-                    >
-                      <Image source={{ uri: novel.image }} style={themedStyles.novelImage} />
-                      <View style={themedStyles.novelContent}>
-                        <Text style={themedStyles.novelTitle}>{novel.title}</Text>
-                        <Text style={themedStyles.novelSummary} numberOfLines={2}>
-                          {novel.summary?.slice(0, 80)}...
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              ) : (
-                <Text style={themedStyles.placeholder}>No creations yet. Begin your journey.</Text>
-              )}
-            </View>
-
-            {isOwnProfile && (
-              <View style={themedStyles.card}>
-                <View style={themedStyles.cardTopBorder} />
-                <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
-                <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
-                <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
-                <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-                
-                <View style={themedStyles.actions}>
-                  <TouchableOpacity
-                    style={themedStyles.actionButton}
-                    onPress={() => navigation.navigate('EditProfile')}
-                    activeOpacity={0.8}
-                  >
-                    <FontAwesome5 name="edit" size={16} color={colors.textOnAccent} />
-                    <Text style={themedStyles.actionButtonText}>EDIT</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={themedStyles.actionButton}
-                    onPress={dashboardButton.action}
-                    activeOpacity={0.8}
-                  >
-                    <FontAwesome5 name="rocket" size={16} color={colors.textOnAccent} />
-                    <Text style={themedStyles.actionButtonText}>{dashboardButton.text.toUpperCase()}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </Animated.View>
+                <Text style={styles.badgeName} numberOfLines={2}>
+                  {b.name}
+                </Text>
+              </StaggerIn>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.placeholder}>No badges earned yet.</Text>
         )}
+      </View>
+    </MangaPanel>
+  );
+
+  const renderCreations = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.panelPad}>
+        <SlashBanner title="CREATIONS" subtitle="作品" palette={palette} />
+        {novels.length > 0 ? (
+          <View style={styles.workGrid}>
+            {novels.map((novel, i) => (
+              <StaggerIn key={novel.id} index={i} base={450} step={90} from={20} reduceMotion={reduceMotion} style={styles.workCell}>
+                <PressScale
+                  onPress={() => navigation.navigate('NovelDetail', { id: novel.id })}
+                  accessibilityLabel={`Open ${novel.title}`}
+                  scaleTo={0.96}
+                >
+                  <View style={{ transform: [{ rotate: i % 2 ? '1.2deg' : '-1.2deg' }] }}>
+                    <View style={styles.workCover}>
+                      <View style={styles.workSpine} />
+                      {novel.image ? (
+                        <Image source={{ uri: novel.image }} style={styles.workImg} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.workImg, styles.workImgEmpty]}>
+                          <FontAwesome5 name="book" size={30} color={palette.textMuted} />
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.workTitle} numberOfLines={2}>
+                      {novel.title}
+                    </Text>
+                    {novel.summary ? (
+                      <Text style={styles.workSummary} numberOfLines={2}>
+                        {novel.summary}
+                      </Text>
+                    ) : null}
+                  </View>
+                </PressScale>
+              </StaggerIn>
+            ))}
+          </View>
+        ) : (
+          <Text style={styles.placeholder}>No creations yet. Begin your journey.</Text>
+        )}
+      </View>
+    </MangaPanel>
+  );
+
+  const renderConnect = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.panelPad}>
+        <SlashBanner title="CONNECT" subtitle="つながり" palette={palette} />
+        {hasSocials ? (
+          <View style={styles.socialRow}>
+            {creatorData?.twitter ? (
+              <PressScale onPress={() => openUrl(twitterUrl)} disabled={!twitterUrl} accessibilityLabel="Open Twitter profile">
+                <View style={styles.socialChip}>
+                  <FontAwesome5 name="twitter" size={16} color="#1DA1F2" brand />
+                  <Text style={styles.socialText}>@{String(creatorData.twitter).replace(/^@/, '')}</Text>
+                </View>
+              </PressScale>
+            ) : null}
+            {creatorData?.discord ? (
+              <View style={styles.socialChip}>
+                <FontAwesome5 name="discord" size={16} color="#7289DA" brand />
+                <Text style={styles.socialText}>{creatorData.discord}</Text>
+              </View>
+            ) : null}
+            {creatorData?.website ? (
+              <PressScale onPress={() => openUrl(websiteUrl)} disabled={!websiteUrl} accessibilityLabel="Open website">
+                <View style={styles.socialChip}>
+                  <FontAwesome5 name="globe" size={16} color={palette.accent} />
+                  <Text style={styles.socialText}>Website</Text>
+                </View>
+              </PressScale>
+            ) : null}
+          </View>
+        ) : (
+          <Text style={styles.placeholder}>No social links added</Text>
+        )}
+
+        {shortWallet ? (
+          <View style={styles.walletRow}>
+            <View style={styles.walletLeft}>
+              <FontAwesome5 name="wallet" size={14} color={palette.gold} />
+              <Text style={styles.walletText} numberOfLines={1}>
+                {shortWallet}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {copied ? <Text style={styles.copiedTag}>COPIED</Text> : null}
+              <PressScale onPress={copyWallet} accessibilityLabel="Copy wallet address">
+                <View style={styles.copyBtn}>
+                  <FontAwesome5 name={copied ? 'check' : 'copy'} size={13} color={copied ? palette.success : palette.textPrimary} />
+                </View>
+              </PressScale>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </MangaPanel>
+  );
+
+  const renderSettings = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.panelPad}>
+        <SlashBanner title="SETTINGS" subtitle="設定" palette={palette} />
+        <View style={styles.actionsRow}>
+          <View style={styles.actionCell}>
+            <InkButton
+              label="EDIT"
+              palette={palette}
+              isDark={isDark}
+              icon={<FontAwesome5 name="edit" size={14} color={palette.textOnAccent} />}
+              onPress={() => navigation.navigate('EditProfile')}
+            />
+          </View>
+          <View style={styles.actionCell}>
+            <InkButton
+              label={dashboardButton.text.toUpperCase()}
+              palette={palette}
+              isDark={isDark}
+              variant="ghost"
+              icon={<FontAwesome5 name="rocket" size={14} color={palette.textPrimary} />}
+              onPress={dashboardButton.action}
+            />
+          </View>
+        </View>
+      </View>
+    </MangaPanel>
+  );
+
+  // ------------------------------------------------------------------ states
+  const renderLoading = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.centerBox}>
+        <ActivityIndicator size="large" color={palette.accent} />
+        <Text style={styles.loadingText}>LOADING...</Text>
+      </View>
+    </MangaPanel>
+  );
+
+  const renderError = () => (
+    <MangaPanel palette={palette} isDark={isDark} offset={INK}>
+      <View style={styles.centerBox}>
+        <View style={[styles.stateIconWrap, { borderColor: palette.error }]}>
+          <FontAwesome5 name="exclamation-triangle" size={28} color={palette.error} />
+        </View>
+        <Text style={styles.errorText}>{error}</Text>
+        <View style={{ marginTop: 20 }}>
+          <InkButton
+            label="TRY AGAIN"
+            palette={palette}
+            isDark={isDark}
+            icon={<FontAwesome5 name="sync-alt" size={14} color={palette.textOnAccent} />}
+            onPress={() => fetchProfileDetails()}
+          />
+        </View>
+      </View>
+    </MangaPanel>
+  );
+
+  const showProfile = !loading && !error && !!creatorData;
+
+  let panels = [];
+  if (loading) panels = [renderLoading()];
+  else if (error) panels = [renderError()];
+  else if (showProfile) {
+    panels = [renderHero(), renderStats(), renderBadges(), renderCreations(), renderConnect()];
+    if (isOwnProfile) panels.push(renderSettings());
+  }
+
+  return (
+    <View style={styles.root}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.sunDisc,
+          { transform: [{ scale: sunPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) }] },
+        ]}
+      />
+      <View pointerEvents="none" style={styles.sunRing} />
+      <SakuraField palette={palette} reduceMotion={reduceMotion} />
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.accent} colors={[palette.accent]} />
+        }
+      >
+        <StaggerIn index={0} base={0} reduceMotion={reduceMotion} from={-16}>
+          <View style={styles.titleWrap}>
+            <Text style={styles.title}>CREATOR PROFILE</Text>
+            <View style={styles.titleSlashRow}>
+              <View style={styles.titleSlash} />
+              <View style={styles.titleSlashThin} />
+            </View>
+            <Text style={styles.subtitle}>武士道 • Bushido</Text>
+          </View>
+        </StaggerIn>
+
+        {panels.map((panel, i) => (
+          <StaggerIn key={`${loading ? 'l' : error ? 'e' : 'ok'}-${i}`} index={i + 1} reduceMotion={reduceMotion}>
+            {panel}
+          </StaggerIn>
+        ))}
       </ScrollView>
 
       {/* Badge Purchase Modal */}
@@ -736,7 +1134,7 @@ const { width, height } = Dimensions.get('window');
             <Text style={themedStyles.modalMessage}>
               Support {creatorData?.name || 'this creator'} by purchasing their badge.
             </Text>
-            
+
             {writerBadges.length > 0 ? (
               <>
                 <ScrollView style={themedStyles.badgeOptions}>
@@ -854,11 +1252,71 @@ const { width, height } = Dimensions.get('window');
           </View>
         </View>
       </Modal>
+
+      {/* Tip Jar Modal */}
+      <Modal
+        isVisible={showTipModal}
+        onBackdropPress={() => !tipSending && setShowTipModal(false)}
+        onBackButtonPress={() => !tipSending && setShowTipModal(false)}
+      >
+        <View style={themedStyles.modalOverlay}>
+          <View style={themedStyles.modalContent}>
+            <TouchableOpacity
+              style={themedStyles.closeButton}
+              onPress={() => !tipSending && setShowTipModal(false)}
+              disabled={tipSending}
+            >
+              <FontAwesome5 name="times" size={20} color="#fff" />
+            </TouchableOpacity>
+            <Text style={themedStyles.modalTitle}>Tip Jar</Text>
+            <Text style={themedStyles.modalMessage}>
+              Send a tip to {creatorData?.name || 'this creator'}. Funds go directly to their wallet.
+            </Text>
+
+            <View style={themedStyles.currencySelector}>
+              {['SOL', 'USDC', 'SKR'].map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[themedStyles.currencyOption, tipCurrency === c && themedStyles.currencyOptionSelected]}
+                  onPress={() => setTipCurrency(c)}
+                  disabled={tipSending}
+                >
+                  <Text style={[themedStyles.currencyOptionText, tipCurrency === c && themedStyles.currencyOptionTextSelected]}>{c}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TextInput
+              style={[themedStyles.messageInput, { minHeight: 48, textAlign: 'center', fontSize: 18 }]}
+              placeholder={tipCurrency === 'SOL' ? '0.05' : '5.00'}
+              placeholderTextColor="#888"
+              keyboardType="decimal-pad"
+              value={tipAmount}
+              onChangeText={setTipAmount}
+              editable={!tipSending}
+            />
+            <Text style={[themedStyles.modalMessage, { textAlign: 'center', marginBottom: 12 }]}>
+              {tipCurrency} → {creatorData?.wallet_address ? `${creatorData.wallet_address.slice(0, 6)}...${creatorData.wallet_address.slice(-4)}` : 'creator wallet'}
+            </Text>
+
+            <TouchableOpacity
+              style={[themedStyles.modalButton, { backgroundColor: palette.gold, opacity: tipSending ? 0.6 : 1 }]}
+              onPress={handleTip}
+              disabled={tipSending}
+            >
+              {tipSending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={themedStyles.modalButtonText}>
+                  {tipAmount ? `Send ${tipAmount} ${tipCurrency}` : 'Send Tip'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
 export default CreatorsProfileScreen;
-
-
-

@@ -26,11 +26,21 @@ serve(async (req) => {
 
     console.log("[send-push-notification] Fetching push tokens for", userIds.length, "users");
 
-    // Fetch push tokens for the specified users
-    const { data: users, error: usersError } = await supabaseAdmin
-      .from("users")
-      .select("id, push_token")
-      .in("id", userIds);
+    // Fetch push tokens for the specified users — chunked because .in() with
+    // thousands of IDs exceeds the PostgREST URL length limit.
+    const CHUNK = 200;
+    const users: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK) {
+      const { data: chunk, error: usersError } = await supabaseAdmin
+        .from("users")
+        .select("id, push_token")
+        .in("id", userIds.slice(i, i + CHUNK));
+      if (usersError) {
+        console.error("[send-push-notification] Error fetching users:", usersError);
+        return new Response(JSON.stringify({ error: "Failed to fetch users" }), { status: 500 });
+      }
+      if (chunk) users.push(...chunk);
+    }
 
     if (usersError) {
       console.error("[send-push-notification] Error fetching users:", usersError);
@@ -54,7 +64,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, message: "No valid push tokens" }), { status: 200 });
     }
 
-    // Send push notifications via Expo Push API
+    // Send push notifications via Expo Push API — batched (Expo recommends
+    // keeping request bodies small; huge payloads can time out).
     const expoApiUrl = "https://exp.host/--/api/v2/push/send";
     const messages = pushTokens.map((pushToken: string) => ({
       to: pushToken,
@@ -66,24 +77,41 @@ serve(async (req) => {
 
     console.log("[send-push-notification] Sending notifications to Expo Push API");
 
-    const response = await fetch(expoApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-      },
-      body: JSON.stringify(messages),
-    });
+    let tickets: any[] = [];
+    let expoOk = true;
+    let lastError: any = null;
+    for (let i = 0; i < messages.length; i += 100) {
+      const batch = messages.slice(i, i + 100);
+      try {
+        const response = await fetch(expoApiUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
+          body: JSON.stringify(batch),
+        });
+        const result = await response.json();
+        console.log("[send-push-notification] Expo Push API batch response:", result?.data?.length ?? result);
+        if (!response.ok) {
+          expoOk = false;
+          lastError = result;
+          console.error("[send-push-notification] Expo Push API error:", result);
+        } else if (Array.isArray(result?.data)) {
+          tickets.push(...result.data);
+        }
+      } catch (batchError: any) {
+        expoOk = false;
+        lastError = batchError?.message || batchError;
+        console.error("[send-push-notification] Expo batch fetch failed:", batchError);
+      }
+    }
 
-    const result = await response.json();
-    console.log("[send-push-notification] Expo Push API response:", result);
-
-    if (!response.ok) {
-      console.error("[send-push-notification] Expo Push API error:", result);
+    if (!expoOk) {
       return new Response(JSON.stringify({
         success: false,
         error: "Failed to send notification",
-        details: result
+        details: lastError
       }), { status: 500 });
     }
 

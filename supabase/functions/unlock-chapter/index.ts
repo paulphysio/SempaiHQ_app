@@ -19,6 +19,15 @@ function throwOnError({ data, error }: any) {
   return data;
 }
 
+// Public money-activity feed (DAO Governance). Fire-and-forget: never breaks payments.
+async function logFeed(row: Record<string, unknown>) {
+  try {
+    await supabaseAdmin.from("money_events").insert(row);
+  } catch (e: any) {
+    console.warn("[money_events] insert failed:", e?.message);
+  }
+}
+
 // Simple price cache (5 min TTL)
 let priceCache: { smpPerUsd: number; solPerUsd: number } | null = null;
 let priceCacheTime = 0;
@@ -300,6 +309,23 @@ serve(async (req) => {
     });
 
     console.log(`[unlock-chapter] Success - Chapter ${chapterId} unlocked for user ${userData.id}`);
+
+    const decimals = currency === "SOL" ? 9 : 6;
+    await logFeed({
+      event_type: "chapter_unlock",
+      direction: "in",
+      asset: currency,
+      amount: paymentAmount / 10 ** decimals,
+      usd_value: usdAmount,
+      wallet: walletAddress,
+      counterparty: authorData.wallet_address,
+      user_id: userData.id,
+      title: `Chapter ${chapterId} unlock`,
+      detail: `${paymentType} · ${novel.chaptertitles?.[chapterIndex] || ""}`.trim(),
+      tx_sig: signature,
+      meta: { novel_id: novelId, chapter_id: chapterId, payment_type: paymentType },
+    });
+
     return Response.json({ success: true, signature, isPioneer });
 
   } catch (error: any) {

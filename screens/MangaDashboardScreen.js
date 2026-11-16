@@ -28,10 +28,10 @@ import { formatNumber } from '../utils/formatNumber';
 import { useTheme } from '../context/ThemeContext';
 import {
   Screen, AppBar, IconButton, Tap, Chip, Input, Field, Panel, SectionHeader, StatTile, Segmented,
-  Switch, Sheet, GradientButton, GhostButton, EmptyState, StatusBadge, Skeleton, Divider,
+  Sheet, GradientButton, GhostButton, EmptyState, StatusBadge, Skeleton, Divider,
 } from '../components/ui';
-import { colors, gradients, radius, space, type, glow, layout } from '../theme/theme';
-import { styles } from '../styles/MangaDashboardStyles';
+import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
+import { getStyles as getDashboardStyles } from '../styles/MangaDashboardStyles';
 
 const TAG_OPTIONS = [
   'Action', 'Adult(18+)', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance',
@@ -69,7 +69,11 @@ const sendPushNotification = async (userIds, title, body, data = {}) => {
 };
 
 /* ───────── building blocks ───────── */
-const StepHeader = ({ n, title, sub, done }) => (
+const StepHeader = ({ n, title, sub, done }) => {
+  const mangaTheme = useMangaTheme();
+  const { colors, type } = mangaTheme;
+  const styles = useMemo(() => getDashboardStyles(mangaTheme), [mangaTheme]);
+  return (
   <View style={styles.stepHeader}>
     <View style={[styles.stepBadge, done && { backgroundColor: colors.mint, borderColor: colors.mint }]}>
       {done ? <Icon name="check" size={12} color="#06281a" solid /> : <Text style={styles.stepBadgeText}>{n}</Text>}
@@ -79,9 +83,14 @@ const StepHeader = ({ n, title, sub, done }) => (
       {sub ? <Text style={type.caption}>{sub}</Text> : null}
     </View>
   </View>
-);
+  );
+};
 
-const WorkCard = ({ item, selected, onPress }) => (
+const WorkCard = ({ item, selected, onPress }) => {
+  const mangaTheme = useMangaTheme();
+  const { colors, gradients, type } = mangaTheme;
+  const styles = useMemo(() => getDashboardStyles(mangaTheme), [mangaTheme]);
+  return (
   <Tap onPress={onPress} scaleTo={0.97} style={styles.workCard} accessibilityLabel={`Edit ${item.title}`}>
     <View style={[styles.workCover, selected && { borderColor: colors.primary, borderWidth: 2 }, selected && glow(colors.primary, 0.5)]}>
       <Image source={{ uri: item.cover_image }} style={StyleAbs} resizeMode="cover" />
@@ -96,13 +105,26 @@ const WorkCard = ({ item, selected, onPress }) => (
       <Text style={{ ...type.caption, marginLeft: 4 }}>{formatNumber(item.viewers_count || 0)}</Text>
     </View>
   </Tap>
-);
+  );
+};
 
 const StyleAbs = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%' };
+
+// Convert a signed/authenticated storage URL back to the canonical
+// /object/public/ form we store in manga_pages.image_url.
+const canonicalizeStorageUrl = (url) => {
+  if (!url || typeof url !== 'string') return url;
+  const m = url.match(/^(https?:\/\/[^/]+)\/storage\/v1\/object\/(?:sign|authenticated|public)\/(.+?)\/(.+?)(?:\?.*)?$/);
+  if (!m) return url;
+  return `${m[1]}/storage/v1/object/public/${m[2]}/${m[3]}`;
+};
 
 const MangaDashboardScreen = () => {
   const navigation = useNavigation();
   const { isDark, colors: themeColors } = useTheme();
+  const mangaTheme = useMangaTheme();
+  const { colors, gradients, type } = mangaTheme;
+  const styles = useMemo(() => getDashboardStyles(mangaTheme), [mangaTheme]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
@@ -115,8 +137,6 @@ const MangaDashboardScreen = () => {
   const [mangaStatus, setMangaStatus] = useState('ongoing');
   const [chapterTitle, setChapterTitle] = useState('');
   const [chapterPages, setChapterPages] = useState([]);
-  const [chapterPrice, setChapterPrice] = useState('2.5');
-  const [isPremium, setIsPremium] = useState(false);
   const [mangaCollection, setMangaCollection] = useState([]);
   const [activeManga, setActiveManga] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -325,8 +345,6 @@ const MangaDashboardScreen = () => {
   const clearChapterForm = () => {
     setChapterTitle('');
     setChapterPages([]);
-    setIsPremium(false);
-    setChapterPrice('2.5');
     setEditingChapterIdx(null);
   };
 
@@ -335,15 +353,11 @@ const MangaDashboardScreen = () => {
       Alert.alert('Almost there', 'Add a chapter title and at least one page.');
       return;
     }
-    if (isPremium && (!chapterPrice || parseFloat(chapterPrice) <= 0)) {
-      Alert.alert('Price needed', 'Please set a valid price for the premium chapter.');
-      return;
-    }
     const chapterData = {
       title: chapterTitle,
       pages: chapterPages,
-      isPremium,
-      price: isPremium ? parseFloat(chapterPrice) : null,
+      isPremium: true,
+      price: null,
     };
     if (editingChapterIdx !== null) {
       setChapters((prev) => prev.map((ch, idx) => (idx === editingChapterIdx ? chapterData : ch)));
@@ -358,8 +372,6 @@ const MangaDashboardScreen = () => {
     const chapter = chapters[idx];
     setChapterTitle(chapter.title || '');
     setChapterPages(chapter.pages || []);
-    setIsPremium(chapter.isPremium || false);
-    setChapterPrice(chapter.price ? chapter.price.toString() : '2.5');
     setEditingChapterIdx(idx);
     scrollRef.current?.scrollTo({ y: Math.max(0, editorY.current + chapterY.current - 12), animated: true });
     setTimeout(() => chapterInputRef.current?.focus(), 350);
@@ -379,29 +391,103 @@ const MangaDashboardScreen = () => {
     ]);
   };
 
+  const parseStorageRef = (url) => {
+    const m = (url || '').match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+?)(?:\?.*)?$/);
+    return m ? { bucket: m[1], path: decodeURIComponent(m[2]) } : null;
+  };
+
+  const deleteSeries = () => {
+    if (!activeManga?.id) return;
+    Alert.alert(
+      'Delete series?',
+      `"${activeManga.title}" and all its chapters, pages, comments, and reader subscriptions will be permanently deleted. This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: performDeleteSeries },
+      ]
+    );
+  };
+
+  const performDeleteSeries = async () => {
+    const mangaId = activeManga.id;
+    const title = activeManga.title;
+    setLoading(true);
+    try {
+      // Collect storage objects before rows disappear
+      const { data: chapterRows } = await supabase
+        .from('manga_chapters')
+        .select('id')
+        .eq('manga_id', mangaId);
+      const chapterIds = (chapterRows || []).map((c) => c.id);
+      const storageRefs = [];
+      if (chapterIds.length) {
+        const { data: pageRows } = await supabase
+          .from('manga_pages')
+          .select('image_url')
+          .in('chapter_id', chapterIds);
+        (pageRows || []).forEach((p) => {
+          const ref = parseStorageRef(p.image_url);
+          if (ref) storageRefs.push(ref);
+        });
+      }
+      const coverRef = parseStorageRef(activeManga.cover_image);
+      if (coverRef) storageRefs.push(coverRef);
+
+      // Delete rows children-first
+      await supabase.from('manga_comments').delete().eq('manga_id', mangaId);
+      if (chapterIds.length) {
+        await supabase.from('manga_pages').delete().in('chapter_id', chapterIds);
+      }
+      await supabase.from('manga_chapters').delete().eq('manga_id', mangaId);
+      await supabase.from('manga_subscriptions').delete().eq('manga_id', mangaId);
+      await supabase.from('unlocked_manga_chapters').delete().eq('manga_id', mangaId);
+      await supabase.from('user_payments').delete().eq('manga_id', mangaId);
+      const { error } = await supabase.from('manga').delete().eq('id', mangaId);
+      if (error) throw error;
+
+      // Best-effort storage cleanup (orphaned files are harmless but tidy)
+      for (const ref of storageRefs) {
+        try {
+          await supabase.storage.from(ref.bucket).remove([ref.path]);
+        } catch (_) { /* non-fatal */ }
+      }
+
+      setMangaCollection((prev) => prev.filter((m) => m.id !== mangaId));
+      clearForm();
+      Alert.alert('Deleted', `"${title}" was deleted.`);
+    } catch (e) {
+      console.error('[MangaDashboard] delete series failed:', e?.message || e);
+      Alert.alert('Delete failed', e?.message || 'Could not delete the series. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchChapters = async (mangaId) => {
     try {
       const { data: chapterData, error } = await supabase
         .from('manga_chapters')
-        .select('id, title, is_premium, price')
+        .select('id, title')
         .eq('manga_id', mangaId)
         .order('chapter_number', { ascending: true });
       if (error) throw new Error('Chapter fetch error');
 
       const chaptersWithPages = await Promise.all(
         chapterData.map(async (chapter) => {
-          const { data: pages, error: pageError } = await supabase
-            .from('manga_pages')
-            .select('image_url')
-            .eq('chapter_id', chapter.id)
-            .order('page_number', { ascending: true });
-          if (pageError) throw new Error('Page fetch error');
-          return {
-            ...chapter,
-            isPremium: chapter.is_premium,
-            pages: pages.map((p) => ({ url: p.image_url })),
-            price: chapter.price,
-          };
+          // Pages are private — fetch short-lived signed URLs via the edge
+          // function (the author's wallet is allowed through for previews).
+          let pages = [];
+          try {
+            const { data, error: pagesError } = await supabase.functions.invoke('manga-chapter-pages', {
+              body: { chapterId: chapter.id, walletAddress: activePublicKey?.toString() },
+            });
+            if (!pagesError && !data?.error && Array.isArray(data?.pages)) {
+              pages = data.pages.map((p) => ({ url: p.image_url }));
+            }
+          } catch (e) {
+            console.error('Page fetch error:', e?.message || e);
+          }
+          return { ...chapter, pages };
         })
       );
       setChapters(chaptersWithPages);
@@ -479,7 +565,7 @@ const MangaDashboardScreen = () => {
         console.log('[MangaDashboard] Cover has arrayBuffer:', !!coverImage.arrayBuffer);
         
         // Upload as ArrayBuffer
-        const { data, error } = await supabase.storage.from('manga-images').upload(path, coverImage.arrayBuffer, {
+        const { data, error } = await supabase.storage.from('covers').upload(path, coverImage.arrayBuffer, {
           upsert: true,
           cacheControl: '3600',
           contentType: coverImage.type,
@@ -489,7 +575,7 @@ const MangaDashboardScreen = () => {
           throw new Error('Cover upload failed: ' + error.message);
         }
         console.log('[MangaDashboard] Cover upload successful, data:', data);
-        coverUrl = supabase.storage.from('manga-images').getPublicUrl(data.path).data.publicUrl;
+        coverUrl = supabase.storage.from('covers').getPublicUrl(data.path).data.publicUrl;
         console.log('[MangaDashboard] Cover URL:', coverUrl);
       } else {
         console.log('[MangaDashboard] Using existing cover URL:', coverPreview);
@@ -529,8 +615,6 @@ const MangaDashboardScreen = () => {
         const chapter = chapters[i];
         console.log(`[MangaDashboard] Processing chapter ${i + 1}/${chapters.length}:`, chapter.title);
         console.log(`[MangaDashboard] Chapter ${i + 1} pages:`, chapter.pages.length);
-        console.log(`[MangaDashboard] Chapter ${i + 1} premium:`, chapter.isPremium);
-        console.log(`[MangaDashboard] Chapter ${i + 1} price:`, chapter.price);
 
         let chapterId;
 
@@ -551,8 +635,8 @@ const MangaDashboardScreen = () => {
             .from('manga_chapters')
             .update({
               title: chapter.title,
-              is_premium: chapter.isPremium,
-              price: chapter.isPremium ? chapter.price : null,
+              is_premium: true,
+              price: null,
             })
             .eq('id', existing.id);
           if (error) throw new Error('Chapter update failed: ' + error.message);
@@ -569,8 +653,8 @@ const MangaDashboardScreen = () => {
                 manga_id: mangaId,
                 chapter_number: i + 1,
                 title: chapter.title,
-                is_premium: chapter.isPremium,
-                price: chapter.isPremium ? chapter.price : null,
+                is_premium: true,
+                price: null,
               },
             ])
             .select('id')
@@ -586,7 +670,9 @@ const MangaDashboardScreen = () => {
           console.log(`[MangaDashboard] Page ${j + 1}/${chapter.pages.length}:`, page.file ? 'New file' : 'Existing URL');
           console.log(`[MangaDashboard] Page ${j + 1} file object:`, page.file);
           console.log(`[MangaDashboard] Page ${j + 1} existing URL:`, page.url);
-          let pageUrl = page.url;
+          // Existing pages may carry short-lived signed URLs from the preview
+          // fetch — store the canonical storage URL so it never expires.
+          let pageUrl = canonicalizeStorageUrl(page.url);
           if (page.file) {
             const pagePath = `pages/${mangaId}/${chapterId}/${j + 1}-${Date.now()}.jpg`;
             console.log(`[MangaDashboard] Uploading page ${j + 1} to:`, pagePath);
@@ -648,7 +734,7 @@ const MangaDashboardScreen = () => {
         const notifications = targetUsers.map((uid) => ({
           user_id: uid,
           manga_id: mangaId,
-          manga_title: title,
+          novel_title: title,
           type: activeManga ? 'new_chapter' : 'new_manga',
           message,
           chapter: activeManga ? chapters.length : null,
@@ -720,7 +806,7 @@ const MangaDashboardScreen = () => {
           manga_id: activeManga.id,
           type: 'announcement',
           message: `${noticeTitle}: ${noticeText}`,
-          manga_title: activeManga.title,
+          novel_title: activeManga.title,
         }));
         const { error: nErr } = await supabase.from('notifications').insert(notifications);
         if (nErr) throw new Error('Notification send failed');
@@ -851,6 +937,9 @@ const MangaDashboardScreen = () => {
                   <Text numberOfLines={1} style={type.h1}>{activeManga ? activeManga.title : title || 'Untitled'}</Text>
                 </View>
                 {activeManga ? <StatusBadge value={activeManga.status || 'ongoing'} /> : null}
+                {activeManga ? (
+                  <IconButton icon="trash" label="Delete series" size={36} onPress={deleteSeries} style={{ marginLeft: space.sm, backgroundColor: colors.danger + '33' }} />
+                ) : null}
                 {(activeManga || title || summary || chapters.length > 0) ? (
                   <IconButton icon="undo" label="Reset editor" size={36} onPress={startNew} style={{ marginLeft: space.sm }} />
                 ) : null}
@@ -947,17 +1036,6 @@ const MangaDashboardScreen = () => {
                     </ScrollView>
                   </Field>
 
-                  <View style={styles.premiumBox}>
-                    <Switch value={isPremium} onChange={setIsPremium} label="Premium chapter" sub="Readers pay to unlock this chapter" />
-                    {isPremium ? (
-                      <Animated.View entering={FadeIn} exiting={FadeOut} style={{ marginTop: space.md }}>
-                        <Field label="Price (USDC)" style={{ marginBottom: 0 }}>
-                          <Input icon="dollar-sign" value={chapterPrice} onChangeText={setChapterPrice} placeholder="2.5" keyboardType="decimal-pad" accessibilityLabel="Chapter price input" />
-                        </Field>
-                      </Animated.View>
-                    ) : null}
-                  </View>
-
                   <View style={{ height: space.lg }} />
                   <GradientButton
                     tone={editingChapterIdx !== null ? 'gold' : 'electric'}
@@ -977,12 +1055,8 @@ const MangaDashboardScreen = () => {
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text numberOfLines={1} style={type.bodyStrong}>{ch.title}</Text>
-                          <Text style={type.caption}>
-                            {ch.pages.length} page{ch.pages.length === 1 ? '' : 's'}
-                            {ch.isPremium ? ` · Premium $${Number(ch.price).toFixed(2)}` : ' · Free'}
-                          </Text>
+                          <Text style={type.caption}>{ch.pages.length} page{ch.pages.length === 1 ? '' : 's'}</Text>
                         </View>
-                        {ch.isPremium ? <Icon name="crown" size={12} color={colors.gold} solid style={{ marginRight: space.sm }} /> : null}
                         <IconButton icon="pen" label="Edit chapter" size={34} onPress={() => editChapter(idx)} style={{ marginRight: 6 }} />
                         <IconButton icon="trash" label="Delete chapter" size={34} onPress={() => deleteChapter(idx)} style={{ backgroundColor: colors.danger + '33' }} />
                       </Animated.View>

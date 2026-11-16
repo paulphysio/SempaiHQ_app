@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,14 @@ import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import PDFReader from '../components/PDFReader';
 import EPUBReader from '../components/EPUBReader';
-import styles from '../styles/ReaderStyles';
+import { getReaderStyles } from '../styles/ReaderStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ReaderScreen({ navigation }) {
+  const { isDark } = useTheme();
+  const styles = useMemo(() => getReaderStyles(isDark), [isDark]);
   const insets = useSafeAreaInsets();
   const [file, setFile] = useState(null);
   const [fileType, setFileType] = useState(null);

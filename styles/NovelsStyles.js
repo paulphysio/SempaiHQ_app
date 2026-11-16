@@ -497,6 +497,30 @@ export const getNovelsStyles = (isDark = true) => {
       fontSize: 11,
       letterSpacing: 0.5,
     },
+    progressBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: SPACE.xs,
+    },
+    progressBadgeText: {
+      color: c.accent,
+      fontSize: 10,
+      fontWeight: '600',
+      marginLeft: SPACE.xs,
+      letterSpacing: 0.3,
+    },
+    progressTrack: {
+      height: 3,
+      borderRadius: 2,
+      backgroundColor: c.border,
+      marginTop: SPACE.xs,
+      overflow: 'hidden',
+    },
+    progressFill: {
+      height: '100%',
+      borderRadius: 2,
+      backgroundColor: c.accent,
+    },
 
     // ------------------------------------------------------------ loading
     loadingContainer: {

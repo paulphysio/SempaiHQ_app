@@ -38,6 +38,7 @@ import {
 } from '../services/kaijiApi';
 import { getKaijiLeaderboard } from '../services/kaijiLeaderboard';
 import { isOpen, isFinished, viewOf, roundForMe, roundMessage, endInfo, shortAddr } from '../services/kaijiMapping';
+import { useTheme } from '../context/ThemeContext';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -552,6 +553,8 @@ const Meter = ({ n }) => (
 // Screen
 // ---------------------------------------------------------------------------
 const KaijiScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getKaijiStyles(colors), [isDark]);
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { width: W, height: H } = useWindowDimensions();
@@ -1742,11 +1745,11 @@ const KaijiScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getKaijiStyles = (c) => StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.ink },
   centered: { alignItems: 'center', justifyContent: 'center' },
-  deniedTitle: { color: '#fff', fontSize: 24, fontWeight: '700', marginBottom: 12 },
-  deniedSub: { color: '#fff', fontSize: 16, opacity: 0.8 },
+  deniedTitle: { color: c.textPrimary, fontSize: 24, fontWeight: '700', marginBottom: 12 },
+  deniedSub: { color: c.textPrimary, fontSize: 16, opacity: 0.8 },
   rotateText: { color: COLORS.bone, fontSize: 18, marginTop: 12 },
 
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
@@ -1765,7 +1768,7 @@ const styles = StyleSheet.create({
   tileTag: { color: COLORS.dim, fontSize: 13, marginTop: 4 },
   badge: { position: 'absolute', top: 12, right: 12, backgroundColor: COLORS.ember, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5, zIndex: 2 },
   badgeLocked: { backgroundColor: COLORS.ink, borderWidth: 1, borderColor: COLORS.line },
-  badgeText: { color: '#1a0900', fontWeight: '800', fontSize: 12 },
+  badgeText: { color: c.bgElevated, fontWeight: '800', fontSize: 12 },
   footnote: { color: COLORS.dim, fontSize: 12, textAlign: 'center' },
   meterDot: { width: 22, height: 8, borderRadius: 4, backgroundColor: COLORS.line, marginRight: 5 },
   meterOn: { backgroundColor: COLORS.flame },
@@ -1777,7 +1780,7 @@ const styles = StyleSheet.create({
   timerFill: { height: 4 },
   lockedTag: { color: COLORS.flame, fontSize: 11, fontWeight: '800', marginTop: 4, letterSpacing: 1 },
   resume: { backgroundColor: COLORS.ember, borderRadius: 12, paddingVertical: 10, alignItems: 'center', marginBottom: 6 },
-  resumeText: { color: '#1a0900', fontWeight: '800' },
+  resumeText: { color: c.bgElevated, fontWeight: '800' },
   pendingBar: { backgroundColor: COLORS.ash, borderLeftWidth: 4, borderLeftColor: COLORS.ember, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, marginBottom: 6 },
   pendingText: { color: COLORS.bone, fontSize: 12 },
   wagerRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 24 },
@@ -1812,15 +1815,15 @@ const styles = StyleSheet.create({
   caption: { marginTop: 12, borderLeftWidth: 4, borderLeftColor: COLORS.ember, backgroundColor: 'rgba(29,23,19,0.9)', paddingVertical: 6, paddingHorizontal: 12, maxWidth: 380 },
   captionText: { color: COLORS.bone, fontSize: 14, fontWeight: '700' },
   zawa: { position: 'absolute', color: COLORS.bone, fontSize: 30, fontWeight: '900', textShadowColor: COLORS.ember, textShadowRadius: 12, textShadowOffset: { width: 0, height: 0 } },
-  don: { position: 'absolute', alignSelf: 'center', color: COLORS.flame, fontSize: 56, fontWeight: '900', textShadowColor: '#7a2600', textShadowRadius: 6, textShadowOffset: { width: 3, height: 3 } },
+  don: { position: 'absolute', alignSelf: 'center', color: COLORS.flame, fontSize: 56, fontWeight: '900', textShadowColor: c.bgElevated, textShadowRadius: 6, textShadowOffset: { width: 3, height: 3 } },
 
   glow: { shadowColor: COLORS.ember, shadowOpacity: 0.95, shadowRadius: 16, shadowOffset: { width: 0, height: 0 }, elevation: 12 },
   count: { position: 'absolute', top: -8, right: -6, minWidth: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.ember, borderWidth: 2, borderColor: COLORS.ink, alignItems: 'center', justifyContent: 'center' },
-  countText: { color: '#1a0900', fontWeight: '800', fontSize: 12 },
+  countText: { color: c.bgElevated, fontWeight: '800', fontSize: 12 },
 
   lock: { backgroundColor: COLORS.ember, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center', minWidth: 200, borderWidth: 2, borderColor: COLORS.flame },
   lockOff: { opacity: 0.4 },
-  lockText: { fontFamily: FONT, color: '#1a0900', fontSize: 16, letterSpacing: 1 },
+  lockText: { fontFamily: FONT, color: c.bgElevated, fontSize: 16, letterSpacing: 1 },
 
   bannerWrap: { position: 'absolute', left: 0, right: 0, top: '38%', alignItems: 'center' },
   banner: { alignSelf: 'stretch', backgroundColor: COLORS.ember, paddingVertical: 10, alignItems: 'center', borderTopWidth: 4, borderBottomWidth: 4, borderColor: COLORS.flame, transform: [{ skewX: '-12deg' }] },
@@ -1836,7 +1839,7 @@ const styles = StyleSheet.create({
   ghostText: { color: COLORS.dim, fontSize: 15 },
 
   leaderboardButton: { backgroundColor: COLORS.ember, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
-  leaderboardButtonText: { color: '#1a0900', fontWeight: '800', fontSize: 16 },
+  leaderboardButtonText: { color: c.bgElevated, fontWeight: '800', fontSize: 16 },
   leaderboardContainer: { flex: 1, backgroundColor: COLORS.ash, borderRadius: 18, borderWidth: 2, borderColor: COLORS.line, padding: 16 },
   leaderboardScroll: { flex: 1 },
   leaderboardEmpty: { color: COLORS.dim, fontSize: 16, textAlign: 'center', marginTop: 40 },
@@ -1850,7 +1853,7 @@ const styles = StyleSheet.create({
   leaderboardPlayer: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   leaderboardAvatar: { width: 32, height: 32, borderRadius: 16 },
   leaderboardAvatarPlaceholder: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.ember, alignItems: 'center', justifyContent: 'center' },
-  leaderboardAvatarText: { color: '#1a0900', fontWeight: '800', fontSize: 14 },
+  leaderboardAvatarText: { color: c.bgElevated, fontWeight: '800', fontSize: 14 },
   leaderboardName: { color: COLORS.bone, fontSize: 14, flex: 1 },
   leaderboardStats: { width: 60, color: COLORS.bone, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   leaderboardRate: { width: 60, color: COLORS.flame, fontSize: 14, fontWeight: '700', textAlign: 'right' },

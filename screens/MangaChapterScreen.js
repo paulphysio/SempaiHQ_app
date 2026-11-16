@@ -20,7 +20,6 @@ import {
   Connection,
   PublicKey,
   Transaction,
-  Keypair,
   SystemProgram,
   LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
@@ -34,13 +33,13 @@ import {
 } from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut, FadeInDown } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import * as SecureStore from 'expo-secure-store';
 import {
   RPC_URL,
   SMP_MINT_ADDRESS,
   USDC_MINT_ADDRESS,
   SKR_MINT_ADDRESS,
   TARGET_WALLET,
+  MANGA_TREASURY_WALLET,
   SMP_DECIMALS,
   AMETHYST_MINT_ADDRESS,
   WEB_API_BASE_URL,
@@ -53,13 +52,15 @@ import {
   Screen, Tap, IconButton, GradientButton, GhostButton, Input, Field, Panel, Sheet, Toast,
   Skeleton, EmptyState, Divider, SectionHeader,
 } from '../components/ui';
-import { colors, gradients, radius, space, type, glow } from '../theme/theme';
-import { styles } from '../styles/MangaChapterStyles';
+import { radius, space, glow, useMangaTheme } from '../theme/theme';
+import { getStyles as getChapterStyles } from '../styles/MangaChapterStyles';
+import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
 /* ───────────── Reader page: full-width, auto aspect ratio, tap toggles controls ───────────── */
 const ReaderPage = React.memo(({ uri, onPress }) => {
+  const { colors } = useMangaTheme();
   const [ratio, setRatio] = useState(0.7);
   const [ready, setReady] = useState(false);
 
@@ -92,7 +93,11 @@ const ReaderPage = React.memo(({ uri, onPress }) => {
 });
 
 /* ───────────── Paywall building blocks ───────────── */
-const PayTile = ({ icon, color, title, amount, sub, onPress, disabled }) => (
+const PayTile = ({ icon, color, title, amount, sub, onPress, disabled }) => {
+  const mangaTheme = useMangaTheme();
+  const { type } = mangaTheme;
+  const styles = useMemo(() => getChapterStyles(mangaTheme), [mangaTheme]);
+  return (
   <Tap onPress={onPress} disabled={disabled} style={[styles.payTile, disabled && { opacity: 0.45 }]} accessibilityLabel={`Unlock with ${title}`}>
     <View style={[styles.payIcon, { backgroundColor: color + '26' }]}>
       <Icon name={icon} size={14} color={color} solid />
@@ -101,9 +106,13 @@ const PayTile = ({ icon, color, title, amount, sub, onPress, disabled }) => (
     <Text style={styles.payAmount} numberOfLines={1} adjustsFontSizeToFit>{amount}</Text>
     <Text style={type.caption}>{sub}</Text>
   </Tap>
-);
+  );
+};
 
-const BundleCard = ({ icon, title, desc, usd, smp, ribbon, tone, onPress }) => (
+const BundleCard = ({ icon, title, desc, usd, smp, ribbon, tone, onPress }) => {
+  const mangaTheme = useMangaTheme();
+  const styles = useMemo(() => getChapterStyles(mangaTheme), [mangaTheme]);
+  return (
   <Tap onPress={onPress} scaleTo={0.985} style={{ marginBottom: space.md }} accessibilityLabel={`Unlock ${title}`}>
     <LinearGradient colors={tone} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.bundle, glow(tone[1], 0.3)]}>
       <View style={styles.bundleIcon}>
@@ -124,11 +133,63 @@ const BundleCard = ({ icon, title, desc, usd, smp, ribbon, tone, onPress }) => (
       ) : null}
     </LinearGradient>
   </Tap>
-);
+  );
+};
+
+const PlanCard = ({ icon, title, desc, usd, days, best, solLabel, busy, onSol, onUsdc }) => {
+  const mangaTheme = useMangaTheme();
+  const { colors, gradients } = mangaTheme;
+  const styles = useMemo(() => getChapterStyles(mangaTheme), [mangaTheme]);
+  return (
+  <View style={{ marginBottom: space.md }}>
+    <LinearGradient
+      colors={best ? gradients.sakura : gradients.electric}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={[styles.bundle, glow(best ? '#ff5c8a' : '#4cc9f0', 0.3)]}
+    >
+      <View style={styles.bundleIcon}>
+        <Icon name={icon} size={18} color="#fff" solid />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.bundleTitle}>{title}</Text>
+        <Text style={styles.bundleDesc}>{desc}</Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        <Text style={styles.bundleUsd}>${usd.toFixed(2)}</Text>
+        <Text style={styles.bundleSmp}>{days} days</Text>
+      </View>
+      {best ? (
+        <View style={styles.ribbon}>
+          <Text style={styles.ribbonText}>BEST VALUE</Text>
+        </View>
+      ) : null}
+    </LinearGradient>
+    <View style={{ flexDirection: 'row', gap: space.sm, marginTop: -space.sm, paddingHorizontal: 4 }}>
+      <Tap
+        onPress={onSol}
+        disabled={!!busy}
+        style={[styles.planPayBtn, { flex: 1, opacity: busy ? 0.5 : 1 }]}
+        accessibilityLabel={`Subscribe with SOL`}
+      >
+        {busy === 'SOL' ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="sun" size={13} color="#fff" solid />}
+        <Text style={styles.planPayText}>SOL {solLabel}</Text>
+      </Tap>
+      <Tap
+        onPress={onUsdc}
+        disabled={!!busy}
+        style={[styles.planPayBtn, { flex: 1, backgroundColor: colors.info + '33', borderColor: colors.info + '66', opacity: busy ? 0.5 : 1 }]}
+        accessibilityLabel={`Subscribe with USDC`}
+      >
+        {busy === 'USDC' ? <ActivityIndicator size="small" color="#fff" /> : <Icon name="dollar-sign" size={13} color={colors.info} solid />}
+        <Text style={[styles.planPayText, { color: colors.info }]}>USDC ${usd.toFixed(2)}</Text>
+      </Tap>
+    </View>
+  </View>
+  );
+};
 
 const connection = new Connection(RPC_URL, 'confirmed');
-const MAX_PASSWORD_ATTEMPTS = 3;
-const PASSWORD_ERROR_TIMEOUT = 5000;
 const MERCHANT_WALLET = TARGET_WALLET;
 const SMP_READ_COST = 1000; // Fixed cost for single chapter
 const threeChaptersSmp = 6480139; // Fixed $3 equivalent for 3 chapters
@@ -185,8 +246,12 @@ const MangaChapterScreen = () => {
   const route = useRoute();
   const { mangaId, chapterId } = route.params || {};
   const { isDark, colors: themeColors } = useTheme();
+  const mangaTheme = useMangaTheme();
+  const { colors, gradients, type } = mangaTheme;
+  const styles = useMemo(() => getChapterStyles(mangaTheme), [mangaTheme]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const contextSignAndSend = walletContext?.signAndSendTransaction;
 
   const [manga, setManga] = useState(null);
   const [chapter, setChapter] = useState(null);
@@ -214,15 +279,12 @@ const MangaChapterScreen = () => {
   const [writerHasAta, setWriterHasAta] = useState(true);
   const [ataFundingCost, setAtaFundingCost] = useState(0);
   const [writerAtaAddress, setWriterAtaAddress] = useState(null);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [password, setPassword] = useState('');
-  const [passwordError, setPasswordError] = useState(null);
-  const [passwordCallback, setPasswordCallback] = useState(null);
-  const [passwordAttempts, setPasswordAttempts] = useState(0);
   const [hasReadChapter, setHasReadChapter] = useState(false);
   const [amethystBalance, setAmethystBalance] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [chapterList, setChapterList] = useState([]);
+  const [subscription, setSubscription] = useState(null);
+  const [subscribing, setSubscribing] = useState(null); // 'monthly-SOL' | 'days21-USDC' | ...
   const usdcPrice = 1;
 
   const isWalletConnected = !!wallet?.publicKey;
@@ -247,23 +309,13 @@ const MangaChapterScreen = () => {
 
   const activeWalletAddress = activePublicKey?.toString();
 
-  const retrieveSecretKey = async (password) => {
-    try {
-      if (!activeWalletAddress) throw new Error('No wallet address available');
-      const key = `wallet-secret-${activeWalletAddress}-${password}`;
-      const secretKeyBase58 = await SecureStore.getItemAsync(key);
-      if (!secretKeyBase58) {
-        throw new Error('Invalid password or secret key not found.');
-      }
-      const secretKey = bs58.decode(secretKeyBase58);
-      if (secretKey.length !== 64) {
-        throw new Error('Invalid secret key format.');
-      }
-      return secretKey;
-    } catch (err) {
-      console.error('Error retrieving secret key:', err);
-      throw err;
-    }
+  // Sign via the embedded wallet context (same as SwapScreen/ChapterScreen).
+  // Called with no password — the context shows its own auth modal or uses
+  // biometrics, verifies the password, decrypts via wallet-encryption,
+  // signs, broadcasts, and confirms. Returns the signature.
+  const signAndSendTransaction = async (transaction) => {
+    if (!contextSignAndSend) throw new Error('Wallet signing is not available. Please reconnect your wallet.');
+    return contextSignAndSend(transaction);
   };
 
   const fetchAmethystBalance = useCallback(async () => {
@@ -341,7 +393,7 @@ const MangaChapterScreen = () => {
     try {
       const { data: mangaData, error: mangaError } = await supabase
         .from('manga')
-        .select('id, title, user_id')
+        .select('id, title, user_id, cover_image')
         .eq('id', mangaId)
         .eq('is_visible', true)
         .single();
@@ -356,23 +408,15 @@ const MangaChapterScreen = () => {
         .single();
       if (chapterError) throw new Error(`Failed to fetch chapter: ${chapterError.message}`);
 
-      const { data: pagesData, error: pagesError } = await supabase
-        .from('manga_pages')
-        .select('page_number, image_url')
-        .eq('chapter_id', chapterId)
-        .order('page_number', { ascending: true });
-      if (pagesError) throw new Error(`Failed to fetch pages: ${pagesError.message}`);
-
       const { data: ownerData } = await supabase
         .from('users')
-        .select('id, wallet_address, balance')
+        .select('id, name, wallet_address, balance')
         .eq('id', mangaData.user_id)
         .maybeSingle();
 
       setManga(mangaData);
       setChapter(chapterData);
       setMangaOwner(ownerData || null);
-      setPages(pagesData || []);
       setIsPremium(chapterData.is_premium);
       setChapterPrice(chapterData.price !== null ? chapterData.price : 2.9);
       console.log('fetchManga set chapterPrice:', chapterData.price !== null ? chapterData.price : 2.9);
@@ -429,13 +473,26 @@ const MangaChapterScreen = () => {
       return;
     }
     try {
-      if (!chapterData.is_premium) {
-        console.log('checkAccess: Chapter is not premium, unlocking');
-        setIsLocked(false);
-        return;
-      }
-
+      // All manga is premium — every chapter needs a subscription, unlock,
+      // or recorded payment. The first chapter still shows a page preview.
       if (userId) {
+        // Active series subscription covers every chapter + artist chat
+        const { data: subs, error: subError } = await supabase
+          .from('manga_subscriptions')
+          .select('expires_at')
+          .eq('user_id', userId)
+          .eq('manga_id', mangaData.id)
+          .gt('expires_at', new Date().toISOString())
+          .order('expires_at', { ascending: false })
+          .limit(1);
+        if (subError) console.warn('checkAccess: subscription check failed:', subError.message);
+        if (subs?.length) {
+          setSubscription(subs[0]);
+          setIsLocked(false);
+          return;
+        }
+        setSubscription(null);
+
         const { data: payments, error: paymentError } = await supabase
           .from('user_payments')
           .select('id')
@@ -483,58 +540,111 @@ const MangaChapterScreen = () => {
     }
   }, [isWalletConnected, activeWalletAddress]);
 
-  const requestPassword = useCallback((callback) => {
-    setPassword('');
-    setPasswordError(null);
-    setPasswordAttempts(0);
-    setPasswordCallback(() => callback);
-    setShowPasswordModal(true);
-  }, []);
-
-  const handlePasswordSubmit = useCallback(() => {
-    if (!password) {
-      setPasswordError('Please enter your password.');
-      return;
-    }
-    if (passwordAttempts >= MAX_PASSWORD_ATTEMPTS) {
-      setPasswordError('Maximum password attempts reached. Please try again later.');
-      setTimeout(() => {
-        setShowPasswordModal(false);
-        setPassword('');
-        setPasswordAttempts(0);
-        setPasswordCallback(null);
-      }, PASSWORD_ERROR_TIMEOUT);
-      return;
-    }
-    passwordCallback?.(password);
-  }, [password, passwordCallback, passwordAttempts]);
-
-  const signAndSendTransaction = async (transaction, pwd) => {
+  // Pages are served as short-lived signed URLs by the edge function,
+  // which verifies subscription/unlock/payment server-side.
+  const loadPages = useCallback(async () => {
+    if (!chapterId) return;
     try {
-      const secretKey = await retrieveSecretKey(pwd);
-      const keypair = Keypair.fromSecretKey(secretKey);
-      transaction.sign(keypair);
-      const signature = await connection.sendRawTransaction(transaction.serialize());
-      setShowPasswordModal(false);
-      setPassword('');
-      setPasswordError(null);
-      setPasswordAttempts(0);
-      setPasswordCallback(null);
-      return signature;
-    } catch (err) {
-      setPasswordAttempts((prev) => prev + 1);
-      if (passwordAttempts + 1 >= MAX_PASSWORD_ATTEMPTS) {
-        setPasswordError('Maximum password attempts reached. Closing modal.');
-        setTimeout(() => {
-          setShowPasswordModal(false);
-          setPassword('');
-          setPasswordAttempts(0);
-          setPasswordCallback(null);
-        }, PASSWORD_ERROR_TIMEOUT);
-      } else {
-        setPasswordError('Incorrect password. Please try again.');
+      const { data, error } = await supabase.functions.invoke('manga-chapter-pages', {
+        body: { chapterId, walletAddress: activeWalletAddress },
+      });
+      if (error) {
+        // 402 = locked chapter — expected, the paywall handles it. Don't toast.
+        if (error.context?.status === 402) return;
+        throw error;
       }
-      throw err;
+      if (data?.error) throw new Error(data.error);
+      setPages(data?.pages || []);
+    } catch (e) {
+      console.error('[MangaChapter] loadPages failed:', e?.message || e);
+      setError('Could not load pages. Please try again.');
+      setTimeout(() => setError(null), 5000);
+    }
+  }, [chapterId, activeWalletAddress]);
+
+  // Subscription: client builds + signs the payment tx (70% artist / 30%
+  // treasury), broadcasts it, then the edge function re-verifies on-chain and
+  // writes the manga_subscriptions row.
+  const handleSubscribe = async (plan, currency) => {
+    if (!mangaId) return;
+    if (!activeWalletAddress || !activePublicKey) {
+      setError('Please connect your wallet to subscribe.');
+      return;
+    }
+    if (!userId) {
+      setError('User profile not found. Please ensure your wallet is registered.');
+      return;
+    }
+    if (!mangaOwner?.wallet_address) {
+      setError('Artist info not loaded yet. Please try again.');
+      return;
+    }
+    const planCfg = { monthly: { usd: 5 }, days21: { usd: 3 } }[plan];
+    if (!planCfg) return;
+    const usdAmount = planCfg.usd;
+    const key = `${plan}-${currency}`;
+    setSubscribing(key);
+    try {
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+      let transaction;
+      const authorPubkey = new PublicKey(mangaOwner.wallet_address);
+      const treasuryPubkey = new PublicKey(MANGA_TREASURY_WALLET);
+
+      if (currency === 'SOL') {
+        if (!solPrice) throw new Error('SOL price not available');
+        const totalLamports = Math.round((usdAmount / solPrice) * LAMPORTS_PER_SOL);
+        const authorLamports = Math.floor(totalLamports * 0.7);
+        transaction = new Transaction({ recentBlockhash: blockhash, feePayer: activePublicKey }).add(
+          SystemProgram.transfer({ fromPubkey: activePublicKey, toPubkey: authorPubkey, lamports: authorLamports }),
+          SystemProgram.transfer({ fromPubkey: activePublicKey, toPubkey: treasuryPubkey, lamports: totalLamports - authorLamports }),
+        );
+      } else {
+        const amount = Math.round(usdAmount * 1e6); // USDC base units
+        const mint = new PublicKey(USDC_MINT_ADDRESS);
+        const [sourceATA, authorATA, treasuryATA] = await Promise.all([
+          getOrCreateAssociatedTokenAccount(connection, activePublicKey, mint, activePublicKey),
+          getOrCreateAssociatedTokenAccount(connection, activePublicKey, mint, authorPubkey, true),
+          getOrCreateAssociatedTokenAccount(connection, activePublicKey, mint, treasuryPubkey, true),
+        ]);
+        const authorAmount = Math.floor(amount * 0.7);
+        transaction = new Transaction({ recentBlockhash: blockhash, feePayer: activePublicKey }).add(
+          createTransferInstruction(sourceATA.address, authorATA.address, activePublicKey, authorAmount),
+          createTransferInstruction(sourceATA.address, treasuryATA.address, activePublicKey, amount - authorAmount),
+        );
+      }
+
+      console.log(`[Subscribe] ${plan}/${currency}: ${activeWalletAddress} pays ${usdAmount} USD-equiv`);
+      console.log(`[Subscribe]   -> artist ${mangaOwner.wallet_address}: ~70%`);
+      console.log(`[Subscribe]   -> treasury ${MANGA_TREASURY_WALLET}: ~30%`);
+
+      const signature = await signAndSendTransaction(transaction);
+      await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
+
+      const { data, error } = await supabase.functions.invoke('subscribe-manga', {
+        body: { signature, mangaId, plan, currency, walletAddress: activeWalletAddress },
+      });
+      if (error) {
+        // FunctionsHttpError hides the real message — pull it from the response body
+        let detail = error.message;
+        try {
+          const bodyJson = await error.context?.json?.();
+          if (bodyJson?.error) detail = bodyJson.error;
+        } catch (_) { /* keep generic message */ }
+        throw new Error(detail || 'Subscription failed.');
+      }
+      if (data?.error) throw new Error(data.error);
+
+      setSubscription({ expires_at: data?.expires_at });
+      setIsLocked(false);
+      setSuccessMessage('Subscription active — happy reading!');
+      setTimeout(() => setSuccessMessage(''), 5000);
+      await loadPages();
+    } catch (e) {
+      console.error('[MangaChapter] subscribe failed:', e?.message || e);
+      setError(e?.message || 'Subscription failed. Please try again.');
+      setTimeout(() => setError(null), 6000);
+    } finally {
+      setSubscribing(null);
     }
   };
 
@@ -712,17 +822,7 @@ const MangaChapterScreen = () => {
         )
       );
 
-      let signature;
-      await new Promise((resolve, reject) => {
-        requestPassword(async (pwd) => {
-          try {
-            signature = await signAndSendTransaction(transaction, pwd);
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
+      const signature = await signAndSendTransaction(transaction);
 
       await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
 
@@ -807,29 +907,20 @@ const MangaChapterScreen = () => {
         ]),
       ]);
 
-      const { error: paymentInsertError } = await supabase.from('user_payments').insert({
-        user_wallet: activeWalletAddress,
-        manga_id: mangaId,
-        chapter_id: chapterId,
-        transaction_id: signature,
-        payment_amount: SMP_READ_COST,
-        payment_currency: 'SMP',
-        paid_at: new Date().toISOString(),
+      // Record server-side (edge function re-verifies the on-chain transfer)
+      const { error: recError } = await supabase.functions.invoke('record-manga-payment', {
+        body: {
+          signature,
+          chapterId,
+          mangaId,
+          currency: 'SMP',
+          paymentType: 'single',
+          walletAddress: activeWalletAddress,
+          amountUsd: chapterPrice || 0.005,
+        },
       });
-      if (paymentInsertError) {
-        console.warn('[updateTokenBalance] Failed to record payment:', paymentInsertError.message);
-      }
-
-      const { error: unlockInsertError } = await supabase.from('unlocked_manga_chapters').insert({
-        user_id: userData.id,
-        manga_id: mangaId,
-        chapter_id: chapterId,
-        transaction_id: signature,
-        unlocked_at: new Date().toISOString(),
-        expires_at: null,
-      });
-      if (unlockInsertError) {
-        console.warn('[updateTokenBalance] Failed to record unlock:', unlockInsertError.message);
+      if (recError) {
+        console.warn('[updateTokenBalance] Failed to record payment:', recError.message);
       }
 
       // Pioneer badge is granted server-side; show the modal if earned
@@ -852,7 +943,7 @@ const MangaChapterScreen = () => {
       );
       setTimeout(() => setError(null), 5000);
     }
-  }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, requestPassword, amethystBalance, claimPioneerBadge, showPioneerIfEarned]);
+  }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, amethystBalance, claimPioneerBadge, showPioneerIfEarned]);
 
   const initiatePayment = async (currency, paymentType = 'single') => {
     if (!activeWalletAddress || !activePublicKey) {
@@ -957,7 +1048,6 @@ const MangaChapterScreen = () => {
       }
 
       const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
-      let signature;
 
       const balance = await connection.getBalance(activePublicKey);
       const minBalanceRequired = currency === 'SOL' ? amount + 5000 : 5000;
@@ -977,16 +1067,7 @@ const MangaChapterScreen = () => {
           })
         );
 
-        await new Promise((resolve, reject) => {
-          requestPassword(async (pwd) => {
-            try {
-              signature = await signAndSendTransaction(transaction, pwd);
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          });
-        });
+        const signature = await signAndSendTransaction(transaction);
 
         await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
         await processUnlock(signature, amount / 1_000_000_000, currency, solPrice, chapterPrice, paymentType);
@@ -1008,16 +1089,7 @@ const MangaChapterScreen = () => {
           feePayer: activePublicKey,
         }).add(createTransferInstruction(sourceATA.address, destATA.address, activePublicKey, amount));
 
-        await new Promise((resolve, reject) => {
-          requestPassword(async (pwd) => {
-            try {
-              signature = await signAndSendTransaction(transaction, pwd);
-              resolve();
-            } catch (err) {
-              reject(err);
-            }
-          });
-        });
+        const signature = await signAndSendTransaction(transaction);
 
         await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
         await processUnlock(signature, amount / 10 ** decimals, currency, undefined, chapterPrice, paymentType);
@@ -1029,11 +1101,6 @@ const MangaChapterScreen = () => {
     } finally {
       setShowTransactionPopup(false);
       setTransactionDetails(null);
-      setShowPasswordModal(false);
-      setPassword('');
-      setPasswordError(null);
-      setPasswordAttempts(0);
-      setPasswordCallback(null);
       setPaymentMethod(null);
     }
   };
@@ -1220,66 +1287,21 @@ const MangaChapterScreen = () => {
         return true;
       }
 
-      const paymentData = {
-        user_wallet: activeWalletAddress,
-        manga_id: mangaId,
-        chapter_id: chapterId,
-        transaction_id: signature,
-        payment_amount: amountTransferred,
-        payment_currency: currency,
-        paid_at: new Date().toISOString(),
-      };
-
-      const { error: insertError } = await supabase.from('user_payments').insert(paymentData);
-      if (insertError) {
-        console.error('Error inserting payment:', insertError);
-        throw new Error('Failed to record payment.');
-      }
-
-      let unlockData = {
-        user_id: userId,
-        manga_id: mangaId,
-        chapter_id: chapterId,
-        transaction_id: signature,
-        unlocked_at: new Date().toISOString(),
-        expires_at: null,
-      };
-
-      if (currency === 'SMP' && (paymentType === 'threeChapters' || paymentType === 'fullChapters')) {
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
-        unlockData.expires_at = expiresAt.toISOString();
-
-        if (paymentType === 'threeChapters') {
-          const currentIndex = chapterList.findIndex(ch => ch.id === chapterId);
-          const chaptersToUnlock = chapterList.slice(currentIndex, currentIndex + 3);
-          unlockData = chaptersToUnlock.map(ch => ({
-            user_id: userId,
-            manga_id: mangaId,
-            chapter_id: ch.id,
-            transaction_id: signature,
-            unlocked_at: new Date().toISOString(),
-            expires_at: expiresAt.toISOString(),
-          }));
-        } else if (paymentType === 'fullChapters') {
-          unlockData = {
-            user_id: userId,
-            manga_id: mangaId,
-            chapter_id: null,
-            transaction_id: signature,
-            unlocked_at: new Date().toISOString(),
-            expires_at: expiresAt.toISOString(),
-          };
-        }
-      }
-
-      const { error: unlockError } = await supabase
-        .from('unlocked_manga_chapters')
-        .insert(Array.isArray(unlockData) ? unlockData : [unlockData]);
-      if (unlockError) {
-        console.error('Error inserting unlock record:', unlockError);
-        throw new Error('Failed to record unlock.');
-      }
+      // Record the payment server-side: the edge function re-verifies the
+      // on-chain transfer to the merchant wallet, then writes the unlock rows.
+      const { data: recData, error: recError } = await supabase.functions.invoke('record-manga-payment', {
+        body: {
+          signature,
+          chapterId,
+          mangaId,
+          currency,
+          paymentType: paymentType || 'single',
+          walletAddress: activeWalletAddress,
+          amountUsd: chapterPrice,
+        },
+      });
+      if (recError) throw new Error(recError.message || 'Failed to record payment.');
+      if (recData?.error) throw new Error(recData.error);
 
       console.log('Unlock successful:', paymentData);
 
@@ -1361,6 +1383,15 @@ const MangaChapterScreen = () => {
     }
   }, [manga, chapter, userId, checkAccess, checkHasReadChapter, isWalletConnected]);
 
+  // Load signed page URLs once access is confirmed — or as a preview for the
+  // first chapter when locked (the edge function returns only preview pages).
+  useEffect(() => {
+    const isFirstChapter = chapterList.length > 0 && chapterList[0]?.id === chapterId;
+    if (!loading && manga && chapter && (!isLocked || isFirstChapter) && pages.length === 0) {
+      loadPages();
+    }
+  }, [loading, manga, chapter, isLocked, pages.length, loadPages, chapterList, chapterId]);
+
   useEffect(() => {
     if (
       !loading &&
@@ -1399,6 +1430,87 @@ const MangaChapterScreen = () => {
   }).current;
   const toggleChrome = useCallback(() => setChromeVisible((v) => !v), []);
 
+  // Reading progress ("continue reading"): remember the last chapter + page
+  // position per manga so the user can resume where they left off.
+  const flatListRef = useRef(null);
+  const [resumePct, setResumePct] = useState(null);
+  const resumeAppliedRef = useRef(false);
+  const progressSaveRef = useRef({ lastSentAt: 0, pending: null, latest: null });
+
+  // Save progress (throttled to one write per 2s; latest position kept in a ref
+  // so the unmount cleanup can flush whatever the user last saw).
+  useEffect(() => {
+    if (!userId || !mangaId || !chapter?.id || pages.length === 0) return;
+    const pct = Math.min(100, Math.round(((currentPage - 1) / Math.max(1, pages.length - 1)) * 1000) / 10);
+    const payload = {
+      userId,
+      contentType: 'manga',
+      contentId: mangaId,
+      chapterKey: chapter.id,
+      chapterNumber: chapter.chapter_number,
+      scrollPct: pct,
+    };
+    progressSaveRef.current.latest = payload;
+    progressSaveRef.current.pending = payload;
+    const now = Date.now();
+    if (now - progressSaveRef.current.lastSentAt < 2000) return;
+    progressSaveRef.current.lastSentAt = now;
+    progressSaveRef.current.pending = null;
+    saveReadingProgress(payload);
+  }, [currentPage, pages.length, chapter, userId, mangaId]);
+
+  // Flush the final position on unmount / chapter change.
+  useEffect(() => () => {
+    const pending = progressSaveRef.current.pending || progressSaveRef.current.latest;
+    if (pending) saveReadingProgress(pending);
+  }, []);
+
+  // Load the saved position once the chapter is known. Only runs when pages
+  // actually loaded — i.e. the chapter is readable (unlocked/subscribed/free
+  // preview). A locked chapter showing the paywall must NOT create or resume
+  // progress, otherwise "Continue Reading" would point at a paywalled chapter.
+  const pagesLoaded = pages.length > 0;
+  useEffect(() => {
+    setResumePct(null);
+    resumeAppliedRef.current = false;
+    if (!userId || !mangaId || !chapter?.id || !pagesLoaded) return;
+    let alive = true;
+    getContentReadingProgress(userId, 'manga', mangaId).then((row) => {
+      if (!alive) return;
+      if (row && String(row.chapter_key) === String(chapter.id)) {
+        const pct = Number(row.scroll_pct) || 0;
+        if (pct > 0 && pct < 100) setResumePct(pct);
+      } else {
+        // Different chapter (or first read ever): mark this one as current.
+        saveReadingProgress({
+          userId,
+          contentType: 'manga',
+          contentId: mangaId,
+          chapterKey: chapter.id,
+          chapterNumber: chapter.chapter_number,
+          scrollPct: 0,
+        });
+      }
+    });
+    return () => { alive = false; };
+  }, [userId, mangaId, chapter?.id, pagesLoaded]);
+
+  // Apply the resume jump once the page list has rendered.
+  useEffect(() => {
+    if (resumePct == null || resumeAppliedRef.current || pages.length === 0) return;
+    resumeAppliedRef.current = true;
+    const idx = Math.min(pages.length - 1, Math.max(0, Math.round((resumePct / 100) * (pages.length - 1))));
+    flatListRef.current?.scrollToIndex({ index: idx, animated: false });
+  }, [pages.length, resumePct]);
+
+  const handleScrollToIndexFailed = useCallback((info) => {
+    const offset = (info.averageItemLength || SCREEN_W) * info.index;
+    flatListRef.current?.scrollToOffset({ offset, animated: false });
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
+    }, 400);
+  }, []);
+
   const renderPage = useCallback(
     ({ item }) => <ReaderPage uri={item.image_url} onPress={toggleChrome} />,
     [toggleChrome]
@@ -1408,14 +1520,6 @@ const MangaChapterScreen = () => {
     setShowTransactionPopup(false);
     setTransactionDetails(null);
     setPaymentMethod(null);
-    setPaying(false);
-  };
-  const closePassword = () => {
-    setShowPasswordModal(false);
-    setPassword('');
-    setPasswordError(null);
-    setPasswordAttempts(0);
-    setPasswordCallback(null);
     setPaying(false);
   };
   const handleConfirmPayment = async () => {
@@ -1499,7 +1603,7 @@ const MangaChapterScreen = () => {
     );
   }
 
-  if (!manga || !chapter || pages.length === 0) {
+  if (!manga || !chapter || (pages.length === 0 && !isLocked)) {
     return (
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
@@ -1530,6 +1634,7 @@ const MangaChapterScreen = () => {
   const currentIndex = chapterList.findIndex((ch) => ch.id === chapter.id);
   const prevChapter = currentIndex > 0 ? chapterList[currentIndex - 1]?.id : null;
   const nextChapterId = currentIndex < chapterList.length - 1 ? chapterList[currentIndex + 1]?.id : null;
+  const isFirstChapter = chapterList.length > 0 && chapterList[0]?.id === chapterId;
   const singleChapterSol = solPrice ? (chapterPrice / solPrice).toFixed(4) : 'N/A';
   const singleChapterUsdc = (chapterPrice / usdcPrice).toFixed(2);
   const usd = Number(chapterPrice || 0);
@@ -1568,7 +1673,9 @@ const MangaChapterScreen = () => {
   /* ───────────── paywall ───────────── */
   const paywall = (
     <View style={{ flex: 1 }}>
-      <Image source={{ uri: pages[0]?.image_url }} style={styles.paywallBackdrop} blurRadius={40} />
+      {manga?.cover_image ? (
+        <Image source={{ uri: manga.cover_image }} style={styles.paywallBackdrop} blurRadius={40} />
+      ) : null}
       <LinearGradient colors={['rgba(10,10,20,0.55)', colors.bg]} style={StyleSheet.absoluteFill} />
       <ScrollView contentContainerStyle={styles.paywallScroll} showsVerticalScrollIndicator={false}>
         <View style={styles.paywallTop}>
@@ -1589,57 +1696,36 @@ const MangaChapterScreen = () => {
 
         <View style={{ marginTop: space.xl }}>{balanceStrip}</View>
 
-        <Text style={[type.label, { marginTop: space.xl, marginBottom: space.sm }]}>This chapter</Text>
-        <View style={styles.payRow}>
-          <PayTile
-            icon="sun"
-            color={colors.electric}
-            title="SOL"
-            amount={singleChapterSol}
-            sub={`$${usd.toFixed(2)}`}
-            disabled={singleChapterSol === 'N/A'}
-            onPress={() => initiatePayment('SOL', 'single')}
-          />
-          <PayTile
-            icon="dollar-sign"
-            color={colors.info}
-            title="USDC"
-            amount={singleChapterUsdc}
-            sub={`$${usd.toFixed(2)}`}
-            onPress={() => initiatePayment('USDC', 'single')}
-          />
-          <PayTile
-            icon="coins"
-            color={colors.primary}
-            title="SMP"
-            amount={SMP_READ_COST.toLocaleString()}
-            sub={`$${usd.toFixed(2)}`}
-            onPress={() => initiatePayment('SMP', 'single')}
-          />
-        </View>
+        <Text style={[type.label, { marginTop: space.xl, marginBottom: space.xs }]}>Subscribe to {manga?.title || 'this series'}</Text>
+        <Text style={{ ...type.caption, marginBottom: space.md }}>
+          Every chapter, ad-free, plus direct chat with the artist.
+        </Text>
 
-        <Text style={[type.label, { marginTop: space.xl, marginBottom: space.sm }]}>Save with a bundle · paid in SMP</Text>
-        <BundleCard
-          icon="layer-group"
-          title="3 Chapters"
-          desc="This chapter + the next 2 · 30 days"
-          usd={3}
-          smp={threeChaptersSmp.toLocaleString()}
-          tone={gradients.electric}
-          onPress={() => initiatePayment('SMP', 'threeChapters')}
-        />
-        <BundleCard
+        <PlanCard
           icon="crown"
-          title="All Chapters"
-          desc="Every chapter in this series · 30 days"
-          usd={15}
-          smp={fullChaptersSmp.toLocaleString()}
-          ribbon="BEST VALUE"
-          tone={gradients.sakura}
-          onPress={() => initiatePayment('SMP', 'fullChapters')}
+          title="Monthly"
+          desc="Full access to every chapter + artist chat"
+          usd={5}
+          days={30}
+          best
+          solLabel={solPrice ? (5 / solPrice).toFixed(4) : '…'}
+          busy={subscribing?.startsWith('monthly') ? subscribing.split('-')[1] : null}
+          onSol={() => handleSubscribe('monthly', 'SOL')}
+          onUsdc={() => handleSubscribe('monthly', 'USDC')}
+        />
+        <PlanCard
+          icon="bookmark"
+          title="21 Days"
+          desc="Full access to every chapter + artist chat"
+          usd={3}
+          days={21}
+          solLabel={solPrice ? (3 / solPrice).toFixed(4) : '…'}
+          busy={subscribing?.startsWith('days21') ? subscribing.split('-')[1] : null}
+          onSol={() => handleSubscribe('days21', 'SOL')}
+          onUsdc={() => handleSubscribe('days21', 'USDC')}
         />
         <Text style={[type.caption, { textAlign: 'center', marginTop: space.sm }]}>
-          Payments are sent on Solana. You'll confirm with your wallet password.
+          Secure Solana payment. Access starts instantly and renews only if you subscribe again.
         </Text>
       </ScrollView>
     </View>
@@ -1676,6 +1762,40 @@ const MangaChapterScreen = () => {
 
   const readerFooter = (
     <View>
+      {isLocked ? (
+        <View style={[styles.endCard, { alignItems: 'stretch' }]}>
+          <Text style={styles.endKicker}>PREVIEW ENDED</Text>
+          <Text style={styles.endTitle}>Keep reading {manga.title}</Text>
+          <Text style={{ ...type.body, textAlign: 'center', marginTop: 4 }}>
+            Subscribe to unlock every chapter and chat with the artist.
+          </Text>
+          <View style={{ marginTop: space.lg }}>
+            <PlanCard
+              icon="crown"
+              title="Monthly"
+              desc="Every chapter + artist chat"
+              usd={5}
+              days={30}
+              best
+              solLabel={solPrice ? (5 / solPrice).toFixed(4) : '…'}
+              busy={subscribing?.startsWith('monthly') ? subscribing.split('-')[1] : null}
+              onSol={() => handleSubscribe('monthly', 'SOL')}
+              onUsdc={() => handleSubscribe('monthly', 'USDC')}
+            />
+            <PlanCard
+              icon="bookmark"
+              title="21 Days"
+              desc="Every chapter + artist chat"
+              usd={3}
+              days={21}
+              solLabel={solPrice ? (3 / solPrice).toFixed(4) : '…'}
+              busy={subscribing?.startsWith('days21') ? subscribing.split('-')[1] : null}
+              onSol={() => handleSubscribe('days21', 'SOL')}
+              onUsdc={() => handleSubscribe('days21', 'USDC')}
+            />
+          </View>
+        </View>
+      ) : (
       <View style={styles.endCard}>
         <Text style={styles.endKicker}>END OF CHAPTER</Text>
         <Text style={styles.endTitle}>{chapterTitle}</Text>
@@ -1693,6 +1813,29 @@ const MangaChapterScreen = () => {
           </View>
         </View>
       </View>
+      )}
+      {subscription && mangaOwner?.wallet_address && mangaOwner.wallet_address !== activeWalletAddress ? (
+        <Panel accent={colors.primary} style={{ marginHorizontal: space.lg, marginBottom: space.md, padding: space.md }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View style={[styles.earnIcon, { backgroundColor: colors.primary }]}>
+              <Icon name="comments" size={16} color="#fff" solid />
+            </View>
+            <View style={{ flex: 1, marginRight: space.md }}>
+              <Text style={type.bodyStrong}>You're subscribed</Text>
+              <Text style={type.caption} numberOfLines={1}>
+                Chat with {mangaOwner?.name || 'the artist'} — they can reply right here.
+              </Text>
+            </View>
+            <GradientButton
+              full={false}
+              size="sm"
+              label="Message"
+              icon="comment-dots"
+              onPress={() => navigation.navigate('Chat', { chatId: mangaOwner.wallet_address })}
+            />
+          </View>
+        </Panel>
+      ) : null}
       <MangaCommentSection
         mangaId={mangaId}
         chapterId={chapterId}
@@ -1706,6 +1849,7 @@ const MangaChapterScreen = () => {
   const reader = (
     <View style={{ flex: 1 }}>
       <FlatList
+        ref={flatListRef}
         data={pages}
         renderItem={renderPage}
         keyExtractor={(item) => item.page_number.toString()}
@@ -1713,6 +1857,7 @@ const MangaChapterScreen = () => {
         ListFooterComponent={readerFooter}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
         initialNumToRender={4}
         maxToRenderPerBatch={4}
         windowSize={5}
@@ -1760,21 +1905,22 @@ const MangaChapterScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.bg} />
       <Screen>
-        {isLocked ? paywall : reader}
+        {isLocked && !isFirstChapter ? paywall : reader}
         {toast}
       </Screen>
 
-      {/* Confirm transaction (hidden while the password sheet is up so two modals never stack) */}
+      {/* Confirm transaction — the wallet context shows its own auth modal
+          (password or biometrics) when signing, same as SwapScreen */}
       <Sheet
-        visible={showTransactionPopup && !showPasswordModal}
+        visible={showTransactionPopup}
         onClose={closeTx}
         title="Confirm payment"
         footer={
           <View>
             <GradientButton label={paying ? 'Processing…' : 'Confirm & pay'} icon="shield-alt" onPress={handleConfirmPayment} loading={paying} disabled={paying} />
             <View style={{ height: space.sm }} />
-            <GhostButton label="Cancel" onPress={closeTx} disabled={paying && showPasswordModal} />
-            <Text style={styles.modalNote}>You'll be asked for your wallet password.</Text>
+            <GhostButton label="Cancel" onPress={closeTx} disabled={paying} />
+            <Text style={styles.modalNote}>You'll be asked to confirm with your wallet.</Text>
           </View>
         }
       >
@@ -1796,44 +1942,6 @@ const MangaChapterScreen = () => {
             <Text style={styles.txValue}>{MERCHANT_WALLET?.slice(0, 6)}…{MERCHANT_WALLET?.slice(-4)}</Text>
           </View>
         </View>
-      </Sheet>
-
-      {/* Wallet password */}
-      <Sheet
-        visible={showPasswordModal}
-        onClose={closePassword}
-        title="Wallet password"
-        footer={
-          <View>
-            <GradientButton label="Confirm" icon="key" onPress={handlePasswordSubmit} disabled={passwordAttempts >= MAX_PASSWORD_ATTEMPTS} />
-            <View style={{ height: space.sm }} />
-            <GhostButton label="Cancel" onPress={closePassword} />
-          </View>
-        }
-      >
-        <Field
-          label="Enter your password to sign"
-          error={
-            passwordError
-              ? `${passwordError}${passwordAttempts >= MAX_PASSWORD_ATTEMPTS ? '' : ` (${MAX_PASSWORD_ATTEMPTS - passwordAttempts} attempts left)`}`
-              : undefined
-          }
-        >
-          <Input
-            icon="lock"
-            value={password}
-            onChangeText={(t) => {
-              setPassword(t);
-              setPasswordError(null);
-            }}
-            placeholder="Password"
-            secureTextEntry
-            autoFocus
-            autoCapitalize="none"
-            accessibilityLabel="Wallet password input"
-            onSubmitEditing={handlePasswordSubmit}
-          />
-        </Field>
       </Sheet>
 
       {/* Pioneer Badge Modal */}

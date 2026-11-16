@@ -1,4 +1,5 @@
 import { StyleSheet, Dimensions } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2;
@@ -20,11 +21,29 @@ export const BAZAAR_COLORS = {
   gold: '#FFD700',
 };
 
+export const BAZAAR_COLORS_LIGHT = {
+  bg: '#FDFBD4',
+  bgElevated: '#F5F0D0',
+  bgCard: '#FFFFFF',
+  bgCardAlt: '#F8F8E8',
+  accent: '#3B82F6',
+  accentDeep: '#2563EB',
+  accentSoft: 'rgba(59, 130, 246, 0.12)',
+  textPrimary: '#1E293B',
+  textSecondary: '#475569',
+  textMuted: '#64748B',
+  border: 'rgba(59, 130, 246, 0.15)',
+  success: '#16A34A',
+  danger: '#DC2626',
+  gold: '#B45309',
+};
+
 export const BAZAAR_SPACE = { xs: 4, s: 8, m: 12, l: 16, xl: 20, xxl: 28 };
 export const BAZAAR_FONT = 'Yoruka';
 export const BAZAAR_CARD_WIDTH = CARD_WIDTH;
 
-export default StyleSheet.create({
+const _bazaarStyleCache = {};
+const buildBazaarStyles = (BAZAAR_COLORS) => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BAZAAR_COLORS.bg,
@@ -402,3 +421,27 @@ export default StyleSheet.create({
     color: BAZAAR_COLORS.accent,
   },
 });
+
+/** Themed Bazaar palette + styles. Cached per theme. */
+export const getBazaarPalette = (isDark) => (isDark ? BAZAAR_COLORS : BAZAAR_COLORS_LIGHT);
+
+export const getBazaarStyles = (isDark) => {
+  const key = isDark ? 'dark' : 'light';
+  if (!_bazaarStyleCache[key]) {
+    _bazaarStyleCache[key] = buildBazaarStyles(getBazaarPalette(isDark));
+  }
+  return _bazaarStyleCache[key];
+};
+
+/**
+ * Drop-in hook for Bazaar screens:
+ *   const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
+ */
+export const useBazaarTheme = () => {
+  const { isDark } = useTheme();
+  return {
+    colors: getBazaarPalette(isDark),
+    styles: getBazaarStyles(isDark),
+    isDark,
+  };
+};

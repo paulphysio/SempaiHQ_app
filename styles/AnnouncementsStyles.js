@@ -2,10 +2,10 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const styles = StyleSheet.create({
+export const getAnnouncementsStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: c.bgCard,
   },
   centerContainer: {
     flex: 1,
@@ -13,7 +13,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    color: '#FFF',
+    color: c.textPrimary,
     marginTop: 16,
     fontSize: 16,
     fontFamily: 'Yoruka',
@@ -28,7 +28,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   backButton: {
     padding: 8,
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 20,
     
     marginLeft: 12,
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   promptText: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 18,
     textAlign: 'center',
     marginTop: 16,
@@ -72,14 +72,14 @@ const styles = StyleSheet.create({
     padding: 32,
   },
   deniedText: {
-    color: '#E74C3C',
+    color: c.danger,
     fontSize: 24,
     
     marginTop: 16,
     fontFamily: 'Yoruka',
   },
   deniedSubtext: {
-    color: '#AAA',
+    color: c.textMuted,
     fontSize: 16,
     textAlign: 'center',
     marginTop: 8,
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 18,
     
     marginLeft: 12,
@@ -114,28 +114,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: '#9B59B6',
+    color: c.accent,
     fontSize: 14,
     
     fontFamily: 'Yoruka',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
     fontFamily: 'Yoruka',
   },
   textarea: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   pickerOption: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -174,10 +174,10 @@ const styles = StyleSheet.create({
   },
   pickerOptionActive: {
     backgroundColor: 'rgba(155, 89, 182, 0.3)',
-    borderColor: '#9B59B6',
+    borderColor: c.accent,
   },
   pickerOptionText: {
-    color: '#AAA',
+    color: c.textMuted,
     fontSize: 14,
     fontFamily: 'Yoruka',
   },
@@ -204,4 +204,3 @@ const styles = StyleSheet.create({
   },
 });
 
-export default styles;

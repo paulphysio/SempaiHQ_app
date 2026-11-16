@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getComprehensionStyles = (c) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     top: 0,
@@ -15,12 +15,12 @@ export const styles = StyleSheet.create({
   container: {
     width: '90%',
     maxWidth: 450,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#9B59B6',
-    shadowColor: '#9B59B6',
+    borderColor: c.accent,
+    shadowColor: c.accent,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
@@ -30,7 +30,7 @@ export const styles = StyleSheet.create({
     padding: 30,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
   },
   closeButton: {
     position: 'absolute',
@@ -46,7 +46,7 @@ export const styles = StyleSheet.create({
   difficultyTitle: {
     fontSize: 28,
     
-    color: '#FFFFFF',
+    color: c.bgCard,
     marginTop: 15,
     fontFamily: 'Yoruka',
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginTop: 15,
     fontFamily: 'Yoruka',
   },
@@ -84,7 +84,7 @@ export const styles = StyleSheet.create({
   },
   questionText: {
     fontSize: 18,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginLeft: 15,
     flex: 1,
     fontFamily: 'Yoruka',
@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
   },
   selectedOption: {
     backgroundColor: 'rgba(155, 89, 182, 0.3)',
-    borderColor: '#9B59B6',
+    borderColor: c.accent,
   },
   correctOption: {
     backgroundColor: 'rgba(76, 175, 80, 0.2)',
@@ -127,15 +127,15 @@ export const styles = StyleSheet.create({
   optionIndicatorText: {
     fontSize: 16,
     
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
   selectedIndicatorText: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
   },
   optionText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginLeft: 15,
     flex: 1,
     fontFamily: 'Yoruka',
@@ -160,7 +160,7 @@ export const styles = StyleSheet.create({
   resultText: {
     fontSize: 24,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginLeft: 15,
     fontFamily: 'Yoruka',
   },
@@ -174,20 +174,20 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     padding: 18,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#8E44AD',
+    borderColor: c.accent,
   },
   nextButtonText: {
     fontSize: 18,
     
-    color: '#FFFFFF',
+    color: c.bgCard,
     marginRight: 10,
     fontFamily: 'Yoruka',
   },
   nextButtonIcon: {
-    color: '#FFFFFF',
+    color: c.bgCard,
   },
 });

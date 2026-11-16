@@ -1,23 +1,23 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getMintStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   headerTitle: {
     fontSize: 20,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   placeholder: {
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
   },
   lockedMessage: {
     fontSize: 18,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginTop: 20,
     fontFamily: 'Yoruka',
   },
@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: '#fff',
     fontFamily: 'Yoruka',
   },
   content: {
@@ -74,13 +74,13 @@ export const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 18,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   infoDescription: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     lineHeight: 20,
   },
@@ -108,16 +108,16 @@ export const styles = StyleSheet.create({
   },
   typeButtonText: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
   activeTypeButtonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     
   },
   mintForm: {
     margin: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,
@@ -126,13 +126,13 @@ export const styles = StyleSheet.create({
   formTitle: {
     fontSize: 20,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   formDescription: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 20,
     lineHeight: 20,
@@ -142,7 +142,7 @@ export const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 8,
   },
@@ -152,7 +152,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(155, 89, 182, 0.5)',
     borderRadius: 10,
     padding: 15,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
   },
@@ -169,11 +169,11 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#8E44AD',
+    borderColor: c.accent,
   },
   infoBox: {
     flexDirection: 'row',
@@ -186,7 +186,7 @@ export const styles = StyleSheet.create({
   },
   infoBoxText: {
     fontSize: 13,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
     fontFamily: 'Yoruka',
@@ -206,7 +206,7 @@ export const styles = StyleSheet.create({
   resultText: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
 });

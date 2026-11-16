@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, {useState, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,14 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { styles } from '../styles/MintStyles';
+import { getMintStyles } from '../styles/MintStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
 const MintScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getMintStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
   

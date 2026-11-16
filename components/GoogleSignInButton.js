@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, View } from 'react-native';
 import { AntDesign } from '@expo/vector-icons';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme } from '../context/ThemeContext';
 
 const GoogleSignInButton = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getGoogleBtnStyles(colors), [isDark]);
   const { signIn, signOut, session, loading } = useGoogleAuth();
 
   const handlePress = async () => {
@@ -27,17 +30,17 @@ const GoogleSignInButton = () => {
       disabled={loading}
     >
       <LinearGradient
-        colors={['#FF5733', '#FF7F50']}
+        colors={[colors.accent, colors.accentDeep]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.gradientBorder}
       >
         <View style={styles.buttonInner}>
           {loading ? (
-            <ActivityIndicator color="#FF5733" size="small" />
+            <ActivityIndicator color={colors.accent} size="small" />
           ) : (
             <>
-              <AntDesign name="google" size={16} color="#FF5733" style={styles.icon} />
+              <AntDesign name="google" size={16} color={colors.accent} style={styles.icon} />
               <Text style={styles.text} numberOfLines={1} ellipsizeMode="tail">
                 {session ? 'Sign out' : 'Sign in'}
               </Text>
@@ -49,7 +52,7 @@ const GoogleSignInButton = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getGoogleBtnStyles = (c) => StyleSheet.create({
   buttonWrapper: {
     width: '50%', // Already changed by user
     height: 38, // Reduced from 42
@@ -79,7 +82,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, // Reduced from 16
   },
   text: {
-    color: '#333',
+    color: c.textPrimary,
     fontSize: 13, // Reduced from 14
     
     marginLeft: 5, // Reduced from 6

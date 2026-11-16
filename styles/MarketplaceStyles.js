@@ -1,23 +1,23 @@
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getMarketplaceStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   headerTitle: {
     fontSize: 20,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
   },
   placeholder: {
@@ -31,7 +31,7 @@ export const styles = StyleSheet.create({
   },
   lockedMessage: {
     fontSize: 18,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginTop: 20,
     fontFamily: 'Yoruka',
   },
@@ -52,7 +52,7 @@ export const styles = StyleSheet.create({
   buttonText: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: '#fff',
     fontFamily: 'Yoruka',
   },
   tabs: {
@@ -75,15 +75,15 @@ export const styles = StyleSheet.create({
   },
   activeTab: {
     backgroundColor: 'rgba(155, 89, 182, 0.3)',
-    borderColor: '#9B59B6',
+    borderColor: c.accent,
   },
   tabText: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
   activeTabText: {
-    color: '#FFFFFF',
+    color: '#fff',
     
   },
   loadingContainer: {
@@ -94,7 +94,7 @@ export const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginTop: 15,
     fontFamily: 'Yoruka',
   },
@@ -104,7 +104,7 @@ export const styles = StyleSheet.create({
   itemCard: {
     flex: 1,
     margin: 8,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderRadius: 15,
     overflow: 'hidden',
     borderWidth: 1,
@@ -139,7 +139,7 @@ export const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
     marginBottom: 5,
   },
@@ -151,12 +151,12 @@ export const styles = StyleSheet.create({
   },
   itemSeller: {
     fontSize: 12,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
   },
   itemRarity: {
     fontSize: 12,
-    color: '#9B59B6',
+    color: c.accent,
     fontFamily: 'Yoruka',
     marginBottom: 3,
   },
@@ -173,7 +173,7 @@ export const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginTop: 15,
     fontFamily: 'Yoruka',
   },
@@ -186,11 +186,11 @@ export const styles = StyleSheet.create({
   modalContent: {
     width: '90%',
     maxWidth: 400,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderRadius: 20,
     padding: 25,
     borderWidth: 2,
-    borderColor: '#9B59B6',
+    borderColor: c.accent,
   },
   closeButton: {
     position: 'absolute',
@@ -199,7 +199,7 @@ export const styles = StyleSheet.create({
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -222,13 +222,13 @@ export const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 24,
     
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   modalSubtitle: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 20,
   },
@@ -242,13 +242,13 @@ export const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     marginLeft: 10,
     fontFamily: 'Yoruka',
   },
   infoValue: {
     fontSize: 14,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginLeft: 8,
     fontFamily: 'Yoruka',
   },
@@ -266,18 +266,18 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#9B59B6',
+    backgroundColor: c.accent,
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#8E44AD',
+    borderColor: c.accent,
   },
   inputContainer: {
     marginBottom: 20,
   },
   inputLabel: {
     fontSize: 14,
-    color: '#CCCCCC',
+    color: c.textSecondary,
     fontFamily: 'Yoruka',
     marginBottom: 8,
   },
@@ -287,7 +287,7 @@ export const styles = StyleSheet.create({
     borderColor: 'rgba(155, 89, 182, 0.5)',
     borderRadius: 10,
     padding: 15,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
   },

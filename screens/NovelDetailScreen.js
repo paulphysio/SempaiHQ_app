@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Dimensions,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ import GoogleSignInButton from '../components/GoogleSignInButton';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import NovelCommentSection from '../components/Comments/NovelCommentSection';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
+import { getContentReadingProgress } from '../services/readingProgress';
 import { useTheme } from '../context/ThemeContext';
 import { getNovelPageStyles } from '../styles/NovelPageStyles';
 
@@ -42,11 +44,13 @@ const NovelDetailScreen = () => {
   const [novelChapters, setNovelChapters] = useState(null);
   const [isSavedOffline, setIsSavedOffline] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showConnectPopup, setShowConnectPopup] = useState(false);
   const [viewCountError, setViewCountError] = useState(null);
   const [unlockedChapters, setUnlockedChapters] = useState([]);
+  const [readingProgress, setReadingProgress] = useState(null);
   const [isOnline, setIsOnline] = useState(null);
   const menuAnim = useRef(new Animated.Value(280)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -186,7 +190,7 @@ const NovelDetailScreen = () => {
       if (__DEV__) console.log('[NovelDetailScreen] Online/status unknown - fetching from network');
       let { data, error } = await supabase
         .from('novels')
-        .select('*')
+        .select('*, users:user_id(name)')
         .eq('id', id)
         .eq('is_visible', true)
         .single();
@@ -349,6 +353,30 @@ const NovelDetailScreen = () => {
     fetchUnlockedChapters();
   }, [fetchNovel, updateViewCount, fetchUnlockedChapters]);
 
+  // Pull-to-refresh: refetch novel + unlocked chapters (view count is untouched).
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchNovel(), fetchUnlockedChapters(), loadReadingProgress()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  // Reading progress: which chapter the user last read + how far through it.
+  const loadReadingProgress = useCallback(async () => {
+    if (!userId || !id) {
+      setReadingProgress(null);
+      return;
+    }
+    const row = await getContentReadingProgress(userId, 'novel', id);
+    setReadingProgress(row);
+  }, [userId, id]);
+
+  useEffect(() => {
+    loadReadingProgress();
+  }, [loadReadingProgress]);
+
   // Check if novel is saved offline on mount
   useEffect(() => {
     const checkSavedStatus = async () => {
@@ -434,6 +462,9 @@ const NovelDetailScreen = () => {
     const isAdvanceChapter = advanceChapterInfo?.is_advance === true;
     // Check if chapter is unlocked by user or is one of the first 3 free chapters
     const isUnlocked = unlockedChapters.includes(chapterId) || chapterNum < 3;
+    const isResumeChapter =
+      !!readingProgress && String(readingProgress.chapter_key) === String(chapterId);
+    const resumePct = isResumeChapter ? Math.max(0, Math.min(100, Number(readingProgress.scroll_pct) || 0)) : 0;
 
     const onPressIn = () => {
       Animated.spring(scaleAnim, {
@@ -475,6 +506,12 @@ const NovelDetailScreen = () => {
               </View>
             </View>
             <Text style={styles.chapterTitle}>{title}</Text>
+            {isResumeChapter && (
+              <View style={styles.resumeRow}>
+                <FontAwesome5 name="book-open" size={10} color={colors.accent} />
+                <Text style={styles.resumeText}>Resume · {Math.round(resumePct)}%</Text>
+              </View>
+            )}
             <View style={styles.chapterAccent} />
           </View>
         </Animated.View>
@@ -535,6 +572,21 @@ const NovelDetailScreen = () => {
                 {(novel.viewers_count || 0).toLocaleString()} Views
               </Text>
             </View>
+            {!!novel.user_id && (
+              <TouchableOpacity
+                style={styles.authorRow}
+                onPress={() => navigation.navigate('CreatorsProfile', { id: novel.user_id })}
+                accessible={true}
+                accessibilityLabel={`View ${novel?.users?.name || novel?.writer?.name || 'creator'}'s profile`}
+                activeOpacity={0.8}
+              >
+                <FontAwesome5 name="feather-alt" size={13} color={colors.accent} />
+                <Text style={styles.authorRowText} numberOfLines={1}>
+                  By <Text style={styles.authorRowName}>{novel?.users?.name || novel?.writer?.name || 'Unknown'}</Text>
+                </Text>
+                <FontAwesome5 name="chevron-right" size={11} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
             <Text style={styles.novelIntro}>
               Dive into the chapters of{' '}
               <Text style={styles.highlight}>{novel.title}</Text>:
@@ -725,9 +777,21 @@ const NovelDetailScreen = () => {
               />
               <View style={styles.offlineNovelInfo}>
                 <Text style={[styles.offlineTitle, { color: colors.textPrimary }]}>{novel.title}</Text>
-                <Text style={[styles.offlineAuthor, { color: colors.textSecondary }]}>
-                  By {novel.writer?.name || 'Unknown'}
-                </Text>
+                {novel.user_id ? (
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('CreatorsProfile', { id: novel.user_id })}
+                    accessible={true}
+                    accessibilityLabel="View creator profile"
+                  >
+                    <Text style={[styles.offlineAuthor, { color: colors.accent }]}>
+                      By {novel.users?.name || novel.writer?.name || 'Unknown'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <Text style={[styles.offlineAuthor, { color: colors.textSecondary }]}>
+                    By {novel.users?.name || novel.writer?.name || 'Unknown'}
+                  </Text>
+                )}
                 <Text style={[styles.offlineSummary, { color: colors.textSecondary }]}>
                   {novel.summary}
                 </Text>
@@ -838,6 +902,9 @@ const NovelDetailScreen = () => {
           <Text style={styles.noChapters}>No chapters available for this novel.</Text>
         }
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
       />
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -8,9 +8,12 @@ import {
   generateChapterQRCode,
   generateNFTQRCode 
 } from '../services/qrCodeService';
-import { styles } from '../styles/QRCodeDisplayStyles';
+import { getQRCodeStyles } from '../styles/QRCodeDisplayStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const QRCodeDisplay = ({ visible, onClose, qrType, data }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getQRCodeStyles(colors), [isDark]);
   const [loading, setLoading] = useState(false);
   const [qrData, setQrData] = useState(null);
 

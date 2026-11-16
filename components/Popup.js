@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 const Popup = ({ visible, onClose, onSubmit }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getPopupStyles(colors), [isDark]);
   const [text, setText] = useState('');
 
   const handleSubmit = () => {
@@ -51,7 +54,7 @@ const Popup = ({ visible, onClose, onSubmit }) => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getPopupStyles = (c) => StyleSheet.create({
   centeredView: {
     flex: 1,
     justifyContent: 'center',
@@ -69,13 +72,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     
-    color: '#fff',
+    color: c.textPrimary,
     marginBottom: 15,
   },
   input: {
     width: '100%',
     backgroundColor: '#2c2c2c',
-    color: '#fff',
+    color: c.textPrimary,
     borderRadius: 10,
     padding: 15,
     minHeight: 100,
@@ -98,7 +101,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#555',
   },
   buttonSubmit: {
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
   },
   textStyle: {
     color: 'white',

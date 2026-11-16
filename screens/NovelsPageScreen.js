@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Dimensions,
   ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import { fetchSmpTokenBalance } from '../utils/solana';
 import { callSignedEdgeFunction } from '../utils/walletSignature';
 import { useTheme } from '../context/ThemeContext';
 import { getNovelsStyles } from '../styles/NovelsStyles';
+import { getReadingProgressMap } from '../services/readingProgress';
 
 const { width, height } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -73,8 +75,11 @@ const NovelsPageScreen = () => {
   const [pendingWithdrawal, setPendingWithdrawal] = useState(0);
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [novels, setNovels] = useState([]);
   const [filteredNovels, setFilteredNovels] = useState([]);
+  const [userId, setUserId] = useState(null);
+  const [progressMap, setProgressMap] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [errorMessage, setErrorMessage] = useState('');
@@ -175,7 +180,13 @@ const NovelsPageScreen = () => {
         throw new Error(`User lookup failed: ${userError.message}`);
       }
 
+      setUserId(user.id);
       setWeeklyPoints(user.weekly_points || 0);
+
+      // Reading progress badges on cards
+      getReadingProgressMap(user.id).then((map) => {
+        if (isMounted.current) setProgressMap(map);
+      });
 
       // Fetch off-chain balance from Supabase (wallet_balances table)
       const { data: walletBalances, error: walletBalancesError } = await supabase
@@ -462,33 +473,44 @@ const NovelsPageScreen = () => {
     fetchCountdown();
   }, []);
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true);
-      try {
-        if (isWalletConnected && publicKey) {
-          await Promise.all([
-            checkBalance(),
-            fetchNovels(),
-            (async () => {
-              try {
-                const bal = await fetchSmpTokenBalance(publicKey);
-                setOnChainBalance(bal);
-              } catch (e) {
-                setOnChainBalance(0);
-                console.error('Error fetching on-chain SMP balance:', e);
-              }
-            })(),
-          ]);
-        } else {
-          await fetchNovels();
-        }
-      } finally {
-        setLoading(false);
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      if (isWalletConnected && publicKey) {
+        await Promise.all([
+          checkBalance(),
+          fetchNovels(),
+          (async () => {
+            try {
+              const bal = await fetchSmpTokenBalance(publicKey);
+              setOnChainBalance(bal);
+            } catch (e) {
+              setOnChainBalance(0);
+              console.error('Error fetching on-chain SMP balance:', e);
+            }
+          })(),
+        ]);
+      } else {
+        await fetchNovels();
       }
-    };
-    fetchAll();
+    } finally {
+      setLoading(false);
+    }
   }, [isWalletConnected, publicKey]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
+
+  // Pull-to-refresh: re-run the same fetch as the mount effect.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchAll();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -496,7 +518,11 @@ const NovelsPageScreen = () => {
     };
   }, []);
 
-  const renderNovelItem = ({ item }) => (
+  const renderNovelItem = ({ item }) => {
+    const prog = progressMap?.[`novel:${item.id}`];
+    const progPct = prog ? Math.max(0, Math.min(100, Number(prog.scroll_pct) || 0)) : 0;
+    const progChapter = prog ? parseInt(prog.chapter_key, 10) : null;
+    return (
     <View style={[themedStyles.novelCard, { width: cardWidth }]}>
       <TouchableOpacity
         style={themedStyles.novelCardTouchable}
@@ -560,10 +586,24 @@ const NovelsPageScreen = () => {
               </Text>
             </View>
           </View>
+          {prog && (
+            <View>
+              <View style={themedStyles.progressBadge}>
+                <FontAwesome5 name="book-open" size={10} color={colors.accent} />
+                <Text style={themedStyles.progressBadgeText}>
+                  {isNaN(progChapter) ? 'Reading' : `Ch. ${progChapter + 1}`} · {Math.round(progPct)}%
+                </Text>
+              </View>
+              <View style={themedStyles.progressTrack}>
+                <View style={[themedStyles.progressFill, { width: `${progPct}%` }]} />
+              </View>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     </View>
-  );
+    );
+  };
 
   const renderSkeletonCard = () => (
     <View style={[themedStyles.skeletonCard, { width: cardWidth }]}>
@@ -663,6 +703,9 @@ const NovelsPageScreen = () => {
         style={{ opacity: fadeAnim }}
         contentContainerStyle={themedStyles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
       >
         {/* Hero Section */}
         <View style={themedStyles.heroSection}>

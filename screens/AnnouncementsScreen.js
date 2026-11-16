@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,43 +13,18 @@ import {
   Alert,
   Modal,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import AnnouncementsStyles from '../styles/AnnouncementsStyles';
-
-const styles = AnnouncementsStyles || StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a2e' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#FFF', marginTop: 16, fontSize: 16 },
-  keyboardContainer: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#667eea' },
-  backButton: { marginRight: 12 },
-  headerContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  headerTitle: { color: '#FFF', fontSize: 20,   marginLeft: 12 },
-  scrollView: { flex: 1 },
-  scrollContent: { padding: 16 },
-  connectPrompt: { alignItems: 'center', justifyContent: 'center', padding: 32 },
-  promptText: { color: '#FFF', fontSize: 16, marginTop: 16, textAlign: 'center' },
-  accessDenied: { alignItems: 'center', justifyContent: 'center', padding: 32 },
-  deniedText: { color: '#E74C3C', fontSize: 24,   marginTop: 16 },
-  deniedSubtext: { color: '#FFF', fontSize: 16, marginTop: 8, textAlign: 'center' },
-  dashboard: { padding: 16 },
-  section: { marginBottom: 24 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  sectionTitle: { color: '#9B59B6', fontSize: 18,   marginLeft: 12 },
-  form: { marginBottom: 16 },
-  inputGroup: { marginBottom: 16 },
-  label: { color: '#FFF', fontSize: 14, marginBottom: 8 },
-  input: { backgroundColor: '#2a2a4e', color: '#FFF', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#667eea' },
-  textarea: { backgroundColor: '#2a2a4e', color: '#FFF', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#667eea', minHeight: 100 },
-  button: { backgroundColor: '#667eea', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 16 },
-  buttonText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
-});
+import { getAnnouncementsStyles } from '../styles/AnnouncementsStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const AnnouncementsScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getAnnouncementsStyles(colors), [isDark]);
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
@@ -65,7 +40,17 @@ const AnnouncementsScreen = () => {
   const [isArtist, setIsArtist] = useState(false);
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await handleAccessCheck();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const handleAccessCheck = async () => {
     if (!isWalletConnected || !activeWalletAddress) return;
@@ -232,7 +217,13 @@ const AnnouncementsScreen = () => {
           </View>
         </View>
 
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#9B59B6" colors={['#9B59B6']} />
+          }
+        >
           {!isWalletConnected ? (
             <View style={styles.connectPrompt}>
               <Icon name="gem" size={60} color="#9B59B6" />

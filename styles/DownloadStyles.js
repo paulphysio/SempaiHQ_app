@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
-const styles = StyleSheet.create({
+export const getDownloadStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: c.bgCard,
   },
   header: {
     flexDirection: 'row',
@@ -12,14 +12,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   backButton: {
     padding: 8,
     marginRight: 12,
   },
   headerTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 20,
     
     fontFamily: 'Yoruka',
@@ -37,13 +37,13 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   loadingText: {
-    color: '#FFF',
+    color: c.textPrimary,
     marginTop: 16,
     fontSize: 16,
     fontFamily: 'Yoruka',
   },
   errorText: {
-    color: '#E74C3C',
+    color: c.danger,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
@@ -69,13 +69,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   versionTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 18,
     
     fontFamily: 'Yoruka',
   },
   releaseDate: {
-    color: '#AAA',
+    color: c.textMuted,
     fontSize: 14,
     marginTop: 4,
     fontFamily: 'Yoruka',
@@ -96,18 +96,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   installNote: {
-    color: '#AAA',
+    color: c.textMuted,
     fontSize: 14,
     textAlign: 'center',
     marginTop: 20,
     fontFamily: 'Yoruka',
   },
   noDownloads: {
-    color: '#AAA',
+    color: c.textMuted,
     fontSize: 16,
     textAlign: 'center',
     fontFamily: 'Yoruka',
   },
 });
 
-export default styles;

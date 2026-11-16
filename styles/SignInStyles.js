@@ -2,10 +2,10 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-const styles = StyleSheet.create({
+export const getSignInStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A18', // Dark theme background
+    backgroundColor: c.bg, // Dark theme background
     padding: 24,
   },
   content: {
@@ -17,8 +17,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    color: '#E67E22', // Orange accent color
-    fontSize: 32,
+    color: c.accent, // Orange accent color
+    fontSize: 24,
     fontFamily: 'Yoruka',
     
     marginBottom: 30,
@@ -35,8 +35,8 @@ const styles = StyleSheet.create({
   },
   
   sectionTitle: {
-    color: '#E0E0E0',
-    fontSize: 16,
+    color: c.border,
+    fontSize: 14,
     fontFamily: 'Yoruka',
     marginBottom: 12,
     textAlign: 'center',
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
   },
   
   dividerText: {
@@ -67,8 +67,8 @@ const styles = StyleSheet.create({
   
   // Subtitle style
   subtitle: {
-    color: '#E0E0E0',
-    fontSize: 18,
+    color: c.border,
+    fontSize: 15,
     fontFamily: 'Yoruka',
     marginBottom: 30,
     textAlign: 'center',
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: c.border,
   },
   googleButton: {
     backgroundColor: '#DB4437',
@@ -121,19 +121,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#1DA1F2',
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    color: c.bgCard,
+    fontSize: 15,
     fontFamily: 'Yoruka',
     
     marginLeft: 12,
   },
   skipButton: {
-    marginTop: 30,
-    padding: 15,
+    marginTop: 20,
+    padding: 10,
   },
   skipButtonText: {
-    color: '#999999',
-    fontSize: 16,
+    color: c.textMuted,
+    fontSize: 13,
     fontFamily: 'Yoruka',
     
     textDecorationLine: 'underline',
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   loadingText: {
-    color: '#E0E0E0',
+    color: c.border,
     marginTop: 15,
     fontSize: 16,
     fontFamily: 'Yoruka',
@@ -198,20 +198,20 @@ const styles = StyleSheet.create({
   },
   
   profilePlaceholder: {
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
     justifyContent: 'center',
     alignItems: 'center',
   },
   
   profileInitial: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 40,
     fontFamily: 'Yoruka',
     
   },
   
   userName: {
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 24,
     fontFamily: 'Yoruka',
     
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   
   // Sign out button
   signOutButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -278,10 +278,9 @@ const styles = StyleSheet.create({
   userGreeting: {
     fontSize: 20,
     fontFamily: 'Yoruka',
-    color: '#E0E0E0',
+    color: c.border,
     marginBottom: 10,
     
   },
 });
 
-export default styles;

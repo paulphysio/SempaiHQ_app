@@ -64,10 +64,12 @@ const cardShadowLight = {
   elevation: 4,
 };
 
-export default StyleSheet.create({
+export const getReaderStyles = (isDark) => {
+  const P = isDark ? COLOR.dark : COLOR.light;
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLOR.dark.bg,
+    backgroundColor: P.bg,
   },
   header: {
     flexDirection: 'row',
@@ -75,15 +77,15 @@ export default StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACE.l,
     paddingVertical: SPACE.m,
-    backgroundColor: COLOR.dark.bgElevated,
+    backgroundColor: P.bgElevated,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.dark.border,
+    borderBottomColor: P.border,
   },
   headerTitle: {
     fontFamily: FONT,
     fontSize: 20,
     fontWeight: '700',
-    color: COLOR.dark.textPrimary,
+    color: P.textPrimary,
   },
   headerActions: {
     flexDirection: 'row',
@@ -101,7 +103,7 @@ export default StyleSheet.create({
   },
   filePickerCard: {
     width: width * 0.8,
-    backgroundColor: COLOR.dark.bgCard,
+    backgroundColor: P.bgCard,
     borderRadius: RADIUS.lg,
     padding: SPACE.xxl,
     alignItems: 'center',
@@ -110,25 +112,25 @@ export default StyleSheet.create({
   filePickerIcon: {
     fontSize: 64,
     marginBottom: SPACE.l,
-    color: COLOR.dark.accent,
+    color: P.accent,
   },
   filePickerTitle: {
     fontFamily: FONT,
     fontSize: 24,
     fontWeight: '700',
-    color: COLOR.dark.textPrimary,
+    color: P.textPrimary,
     marginBottom: SPACE.s,
     textAlign: 'center',
   },
   filePickerSubtitle: {
     fontFamily: FONT,
     fontSize: 16,
-    color: COLOR.dark.textSecondary,
+    color: P.textSecondary,
     marginBottom: SPACE.xl,
     textAlign: 'center',
   },
   pickButton: {
-    backgroundColor: COLOR.dark.accent,
+    backgroundColor: P.accent,
     paddingVertical: SPACE.m,
     paddingHorizontal: SPACE.xl,
     borderRadius: RADIUS.md,
@@ -146,23 +148,23 @@ export default StyleSheet.create({
   filePickerIcon: {
     fontSize: 64,
     marginBottom: SPACE.l,
-    color: COLOR.dark.accent,
+    color: P.accent,
   },
   filePickerText: {
     fontFamily: FONT,
     fontSize: 16,
-    color: COLOR.dark.textSecondary,
+    color: P.textSecondary,
   },
   readerContainer: {
     flex: 1,
-    backgroundColor: COLOR.dark.bg,
+    backgroundColor: P.bg,
   },
   pdfContainer: {
     flex: 1,
   },
   epubContainer: {
     flex: 1,
-    backgroundColor: COLOR.dark.bg,
+    backgroundColor: P.bg,
   },
   loadingContainer: {
     flex: 1,
@@ -172,12 +174,12 @@ export default StyleSheet.create({
   loadingText: {
     fontFamily: FONT,
     fontSize: 16,
-    color: COLOR.dark.textSecondary,
+    color: P.textSecondary,
     marginTop: SPACE.m,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLOR.dark.bg,
+    backgroundColor: P.bg,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -190,7 +192,7 @@ export default StyleSheet.create({
   errorText: {
     fontFamily: FONT,
     fontSize: 16,
-    color: COLOR.dark.danger,
+    color: P.danger,
     textAlign: 'center',
   },
   emptyContainer: {
@@ -202,11 +204,11 @@ export default StyleSheet.create({
   emptyText: {
     fontFamily: FONT,
     fontSize: 18,
-    color: COLOR.dark.textSecondary,
+    color: P.textSecondary,
     textAlign: 'center',
   },
   fileInfo: {
-    backgroundColor: COLOR.dark.bgCard,
+    backgroundColor: P.bgCard,
     padding: SPACE.m,
     marginHorizontal: SPACE.l,
     marginTop: SPACE.m,
@@ -218,12 +220,12 @@ export default StyleSheet.create({
   fileName: {
     fontFamily: FONT,
     fontSize: 14,
-    color: COLOR.dark.textPrimary,
+    color: P.textPrimary,
     flex: 1,
     marginRight: SPACE.m,
   },
   fileTypeBadge: {
-    backgroundColor: COLOR.dark.accentSoft,
+    backgroundColor: P.accentSoft,
     paddingHorizontal: SPACE.s,
     paddingVertical: SPACE.xs,
     borderRadius: RADIUS.sm,
@@ -232,98 +234,100 @@ export default StyleSheet.create({
     fontFamily: FONT,
     fontSize: 12,
     fontWeight: '600',
-    color: COLOR.dark.accent,
+    color: P.accent,
     textTransform: 'uppercase',
   },
   progressBar: {
     height: 2,
-    backgroundColor: COLOR.dark.border,
+    backgroundColor: P.border,
     marginTop: SPACE.m,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLOR.dark.accent,
+    backgroundColor: P.accent,
   },
   pageIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SPACE.s,
-    backgroundColor: COLOR.dark.bgElevated,
+    backgroundColor: P.bgElevated,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.dark.border,
+    borderBottomColor: P.border,
   },
   pageIndicatorText: {
     fontFamily: FONT,
     fontSize: 14,
-    color: COLOR.dark.textSecondary,
+    color: P.textSecondary,
   },
   navigationControls: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: SPACE.m,
-    backgroundColor: COLOR.dark.bgElevated,
+    backgroundColor: P.bgElevated,
     borderTopWidth: 1,
-    borderTopColor: COLOR.dark.border,
+    borderTopColor: P.border,
   },
   navButton: {
-    backgroundColor: COLOR.dark.bgCard,
+    backgroundColor: P.bgCard,
     padding: SPACE.m,
     borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: COLOR.dark.border,
+    borderColor: P.border,
   },
   navButtonText: {
     fontFamily: FONT,
     fontSize: 14,
-    color: COLOR.dark.textPrimary,
+    color: P.textPrimary,
   },
   chapterList: {
     flex: 1,
-    backgroundColor: COLOR.dark.bg,
+    backgroundColor: P.bg,
   },
   chapterItem: {
     padding: SPACE.m,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.dark.border,
+    borderBottomColor: P.border,
   },
   chapterTitle: {
     fontFamily: FONT,
     fontSize: 16,
-    color: COLOR.dark.textPrimary,
+    color: P.textPrimary,
   },
   chapterActive: {
-    backgroundColor: COLOR.dark.accentSoft,
+    backgroundColor: P.accentSoft,
   },
   chapterActiveText: {
-    color: COLOR.dark.accent,
+    color: P.accent,
   },
   tocContainer: {
     flex: 1,
-    backgroundColor: COLOR.dark.bgCard,
+    backgroundColor: P.bgCard,
   },
   tocItem: {
     padding: SPACE.m,
     borderBottomWidth: 1,
-    borderBottomColor: COLOR.dark.border,
+    borderBottomColor: P.border,
   },
   tocTitle: {
     fontFamily: FONT,
     fontSize: 15,
-    color: COLOR.dark.textPrimary,
+    color: P.textPrimary,
   },
   tocActive: {
-    backgroundColor: COLOR.dark.accentSoft,
+    backgroundColor: P.accentSoft,
   },
   tocActiveText: {
-    color: COLOR.dark.accent,
+    color: P.accent,
   },
   settingsButton: {
-    backgroundColor: COLOR.dark.bgCard,
+    backgroundColor: P.bgCard,
     padding: SPACE.s,
     borderRadius: RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLOR.dark.border,
+    borderColor: P.border,
   },
 });
+};
+

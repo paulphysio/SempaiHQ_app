@@ -13,12 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import styles, { BAZAAR_COLORS } from '../styles/BazaarStyles';
+import { useBazaarTheme } from '../styles/BazaarStyles';
 import { resolveRefund } from '../utils/bazaar';
 
 const TABS = ['Overview', 'My Books', 'Refunds', 'All Sales'];
 
 const BazaarDashboardScreen = () => {
+  const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;

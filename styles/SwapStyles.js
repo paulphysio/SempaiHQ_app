@@ -1,10 +1,10 @@
 // ./screens/SwapStyles.js
 import { StyleSheet } from 'react-native';
 
-export const styles = StyleSheet.create({
+export const getSwapStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
   },
   header: {
     flexDirection: 'row',
@@ -12,20 +12,20 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: '#16213E',
+    backgroundColor: c.bgCard,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F3460',
+    borderBottomColor: c.border,
   },
   headerButton: {
     padding: 10,
     borderRadius: 8,
-    backgroundColor: '#0F3460',
+    backgroundColor: c.border,
   },
   headerTitle: {
     fontSize: 20,
     fontFamily: 'Yoruka',
     
-    color: '#ffffff',
+    color: c.textPrimary,
     flex: 1,
     textAlign: 'center',
   },
@@ -36,7 +36,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   swapCard: {
-    backgroundColor: '#16213E',
+    backgroundColor: c.bgCard,
     borderRadius: 12,
     padding: 20,
     width: '100%',
@@ -54,21 +54,21 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   connectPromptText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
   },
   connectButton: {
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
   connectButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
     
@@ -80,19 +80,19 @@ export const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: 'Yoruka',
     
-    color: '#ffffff',
+    color: c.textPrimary,
     marginBottom: 20,
   },
   balanceDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F3460',
+    backgroundColor: c.border,
     padding: 10,
     borderRadius: 8,
     marginBottom: 20,
   },
   balanceText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     marginLeft: 10,
@@ -101,22 +101,22 @@ export const styles = StyleSheet.create({
   refreshButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
   },
   inputGroup: {
     width: '100%',
     marginBottom: 20,
   },
   label: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#0F3460',
-    color: '#ffffff',
+    backgroundColor: c.border,
+    color: c.textPrimary,
     padding: 12,
     borderRadius: 8,
     fontSize: 16,
@@ -126,7 +126,7 @@ export const styles = StyleSheet.create({
   },
   swapButton: {
     flexDirection: 'row',
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -135,7 +135,7 @@ export const styles = StyleSheet.create({
     width: '100%',
   },
   swapButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
     
@@ -145,7 +145,7 @@ export const styles = StyleSheet.create({
     marginRight: 10,
   },
   disabledButton: {
-    backgroundColor: '#888',
+    backgroundColor: c.textMuted,
     opacity: 0.7,
   },
   messageContainer: {
@@ -162,7 +162,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#FF5252',
   },
   messageText: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 14,
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -170,17 +170,17 @@ export const styles = StyleSheet.create({
   footer: {
     padding: 10,
     alignItems: 'center',
-    backgroundColor: '#16213E',
+    backgroundColor: c.bgCard,
     borderTopWidth: 1,
-    borderTopColor: '#0F3460',
+    borderTopColor: c.border,
   },
   footerText: {
-    color: '#888',
+    color: c.textMuted,
     fontSize: 12,
     fontFamily: 'Yoruka',
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: c.textPrimary,
     padding: 20,
     borderRadius: 8,
     width: '80%',
@@ -194,7 +194,7 @@ export const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 18,
     fontFamily: 'Yoruka',
-    color: '#333',
+    color: c.textPrimary,
   },
   modalTitle: {
     fontSize: 20,
@@ -205,7 +205,7 @@ export const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: c.textSecondary,
     borderRadius: 4,
     padding: 10,
     marginBottom: 10,
@@ -220,7 +220,7 @@ export const styles = StyleSheet.create({
     marginBottom: 10,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
     
@@ -232,7 +232,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 16,
     fontFamily: 'Yoruka',
     
@@ -245,7 +245,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    borderBottomColor: c.textSecondary,
   },
   tokenLogo: {
     width: 32,
@@ -255,12 +255,12 @@ export const styles = StyleSheet.create({
   tokenName: {
     fontSize: 16,
     fontFamily: 'Yoruka',
-    color: '#333',
+    color: c.textPrimary,
   },
   selectedToken: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F3460',
+    backgroundColor: c.border,
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
@@ -274,7 +274,7 @@ export const styles = StyleSheet.create({
     marginBottom: 20,
   },
   portfolioTitle: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     
@@ -286,14 +286,14 @@ export const styles = StyleSheet.create({
   },
   portfolioButton: {
     flex: 1,
-    backgroundColor: '#0F3460',
+    backgroundColor: c.border,
     padding: 10,
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 4,
   },
   portfolioButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 12,
     fontFamily: 'Yoruka',
     marginTop: 4,

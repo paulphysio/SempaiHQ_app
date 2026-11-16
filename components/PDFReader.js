@@ -1,10 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { Ionicons } from '@expo/vector-icons';
-import styles from '../styles/ReaderStyles';
+import { getReaderStyles } from '../styles/ReaderStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const PDFReader = ({ file, onBack }) => {
+  const { isDark } = useTheme();
+  const styles = useMemo(() => getReaderStyles(isDark), [isDark]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -35,7 +38,7 @@ const PDFReader = ({ file, onBack }) => {
     <View style={styles.readerContainer}>
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#FF5733" />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Loading PDF...</Text>
         </View>
       )}
@@ -78,7 +81,7 @@ const PDFReader = ({ file, onBack }) => {
               <Ionicons
                 name="chevron-back"
                 size={24}
-                color={currentPage <= 1 ? '#8A8A99' : '#FF5733'}
+                color={currentPage <= 1 ? '#8A8A99' : colors.accent}
               />
             </TouchableOpacity>
 
@@ -90,7 +93,7 @@ const PDFReader = ({ file, onBack }) => {
               <Ionicons
                 name="chevron-forward"
                 size={24}
-                color={currentPage >= totalPages ? '#8A8A99' : '#FF5733'}
+                color={currentPage >= totalPages ? '#8A8A99' : colors.accent}
               />
             </TouchableOpacity>
           </View>

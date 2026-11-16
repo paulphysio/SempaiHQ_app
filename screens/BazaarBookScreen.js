@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +22,8 @@ import { PublicKey } from '@solana/web3.js';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import EPUBReader from '../components/EPUBReader';
-import styles, { BAZAAR_COLORS } from '../styles/BazaarStyles';
+import { createBazaarReadTracker } from '../services/bazaarReadTracker';
+import { useBazaarTheme } from '../styles/BazaarStyles';
 import {
   BAZAAR_LEND_PRICE_SMP,
   bazaarConnection,
@@ -37,6 +39,7 @@ import {
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
 const BazaarBookScreen = () => {
+  const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
   const navigation = useNavigation();
   const route = useRoute();
   const { bookId } = route.params || {};
@@ -54,6 +57,7 @@ const BazaarBookScreen = () => {
   const [user, setUser] = useState(null);
   const [purchase, setPurchase] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   const [currency, setCurrency] = useState('USDC');
@@ -71,9 +75,12 @@ const BazaarBookScreen = () => {
   const [refundReason, setRefundReason] = useState('');
   const [refundSending, setRefundSending] = useState(false);
 
-  const loadBook = useCallback(async () => {
+  // PDF/EPUB read tracking for refund review (pages visited + seconds spent).
+  const readTrackerRef = useRef(null);
+
+  const loadBook = useCallback(async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       setError(null);
 
       const { data: bookData, error: bookError } = await supabase
@@ -116,13 +123,23 @@ const BazaarBookScreen = () => {
       console.error('[BazaarBook] Load error:', err.message);
       setError(err.message || 'Failed to load book');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   }, [bookId, activePublicKey]);
 
   useEffect(() => {
-    loadBook();
+    loadBook(true);
   }, [loadBook]);
+
+  // Pull-to-refresh: silent reload — keeps the book page visible.
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadBook(false);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     fetchSolPriceUsd().then((p) => p && setSolPrice(p));
@@ -244,6 +261,14 @@ const BazaarBookScreen = () => {
       const dl = await FileSystem.downloadAsync(url, localUri);
       if (dl.status !== 200) throw new Error('Download failed. Check your connection.');
       setLocalFile({ uri: dl.uri, name: book.file_name || `${book.title}.${ext}`, type: book.file_type });
+      readTrackerRef.current?.close();
+      readTrackerRef.current = createBazaarReadTracker({
+        purchaseId: purchase?.id || null,
+        bookId: book.id,
+        userId: user?.id || null,
+        walletAddress: activePublicKey?.toString() || null,
+        fileType: book.file_type,
+      });
       setReading(true);
     } catch (err) {
       console.error('[BazaarBook] open error:', err.message);
@@ -254,10 +279,15 @@ const BazaarBookScreen = () => {
   };
 
   const closeReader = () => {
+    readTrackerRef.current?.close();
+    readTrackerRef.current = null;
     if (localFile?.uri) FileSystem.deleteAsync(localFile.uri, { idempotent: true }).catch(() => {});
     setReading(false);
     setLocalFile(null);
   };
+
+  // Safety net: flush the tracker if the screen unmounts while reading.
+  useEffect(() => () => readTrackerRef.current?.close(), []);
 
   const handleRefund = async () => {
     if (!purchase) return;
@@ -288,7 +318,11 @@ const BazaarBookScreen = () => {
     if (localFile.type === 'epub') {
       return (
         <View style={{ flex: 1, paddingBottom: bottomNavClearance }}>
-          <EPUBReader file={localFile} onBack={closeReader} />
+          <EPUBReader
+            file={localFile}
+            onBack={closeReader}
+            onProgress={({ index, total }) => readTrackerRef.current?.recordPage(index + 1, total)}
+          />
         </View>
       );
     }
@@ -301,7 +335,13 @@ const BazaarBookScreen = () => {
           <Text style={styles.headerTitle} numberOfLines={1}>{book.title}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <Pdf source={{ uri: localFile.uri }} style={{ flex: 1, backgroundColor: '#fff' }} trustAllCerts={false} />
+        <Pdf
+          source={{ uri: localFile.uri }}
+          style={{ flex: 1, backgroundColor: '#fff' }}
+          trustAllCerts={false}
+          onLoadComplete={(numPages) => readTrackerRef.current?.recordPage(1, numPages)}
+          onPageChanged={(page) => readTrackerRef.current?.recordPage(page)}
+        />
       </View>
     );
   }
@@ -356,7 +396,13 @@ const BazaarBookScreen = () => {
     <View style={styles.container}>
       <Header title="Book" />
 
-      <ScrollView style={styles.detailScroll} contentContainerStyle={{ paddingBottom: bottomNavClearance }}>
+      <ScrollView
+        style={styles.detailScroll}
+        contentContainerStyle={{ paddingBottom: bottomNavClearance }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BAZAAR_COLORS.accent} colors={[BAZAAR_COLORS.accent]} />
+        }
+      >
         {book.cover_url ? (
           <Image source={{ uri: book.cover_url }} style={styles.detailCover} resizeMode="cover" />
         ) : (

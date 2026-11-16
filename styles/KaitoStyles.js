@@ -2,10 +2,10 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
-export const styles = StyleSheet.create({
+export const getKaitoStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: c.bgCard,
   },
   flatListContent: {
     paddingBottom: 20,
@@ -18,14 +18,14 @@ export const styles = StyleSheet.create({
     borderBottomColor: '#444',
   },
   headerText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     
     textAlign: 'center',
   },
   weatherText: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 14,
     fontFamily: 'Yoruka',
     marginTop: 5,
@@ -50,7 +50,7 @@ export const styles = StyleSheet.create({
     marginRight: 10,
   },
   logoText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 18,
     fontFamily: 'Yoruka',
     
@@ -78,14 +78,14 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   navLinkActive: {
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     borderRadius: 5,
   },
   navIcon: {
     marginRight: 10,
   },
   navLinkText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
   },
@@ -99,9 +99,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: c.bgCard,
     borderWidth: 2,
-    borderColor: '#ffd700',
+    borderColor: c.gold,
     padding: 8,
     marginHorizontal: 10,
     borderRadius: 6,
@@ -111,7 +111,7 @@ export const styles = StyleSheet.create({
     marginRight: 8,
   },
   buttonText: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 14,
     fontFamily: 'Yoruka',
     
@@ -141,19 +141,19 @@ export const styles = StyleSheet.create({
     borderRadius: 22,
     marginRight: 10,
     borderWidth: 2,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
   },
   cardTitleText: {
     flex: 1,
   },
   cardTitle: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     
   },
   cardSubtitle: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 12,
     fontFamily: 'Yoruka',
   },
@@ -167,7 +167,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 12,
     fontFamily: 'Yoruka',
     marginLeft: 4,
@@ -184,7 +184,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#00ccff',
   },
   traitText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 12,
     fontFamily: 'Yoruka',
     fontStyle: 'italic',
@@ -193,10 +193,10 @@ export const styles = StyleSheet.create({
   sectionHeader: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
   },
   sectionTitle: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 14,
     fontFamily: 'Yoruka',
     
@@ -209,7 +209,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   button: {
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     padding: 6,
     borderRadius: 6,
     width: (width - 40) / 3,
@@ -239,13 +239,13 @@ export const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   itemName: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 12,
     fontFamily: 'Yoruka',
     flex: 1,
   },
   itemQuantity: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 11,
     fontFamily: 'Yoruka',
     marginHorizontal: 6,
@@ -262,7 +262,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   emptyText: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 12,
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -285,7 +285,7 @@ export const styles = StyleSheet.create({
     marginBottom: 3,
   },
   rareItemText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 10,
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -301,7 +301,7 @@ export const styles = StyleSheet.create({
     marginVertical: 3,
   },
   equipmentLabel: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 12,
     fontFamily: 'Yoruka',
     width: 60,
@@ -316,7 +316,7 @@ export const styles = StyleSheet.create({
     marginRight: 6,
   },
   equipmentText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
@@ -337,7 +337,7 @@ export const styles = StyleSheet.create({
     marginBottom: 3,
   },
   ingredientText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 10,
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -348,7 +348,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countdownText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 12,
     fontFamily: 'Yoruka',
     marginVertical: 3,
@@ -366,7 +366,7 @@ export const styles = StyleSheet.create({
     maxHeight: height * 0.7,
   },
   modalTitle: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 16,
     fontFamily: 'Yoruka',
     
@@ -374,7 +374,7 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   modalSubtitle: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 12,
     fontFamily: 'Yoruka',
     marginBottom: 6,
@@ -386,7 +386,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   modalButton: {
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
     padding: 6,
     borderRadius: 6,
     alignItems: 'center',
@@ -419,7 +419,7 @@ export const styles = StyleSheet.create({
     marginHorizontal: 3,
   },
   activeTab: {
-    backgroundColor: '#ff6200',
+    backgroundColor: c.accent,
   },
   tabText: {
     color: '#fff',
@@ -446,7 +446,7 @@ export const styles = StyleSheet.create({
   },
   selectedIngredient: {
     borderWidth: 2,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
   },
   disabledIngredient: {
     opacity: 0.5,
@@ -475,26 +475,26 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
   },
   combatantText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   versusText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 18,
     fontFamily: 'Yoruka',
     
   },
   combatLog: {
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     padding: 6,
     borderRadius: 6,
     maxHeight: 80,
     marginVertical: 6,
   },
   combatLogText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 10,
     fontFamily: 'Yoruka',
     marginVertical: 1,
@@ -512,7 +512,7 @@ export const styles = StyleSheet.create({
     marginVertical: 12,
   },
   combatResultText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 14,
     fontFamily: 'Yoruka',
     
@@ -527,24 +527,24 @@ export const styles = StyleSheet.create({
     borderBottomColor: '#444',
   },
   leaderboardRank: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 12,
     fontFamily: 'Yoruka',
     width: 40,
   },
   leaderboardName: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 12,
     fontFamily: 'Yoruka',
     flex: 1,
   },
   leaderboardStats: {
-    color: '#aaa',
+    color: c.textMuted,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
   leaderboardDescription: {
-    color: '#ccc',
+    color: c.textSecondary,
     fontSize: 11,
     fontFamily: 'Yoruka',
     textAlign: 'center',
@@ -569,7 +569,7 @@ export const styles = StyleSheet.create({
   },
   goldMedal: {
     backgroundColor: '#3a2b00',
-    borderColor: '#ffd700',
+    borderColor: c.gold,
   },
   silverMedal: {
     backgroundColor: '#2f3136',
@@ -580,7 +580,7 @@ export const styles = StyleSheet.create({
     borderColor: '#cd7f32',
   },
   medalText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
     
@@ -603,7 +603,7 @@ export const styles = StyleSheet.create({
   },
   rewardEligibleItem: {
     borderLeftWidth: 2,
-    borderLeftColor: '#ffd700',
+    borderLeftColor: c.gold,
     paddingLeft: 5,
   },
   rewardIndicator: {
@@ -611,13 +611,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#332b00',
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: c.gold,
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 8,
   },
   rewardText: {
-    color: '#ffd700',
+    color: c.gold,
     fontSize: 10,
     fontFamily: 'Yoruka',
     
@@ -634,13 +634,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#1f1f1f',
     borderWidth: 1,
-    borderColor: '#ff6200',
+    borderColor: c.accent,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 6,
   },
   refreshButtonText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 11,
     fontFamily: 'Yoruka',
     
@@ -651,7 +651,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   emptySubtext: {
-    color: '#888',
+    color: c.textMuted,
     fontSize: 10,
     fontFamily: 'Yoruka',
     marginTop: 3,
@@ -663,34 +663,34 @@ export const styles = StyleSheet.create({
   // Quests & Tasks
   questItem: {
     padding: 6,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     borderRadius: 6,
     marginVertical: 3,
   },
   questText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
   questReward: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 10,
     fontFamily: 'Yoruka',
     marginTop: 3,
   },
   taskItem: {
     padding: 6,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     borderRadius: 6,
     marginVertical: 3,
   },
   taskText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
   taskReward: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 10,
     fontFamily: 'Yoruka',
     marginTop: 3,
@@ -698,17 +698,17 @@ export const styles = StyleSheet.create({
   // NPC Dialogue
   npcDialogue: {
     padding: 6,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     borderRadius: 6,
     marginVertical: 5,
   },
   npcDialogueText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
   npcQuestText: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 10,
     fontFamily: 'Yoruka',
     marginTop: 3,
@@ -718,7 +718,7 @@ export const styles = StyleSheet.create({
     marginVertical: 5,
   },
   skillTreeTitle: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 12,
     fontFamily: 'Yoruka',
     
@@ -729,36 +729,36 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 6,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     borderRadius: 6,
     marginVertical: 3,
   },
   skillText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
   // Events
   eventItem: {
     padding: 6,
-    backgroundColor: '#333',
+    backgroundColor: c.textPrimary,
     borderRadius: 6,
     marginVertical: 3,
   },
   eventText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
   },
   eventTimer: {
-    color: '#ff6200',
+    color: c.accent,
     fontSize: 10,
     fontFamily: 'Yoruka',
     marginTop: 3,
   },
   // Guide
   guideText: {
-    color: '#fff',
+    color: c.textPrimary,
     fontSize: 11,
     fontFamily: 'Yoruka',
     lineHeight: 18,
@@ -767,14 +767,14 @@ export const styles = StyleSheet.create({
   // Input & Picker
   input: {
     backgroundColor: '#444',
-    color: '#fff',
+    color: c.textPrimary,
     padding: 8,
     borderRadius: 6,
     marginBottom: 8,
   },
   picker: {
     backgroundColor: '#444',
-    color: '#fff',
+    color: c.textPrimary,
     borderRadius: 6,
     marginBottom: 8,
   },

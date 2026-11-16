@@ -1,4 +1,5 @@
 import { Dimensions, Platform } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -106,3 +107,93 @@ export const status = {
 };
 
 export const hitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
+
+/* ───────────────────────── Light palette ("Paper & Current") ─────────────────────────
+ * Mirrors the app-wide light theme: warm paper background, white cards,
+ * blue brand accent instead of vermilion. Use via useMangaTheme() — the
+ * static `colors`/`type`/`gradients` exports above remain the dark defaults. */
+const lightColors = {
+  bg: '#F6F3E4',
+  bgDeep: '#EFEAD2',
+  surface: '#FFFFFF',
+  surfaceHi: '#F5F2E2',
+  surfaceTop: '#EBE7CF',
+  line: 'rgba(30, 41, 59, 0.10)',
+  lineStrong: 'rgba(30, 41, 59, 0.22)',
+
+  primary: '#3B82F6',
+  primaryHi: '#60A5FA',
+  primaryDeep: '#2563EB',
+  sakura: '#DB2777',
+  electric: '#6D4AFF',
+  gold: '#B45309',
+  mint: '#0E9F6E',
+  danger: '#E11D48',
+  info: '#0284C7',
+
+  text: '#1E293B',
+  textDim: '#475569',
+  textMute: '#64748B',
+  textFaint: '#94A3B8',
+  onPrimary: '#FFFFFF',
+  scrim: 'rgba(30, 41, 59, 0.5)',
+};
+
+const lightGradients = {
+  primary: ['#60A5FA', '#3B82F6', '#2563EB'],
+  sakura: ['#F472B6', '#DB2777', '#BE185D'],
+  electric: ['#A78BFA', '#6D4AFF', '#4F46E5'],
+  gold: ['#FBBF24', '#D97706', '#B45309'],
+  hero: ['rgba(246,243,228,0)', 'rgba(246,243,228,0.8)', '#F6F3E4'],
+  card: ['rgba(246,243,228,0)', 'rgba(246,243,228,0.95)'],
+  banner: ['#1E3A8A', '#7C3AED', '#3B82F6'],
+};
+
+const buildType = (c) => ({
+  hero: { fontFamily: fonts.display, fontSize: 28, lineHeight: 34, color: c.text, letterSpacing: 0.4 },
+  h1: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28, color: c.text, letterSpacing: 0.3 },
+  h2: { fontFamily: fonts.display, fontSize: 18, lineHeight: 24, color: c.text },
+  h3: { fontFamily: fonts.display, fontSize: 15, lineHeight: 20, color: c.text },
+  body: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: c.textDim },
+  bodyStrong: { fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: c.text, fontWeight: '600' },
+  caption: { fontFamily: fonts.body, fontSize: 12, lineHeight: 16, color: c.textMute },
+  label: {
+    fontFamily: fonts.display,
+    fontSize: 11,
+    lineHeight: 14,
+    color: c.textMute,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+});
+
+const lightStatus = {
+  ongoing: { label: 'Ongoing', color: lightColors.mint, icon: 'broadcast-tower' },
+  completed: { label: 'Completed', color: lightColors.info, icon: 'check-circle' },
+  hiatus: { label: 'Hiatus', color: lightColors.gold, icon: 'pause-circle' },
+};
+
+const darkMangaTheme = { colors, gradients, type, status, space, radius, fonts, layout, panelShadow, glow, hitSlop };
+const lightMangaTheme = {
+  colors: lightColors,
+  gradients: lightGradients,
+  type: buildType(lightColors),
+  status: lightStatus,
+  space,
+  radius,
+  fonts,
+  layout,
+  panelShadow,
+  glow,
+  hitSlop,
+};
+
+/**
+ * Theme-aware manga design tokens. Returns the dark "Midnight Ink" palette
+ * or the light "Paper & Current" palette to match the app theme.
+ * Usage: const { colors, gradients, type, status, ... } = useMangaTheme();
+ */
+export const useMangaTheme = () => {
+  const { isDark } = useTheme();
+  return isDark ? darkMangaTheme : lightMangaTheme;
+};

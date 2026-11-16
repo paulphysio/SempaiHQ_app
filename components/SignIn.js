@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TouchableOpacity, Image, Linking, ActivityIndicator, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useGoogleAuth } from './GoogleAuthProvider';
@@ -8,9 +8,12 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
 import TokenClaimModal from './TokenClaimModal';
 import GoogleSignInButton from './GoogleSignInButton';
-import styles from '../styles/SignInStyles';
+import { getSignInStyles } from '../styles/SignInStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const SignIn = ({ onSkip, onWalletConnect }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getSignInStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { loading: googleLoading, session, error: googleError } = useGoogleAuth();
   const { signIn: appSignIn, skipSignIn, user, isAuthenticated, signOut } = useAuth();
@@ -211,7 +214,7 @@ const SignIn = ({ onSkip, onWalletConnect }) => {
 
         {(googleLoading || walletLoading) && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FF9900" />
+            <ActivityIndicator size="large" color={colors.accent} />
             <Text style={styles.loadingText}>
               {googleLoading ? 'Signing you in...' : 'Connecting wallet...'}
             </Text>

@@ -1,11 +1,14 @@
 // screens/WalletImportScreen.js
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTheme } from '../context/ThemeContext';
 
 const WalletImportScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getWalletImportStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { importWalletFromPrivateKey, isWalletConnected, isLoading } = useContext(EmbeddedWalletContext);
   const [privateKey, setPrivateKey] = useState('');
@@ -58,7 +61,7 @@ const WalletImportScreen = () => {
       >
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Icon name="wallet" size={48} color="#E67E22" style={styles.icon} />
+            <Icon name="wallet" size={48} color={colors.accent} style={styles.icon} />
             <Text style={styles.title}>Import Wallet</Text>
             <Text style={styles.subtitle}>Import your existing Solana wallet using your private key</Text>
           </View>
@@ -124,7 +127,7 @@ const WalletImportScreen = () => {
             </TouchableOpacity>
 
             <View style={styles.warningBox}>
-              <Icon name="exclamation-triangle" size={16} color="#F39C12" />
+              <Icon name="exclamation-triangle" size={16} color={colors.accent} />
               <Text style={styles.warningText}>
                 Your private key will be encrypted and stored securely. Never share your private key with anyone.
               </Text>
@@ -132,7 +135,7 @@ const WalletImportScreen = () => {
           </View>
 
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
-            <Icon name="arrow-left" size={24} color="#E67E22" />
+            <Icon name="arrow-left" size={24} color={colors.accent} />
             <Text style={styles.backButtonText}>Back to Home</Text>
           </TouchableOpacity>
         </ScrollView>
@@ -141,10 +144,10 @@ const WalletImportScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getWalletImportStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
   },
   content: {
     flex: 1,
@@ -163,7 +166,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
      
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginBottom: 10,
   },
   subtitle: {
@@ -172,14 +175,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   formContainer: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderRadius: 15,
     padding: 20,
     marginBottom: 20,
   },
   formDescription: {
     fontSize: 14,
-    color: '#AAAAAA',
+    color: c.textMuted,
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -189,19 +192,19 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
      
-    color: '#FFFFFF',
+    color: c.textPrimary,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#0A0A18',
+    backgroundColor: c.bg,
     borderRadius: 10,
     padding: 15,
-    color: '#FFFFFF',
+    color: c.textPrimary,
     fontSize: 14,
     minHeight: 50,
   },
   importButton: {
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
     borderRadius: 10,
     padding: 16,
     flexDirection: 'row',
@@ -213,7 +216,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
      
   },
@@ -237,7 +240,7 @@ const styles = StyleSheet.create({
     padding: 15,
   },
   backButtonText: {
-    color: '#E67E22',
+    color: c.accent,
     fontSize: 16,
      
     marginLeft: 8,

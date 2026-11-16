@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
-import { colors, space, radius, type, layout } from '../theme/theme';
+import { space, radius, layout } from '../theme/theme';
 
 const WORK_W = 116;
 
-export const styles = StyleSheet.create({
+export const getStyles = ({ colors, type }) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
   scroll: { paddingBottom: 130 },
@@ -156,14 +156,6 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
-  premiumBox: {
-    padding: space.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.surfaceHi,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-
   chapterRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,8 @@ import {
   RPC_URL,
 } from '../constants';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
+import { logMoneyEvent } from '../services/moneyFeed';
+import { useTheme } from '../context/ThemeContext';
 
 const connection = new Connection(RPC_URL);
 
@@ -70,6 +72,8 @@ const TOKEN_MINTS = {
 };
 
 const SendModal = ({ isOpen, onClose, activeWalletAddress }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getSendModalStyles(colors), [isDark]);
   const { wallet: embeddedWallet, signAndSendTransaction } = useContext(EmbeddedWalletContext);
   const [selectedToken, setSelectedToken] = useState('SOL');
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -210,6 +214,18 @@ const SendModal = ({ isOpen, onClose, activeWalletAddress }) => {
         blockhash,
         lastValidBlockHeight,
         signature,
+      });
+
+      logMoneyEvent({
+        event_type: 'token_send',
+        direction: 'out',
+        asset: selectedToken,
+        amount: parseFloat(amount) || null,
+        wallet: activeWalletAddress,
+        counterparty: recipientAddress,
+        title: `Send ${amount} ${selectedToken}`,
+        tx_sig: signature,
+        meta: { to: recipientAddress },
       });
 
       setSuccessMessage(`Tokens sent successfully! Signature: ${signature}`);
@@ -359,7 +375,7 @@ const SendModal = ({ isOpen, onClose, activeWalletAddress }) => {
   );
 };
 
-const styles = StyleSheet.create({
+export const getSendModalStyles = (c) => StyleSheet.create({
   modal: {
     margin: 0,
     justifyContent: 'center',
@@ -369,7 +385,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalContainer: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: c.bgCard,
     borderRadius: 24,
     padding: 24,
     width: '90%',
@@ -387,7 +403,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     
-    color: '#ffffff',
+    color: c.textPrimary,
     marginBottom: 24,
   },
   inputGroup: {
@@ -403,7 +419,7 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    color: '#ffffff',
+    color: c.textPrimary,
     padding: 14,
     borderRadius: 12,
     fontSize: 14,
@@ -426,7 +442,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   tokenName: {
-    color: '#ffffff',
+    color: c.textPrimary,
     fontSize: 14,
     
   },
@@ -452,7 +468,7 @@ const styles = StyleSheet.create({
   balanceAmount: {
     fontSize: 18,
     
-    color: '#ffffff',
+    color: c.textPrimary,
   },
   errorText: {
     color: '#FF5252',
@@ -468,7 +484,7 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     flexDirection: 'row',
-    backgroundColor: '#E67E22',
+    backgroundColor: c.accent,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -477,14 +493,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   disabledButton: {
-    backgroundColor: '#888',
+    backgroundColor: c.textMuted,
     opacity: 0.7,
   },
   buttonIcon: {
     marginRight: 8,
   },
   sendButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 14,
     
   },
@@ -496,7 +512,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
+    borderBottomColor: c.textSecondary,
   },
   submitButton: {
     backgroundColor: '#007bff',
@@ -506,7 +522,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 16,
     
   },
@@ -517,7 +533,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#ffffff',
+    color: '#fff',
     fontSize: 16,
     
   },

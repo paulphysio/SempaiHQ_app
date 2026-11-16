@@ -1,9 +1,10 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, Clipboard, ActivityIndicator, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
+import { supabase } from '../services/supabaseClient';
 import { useTheme } from '../context/ThemeContext';
 import {
   getGlobalSidebarStyles,
@@ -19,13 +20,34 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
   const styles = getGlobalSidebarStyles(isDark);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isSuperuser, setIsSuperuser] = useState(false);
 
   const wallet = walletContext?.wallet;
+
+  useEffect(() => {
+    let alive = true;
+    const checkAdmin = async () => {
+      const walletAddress = wallet?.publicKey?.toString();
+      if (!walletAddress) { if (alive) setIsSuperuser(false); return; }
+      try {
+        const { data } = await supabase
+          .from('users')
+          .select('"isSuperuser"')
+          .eq('wallet_address', walletAddress)
+          .maybeSingle();
+        if (alive) setIsSuperuser(!!data?.isSuperuser);
+      } catch {
+        if (alive) setIsSuperuser(false);
+      }
+    };
+    checkAdmin();
+    return () => { alive = false; };
+  }, [wallet?.publicKey]);
   const disconnectWallet = walletContext?.disconnectWallet;
   const setShowModal = walletContext?.setShowModal;
   const isLoading = walletContext?.isLoading;
 
-  const navGroups = [
+  const allNavGroups = [
     {
       title: wallet ? `${wallet.publicKey.toString().slice(0, 6)}...${wallet.publicKey.toString().slice(-4)}` : 'Connect',
       icon: 'wallet',
@@ -64,7 +86,6 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
         { name: 'Ramp', screen: 'Ramp', icon: 'credit-card' },
         { name: 'Import Wallet', screen: 'WalletImport', icon: 'wallet' },
         { name: 'Mint', screen: 'Mint', icon: 'coins' },
-        { name: 'Marketplace', screen: 'Marketplace', icon: 'shopping-cart' },
       ],
     },
     {
@@ -75,20 +96,22 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
         { name: 'Badges', screen: 'Badges', icon: 'award' },
         { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
         { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
+        { name: 'Inbox', screen: 'Inbox', icon: 'envelope' },
       ],
     },
     {
       title: 'Admin',
       icon: 'cog',
+      superuserOnly: true,
       items: [
         { name: 'Admin', screen: 'Admin', icon: 'user-shield' },
+        { name: 'Announcements', screen: 'Announcements', icon: 'bullhorn' },
       ],
     },
     {
       title: 'Info',
       icon: 'info-circle',
       items: [
-        { name: 'Inbox', screen: 'Inbox', icon: 'envelope' },
         { name: 'Support', screen: 'Support', icon: 'life-ring' },
         { name: 'Terms', screen: 'Terms', icon: 'file-contract' },
         { name: 'Privacy Policy', screen: 'PrivacyPolicy', icon: 'shield-alt' },
@@ -101,20 +124,21 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
         { name: 'Bazaar', screen: 'Bazaar', icon: 'book' },
         { name: 'Upload Book', screen: 'UploadBook', icon: 'cloud-upload-alt' },
         { name: 'My Bazaar', screen: 'BazaarDashboard', icon: 'chart-line' },
+        { name: 'Reader', screen: 'Reader', icon: 'book-reader' },
       ],
     },
     {
       title: 'Other',
       icon: 'ellipsis-h',
       items: [
-        { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
-        { name: 'Reader', screen: 'Reader', icon: 'book-reader' },
         { name: 'Apply', screen: 'Apply', icon: 'user-plus' },
         { name: 'Download', screen: 'Download', icon: 'download' },
         { name: 'Add Gif', screen: 'AddGif', icon: 'image' },
       ],
     },
   ];
+
+  const navGroups = allNavGroups.filter((g) => !g.superuserOnly || isSuperuser);
 
   const toggleDropdown = (index) => {
     setActiveDropdown(activeDropdown === index ? null : index);

@@ -2,7 +2,7 @@ import { StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
 
-export const styles = StyleSheet.create({
+export const getWalletPanelStyles = (c) => StyleSheet.create({
   floatingButtonContainer: {
     position: 'absolute',
     bottom: 20,
@@ -19,7 +19,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 10,
     borderRadius: 50, // Circular button
-    backgroundColor: '#F36316', // Fallback
+    backgroundColor: c.accent, // Fallback
   },
   floatingButtonText: {
     color: '#FFF',
@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 15,
     zIndex: 10000,
-    backgroundColor: '#1A1A1A', // Fallback
+    backgroundColor: c.bgCard, // Fallback
   },
   panelGradient: {
     flex: 1,
@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
   closeButtonGradient: {
     padding: 8,
     borderRadius: 25,
-    backgroundColor: '#F36316', // Fallback
+    backgroundColor: c.accent, // Fallback
   },
   panelContent: {
     flex: 1,
@@ -74,7 +74,7 @@ export const styles = StyleSheet.create({
     marginBottom: 12,
   },
   infoLabel: {
-    color: '#F36316',
+    color: c.accent,
     fontSize: 14,
     fontFamily: 'Yoruka',
     
@@ -82,19 +82,19 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   infoValue: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 14,
     fontFamily: 'Yoruka',
     
   },
   actionSection: {
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    borderTopColor: c.border,
     paddingTop: 12,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    color: '#FFF',
+    backgroundColor: c.border,
+    color: c.textPrimary,
     borderRadius: 10,
     padding: 10,
     fontSize: 14,
@@ -154,6 +154,6 @@ export const styles = StyleSheet.create({
   placeholderButton: {
     padding: 10,
     borderRadius: 50,
-    backgroundColor: '#F36316', // Fallback
+    backgroundColor: c.accent, // Fallback
   },
 });

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, {useEffect, useState, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
-import { styles } from '../styles/HavenStyles';
+import { getHavenStyles } from '../styles/HavenStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 const KeepItSimpleScreen = () => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getHavenStyles(colors), [isDark]);
   const navigation = useNavigation();
   const [isClient, setIsClient] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,7 +52,7 @@ const KeepItSimpleScreen = () => {
   if (!isClient || loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color="#ff6200" />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }

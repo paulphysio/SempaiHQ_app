@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, TouchableOpacity, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 
 const LoadingButton = ({
   title,
@@ -12,11 +13,13 @@ const LoadingButton = ({
   textStyle,
   icon,
   iconPosition = 'left',
-  gradientColors = ['#FF5733', '#F36316'],
+  gradientColors = null,
   useGradient = true,
   loadingColor = '#FFFFFF',
   ...props
 }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getLoadingBtnStyles(colors), [isDark]);
   const isDisabled = disabled || isLoading;
 
   const handlePress = async () => {
@@ -53,7 +56,7 @@ const LoadingButton = ({
         {...props}
       >
         <LinearGradient
-          colors={isDisabled ? ['#999999', '#777777'] : gradientColors}
+          colors={isDisabled ? ['#999999', '#777777'] : (gradientColors || [colors.accent, colors.accentDeep])}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.gradientButton, style]}
@@ -77,7 +80,7 @@ const LoadingButton = ({
   );
 };
 
-const styles = StyleSheet.create({
+export const getLoadingBtnStyles = (c) => StyleSheet.create({
   buttonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -86,7 +89,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#fff',
     fontSize: 16,
     
     fontFamily: ' Yoruka',
@@ -105,7 +108,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   solidButton: {
-    backgroundColor: '#FF5733',
+    backgroundColor: c.accent,
     borderRadius: 8,
   },
   disabled: {

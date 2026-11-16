@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Image, Text, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { styles } from '../styles/LoadingStyles';
+import { getLoadingStyles } from '../styles/LoadingStyles';
+import { useTheme } from '../context/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
 const LoadingPage = ({ text = 'Welcome to SempaiHQ...' }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getLoadingStyles(colors), [isDark]);
   const [loading, setLoading] = useState(true);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;

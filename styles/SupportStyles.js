@@ -1,9 +1,9 @@
 import { StyleSheet } from 'react-native';
 
-const styles = StyleSheet.create({
+export const getSupportStyles = (c) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: c.bgCard,
   },
   keyboardContainer: {
     flex: 1,
@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: c.border,
   },
   backButton: {
     padding: 8,
@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 20,
     
     marginLeft: 12,
@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(155, 89, 182, 0.3)',
   },
   description: {
-    color: '#CCC',
+    color: c.textSecondary,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 24,
@@ -60,28 +60,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   inputLabel: {
-    color: '#9B59B6',
+    color: c.accent,
     fontSize: 14,
     
     fontFamily: 'Yoruka',
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
     fontFamily: 'Yoruka',
   },
   textarea: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: c.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    color: '#FFF',
+    color: c.textPrimary,
     fontSize: 16,
     borderWidth: 1,
     borderColor: 'rgba(155, 89, 182, 0.3)',
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   alertError: {
-    color: '#E74C3C',
+    color: c.danger,
     fontSize: 14,
     textAlign: 'center',
     fontFamily: 'Yoruka',
@@ -121,4 +121,3 @@ const styles = StyleSheet.create({
   },
 });
 
-export default styles;
