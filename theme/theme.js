@@ -1,5 +1,9 @@
 import { Dimensions, Platform } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { palettes, brand, space as tokenSpace, radius as tokenRadius } from './tokens';
+
+const D = palettes.dark;
+const L = palettes.light;
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -9,44 +13,44 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
  * gold for premium. Manga-panel borders and hard offset shadows give the anime feel.
  */
 export const colors = {
-  bg: '#0A0A14',
+  bg: D.bg,
   bgDeep: '#06060D',
-  surface: '#12121F',
-  surfaceHi: '#1A1A2C',
-  surfaceTop: '#232338',
-  line: 'rgba(255,255,255,0.08)',
-  lineStrong: 'rgba(255,255,255,0.16)',
+  surface: D.bgCard,
+  surfaceHi: D.bgCardAlt,
+  surfaceTop: D.surfaceTop,
+  line: D.border,
+  lineStrong: D.borderStrong,
 
-  primary: '#F36316', // brand vermilion
-  primaryHi: '#FF8A3D',
-  primaryDeep: '#C2410C',
-  sakura: '#FF4D8D',
-  electric: '#7C5CFF',
-  gold: '#FFC857',
-  mint: '#3DDC97',
-  danger: '#FF5470',
-  info: '#4CC9F0',
+  primary: D.accent, // brand vermilion
+  primaryHi: D.accentHi,
+  primaryDeep: D.accentDeep,
+  sakura: D.sakura,
+  electric: D.electric,
+  gold: D.gold,
+  mint: D.success,
+  danger: D.danger,
+  info: D.info,
 
-  text: '#FFFFFF',
-  textDim: '#C7C7DA',
-  textMute: '#8A8AA6',
-  textFaint: '#5B5B78',
-  onPrimary: '#FFFFFF',
-  scrim: 'rgba(5,5,12,0.72)',
+  text: D.textPrimary,
+  textDim: D.textSecondary,
+  textMute: D.textMuted,
+  textFaint: D.textFaint,
+  onPrimary: D.onAccent,
+  scrim: D.scrim,
 };
 
 export const gradients = {
-  primary: ['#FF8A3D', '#F36316', '#E0430E'],
+  primary: [brand.orangeHi, brand.orange, brand.orangeDeep],
   sakura: ['#FF7AB0', '#FF4D8D', '#C0266B'],
   electric: ['#9B85FF', '#7C5CFF', '#5036E0'],
-  gold: ['#FFE08A', '#FFC857', '#E29A1B'],
-  hero: ['rgba(10,10,20,0)', 'rgba(10,10,20,0.75)', '#0A0A14'],
-  card: ['rgba(10,10,20,0)', 'rgba(10,10,20,0.92)'],
-  banner: ['#2A1456', '#6A1B9A', '#F36316'],
+  gold: ['#FFE08A', brand.gold, '#E29A1B'],
+  hero: ['rgba(11,11,20,0)', 'rgba(11,11,20,0.75)', D.bg],
+  card: ['rgba(11,11,20,0)', 'rgba(11,11,20,0.92)'],
+  banner: ['#2A1456', '#6A1B9A', brand.orange],
 };
 
-export const space = { xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28, huge: 40 };
-export const radius = { sm: 8, md: 12, lg: 16, xl: 22, pill: 999 };
+export const space = tokenSpace;
+export const radius = tokenRadius;
 
 /** Display font = your existing 'Yoruka'; body falls back to the system font. */
 export const fonts = {
@@ -113,39 +117,39 @@ export const hitSlop = { top: 10, bottom: 10, left: 10, right: 10 };
  * blue brand accent instead of vermilion. Use via useMangaTheme() — the
  * static `colors`/`type`/`gradients` exports above remain the dark defaults. */
 const lightColors = {
-  bg: '#F6F3E4',
-  bgDeep: '#EFEAD2',
-  surface: '#FFFFFF',
-  surfaceHi: '#F5F2E2',
-  surfaceTop: '#EBE7CF',
+  bg: L.bg,
+  bgDeep: L.bgElevated,
+  surface: L.bgCard,
+  surfaceHi: L.bgCardAlt,
+  surfaceTop: L.surfaceTop,
   line: 'rgba(30, 41, 59, 0.10)',
-  lineStrong: 'rgba(30, 41, 59, 0.22)',
+  lineStrong: L.borderStrong,
 
-  primary: '#3B82F6',
-  primaryHi: '#60A5FA',
-  primaryDeep: '#2563EB',
-  sakura: '#DB2777',
-  electric: '#6D4AFF',
-  gold: '#B45309',
-  mint: '#0E9F6E',
-  danger: '#E11D48',
-  info: '#0284C7',
+  primary: L.accent,
+  primaryHi: L.accentHi,
+  primaryDeep: L.accentDeep,
+  sakura: L.sakura,
+  electric: L.electric,
+  gold: L.gold, // teal — light mode never uses orange/amber
+  mint: L.success,
+  danger: L.danger,
+  info: L.info,
 
-  text: '#1E293B',
-  textDim: '#475569',
-  textMute: '#64748B',
-  textFaint: '#94A3B8',
-  onPrimary: '#FFFFFF',
-  scrim: 'rgba(30, 41, 59, 0.5)',
+  text: L.textPrimary,
+  textDim: L.textSecondary,
+  textMute: L.textMuted,
+  textFaint: L.textFaint,
+  onPrimary: L.onAccent,
+  scrim: L.scrim,
 };
 
 const lightGradients = {
   primary: ['#60A5FA', '#3B82F6', '#2563EB'],
   sakura: ['#F472B6', '#DB2777', '#BE185D'],
   electric: ['#A78BFA', '#6D4AFF', '#4F46E5'],
-  gold: ['#FBBF24', '#D97706', '#B45309'],
-  hero: ['rgba(246,243,228,0)', 'rgba(246,243,228,0.8)', '#F6F3E4'],
-  card: ['rgba(246,243,228,0)', 'rgba(246,243,228,0.95)'],
+  gold: ['#22D3EE', '#0891B2', '#0E7490'],
+  hero: ['rgba(253,251,212,0)', 'rgba(253,251,212,0.8)', L.bg],
+  card: ['rgba(253,251,212,0)', 'rgba(253,251,212,0.95)'],
   banner: ['#1E3A8A', '#7C3AED', '#3B82F6'],
 };
 

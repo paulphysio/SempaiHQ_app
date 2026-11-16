@@ -1017,7 +1017,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 42,
-    backgroundColor: 'rgba(255,98,0,0.12)',
+    backgroundColor: 'rgba(243, 99, 22,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,

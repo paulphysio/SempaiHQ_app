@@ -1,185 +1,134 @@
 import { StyleSheet } from 'react-native';
+import { radius } from '../theme/tokens';
 
 /**
- * Theme-aware styles for GlobalNavbar.
- *
- * Mirrors the token pairs used by the web Navbar.module.css
- * ("Panel Gutter" navbar), so mobile light mode reads as the same
- * cream / electric-blue "Paper & Current" theme instead of a re-tinted
- * dark shell.
- *
- * Usage:
- *   const { colors, isDark } = useTheme();
- *   const styles = getGlobalNavbarStyles(colors, isDark);
+ * Global header — "Seal" bar. Theme colours come from useTheme().colors
+ * (theme/tokens.js); everything here is layout + depth.
  */
+export const HEADER_HEIGHT = 60;
+
 export const getGlobalNavbarStyles = (colors, isDark) =>
   StyleSheet.create({
     header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-      backgroundColor: colors.bgElevated,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.borderAccent,
       zIndex: 1000,
-      position: 'relative',
-      shadowColor: isDark ? '#000' : 'rgba(30,41,59,0.25)',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.3 : 0.12,
-      shadowRadius: 8,
-      elevation: 8,
+      backgroundColor: colors.bgElevated,
+      shadowColor: isDark ? colors.accent : '#1E293B',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: isDark ? 0.22 : 0.12,
+      shadowRadius: 14,
+      elevation: 10,
     },
-    gradientOverlay: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-    glowEffect: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: colors.accentSoft,
-      pointerEvents: 'none',
-    },
-    headerContent: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      width: '100%',
-      zIndex: 1,
-    },
-    brandContainer: {
+    surface: { ...StyleSheet.absoluteFillObject },
+    sealLine: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 1.5 },
+    sealGlow: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 10 },
+    row: {
+      height: HEADER_HEIGHT,
       flexDirection: 'row',
       alignItems: 'center',
+      paddingHorizontal: 14,
+    },
+
+    // ---- brand ----
+    brand: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
+    logoRing: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      padding: 2,
+      shadowColor: colors.accent,
+      shadowOpacity: 0.7,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 6,
+    },
+    logoInner: {
+      flex: 1,
+      borderRadius: 18,
+      overflow: 'hidden',
+      borderWidth: 2,
+      borderColor: colors.bgElevated,
+      backgroundColor: colors.bgCard,
+    },
+    logo: { width: '100%', height: '100%' },
+    wordmark: {
+      color: colors.textPrimary,
+      fontSize: 21,
+      fontFamily: 'Yoruka',
+      letterSpacing: 0.6,
+      textShadowColor: isDark ? `rgba(${colors.accentRgb}, 0.55)` : 'transparent',
+      textShadowRadius: 10,
+      textShadowOffset: { width: 0, height: 0 },
+    },
+    eyebrow: {
+      color: colors.accent,
+      fontSize: 9,
+      fontWeight: '800',
+      letterSpacing: 2.2,
+      marginTop: -1,
+    },
+
+    // ---- actions ----
+    actions: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
+
+    pill: {
+      height: 38,
+      borderRadius: 19,
+      overflow: 'hidden',
+      shadowOpacity: 0.5,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 5,
+    },
+    pillFill: {
+      height: '100%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 14,
       gap: 8,
     },
-    brand: {
-      alignItems: 'center',
+    pillGloss: { position: 'absolute', top: 1, left: 10, right: 10, height: 17, borderRadius: 19 },
+    pillRim: { ...StyleSheet.absoluteFillObject, borderRadius: 19, borderWidth: 1 },
+    pillText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.3 },
+    statusDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      shadowOpacity: 1,
+      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 0 },
     },
-    brandLogo: {
-      width: 28,
-      height: 28,
-      borderRadius: 6,
-      shadowColor: colors.accent,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4,
-      shadowRadius: 6,
+
+    // ---- wallet dropdown ----
+    dropdown: {
+      position: 'absolute',
+      top: HEADER_HEIGHT - 4,
+      right: 12,
+      width: 230,
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: isDark ? 0.55 : 0.2,
+      shadowRadius: 24,
+      elevation: 16,
+      zIndex: 1001,
     },
-    themeToggleBtn: {
+    dropdownHead: { padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border },
+    dropdownLabel: { color: colors.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 1.4 },
+    dropdownAddress: { color: colors.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 4 },
+    dropdownItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, minHeight: 46 },
+    dropdownIcon: {
       width: 28,
       height: 28,
       borderRadius: 14,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.accentSoft,
-      borderWidth: 1,
-      borderColor: colors.border,
     },
-    headerAuthRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      marginLeft: 'auto',
-    },
-    headerSignInBtn: {
-      overflow: 'hidden',
-      borderRadius: 16,
-      shadowColor: colors.accent,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.4,
-      shadowRadius: 6,
-      elevation: 4,
-    },
-    signInGradient: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      gap: 4,
-    },
-    headerSignInIcon: {
-      width: 14,
-      height: 14,
-      borderRadius: 2,
-      backgroundColor: '#fff',
-    },
-    headerSignInText: {
-      color: '#FFFFFF',
-      fontSize: 11,
-      letterSpacing: 0.2,
-      fontFamily: 'Yoruka',
-    },
-    headerWalletBtn: {
-      overflow: 'hidden',
-      borderRadius: 16,
-      borderWidth: 1,
-      borderColor: colors.borderAccent,
-    },
-    walletGradient: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      gap: 4,
-    },
-    headerWalletText: {
-      color: '#FFFFFF',
-      fontSize: 11,
-      fontFamily: 'Yoruka',
-    },
-    signOutBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: colors.accentSoft,
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      borderRadius: 10,
-      gap: 4,
-      borderWidth: 1,
-      borderColor: colors.borderAccent,
-    },
-    signOutText: {
-      color: colors.accent,
-      fontSize: 11,
-      fontFamily: 'Yoruka',
-    },
-    walletDropdown: {
-      position: 'absolute',
-      top: '100%',
-      right: 0,
-      marginTop: 6,
-      backgroundColor: colors.bgElevated,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.border,
-      shadowColor: isDark ? '#000' : 'rgba(30,41,59,0.3)',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.5 : 0.18,
-      shadowRadius: 12,
-      elevation: 8,
-      zIndex: 1001,
-      minWidth: 130,
-    },
-    walletDropdownItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      gap: 8,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    walletDropdownText: {
-      color: colors.textPrimary,
-      fontSize: 12,
-      fontFamily: 'Yoruka',
-    },
+    dropdownText: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
+    pressed: { backgroundColor: colors.bgCardAlt },
   });
 
 export default getGlobalNavbarStyles;

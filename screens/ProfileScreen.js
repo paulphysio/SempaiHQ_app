@@ -39,6 +39,7 @@ import {
   SpeechBubble,
   InkButton,
 } from '../components/MangaUI';
+import { toast } from '../components/Toast';
 
 // ---------------------------------------------------------------------------------------------
 // Cosmetic "reader rank", derived from total reading time. Thresholds are in seconds; tweak freely.
@@ -243,7 +244,7 @@ const ProfileScreen = () => {
 
   const openUrl = (url) => {
     if (!url) return;
-    Linking.openURL(url).catch(() => Alert.alert('Could not open link', url));
+    Linking.openURL(url).catch(() => toast.error(`Could not open link — ${url}`));
   };
 
   const copyWallet = async () => {
@@ -689,7 +690,7 @@ const ProfileScreen = () => {
       >
         <StaggerIn index={0} base={0} reduceMotion={reduceMotion} from={-16}>
           <View style={styles.titleWrap}>
-            <Text style={styles.title}>CREATOR PROFILE</Text>
+            <Text style={styles.title}>MY PROFILE</Text>
             <View style={styles.titleSlashRow}>
               <View style={styles.titleSlash} />
               <View style={styles.titleSlashThin} />

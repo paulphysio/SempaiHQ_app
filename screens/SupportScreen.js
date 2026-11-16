@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { supabase } from '../services/supabaseClient';
+import { FontAwesome5 as Icon } from '@expo/vector-icons';
 import { getSupportStyles } from '../styles/SupportStyles';
 import { useTheme } from '../context/ThemeContext';
 

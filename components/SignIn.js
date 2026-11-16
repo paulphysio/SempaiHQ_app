@@ -1,97 +1,69 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Image, Linking, ActivityIndicator, Alert } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, Pressable, Linking, ActivityIndicator, FlatList, Animated, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import { useSystemUi } from '../context/SystemUiContext';
-import ConnectButton from './ConnectButton';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
 import TokenClaimModal from './TokenClaimModal';
 import GoogleSignInButton from './GoogleSignInButton';
-import { getSignInStyles } from '../styles/SignInStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from './Toast';
+import GelOrb from './nav/GelOrb';
+import { BrandBackdrop, BrandMark, SCREEN_W } from './brand/Brand';
+import { radius, space } from '../theme/tokens';
+import { haptics } from '../utils/haptics';
 
-const SignIn = ({ onSkip, onWalletConnect }) => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getSignInStyles(colors), [isDark]);
+/*
+ * First-timer screen (shown after the intro to anyone not signed in).
+ * Brand mark → three swipeable "what you get" slides → Google / guest.
+ */
+const SLIDES = [
+  {
+    icon: 'book-open',
+    title: 'Stories that pay you back',
+    body: 'Read novels and manga from independent creators — and earn SMP for every chapter you finish.',
+  },
+  {
+    icon: 'gem',
+    title: 'Own what you love',
+    body: 'Unlock chapters, collect creator badges and support writers directly on Solana.',
+  },
+  {
+    icon: 'cloud-download-alt',
+    title: 'Read anywhere',
+    body: 'Save novels offline and pick up exactly where you left off, on any device.',
+  },
+];
+
+const CARD_W = SCREEN_W - space.lg * 2;
+
+const SignIn = ({ onSkip }) => {
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation();
-  const { loading: googleLoading, session, error: googleError } = useGoogleAuth();
-  const { signIn: appSignIn, skipSignIn, user, isAuthenticated, signOut } = useAuth();
+  const { loading: googleLoading, session } = useGoogleAuth();
+  const { signIn: appSignIn, skipSignIn, user, isAuthenticated } = useAuth();
   const { setIsSystemUiVisible } = useSystemUi();
-  const [walletLoading, setWalletLoading] = useState(false);
-  const [walletAddress, setWalletAddress] = useState(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
+  const [slide, setSlide] = useState(0);
+  const [skipping, setSkipping] = useState(false);
+  const enter = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const syncAuthState = async () => {
-      if (session?.user && !user) {
-        await appSignIn(session.user);
-      }
-    };
-    syncAuthState();
+    Animated.spring(enter, { toValue: 1, useNativeDriver: true, speed: 10, bounciness: 6 }).start();
+  }, [enter]);
+
+  useEffect(() => {
+    if (session?.user && !user) appSignIn(session.user);
   }, [session, user, appSignIn]);
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      navigation.replace('Home');
-    }
-  }, [isAuthenticated, user, navigation]);
-
-  const handleSkip = async () => {
-    try {
-      await skipSignIn();
-      if (onSkip) {
-        onSkip();
-      }
-    } catch (error) {
-      console.error('Error skipping sign in:', error);
-      Alert.alert('Error', 'Failed to skip sign in. Please try again.');
-    }
-  };
-
-  const handleConnect = async () => {
-    try {
-      setWalletLoading(true);
-    } catch (error) {
-      console.error('Wallet connection error:', error);
-      Alert.alert('Connection Error', 'Failed to connect wallet. Please try again.');
-    } finally {
-      setWalletLoading(false);
-    }
-  };
-
-  const handleDisconnect = () => {
-    setWalletAddress(null);
-    if (onWalletConnect) {
-      onWalletConnect(null);
-    }
-  };
 
   useEffect(() => {
     setIsSystemUiVisible(false);
     return () => setIsSystemUiVisible(true);
   }, [setIsSystemUiVisible]);
-
-  useEffect(() => {
-    if (user?.wallet_address) {
-      setWalletAddress(user.wallet_address);
-      if (onWalletConnect) {
-        onWalletConnect(user.wallet_address);
-      }
-    }
-  }, [user, onWalletConnect]);
-
-  const handleWalletConnect = useCallback(
-    (keypair) => {
-      const address = keypair.publicKey.toString();
-      setWalletAddress(address);
-      if (onWalletConnect) {
-        onWalletConnect(address);
-      }
-      navigation.replace('Home');
-    },
-    [onWalletConnect, navigation]
-  );
 
   const handleSuccessfulSignIn = useCallback(async () => {
     try {
@@ -103,12 +75,7 @@ const SignIn = ({ onSkip, onWalletConnect }) => {
 
       if (!userHistory?.first_login) {
         setShowTokenModal(true);
-        await supabase
-          .from('user_activity')
-          .upsert({
-            user_id: user.id,
-            first_login: new Date().toISOString(),
-          });
+        await supabase.from('user_activity').upsert({ user_id: user.id, first_login: new Date().toISOString() });
       } else {
         navigation.replace('Home');
       }
@@ -119,139 +86,136 @@ const SignIn = ({ onSkip, onWalletConnect }) => {
   }, [user, navigation]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      handleSuccessfulSignIn();
-    }
+    if (isAuthenticated && user) handleSuccessfulSignIn();
   }, [isAuthenticated, user, handleSuccessfulSignIn]);
 
-  if (isAuthenticated) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.content}>
-          <View style={styles.profileContainer}>
-            {user?.picture ? (
-              <Image source={{ uri: user.picture }} style={styles.profileImage} />
-            ) : (
-              <View style={[styles.profileImage, styles.profilePlaceholder]}>
-                <Text style={styles.profileInitial}>
-                  {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
-                </Text>
-              </View>
-            )}
-            <Text style={styles.userName}>{user?.name || user?.email?.split('@')[0] || 'User'}</Text>
-            <Text style={styles.userEmail}>{user?.email}</Text>
-            <GoogleSignInButton />
-          </View>
+  const handleSkip = async () => {
+    haptics.tap();
+    setSkipping(true);
+    try {
+      await skipSignIn();
+      onSkip?.();
+    } catch (error) {
+      console.error('Error skipping sign in:', error);
+      toast.error('Could not continue as a guest. Please try again.');
+      setSkipping(false);
+    }
+  };
 
-          {!walletAddress && (
-            <View style={styles.walletSection}>
-              <Text style={styles.sectionTitle}>Connect Your Wallet</Text>
-              <ConnectButton onConnect={handleWalletConnect} onDisconnect={handleDisconnect} />
-            </View>
-          )}
-
-          <View style={styles.termsContainer}>
-            <Text style={styles.termsText}>
-              By connecting your wallet, you agree to our{' '}
-              <Text
-                style={styles.termsLink}
-                onPress={() => Linking.openURL('https://www.sempaihq.com/terms')}
-              >
-                Terms of Service
-              </Text>
-              {' '}and{' '}
-              <Text
-                style={styles.termsLink}
-                onPress={() => Linking.openURL('https://www.sempaihq.com/privacy-policy')}
-              >
-                Privacy Policy
-              </Text>
-            </Text>
-          </View>
-        </View>
-
-        <TokenClaimModal visible={showTokenModal} onClose={() => setShowTokenModal(false)} />
-      </View>
-    );
-  }
+  const busy = googleLoading || skipping || isAuthenticated;
+  const rise = (from) => ({
+    opacity: enter,
+    transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [from, 0] }) }],
+  });
 
   return (
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome to SempaiHQ</Text>
+    <BrandBackdrop>
+      <View style={[styles.root, { paddingTop: insets.top + space.xl, paddingBottom: insets.bottom + space.lg }]}>
+        <Animated.View style={[styles.top, rise(-12)]}>
+          <BrandMark size={96} />
+        </Animated.View>
 
-       
-
-        <View style={styles.dividerContainer}>
-          <View style={styles.divider} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.divider} />
-        </View>
-
-        <GoogleSignInButton />
-
-        <TouchableOpacity
-          style={[styles.authButton, styles.twitterButton]}
-          onPress={() => Alert.alert('Coming Soon', 'Twitter sign-in will be available soon!')}
-          disabled={googleLoading || walletLoading}
-        >
-          <Image
-            source={{ uri: 'https://abs.twimg.com/responsive-web/client-web/icon-ios.svg' }}
-            style={styles.icon}
+        {/* what you get */}
+        <Animated.View style={rise(18)}>
+          <FlatList
+            data={SLIDES}
+            keyExtractor={(s) => s.title}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => setSlide(Math.round(e.nativeEvent.contentOffset.x / SCREEN_W))}
+            renderItem={({ item }) => (
+              <View style={{ width: SCREEN_W, paddingHorizontal: space.lg }}>
+                <View style={[styles.card, { width: CARD_W, backgroundColor: colors.bgCard, borderColor: colors.borderStrong }]}>
+                  <LinearGradient
+                    colors={[`rgba(${colors.accentRgb},${isDark ? 0.18 : 0.10})`, 'rgba(0,0,0,0)']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <View pointerEvents="none">
+                    <GelOrb icon={item.icon} size={52} lit breathe={false} />
+                  </View>
+                  <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>{item.title}</Text>
+                  <Text style={[styles.cardBody, { color: colors.textSecondary }]}>{item.body}</Text>
+                </View>
+              </View>
+            )}
           />
-          <Text style={styles.buttonText}>Continue with Twitter</Text>
-        </TouchableOpacity>
-
-        {!walletAddress && (
-          <TouchableOpacity
-            style={styles.skipButton}
-            onPress={handleSkip}
-            disabled={googleLoading || walletLoading}
-          >
-            <Text style={styles.skipButtonText}>Skip for now</Text>
-          </TouchableOpacity>
-        )}
-
-        {(googleLoading || walletLoading) && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.accent} />
-            <Text style={styles.loadingText}>
-              {googleLoading ? 'Signing you in...' : 'Connecting wallet...'}
-            </Text>
+          <View style={styles.dots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {SLIDES.map((s, i) => (
+              <View
+                key={s.title}
+                style={[styles.dot, { backgroundColor: colors.borderStrong }, i === slide && { width: 18, backgroundColor: colors.accent }]}
+              />
+            ))}
           </View>
-        )}
+        </Animated.View>
 
-        {walletAddress && (
-          <View style={styles.connectedWallet}>
-            <Text style={styles.connectedText}>
-              Connected: {`${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.termsContainer}>
-          <Text style={styles.termsText}>
-            By continuing, you agree to our{' '}
-            <Text
-              style={styles.termsLink}
-              onPress={() => Linking.openURL('https://www.sempaihq.com/terms')}
-            >
-              Terms of Service
-            </Text>
-            {' '}and{' '}
-            <Text
-              style={styles.termsLink}
-              onPress={() => Linking.openURL('https://www.sempaihq.com/privacy-policy')}
-            >
+        {/* actions */}
+        <Animated.View style={[styles.actions, rise(24)]}>
+          {isAuthenticated ? (
+            <View style={styles.signingIn}>
+              <ActivityIndicator color={colors.accent} />
+              <Text style={[styles.signingText, { color: colors.textSecondary }]}>Signing you in…</Text>
+            </View>
+          ) : (
+            <>
+              <GoogleSignInButton />
+              <Pressable
+                onPress={handleSkip}
+                disabled={busy}
+                style={({ pressed }) => [styles.guest, { borderColor: colors.borderStrong }, pressed && { opacity: 0.7 }, busy && { opacity: 0.5 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Explore as a guest"
+              >
+                {skipping ? (
+                  <ActivityIndicator color={colors.textPrimary} size="small" />
+                ) : (
+                  <Text style={[styles.guestText, { color: colors.textPrimary }]}>Explore as a guest</Text>
+                )}
+              </Pressable>
+            </>
+          )}
+          <Text style={[styles.terms, { color: colors.textMuted }]}>
+            By continuing you agree to our{' '}
+            <Text style={{ color: colors.accent, fontWeight: '700' }} onPress={() => Linking.openURL('https://www.sempaihq.com/terms')}>
+              Terms
+            </Text>{' '}
+            and{' '}
+            <Text style={{ color: colors.accent, fontWeight: '700' }} onPress={() => Linking.openURL('https://www.sempaihq.com/privacy-policy')}>
               Privacy Policy
             </Text>
+            .
           </Text>
-        </View>
+        </Animated.View>
       </View>
 
       <TokenClaimModal visible={showTokenModal} onClose={() => setShowTokenModal(false)} />
-    </View>
+    </BrandBackdrop>
   );
 };
+
+const styles = StyleSheet.create({
+  root: { flex: 1, justifyContent: 'space-between' },
+  top: { alignItems: 'center' },
+  card: {
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    padding: space.xl,
+    overflow: 'hidden',
+    minHeight: 200,
+  },
+  cardTitle: { fontFamily: 'Yoruka', fontSize: 24, lineHeight: 29, marginTop: space.md },
+  cardBody: { fontSize: 15, lineHeight: 22, marginTop: 8 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: space.md },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  actions: { paddingHorizontal: space.lg, gap: space.md },
+  guest: { height: 52, borderRadius: 26, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  guestText: { fontSize: 16, fontWeight: '700' },
+  signingIn: { height: 116, alignItems: 'center', justifyContent: 'center', gap: 10 },
+  signingText: { fontSize: 15, fontWeight: '600' },
+  terms: { fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 4 },
+});
 
 export default SignIn;

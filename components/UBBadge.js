@@ -46,7 +46,7 @@ const UBBadge = ({ type = 'writer', size = 'medium', showLabel = false, onPress 
   const getBadgeColor = (badgeType) => {
     switch (badgeType.toLowerCase()) {
       case 'artist':
-        return '#FF6B35'; // Orange for artist
+        return '#FF8A3D'; // Orange for artist
       case 'writer':
       default:
         return '#D94F04'; // Dark orange for writer

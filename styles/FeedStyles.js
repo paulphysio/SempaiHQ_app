@@ -8,6 +8,7 @@
 // Light mode converts orange accents to blue (matching HomeStyles pattern).
 
 import { StyleSheet, Platform } from 'react-native';
+import { palettes } from '../theme/tokens';
 
 // ---------------------------------------------------------------------------
 // Design tokens
@@ -15,63 +16,54 @@ import { StyleSheet, Platform } from 'react-native';
 // Dark mode uses warm orange accents, light mode uses cool blue accents.
 // Both share the same structural design language.
 
+// Feed palette — derived from the shared tokens (was its own orange #D94F04 + blue).
 const PALETTE = {
   dark: {
-    bg: '#0A0A18',
-    bgElevated: '#1A1A2E',
-    bgCard: '#15161F',
-    bgInput: 'rgba(74, 144, 226, 0.1)',
-
-    accent: '#D94F04',
-    accentDeep: '#B84300',
-    accentBright: '#FF6B35',
-    accentSoft: 'rgba(217, 79, 4, 0.12)',
-    accentGlow: 'rgba(217, 79, 4, 0.35)',
-
-    primary: '#4A90E2',
-    primarySoft: 'rgba(74, 144, 226, 0.1)',
-    primaryBorder: 'rgba(74, 144, 226, 0.3)',
-
-    textPrimary: '#FFFFFF',
-    textSecondary: '#CCCCCC',
-    textMuted: '#888888',
-
-    border: 'rgba(255, 255, 255, 0.1)',
-    borderAccent: 'rgba(217, 79, 4, 0.3)',
-
-    danger: '#E74C3C',
-    success: '#27AE60',
-
-    overlay: 'rgba(0, 0, 0, 0.8)',
+    bg: palettes.dark.bg,
+    bgElevated: palettes.dark.bgCardAlt,
+    bgCard: palettes.dark.bgCard,
+    bgInput: palettes.dark.accentSoft,
+    accent: palettes.dark.accent,
+    accentDeep: palettes.dark.accentDeep,
+    accentBright: palettes.dark.accentHi,
+    accentSoft: palettes.dark.accentSoft,
+    accentGlow: palettes.dark.accentGlow,
+    // "primary" was a second, off-brand blue in dark mode; it now follows the brand
+    primary: palettes.dark.accent,
+    primarySoft: palettes.dark.accentSoft,
+    primaryBorder: palettes.dark.borderAccent,
+    textPrimary: palettes.dark.textPrimary,
+    textSecondary: palettes.dark.textSecondary,
+    textMuted: palettes.dark.textMuted,
+    border: palettes.dark.border,
+    borderAccent: palettes.dark.borderAccent,
+    danger: palettes.dark.danger,
+    success: palettes.dark.success,
+    overlay: palettes.dark.scrim,
     shadow: '#000000',
   },
   light: {
-    bg: '#FDFBD4',
-    bgElevated: '#ffffff',
-    bgCard: '#f8f8e8',
-    bgInput: 'rgba(59, 130, 246, 0.08)',
-
-    accent: '#3b82f6',
-    accentDeep: '#2563eb',
-    accentBright: '#60a5fa',
-    accentSoft: 'rgba(59, 130, 246, 0.12)',
-    accentGlow: 'rgba(59, 130, 246, 0.35)',
-
-    primary: '#3b82f6',
-    primarySoft: 'rgba(59, 130, 246, 0.08)',
-    primaryBorder: 'rgba(59, 130, 246, 0.25)',
-
-    textPrimary: '#1e293b',
-    textSecondary: '#475569',
-    textMuted: '#64748b',
-
-    border: 'rgba(59, 130, 246, 0.15)',
-    borderAccent: 'rgba(59, 130, 246, 0.3)',
-
-    danger: '#ef4444',
-    success: '#22c55e',
-
-    overlay: 'rgba(38, 30, 18, 0.55)',
+    bg: palettes.light.bg,
+    bgElevated: palettes.light.bgCardAlt,
+    bgCard: palettes.light.bgCard,
+    bgInput: palettes.light.accentSoft,
+    accent: palettes.light.accent,
+    accentDeep: palettes.light.accentDeep,
+    accentBright: palettes.light.accentHi,
+    accentSoft: palettes.light.accentSoft,
+    accentGlow: palettes.light.accentGlow,
+    // "primary" was a second, off-brand blue in dark mode; it now follows the brand
+    primary: palettes.light.accent,
+    primarySoft: palettes.light.accentSoft,
+    primaryBorder: palettes.light.borderAccent,
+    textPrimary: palettes.light.textPrimary,
+    textSecondary: palettes.light.textSecondary,
+    textMuted: palettes.light.textMuted,
+    border: palettes.light.border,
+    borderAccent: palettes.light.borderAccent,
+    danger: palettes.light.danger,
+    success: palettes.light.success,
+    overlay: palettes.light.scrim,
     shadow: 'rgba(0, 0, 0, 0.1)',
   },
 };

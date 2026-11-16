@@ -17,6 +17,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const LeaderboardScreen = () => {
   const { isDark, colors } = useTheme();
@@ -124,14 +125,7 @@ const LeaderboardScreen = () => {
   }, [timeFrame]);
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading leaderboard…</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="list" label="Loading leaderboard" />;
   }
 
   if (error) {
@@ -385,7 +379,7 @@ const LeaderboardScreen = () => {
 };
 
 const COLORS = {
-  bg: '#0A0A14',
+  bg: '#0B0B14',
   surface: '#14131F',
   surfaceRaised: '#1C1A2B',
   line: 'rgba(255,255,255,0.08)',

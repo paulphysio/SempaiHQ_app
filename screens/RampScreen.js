@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const RampScreen = () => {
   const { isDark, colors } = useTheme();
@@ -40,7 +41,7 @@ const RampScreen = () => {
   const handleBuyCrypto = async (providerId) => {
     if (providerId === 'moonpay') {
       if (!isWalletConnected) {
-        alert('Please connect your wallet first');
+        toast.error('Please connect your wallet first');
         return;
       }
       
@@ -75,7 +76,7 @@ const RampScreen = () => {
         });
       } catch (error) {
         console.error('[RampScreen] Error opening MoonPay:', error);
-        alert(`Failed to open MoonPay: ${error.message}. Please try again.`);
+        toast.error(`Could not open MoonPay: ${error.message}`);
       }
     }
   };

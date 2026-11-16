@@ -1,32 +1,32 @@
-import React, { useState, useEffect, useMemo, useContext, useCallback } from 'react';
-import { View, Text, Image, FlatList, SafeAreaView, StatusBar, Alert, ScrollView, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useMemo, useContext, useCallback, useRef } from 'react';
+import { View, Text, FlatList, RefreshControl, Animated } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import Icon from 'react-native-vector-icons/FontAwesome5';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { PublicKey } from '@solana/web3.js';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import ConnectButton from '../components/ConnectButtonEnhanced';
 import MangaDetailCommentSection from '../components/MangaDetailCommentSection';
 import { formatNumber } from '../utils/formatNumber';
 import { getContentReadingProgress } from '../services/readingProgress';
 import { useTheme } from '../context/ThemeContext';
-import {
-  Screen, AppBar, IconButton, Chip, Tap, StatusBadge, AdultBadge, GradientButton, GhostButton,
-  SectionHeader, Toast, Skeleton, EmptyState, WalletPill, Sheet, StatTile, Divider,
-} from '../components/ui';
-import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
-import { getStyles as getDetailStyles } from '../styles/MangaDetailStyles';
+import { EmptyState, Sheet, StatTile, GhostButton } from '../components/ui';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { cacheSet, cacheValue } from '../services/localCache';
+import { isErrorNetworkError } from '../services/offlineCache';
+import { toast } from '../components/Toast';
+import { space } from '../theme/tokens';
+import { DetailHero, ChapterRow, TagRow, makeDetailStyles, STATUS, formatCount } from '../components/detail/DetailKit';
+import { BOTTOM_NAV_CLEARANCE } from '../components/GlobalBottomNav';
 
+/*
+ * Same layout as Novel Detail (components/detail/DetailKit), which mirrors
+ * <ScreenSkeleton variant="detail" /> block for block.
+ */
 const MangaDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params || {};
-  const { isDark, colors: themeColors } = useTheme();
-  const mangaTheme = useMangaTheme();
-  const { colors, gradients, type } = mangaTheme;
-  const styles = useMemo(() => getDetailStyles(mangaTheme), [mangaTheme]);
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => makeDetailStyles(colors, isDark), [colors, isDark]);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;
@@ -38,62 +38,73 @@ const MangaDetailScreen = () => {
   const [walletOpen, setWalletOpen] = useState(false);
   const [balance, setBalance] = useState(0);
   const [weeklyPoints, setWeeklyPoints] = useState(0);
-  const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [newestFirst, setNewestFirst] = useState(false);
   const [userId, setUserId] = useState(null);
   const [readingProgress, setReadingProgress] = useState(null);
-
-  const flashError = (msg) => {
-    setError(msg);
-    setTimeout(() => setError(null), 5000);
-  };
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const hasLoaded = useRef(false);
 
   const activePublicKey = useMemo(() => {
     try {
-      if (!wallet?.publicKey) return null;
-      return new PublicKey(wallet.publicKey);
+      return wallet?.publicKey ? new PublicKey(wallet.publicKey) : null;
     } catch (err) {
       console.error('Error creating PublicKey:', err);
-      flashError('Invalid wallet public key.');
       return null;
     }
   }, [wallet?.publicKey]);
 
   const fetchMangaDetails = async () => {
     try {
-      const { data: mangaData, error: mangaError } = await supabase
-        .from('manga')
-        .select('id, title, cover_image, summary, user_id, users:user_id (name), tags, status')
-        .eq('id', id)
-        .eq('is_visible', true)
-        .single();
-      if (mangaError) throw mangaError;
+      // Series + chapters are independent: fetch them together.
+      const [mangaRes, chaptersRes] = await Promise.all([
+        supabase
+          .from('manga')
+          .select('id, title, cover_image, summary, user_id, users:user_id (name), tags, status, viewers_count')
+          .eq('id', id)
+          .eq('is_visible', true)
+          .single(),
+        supabase
+          .from('manga_chapters')
+          .select('id, chapter_number, title, is_premium')
+          .eq('manga_id', id)
+          .order('chapter_number', { ascending: true }),
+      ]);
+      if (mangaRes.error) throw mangaRes.error;
+      if (chaptersRes.error) throw chaptersRes.error;
 
-      const { data: chaptersData, error: chaptersError } = await supabase
-        .from('manga_chapters')
-        .select('id, chapter_number, title, is_premium')
-        .eq('manga_id', id)
-        .order('chapter_number', { ascending: true });
-      if (chaptersError) throw chaptersError;
-
-      setManga(mangaData);
-      setChapters(chaptersData || []);
+      setManga(mangaRes.data);
+      setChapters(chaptersRes.data || []);
+      setLoadError(null);
+      Animated.timing(contentFade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+      cacheSet(`manga:${id}`, { manga: mangaRes.data, chapters: chaptersRes.data || [] });
     } catch (e) {
-      console.error('Error fetching manga details:', e.message);
-      flashError(e.message);
+      // Offline / flaky connection: open the last copy of this page we saw.
+      const cached = await cacheValue(`manga:${id}`);
+      if (cached?.manga) {
+        setManga(cached.manga);
+        setChapters(cached.chapters || []);
+        setLoadError(null);
+        Animated.timing(contentFade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+        if (hasLoaded.current) toast.info('You’re offline — showing the last saved copy of this page.');
+        return;
+      }
+      console.warn('Error fetching manga details:', e.message);
+      setLoadError(isErrorNetworkError(e) ? 'You’re offline and this series isn’t on your device yet.' : e.message);
+      if (hasLoaded.current) toast.error(`Could not refresh — ${e.message}`);
     }
   };
 
   const checkBalance = async () => {
-    if (!wallet?.publicKey || !activePublicKey) return;
+    if (!activePublicKey) return;
     try {
       const { data: user, error: userErr } = await supabase
         .from('users')
         .select('id, weekly_points')
         .eq('wallet_address', activePublicKey.toString())
         .single();
-      if (userErr || !user) throw new Error('User not found');
+      if (userErr || !user) return;
       setUserId(user.id);
       setWeeklyPoints(user.weekly_points || 0);
 
@@ -108,18 +119,21 @@ const MangaDetailScreen = () => {
       setBalance(walletBalance?.amount || 0);
     } catch (e) {
       console.error('Error checking balance:', e.message);
-      flashError(e.message);
     }
   };
 
   useEffect(() => {
-    setLoading(true);
+    // Skeleton only on the first load — wallet changes refresh in place.
+    if (!hasLoaded.current) setLoading(true);
     const jobs = [fetchMangaDetails()];
     if (isWalletConnected && activePublicKey) jobs.push(checkBalance());
-    Promise.all(jobs).finally(() => setLoading(false));
+    Promise.all(jobs).finally(() => {
+      hasLoaded.current = true;
+      setLoading(false);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isWalletConnected, activePublicKey]);
 
-  // Pull-to-refresh: same jobs as the mount effect, without touching `loading`.
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -132,18 +146,20 @@ const MangaDetailScreen = () => {
   };
 
   // Reading progress: last-read chapter + page position for this series.
+  const loadProgress = useCallback(async () => {
+    if (!userId || !id) {
+      setReadingProgress(null);
+      return;
+    }
+    setReadingProgress(await getContentReadingProgress(userId, 'manga', id));
+  }, [userId, id]);
+
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      if (!userId || !id) {
-        if (alive) setReadingProgress(null);
-        return;
-      }
-      const row = await getContentReadingProgress(userId, 'manga', id);
-      if (alive) setReadingProgress(row);
-    })();
-    return () => { alive = false; };
-  }, [userId, id, refreshing]);
+    loadProgress();
+  }, [loadProgress, refreshing]);
+
+  // Refresh progress when coming back from the reader.
+  useEffect(() => navigation.addListener('focus', loadProgress), [navigation, loadProgress]);
 
   const openChapter = useCallback(
     (chapterId) => navigation.navigate('MangaChapter', { mangaId: id, chapterId }),
@@ -151,223 +167,162 @@ const MangaDetailScreen = () => {
   );
 
   const shownChapters = useMemo(() => (newestFirst ? [...chapters].reverse() : chapters), [chapters, newestFirst]);
-  const freeCount = chapters.filter((c) => !c.is_premium).length;
-  const premiumCount = chapters.length - freeCount;
   const first = chapters[0];
   const latest = chapters[chapters.length - 1];
+  const resumeKey = readingProgress ? String(readingProgress.chapter_key) : null;
+  const resumePct = readingProgress ? Math.max(0, Math.min(100, Number(readingProgress.scroll_pct) || 0)) : 0;
 
-  /* ───── header (hero) ───── */
-  const hero = manga ? (
-    <View>
-      <View style={styles.heroWrap}>
-        <Image source={{ uri: manga.cover_image }} style={styles.heroBackdrop} blurRadius={22} />
-        <LinearGradient colors={gradients.hero} style={StyleSheet_abs} />
-        <Animated.View entering={FadeInDown.duration(450)} style={styles.heroBody}>
-          <View style={[styles.coverShadow, glow(colors.primary, 0.4)]}>
-            <Image source={{ uri: manga.cover_image }} style={styles.cover} resizeMode="cover" />
-          </View>
-          <Text style={styles.title}>{manga.title}</Text>
-          <Tap onPress={() => navigation.navigate('CreatorsProfile', { userId: manga.user_id })} style={styles.authorRow}>
-            <Icon name="paint-brush" size={12} color={colors.primaryHi} />
-            <Text style={styles.author}>{manga.users?.name || 'Unknown'}</Text>
-            <Icon name="chevron-right" size={9} color={colors.textMute} style={{ marginLeft: 6 }} />
-          </Tap>
-          <View style={styles.badgeRow}>
-            <StatusBadge value={manga.status || 'ongoing'} />
-            {manga.tags?.includes('Adult(18+)') ? <AdultBadge /> : null}
-          </View>
-        </Animated.View>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.statRow}>
-          <StatTile icon="layer-group" label="Chapters" value={chapters.length} color={colors.electric} />
-          <View style={{ width: space.sm }} />
-          <StatTile icon="unlock" label="Free" value={freeCount} color={colors.mint} />
-          <View style={{ width: space.sm }} />
-          <StatTile icon="crown" label="Premium" value={premiumCount} color={colors.gold} />
-        </View>
-
-        <View style={styles.ctaRow}>
-          <View style={{ flex: 1 }}>
-            <GradientButton
-              size="lg"
-              icon={readingProgress ? 'play' : 'book-open'}
-              label={
-                readingProgress
-                  ? `Continue · Ch.${readingProgress.chapter_number ?? '—'}`
-                  : first
-                  ? 'Start Reading'
-                  : 'No chapters yet'
-              }
-              disabled={!readingProgress && !first}
-              onPress={() =>
-                readingProgress ? openChapter(readingProgress.chapter_key) : first && openChapter(first.id)
-              }
-            />
-          </View>
-          {latest && chapters.length > 1 ? (
-            <View style={{ marginLeft: space.sm }}>
-              <GhostButton
-                full={false}
-                label="Latest"
-                icon="fast-forward"
-                style={styles.latestBtn}
-                onPress={() => openChapter(latest.id)}
-              />
-            </View>
-          ) : null}
-        </View>
-
-        <Text style={type.label}>Synopsis</Text>
-        <Text style={styles.summary} numberOfLines={expanded ? undefined : 4}>{manga.summary}</Text>
-        {manga.summary?.length > 180 ? (
-          <Tap onPress={() => setExpanded((v) => !v)} style={{ alignSelf: 'flex-start', marginTop: 6 }}>
-            <Text style={styles.more}>{expanded ? 'Show less' : 'Read more'}</Text>
-          </Tap>
-        ) : null}
-
-        {manga.tags?.length ? (
-          <View style={styles.tagWrap}>
-            {manga.tags.map((tag) => (
-              <Chip key={tag} label={tag} color={tag === 'Adult(18+)' ? colors.danger : colors.primary} />
-            ))}
-          </View>
-        ) : null}
-
-        <Divider />
-        <SectionHeader
-          title="Chapters"
-          icon="list-ul"
-          accent={colors.electric}
-          action={chapters.length > 1 ? (newestFirst ? 'Oldest first' : 'Newest first') : undefined}
-          onAction={() => setNewestFirst((v) => !v)}
-        />
-      </View>
-    </View>
-  ) : null;
-
-  const renderChapter = useCallback(
-    ({ item, index }) => (
-      <Animated.View entering={FadeInDown.delay(Math.min(index, 10) * 35).duration(300)} style={styles.chapterWrap}>
-        <Tap onPress={() => openChapter(item.id)} scaleTo={0.985} style={styles.chapterRow} accessibilityLabel={`Open chapter ${item.chapter_number}`}>
-          <View style={[styles.chapterNum, item.is_premium && { backgroundColor: colors.gold + '22', borderColor: colors.gold + '88' }]}>
-            <Text style={[styles.chapterNumText, item.is_premium && { color: colors.gold }]}>{item.chapter_number}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text numberOfLines={1} style={styles.chapterTitle}>{item.title || `Chapter ${item.chapter_number}`}</Text>
-            {readingProgress && String(readingProgress.chapter_key) === String(item.id) ? (
-              <Text style={{ ...type.caption, color: colors.primaryHi, fontWeight: '700' }}>
-                Resume · {Math.round(Math.max(0, Math.min(100, Number(readingProgress.scroll_pct) || 0)))}%
-              </Text>
-            ) : (
-              <Text style={type.caption}>{item.is_premium ? 'Premium · unlock to read' : 'Free to read'}</Text>
-            )}
-          </View>
-          <Icon name={item.is_premium ? 'lock' : 'chevron-right'} size={14} color={item.is_premium ? colors.gold : colors.textMute} solid />
-        </Tap>
-      </Animated.View>
-    ),
-    [openChapter, readingProgress]
-  );
-
-  const footer = manga ? (
-    <View>
-      <MangaDetailCommentSection
-        mangaId={manga.id}
-        mangaTitle={manga.title}
-        isWalletConnected={isWalletConnected}
-        activePublicKey={activePublicKey}
-      />
-      <View style={styles.footer}>
-        <Icon name="star" size={11} color={colors.gold} solid />
-        <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
-      </View>
-    </View>
-  ) : null;
-
-  /* ───── states ───── */
+  /* ─────────────── states ─────────────── */
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
-        <Screen style={{ backgroundColor: themeColors.bg }}>
-          <View style={{ alignItems: 'center', padding: space.xl }}>
-            <Skeleton width={layout.SCREEN_W * 0.5} height={layout.SCREEN_W * 0.75} r={radius.lg} />
-            <Skeleton width="60%" height={24} style={{ marginTop: space.xl }} />
-            <Skeleton width="35%" height={14} style={{ marginTop: space.sm }} />
-            <Skeleton height={52} r={radius.lg} style={{ marginTop: space.xl }} />
-            <Skeleton height={14} style={{ marginTop: space.xl }} />
-            <Skeleton width="85%" height={14} style={{ marginTop: space.sm }} />
-          </View>
-        </Screen>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="detail" label="Loading manga" />;
   }
 
   if (!manga) {
     return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
-        <Screen style={{ backgroundColor: themeColors.bg }}>
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <EmptyState icon="search" title="Manga not found" subtitle={error || 'This series may have been removed or is not public.'} action="Back to Home" onAction={() => navigation.navigate('Home')} />
-          </View>
-        </Screen>
-      </SafeAreaView>
+      <View style={[styles.page, styles.center]}>
+        <EmptyState
+          icon="search"
+          title="Manga not found"
+          subtitle={loadError || 'This series may have been removed or is not public.'}
+          action="Back to Home"
+          onAction={() => navigation.navigate('Home')}
+        />
+      </View>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
-      <Screen style={{ backgroundColor: themeColors.bg }}>
-        <FlatList
-          data={shownChapters}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderChapter}
-          contentContainerStyle={{ paddingBottom: 100 }}
-          ListHeaderComponent={
-            <View>
-              {hero}
-              <Toast message={error} type="error" />
-            </View>
-          }
-          ListEmptyComponent={<Text style={styles.noChapters}>No chapters available yet.</Text>}
-          ListFooterComponent={footer}
-          contentContainerStyle={{ paddingBottom: isWalletConnected ? 96 : space.xl }}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={10}
-          windowSize={9}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />
-          }
+  const status = STATUS[manga.status || 'ongoing'];
+  const statusColor = status ? colors[status.key] : null;
+  const isAdult = manga.tags?.includes('Adult(18+)');
+  const creatorName = manga.users?.name || 'Unknown';
+  const openCreator = manga.user_id ? () => navigation.navigate('CreatorsProfile', { id: manga.user_id }) : undefined;
+
+  const header = (
+    <Animated.View style={{ opacity: contentFade }}>
+      <DetailHero
+        image={manga.cover_image}
+        title={manga.title}
+        author={{ name: creatorName, onPress: openCreator }}
+        chips={[
+          isAdult ? { label: '18+', color: colors.danger } : null,
+          status ? { label: status.label, dot: true, color: statusColor } : null,
+          { label: formatCount(manga.viewers_count), icon: 'eye', accessibilityLabel: String(manga.viewers_count || 0) + ' views' },
+          isWalletConnected
+            ? {
+                label: `${formatNumber(balance)} SMP`,
+                icon: 'coins',
+                color: colors.gold,
+                onPress: () => setWalletOpen(true),
+                accessibilityLabel: `Wallet: ${formatNumber(balance)} SMP. Open wallet summary`,
+              }
+            : null,
+        ]}
+        primary={{
+          icon: resumeKey !== null ? 'book-reader' : 'book-open',
+          label: resumeKey !== null
+            ? `Continue Ch. ${readingProgress.chapter_number ?? '—'}`
+            : first
+            ? 'Start reading'
+            : 'No chapters yet',
+          disabled: resumeKey === null && !first,
+          onPress: () => (resumeKey !== null ? openChapter(readingProgress.chapter_key) : first && openChapter(first.id)),
+        }}
+        secondary={
+          latest && chapters.length > 1
+            ? { icon: 'fast-forward', label: `Latest Ch. ${latest.chapter_number}`, onPress: () => openChapter(latest.id) }
+            : openCreator
+            ? { icon: 'paint-brush', label: 'Creator', onPress: openCreator }
+            : undefined
+        }
+        synopsis={manga.summary}
+        more={
+          manga.summary?.length > 180
+            ? { label: expanded ? 'Show less' : 'Read more', icon: expanded ? 'chevron-up' : 'chevron-down', expanded, onPress: () => setExpanded((v) => !v) }
+            : undefined
+        }
+        section={{
+          title: 'Chapters',
+          count: chapters.length,
+          newestFirst,
+          onToggleSort: () => setNewestFirst((v) => !v),
+        }}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        styles={styles}
+        colors={colors}
+        isDark={isDark}
+      >
+        <TagRow tags={manga.tags || []} styles={styles} colors={colors} />
+      </DetailHero>
+    </Animated.View>
+  );
+
+  const footer = (
+    <View style={{ paddingBottom: BOTTOM_NAV_CLEARANCE + 24 }}>
+      <View style={[styles.pad, { marginTop: space.xl }]}>
+        <MangaDetailCommentSection
+          mangaId={manga.id}
+          mangaTitle={manga.title}
+          isWalletConnected={isWalletConnected}
+          activePublicKey={activePublicKey}
         />
+      </View>
+    </View>
+  );
 
-        {isWalletConnected ? (
-          <View style={styles.pillWrap} pointerEvents="box-none">
-            <WalletPill smp={formatNumber(balance)} points={formatNumber(weeklyPoints)} open={walletOpen} onPress={() => setWalletOpen(true)} />
-          </View>
-        ) : null}
-      </Screen>
+  return (
+    <View style={styles.page}>
+      <FlatList
+        data={shownChapters}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={({ item }) => {
+          const resume = resumeKey !== null && resumeKey === String(item.id);
+          return (
+            <View style={styles.rowWrap}>
+              <ChapterRow
+                number={item.chapter_number}
+                title={item.title || `Chapter ${item.chapter_number}`}
+                state={resume ? 'resume' : item.is_premium ? 'premium' : 'free'}
+                resumePct={resumePct}
+                onPress={() => openChapter(item.id)}
+                styles={styles}
+                colors={colors}
+              />
+            </View>
+          );
+        }}
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
+        ListEmptyComponent={
+          <EmptyState icon="paint-brush" title="No chapters yet" subtitle="The creator hasn’t published any chapters yet." />
+        }
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={14}
+        windowSize={11}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+        }
+      />
 
-      <Sheet visible={walletOpen} onClose={() => setWalletOpen(false)} title="Your Wallet">
-        <View style={{ flexDirection: 'row', paddingBottom: space.md }}>
-          <StatTile icon="coins" label="SMP balance" value={formatNumber(balance)} color={colors.primary} />
-          <View style={{ width: space.sm }} />
+      <Sheet visible={walletOpen} onClose={() => setWalletOpen(false)} title="Your wallet">
+        <View style={styles.statRow}>
+          <StatTile icon="coins" label="SMP balance" value={formatNumber(balance)} color={colors.accent} />
           <StatTile icon="star" label="Weekly points" value={formatNumber(weeklyPoints)} color={colors.gold} />
         </View>
-        <Text style={{ ...type.caption, marginBottom: space.lg }}>
-          Withdrawals live on the Library screen's wallet panel.
+        <Text style={[styles.sheetText, { marginBottom: space.lg }]}>
+          Withdrawals live on the Manga library’s wallet panel.
         </Text>
-        <GhostButton label="Go to Library" icon="book-open" onPress={() => { setWalletOpen(false); navigation.navigate('Manga'); }} />
+        <GhostButton
+          label="Go to Manga library"
+          icon="book-open"
+          onPress={() => {
+            setWalletOpen(false);
+            navigation.navigate('MangaPage');
+          }}
+        />
         <View style={{ height: space.xl }} />
       </Sheet>
-    </SafeAreaView>
+    </View>
   );
 };
-
-// Absolute-fill helper for gradient overlay (StyleSheet.absoluteFill without an extra import)
-const StyleSheet_abs = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
 
 export default MangaDetailScreen;

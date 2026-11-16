@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { getUserReputation } from '../services/porp/ReadingTracker';
@@ -7,6 +7,7 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 import { getPoRPDashStyles } from '../styles/PoRPDashboardStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from './Toast';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -75,7 +76,7 @@ const PoRPDashboard = ({ visible, onClose }) => {
 
   const handleStake = async () => {
     if (!stakeAmount || isNaN(stakeAmount)) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
@@ -102,19 +103,19 @@ const PoRPDashboard = ({ visible, onClose }) => {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
-        Alert.alert('Success', 'Staked successfully!');
+        toast.success('Staked successfully!');
         setStakeAmount('');
         loadReputation();
       }
     } catch (error) {
       console.error('[PoRPDashboard] Error staking:', error);
-      Alert.alert('Error', 'Failed to stake');
+      toast.error('Failed to stake');
     }
   };
 
   const handleWithdraw = async () => {
     if (!withdrawAmount || isNaN(withdrawAmount)) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      toast.error('Please enter a valid amount');
       return;
     }
 
@@ -149,12 +150,12 @@ const PoRPDashboard = ({ visible, onClose }) => {
           sage: 1
         }[tier];
         
-        Alert.alert('Success', `Withdrawal requested. Cooldown: ${cooldownHours} hours`);
+        toast.success(`Withdrawal requested. Cooldown: ${cooldownHours} hours`);
         setWithdrawAmount('');
       }
     } catch (error) {
       console.error('[PoRPDashboard] Error requesting withdrawal:', error);
-      Alert.alert('Error', 'Failed to request withdrawal');
+      toast.error('Failed to request withdrawal');
     }
   };
 

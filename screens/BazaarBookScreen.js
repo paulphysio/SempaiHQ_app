@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Alert,
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  Platform,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, RefreshControl, Pressable } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,11 +22,25 @@ import {
   getBookFileUrl,
   recordPurchase,
 } from '../utils/bazaar';
+import { toast } from '../components/Toast';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { EmptyState } from '../components/ui';
+import { useTheme } from '../context/ThemeContext';
+import { DetailHero, ActionButton, makeDetailStyles, formatCount } from '../components/detail/DetailKit';
+import { Card } from '../components/page/PageKit';
+import { space } from '../theme/tokens';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
 const BazaarBookScreen = () => {
   const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
+  const { colors, isDark } = useTheme();
+  const kit = React.useMemo(() => makeDetailStyles(colors, isDark), [colors, isDark]);
+  const cardTitle = { fontFamily: 'Yoruka', fontSize: 19, color: colors.textPrimary, marginBottom: 6 };
+  const cardNote = { fontSize: 14, lineHeight: 21, color: colors.textSecondary };
+  const currencyRow = { flexDirection: 'row', gap: 8, marginTop: space.md };
+  const currencyChip = { flex: 1, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' };
+  const currencyText = { fontSize: 13, fontWeight: '700' };
   const navigation = useNavigation();
   const route = useRoute();
   const { bookId } = route.params || {};
@@ -158,34 +159,31 @@ const BazaarBookScreen = () => {
     const result = await recordPurchase(payload);
     if (result.ok && result.data?.success) {
       setPendingRecord(null);
-      if (!silent) Alert.alert('Unlocked', `Thanks for supporting ${book?.author_name || 'the author'}!`);
+      if (!silent) toast.success(`Unlocked — ${`Thanks for supporting ${book?.author_name || 'the author'}!`}`);
       await loadBook();
       return true;
     }
     setPendingRecord(payload);
-    Alert.alert(
-      'Payment sent, not recorded yet',
-      `${result.data?.error || 'The server could not confirm your payment yet.'}\n\nYour money is safe. Tap "Retry recording" on this page. If it keeps failing, contact support with this signature:\n${payload.signature}`
-    );
+    toast.info(`Payment sent, not recorded yet — ${`${result.data?.error || 'The server could not confirm your payment yet.'}\n\nYour money is safe. Tap "Retry recording" on this page. If it keeps failing, contact support with this signature:\n${payload.signature}`}`);
     return false;
   };
 
   const handlePay = async (accessType = 'purchase') => {
     if (!isWalletConnected || !activePublicKey || !signAndSendTransaction) {
-      Alert.alert('Wallet required', 'Please connect your wallet to make a purchase.');
+      toast.error('Wallet required — Please connect your wallet to make a purchase.');
       return;
     }
     // Fail BEFORE any money moves: the server only records purchases for a known account.
     if (!user) {
-      Alert.alert('Account not found', 'We could not find an account for this wallet. Sign in again and retry.');
+      toast.error('Account not found — We could not find an account for this wallet. Sign in again and retry.');
       return;
     }
     if (accessType === 'purchase' && !authorWallet) {
-      Alert.alert('Error', 'This book has no author wallet configured.');
+      toast.error('This book has no author wallet configured.');
       return;
     }
     if (accessType === 'purchase' && currency === 'SOL' && !solPrice) {
-      Alert.alert('Pricing unavailable', 'Could not fetch SOL price. Try USDC instead.');
+      toast.info('Pricing unavailable — Could not fetch SOL price. Try USDC instead.');
       return;
     }
 
@@ -228,7 +226,7 @@ const BazaarBookScreen = () => {
     } catch (err) {
       console.error('[BazaarBook] Payment error:', err.message);
       setPaying(false);
-      Alert.alert('Payment failed', err.message || 'Something went wrong.');
+      toast.error(`Payment failed — ${err.message || 'Something went wrong.'}`);
       return;
     }
 
@@ -272,7 +270,7 @@ const BazaarBookScreen = () => {
       setReading(true);
     } catch (err) {
       console.error('[BazaarBook] open error:', err.message);
-      Alert.alert('Error', err.message || 'Failed to open the book.');
+      toast.error(err.message || 'Failed to open the book.');
     } finally {
       setDownloading(false);
     }
@@ -298,15 +296,15 @@ const BazaarBookScreen = () => {
         reason: refundReason.trim() || undefined,
       });
       if (!result.ok || result.data?.error) {
-        Alert.alert('Refund request failed', result.data?.error || 'Try again later.');
+        toast.error(`Refund request failed — ${result.data?.error || 'Try again later.'}`);
       } else {
-        Alert.alert('Request sent', 'Your refund request is pending review.');
+        toast.info('Request sent — Your refund request is pending review.');
         setRefundModal(false);
         setRefundReason('');
         await loadBook();
       }
     } catch (err) {
-      Alert.alert('Error', err.message);
+      toast.error(err.message);
     } finally {
       setRefundSending(false);
     }
@@ -346,209 +344,164 @@ const BazaarBookScreen = () => {
     );
   }
 
-  const Header = ({ title }) => (
-    <View style={styles.header}>
-      <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color={BAZAAR_COLORS.textPrimary} />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
-      <View style={{ width: 40 }} />
-    </View>
-  );
-
   if (loading && !book) {
-    return (
-      <View style={styles.container}>
-        <Header title="Book" />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BAZAAR_COLORS.accent} />
-        </View>
-      </View>
-    );
+    return <ScreenSkeleton variant="detail" label="Loading book" />;
   }
 
   if (error || !book) {
     return (
-      <View style={styles.container}>
-        <Header title="Book" />
-        <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={BAZAAR_COLORS.danger} />
-          <Text style={styles.errorText}>{error || 'Book not found'}</Text>
-        </View>
+      <View style={[kit.page, kit.center]}>
+        <EmptyState
+          icon="book-dead"
+          title="Book not found"
+          subtitle={error || 'This book may have been removed from the Bazaar.'}
+          action="Back to Bazaar"
+          onAction={() => navigation.navigate('Bazaar')}
+        />
       </View>
     );
   }
 
-  const readButton = (
-    <TouchableOpacity style={styles.primaryButton} onPress={handleRead} disabled={downloading}>
-      {downloading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <>
-          <Ionicons name="book-outline" size={18} color="#fff" />
-          <Text style={styles.primaryButtonText}>Read Book</Text>
-        </>
-      )}
-    </TouchableOpacity>
-  );
+  const fileType = String(book.file_type || '').toUpperCase();
+  const readAction = {
+    icon: downloading ? 'spinner' : 'book-open',
+    label: downloading ? 'Opening…' : 'Read book',
+    onPress: downloading ? undefined : handleRead,
+  };
+  let primary;
+  let secondary;
+  if (isAuthor) {
+    primary = readAction;
+    secondary = { icon: 'chart-line', label: 'Dashboard', onPress: () => navigation.navigate('BazaarDashboard') };
+  } else if (hasAccess) {
+    primary = readAction;
+    if (purchase?.status === 'completed') {
+      secondary = { icon: 'undo', label: 'Request refund', onPress: () => setRefundModal(true) };
+    }
+  } else if (book.sale_enabled) {
+    primary = {
+      icon: paying ? 'spinner' : 'lock-open',
+      label: paying ? 'Paying…' : 'Pay $' + priceUsd.toFixed(2) + ' & unlock',
+      onPress: paying ? undefined : () => handlePay('purchase'),
+      disabled: paying,
+    };
+    if (book.lending_enabled) {
+      secondary = {
+        icon: 'key',
+        label: 'Borrow · ' + formatCount(lendPrice) + ' SMP',
+        onPress: paying ? undefined : () => handlePay('lend'),
+        disabled: paying,
+      };
+    }
+  } else if (book.lending_enabled) {
+    primary = {
+      icon: paying ? 'spinner' : 'key',
+      label: paying ? 'Paying…' : 'Borrow · ' + formatCount(lendPrice) + ' SMP',
+      onPress: paying ? undefined : () => handlePay('lend'),
+      disabled: paying,
+    };
+  }
 
   return (
-    <View style={styles.container}>
-      <Header title="Book" />
-
+    <View style={kit.page}>
       <ScrollView
-        style={styles.detailScroll}
-        contentContainerStyle={{ paddingBottom: bottomNavClearance }}
+        contentContainerStyle={{ paddingBottom: bottomNavClearance + 24 }}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BAZAAR_COLORS.accent} colors={[BAZAAR_COLORS.accent]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
         }
       >
-        {book.cover_url ? (
-          <Image source={{ uri: book.cover_url }} style={styles.detailCover} resizeMode="cover" />
-        ) : (
-          <View style={[styles.detailCover, { justifyContent: 'center', alignItems: 'center' }]}>
-            <Ionicons name="book" size={64} color={BAZAAR_COLORS.textMuted} />
-          </View>
-        )}
-
-        <View style={styles.detailBody}>
-          <Text style={styles.detailTitle}>{book.title}</Text>
-          <Text style={styles.detailAuthor}>by {book.author_name || 'Unknown author'}</Text>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeText}>{book.file_type.toUpperCase()}</Text>
-            </View>
-            {book.sale_enabled && (
-              <View style={styles.priceBadge}>
-                <Text style={styles.priceText}>${priceUsd.toFixed(2)} BUY</Text>
+        <DetailHero
+          image={book.cover_url}
+          title={book.title}
+          author={{ name: book.author_name || 'Unknown author' }}
+          chips={[
+            fileType ? { label: fileType, icon: 'file-alt' } : null,
+            book.sale_enabled ? { label: '$' + priceUsd.toFixed(2), icon: 'tag', color: colors.accent } : null,
+            book.lending_enabled ? { label: 'Lend ' + formatCount(lendPrice), icon: 'key', color: colors.gold } : null,
+          ]}
+          primary={primary}
+          secondary={secondary}
+          synopsis={book.description}
+          onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+          styles={kit}
+          colors={colors}
+          isDark={isDark}
+        >
+          <Card style={{ marginTop: space.lg }} tint>
+            {pendingRecord ? (
+              <View style={{ marginBottom: space.md }}>
+                <Text style={cardTitle}>Payment sent — finishing up</Text>
+                <Text style={cardNote}>Your payment is on-chain but not recorded yet. Your money is safe; tap retry.</Text>
+                <View style={kit.actions}>
+                  <ActionButton
+                    lit
+                    icon={retrying ? 'spinner' : 'redo'}
+                    label={retrying ? 'Retrying…' : 'Retry recording'}
+                    onPress={retrying ? undefined : handleRetryRecording}
+                    styles={kit}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                </View>
               </View>
+            ) : null}
+
+            {isAuthor ? (
+              <>
+                <Text style={cardTitle}>Your book</Text>
+                <Text style={cardNote}>You earn {sharePct}% of every sale. Manage sales and refunds from your Bazaar dashboard.</Text>
+              </>
+            ) : hasAccess ? (
+              <>
+                <Text style={cardTitle}>Unlocked</Text>
+                <Text style={cardNote}>
+                  You own this book — enjoy the read.
+                  {purchase?.status === 'refund_pending' ? ' A refund request is pending review.' : ''}
+                </Text>
+              </>
+            ) : book.sale_enabled || book.lending_enabled ? (
+              <>
+                <Text style={cardTitle}>{book.sale_enabled ? 'How payment works' : 'How borrowing works'}</Text>
+                {book.sale_enabled ? (
+                  <>
+                    <Text style={cardNote}>
+                      One-time payment. {sharePct}% goes directly to the author; the rest supports the platform.
+                    </Text>
+                    <View style={currencyRow}>
+                      {['USDC', 'SOL'].map((c) => {
+                        const on = currency === c;
+                        return (
+                          <Pressable
+                            key={c}
+                            onPress={() => setCurrency(c)}
+                            style={[currencyChip, { borderColor: on ? colors.accent : colors.borderStrong, backgroundColor: on ? colors.accentSoft : 'transparent' }]}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: on }}
+                          >
+                            <Text style={[currencyText, { color: on ? colors.accent : colors.textSecondary }]}>
+                              {c === 'USDC' ? '$' + priceUsd.toFixed(2) + ' USDC' : solAmount ? '~' + solAmount.toFixed(4) + ' SOL' : 'SOL'}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
+                {book.lending_enabled ? (
+                  <Text style={[cardNote, { marginTop: space.sm }]}>
+                    Borrowing costs {lendPrice.toLocaleString()} SMP once, for permanent access.
+                  </Text>
+                ) : null}
+                {!isWalletConnected ? (
+                  <Text style={[cardNote, { color: colors.warning, marginTop: space.sm }]}>Connect your wallet to buy or borrow.</Text>
+                ) : null}
+              </>
+            ) : (
+              <Text style={cardNote}>This book is not currently available.</Text>
             )}
-            {book.lending_enabled && (
-              <View style={[styles.typeBadge, { backgroundColor: 'rgba(255,215,0,0.15)' }]}>
-                <Text style={[styles.typeText, { color: BAZAAR_COLORS.gold }]}>LEND {lendPrice.toLocaleString()} SMP</Text>
-              </View>
-            )}
-          </View>
-          {!!book.description && <Text style={styles.detailDescription}>{book.description}</Text>}
-        </View>
-
-        <View style={styles.payCard}>
-          {pendingRecord && (
-            <>
-              <Text style={styles.payTitle}>Payment sent, finishing up</Text>
-              <Text style={styles.splitNote}>
-                Your payment is on-chain but we haven't recorded it yet. Your money is safe. Tap retry.
-              </Text>
-              <TouchableOpacity
-                style={[styles.primaryButton, retrying && { opacity: 0.6 }]}
-                onPress={handleRetryRecording}
-                disabled={retrying}
-              >
-                {retrying ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Retry recording</Text>}
-              </TouchableOpacity>
-              <View style={{ height: 16 }} />
-            </>
-          )}
-
-          {isAuthor ? (
-            <>
-              <Text style={styles.payTitle}>Your book</Text>
-              <Text style={styles.splitNote}>
-                You earn {sharePct}% of every sale. Manage sales and refunds from your Bazaar dashboard.
-              </Text>
-              {readButton}
-              <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('BazaarDashboard')}>
-                <Ionicons name="stats-chart-outline" size={18} color={BAZAAR_COLORS.textPrimary} />
-                <Text style={styles.secondaryButtonText}>Open Dashboard</Text>
-              </TouchableOpacity>
-            </>
-          ) : hasAccess ? (
-            <>
-              <Text style={styles.payTitle}>Unlocked</Text>
-              <Text style={styles.splitNote}>
-                You own this book. Enjoy the read.
-                {purchase?.status === 'refund_pending' ? '\nA refund request is pending review.' : ''}
-              </Text>
-              {readButton}
-              {purchase?.status === 'completed' && (
-                <TouchableOpacity style={styles.secondaryButton} onPress={() => setRefundModal(true)}>
-                  <Ionicons name="return-up-back-outline" size={18} color={BAZAAR_COLORS.textPrimary} />
-                  <Text style={styles.secondaryButtonText}>Request Refund</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          ) : (
-            <>
-              {book.sale_enabled && (
-                <>
-                  <Text style={styles.payTitle}>Buy — ${priceUsd.toFixed(2)}</Text>
-                  <Text style={styles.splitNote}>
-                    One-time payment. {sharePct}% goes directly to the author, the rest supports the platform. Pay with USDC or SOL.
-                  </Text>
-
-                  <View style={styles.currencyRow}>
-                    {['USDC', 'SOL'].map((c) => (
-                      <TouchableOpacity
-                        key={c}
-                        style={[styles.currencyOption, currency === c && styles.currencyOptionActive]}
-                        onPress={() => setCurrency(c)}
-                      >
-                        <Text style={[styles.currencyOptionText, currency === c && styles.currencyOptionActiveText]}>
-                          {c === 'USDC' ? `$${priceUsd.toFixed(2)} USDC` : solAmount ? `~${solAmount.toFixed(4)} SOL` : 'SOL'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <TouchableOpacity
-                    style={[styles.primaryButton, paying && { opacity: 0.6 }]}
-                    onPress={() => handlePay('purchase')}
-                    disabled={paying}
-                  >
-                    {paying ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <>
-                        <Ionicons name="lock-open-outline" size={18} color="#fff" />
-                        <Text style={styles.primaryButtonText}>Pay & Unlock</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {book.lending_enabled && (
-                <>
-                  <Text style={[styles.payTitle, book.sale_enabled && { marginTop: 20 }]}>
-                    Borrow — {lendPrice.toLocaleString()} SMP
-                  </Text>
-                  <Text style={styles.splitNote}>
-                    One-time SMP payment for permanent access. The full amount goes to the platform.
-                  </Text>
-                  <TouchableOpacity
-                    style={[styles.secondaryButton, paying && { opacity: 0.6 }]}
-                    onPress={() => handlePay('lend')}
-                    disabled={paying}
-                  >
-                    {paying ? (
-                      <ActivityIndicator color={BAZAAR_COLORS.textPrimary} />
-                    ) : (
-                      <>
-                        <Ionicons name="key-outline" size={18} color={BAZAAR_COLORS.textPrimary} />
-                        <Text style={styles.secondaryButtonText}>Pay {lendPrice.toLocaleString()} SMP & Borrow</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {!book.sale_enabled && !book.lending_enabled && (
-                <Text style={styles.splitNote}>This book is not currently available.</Text>
-              )}
-              {!isWalletConnected && <Text style={[styles.splitNote, { marginTop: 10 }]}>Connect your wallet to purchase.</Text>}
-            </>
-          )}
-        </View>
+          </Card>
+        </DetailHero>
       </ScrollView>
 
       <Modal visible={refundModal} transparent animationType="fade" onRequestClose={() => setRefundModal(false)}>

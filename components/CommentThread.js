@@ -5,9 +5,11 @@ import Animated, { FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import { supabase } from '../services/supabaseClient';
+import { readerAction } from '../services/readerActions';
 import { AMETHYST_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 import { radius, space, Tap, Input, GradientButton, Toast, SectionHeader } from './ui';
 import { useMangaTheme } from '../theme/theme';
+import { toast } from './Toast';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -243,12 +245,12 @@ const CommentThread = ({ table, scope, notifyContext = {}, replyMessage, isWalle
       return;
     }
     if (!newComment.trim() || newComment.trim().length < MIN_COMMENT_LENGTH) {
-      Alert.alert('Too short', `Comment must be at least ${MIN_COMMENT_LENGTH} characters long.`);
+      toast.info(`Too short — ${`Comment must be at least ${MIN_COMMENT_LENGTH} characters long.`}`);
       return;
     }
     const now = Date.now();
     if (now - lastCommentTime < COMMENT_COOLDOWN) {
-      Alert.alert('Slow down', `Please wait ${Math.ceil((COMMENT_COOLDOWN - (now - lastCommentTime)) / 1000)}s before posting again.`);
+      toast.info(`Slow down — ${`Please wait ${Math.ceil((COMMENT_COOLDOWN - (now - lastCommentTime)) / 1000)}s before posting again.`}`);
       return;
     }
 
@@ -273,7 +275,7 @@ const CommentThread = ({ table, scope, notifyContext = {}, replyMessage, isWalle
       const rewardAmount = rewardFor(balance);
       const addr = activePublicKey.toString();
 
-      const { error: commentError } = await supabase
+      const { data: inserted, error: commentError } = await supabase
         .from(table)
         .insert([
           {
@@ -282,42 +284,18 @@ const CommentThread = ({ table, scope, notifyContext = {}, replyMessage, isWalle
             username: user.name || `${addr.slice(0, 6)}...${addr.slice(-4)}`,
             content: newComment.trim(),
             parent_id: replyingTo || null,
-            is_rewarded: !hasReachedDailyLimit,
+            is_rewarded: false, // the server marks it when it pays the reward
           },
-        ]);
+        ])
+        .select('id')
+        .single();
       if (commentError) throw commentError;
 
-      if (replyingTo) {
-        const { data: parentComment } = await supabase.from(table).select('user_id').eq('id', replyingTo).single();
-        if (parentComment?.user_id && parentComment.user_id !== user.id) {
-          await supabase.from('notifications').insert([
-            {
-              user_id: parentComment.user_id,
-              ...notifyContext,
-              message: replyMessage(user.name || 'A user'),
-              type: 'reply',
-            },
-          ]);
-        }
-      }
-
+      // Points and the reply notification are decided by the server.
+      if (replyingTo) readerAction('comment_notify', { table, commentId: inserted.id });
       if (!hasReachedDailyLimit) {
-        await Promise.all([
-          supabase.from('users').update({ weekly_points: user.weekly_points + rewardAmount }).eq('id', user.id),
-          supabase.from('wallet_events').insert([
-            {
-              destination_user_id: user.id,
-              event_type: 'credit',
-              amount_change: rewardAmount,
-              source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-              destination_chain: 'SOL',
-              source_currency: 'Token',
-              event_details: 'manga_comment_reward',
-              wallet_address: user.wallet_address,
-              source_chain: 'SOL',
-            },
-          ]),
-        ]);
+        readerAction('comment_reward', { table, commentId: inserted.id })
+          .then((r) => { if (r.ok && r.rewarded) toast.success(`+${r.points} points for commenting`); });
       }
 
       setNewComment('');

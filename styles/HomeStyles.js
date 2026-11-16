@@ -12,17 +12,17 @@ const COLOR = {
     bgElevated: '#111219',
     bgCard: '#15161F',
     bgCardAlt: '#1A1B26',
-    accent: '#FF5733',
+    accent: '#F36316',
     accentDeep: '#F36316',
-    accentGlow: 'rgba(255, 87, 51, 0.35)',
-    accentSoft: 'rgba(255, 87, 51, 0.12)',
+    accentGlow: 'rgba(243, 99, 22, 0.35)',
+    accentSoft: 'rgba(243, 99, 22, 0.12)',
     sakura: '#E94560',
-    gold: '#FFD700',
+    gold: '#FFC857',
     textPrimary: '#FFFFFF',
     textSecondary: '#C9C9D1',
     textMuted: '#8A8A99',
     border: 'rgba(255, 255, 255, 0.08)',
-    borderAccent: 'rgba(255, 87, 51, 0.35)',
+    borderAccent: 'rgba(243, 99, 22, 0.35)',
     danger: '#FF6B6B',
     warning: '#FFC107',
     bgPrimary: '#0d0d0d',
@@ -75,7 +75,7 @@ const cardShadowLight = {
 };
 
 const glowShadow = {
-  shadowColor: '#FF5733',
+  shadowColor: '#F36316',
   shadowOffset: { width: 0, height: 4 },
   shadowOpacity: 0.4,
   shadowRadius: 10,
@@ -373,7 +373,7 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.pill,
     backgroundColor: COLOR.accentSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255, 87, 51, 0.3)',
+    borderColor: 'rgba(243, 99, 22, 0.3)',
   },
   signOutText: {
     color: COLOR.accent,
@@ -812,7 +812,7 @@ export const styles = StyleSheet.create({
     padding: SPACE.m,
     marginBottom: SPACE.s,
     borderWidth: 1,
-    borderColor: 'rgba(255, 87, 51, 0.18)',
+    borderColor: 'rgba(243, 99, 22, 0.18)',
   },
 
   announcementTitle: {
@@ -918,7 +918,7 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     backgroundColor: COLOR.accentSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255, 87, 51, 0.18)',
+    borderColor: 'rgba(243, 99, 22, 0.18)',
   },
 
   sidebarButtons: {

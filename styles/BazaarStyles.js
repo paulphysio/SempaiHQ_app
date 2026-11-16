@@ -9,16 +9,16 @@ export const BAZAAR_COLORS = {
   bgElevated: '#111219',
   bgCard: '#15161F',
   bgCardAlt: '#1A1B26',
-  accent: '#FF5733',
+  accent: '#F36316',
   accentDeep: '#F36316',
-  accentSoft: 'rgba(255, 87, 51, 0.12)',
+  accentSoft: 'rgba(243, 99, 22, 0.12)',
   textPrimary: '#FFFFFF',
   textSecondary: '#C9C9D1',
   textMuted: '#8A8A99',
   border: 'rgba(255, 255, 255, 0.08)',
   success: '#34C759',
   danger: '#FF453A',
-  gold: '#FFD700',
+  gold: '#FFC857',
 };
 
 export const BAZAAR_COLORS_LIGHT = {

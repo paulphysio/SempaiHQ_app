@@ -6,7 +6,7 @@ import { getReaderStyles } from '../styles/ReaderStyles';
 import { useTheme } from '../context/ThemeContext';
 
 const PDFReader = ({ file, onBack }) => {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
   const styles = useMemo(() => getReaderStyles(isDark), [isDark]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);

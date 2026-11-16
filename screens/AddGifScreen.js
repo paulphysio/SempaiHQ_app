@@ -1,20 +1,11 @@
 import React, {useState, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Image,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
 import { getAddGifStyles } from '../styles/AddGifStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const AddGifScreen = () => {
   const { isDark, colors } = useTheme();
@@ -38,7 +29,7 @@ const AddGifScreen = () => {
         setFile(result.assets[0]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to pick image');
+      toast.error('Failed to pick image');
     }
   };
 

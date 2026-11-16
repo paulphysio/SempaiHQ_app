@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { supabase } from '../services/supabaseClient';
+import { notifyReaders, getTitleReaderIds, getCreatorReaderIds } from '../services/notify';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import { formatNumber } from '../utils/formatNumber';
@@ -32,6 +33,7 @@ import {
 } from '../components/ui';
 import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
 import { getStyles as getDashboardStyles } from '../styles/MangaDashboardStyles';
+import { toast } from '../components/Toast';
 
 const TAG_OPTIONS = [
   'Action', 'Adult(18+)', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance',
@@ -47,26 +49,6 @@ const STATUS_OPTIONS = [
 
 const SUMMARY_MAX = 600;
 
-// Push notification via Supabase Edge Function (Firebase FCM)
-const sendPushNotification = async (userIds, title, body, data = {}) => {
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-    if (!accessToken) {
-      console.error('[sendPushNotification] No access token available');
-      return;
-    }
-    const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/send-push-notification', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ userIds, title, body, data }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Failed to send push notification');
-  } catch (error) {
-    console.error('[sendPushNotification] Error sending push notification:', error);
-  }
-};
 
 /* ───────── building blocks ───────── */
 const StepHeader = ({ n, title, sub, done }) => {
@@ -140,6 +122,8 @@ const MangaDashboardScreen = () => {
   const [mangaCollection, setMangaCollection] = useState([]);
   const [activeManga, setActiveManga] = useState(null);
   const [chapters, setChapters] = useState([]);
+  // Chapter count when the series was opened — decides whether a save added chapters.
+  const loadedChapterCount = useRef(0);
   const [userId, setUserId] = useState(null);
   const [isArtist, setIsArtist] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -210,7 +194,7 @@ const MangaDashboardScreen = () => {
       setMangaCollection(data || []);
     } catch (err) {
       console.error('Manga fetch error:', err.message);
-      Alert.alert('Error', `Failed to fetch manga: ${err.message}`);
+      toast.error(`Failed to fetch manga: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -225,7 +209,7 @@ const MangaDashboardScreen = () => {
       setArtistList(data || []);
     } catch (err) {
       console.error('Artists fetch error:', err.message);
-      Alert.alert('Error', `Failed to fetch artists: ${err.message}`);
+      toast.error(`Failed to fetch artists: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -247,7 +231,7 @@ const MangaDashboardScreen = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow photo access to choose a cover image.');
+        toast.error('Permission needed — Allow photo access to choose a cover image.');
         return;
       }
       const response = await ImagePicker.launchImageLibraryAsync({
@@ -258,7 +242,7 @@ const MangaDashboardScreen = () => {
       });
       if (response.canceled) return;
       if (response.errorCode) {
-        Alert.alert('Error', `Image selection failed: ${response.errorMessage}`);
+        toast.error(`Image selection failed: ${response.errorMessage}`);
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -285,7 +269,7 @@ const MangaDashboardScreen = () => {
       }
     } catch (err) {
       console.error('Error uploading cover image:', err);
-      Alert.alert('Error', 'Failed to upload cover image.');
+      toast.error('Failed to upload cover image.');
     }
   };
 
@@ -293,7 +277,7 @@ const MangaDashboardScreen = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow photo access to choose chapter pages.');
+        toast.error('Permission needed — Allow photo access to choose chapter pages.');
         return;
       }
       const response = await ImagePicker.launchImageLibraryAsync({
@@ -303,7 +287,7 @@ const MangaDashboardScreen = () => {
       });
       if (response.canceled) return;
       if (response.errorCode) {
-        Alert.alert('Error', `Image selection failed: ${response.errorMessage}`);
+        toast.error(`Image selection failed: ${response.errorMessage}`);
         return;
       }
       const compressed = await Promise.all(
@@ -328,7 +312,7 @@ const MangaDashboardScreen = () => {
       setChapterPages((prev) => [...prev, ...compressed]);
     } catch (err) {
       console.error('Error uploading chapter pages:', err);
-      Alert.alert('Error', 'Failed to upload chapter pages.');
+      toast.error('Failed to upload chapter pages.');
     }
   };
 
@@ -350,7 +334,7 @@ const MangaDashboardScreen = () => {
 
   const manageChapter = () => {
     if (!chapterTitle.trim() || chapterPages.length === 0) {
-      Alert.alert('Almost there', 'Add a chapter title and at least one page.');
+      toast.info('Almost there — Add a chapter title and at least one page.');
       return;
     }
     const chapterData = {
@@ -454,10 +438,10 @@ const MangaDashboardScreen = () => {
 
       setMangaCollection((prev) => prev.filter((m) => m.id !== mangaId));
       clearForm();
-      Alert.alert('Deleted', `"${title}" was deleted.`);
+      toast.success(`Deleted — ${`"${title}" was deleted.`}`);
     } catch (e) {
       console.error('[MangaDashboard] delete series failed:', e?.message || e);
-      Alert.alert('Delete failed', e?.message || 'Could not delete the series. Please try again.');
+      toast.error(`Delete failed — ${e?.message || 'Could not delete the series. Please try again.'}`);
     } finally {
       setLoading(false);
     }
@@ -491,9 +475,10 @@ const MangaDashboardScreen = () => {
         })
       );
       setChapters(chaptersWithPages);
+      loadedChapterCount.current = chaptersWithPages.length;
     } catch (err) {
       console.error('Error fetching chapters:', err.message);
-      Alert.alert('Error', `Failed to fetch chapters: ${err.message}`);
+      toast.error(`Failed to fetch chapters: ${err.message}`);
     }
   };
 
@@ -506,6 +491,7 @@ const MangaDashboardScreen = () => {
     setMangaStatus('ongoing');
     clearChapterForm();
     setChapters([]);
+    loadedChapterCount.current = 0;
     setActiveManga(null);
     setTags([]);
     setNoticeTitle('');
@@ -547,7 +533,7 @@ const MangaDashboardScreen = () => {
 
     if (!title.trim() || (!coverImage && !coverPreview) || !summary.trim()) {
       console.log('[MangaDashboard] Validation failed: missing required fields');
-      Alert.alert('Missing details', 'A title, cover image and summary are required.');
+      toast.error('Missing details — A title, cover image and summary are required.');
       return;
     }
     setLoading(true);
@@ -705,65 +691,65 @@ const MangaDashboardScreen = () => {
         }
       }
 
-      console.log('[MangaDashboard] Step 6: Preparing notification');
-      const message = activeManga
-        ? `A new chapter has been added to "${title}"!`
-        : `A new manga "${title}" has been published!`;
-      console.log('[MangaDashboard] Notification message:', message);
-
-      let targetUsers = [];
-      if (activeManga) {
-        console.log('[MangaDashboard] Fetching interactions for notification');
-        const { data: interactions, error: interactionsError } = await supabase
-          .from('manga_interactions')
-          .select('user_id')
-          .eq('manga_id', mangaId);
-        if (interactionsError) throw new Error(interactionsError.message);
-        targetUsers = interactions?.map((i) => i.user_id) || [];
-        console.log('[MangaDashboard] Found interactions:', targetUsers.length);
-      } else {
-        console.log('[MangaDashboard] Fetching all users for notification (new manga)');
-        const { data: users, error: usersError } = await supabase.from('users').select('id');
-        if (usersError) throw new Error(usersError.message);
-        targetUsers = users?.map((u) => u.id) || [];
-        console.log('[MangaDashboard] Found users:', targetUsers.length);
-      }
-
-      if (targetUsers.length > 0) {
-        console.log('[MangaDashboard] Creating notifications for', targetUsers.length, 'users');
-        const notifications = targetUsers.map((uid) => ({
-          user_id: uid,
-          manga_id: mangaId,
-          novel_title: title,
-          type: activeManga ? 'new_chapter' : 'new_manga',
-          message,
-          chapter: activeManga ? chapters.length : null,
+      // ── Reader notifications (best-effort: never fails the save) ──
+      //  · new chapter(s) on an existing series → that series' readers
+      //  · brand-new series → everyone who reads this artist's other work
+      //  · edits with no new chapter → nobody (used to spam "new chapter")
+      const creatorId = activeManga?.user_id || userId;
+      const addedChapters = activeManga ? chapters.length - loadedChapterCount.current : 0;
+      let notified = 0;
+      if (activeManga && addedChapters > 0) {
+        const latest = chapters[chapters.length - 1];
+        ({ notified } = await notifyReaders({
+          userIds: await getTitleReaderIds('manga', mangaId),
+          excludeUserId: creatorId,
+          title: `🎨 New chapter · ${title}`,
+          body: addedChapters > 1
+            ? `${addedChapters} new chapters just dropped.`
+            : `Chapter ${chapters.length}${latest?.title ? `: ${latest.title}` : ''} is out now.`,
+          data: { mangaId, type: 'new_chapter' },
+          rowFor: (uid) => ({
+            user_id: uid,
+            manga_id: mangaId,
+            novel_title: title,
+            type: 'new_chapter',
+            message: `A new chapter has been added to "${title}"!`,
+            chapter: chapters.length,
+          }),
         }));
-        console.log('[MangaDashboard] Inserting notifications into database');
-        const { error: notifError } = await supabase.from('notifications').insert(notifications);
-        if (notifError) throw new Error(notifError.message);
-        console.log('[MangaDashboard] Notifications inserted successfully');
-
-        console.log('[MangaDashboard] Sending push notifications');
-        await sendPushNotification(
-          targetUsers,
-          activeManga ? `New Chapter for ${title}` : `New Manga: ${title}`,
-          message,
-          { mangaId, type: activeManga ? 'new_chapter' : 'new_manga' }
-        );
-        console.log('[MangaDashboard] Push notifications sent');
-      } else {
-        console.log('[MangaDashboard] No target users for notification');
+      } else if (!activeManga) {
+        ({ notified } = await notifyReaders({
+          userIds: await getCreatorReaderIds(creatorId, { excludeContentId: mangaId }),
+          excludeUserId: creatorId,
+          title: `✨ New manga · ${title}`,
+          body: 'An artist you read just launched a new series. Be one of the first to see it.',
+          data: { mangaId, type: 'new_manga' },
+          rowFor: (uid) => ({
+            user_id: uid,
+            manga_id: mangaId,
+            novel_title: title,
+            type: 'new_manga',
+            message: `A new manga "${title}" has been published!`,
+            chapter: null,
+          }),
+        }));
       }
+      loadedChapterCount.current = chapters.length;
 
       console.log('[MangaDashboard] Step 7: Success - cleaning up and reloading');
-      Alert.alert('Published 🎉', 'Your series has been saved.');
+      toast.success(
+        !activeManga
+          ? `"${title}" is live!${notified ? ` ${notified} reader${notified === 1 ? '' : 's'} notified.` : ''}`
+          : addedChapters > 0
+          ? `Chapter published${notified ? ` — ${notified} reader${notified === 1 ? '' : 's'} notified` : ''}`
+          : 'Changes saved'
+      );
       clearForm();
       loadManga();
     } catch (err) {
       console.error('[MangaDashboard] Submission error:', err.message);
       console.error('[MangaDashboard] Full error:', err);
-      Alert.alert('Error', `Failed to save manga: ${err.message}`);
+      toast.error(`Failed to save manga: ${err.message}`);
     } finally {
       console.log('[MangaDashboard] Loading state set to false');
       setLoading(false);
@@ -772,23 +758,15 @@ const MangaDashboardScreen = () => {
 
   const sendNotice = async () => {
     if (!activeManga) {
-      Alert.alert('Select a series', 'Open one of your series to announce to its readers.');
+      toast.info('Select a series — Open one of your series to announce to its readers.');
       return;
     }
     if (!noticeTitle.trim() || !noticeText.trim()) {
-      Alert.alert('Missing details', 'Announcement title and message are required.');
+      toast.error('Missing details — Announcement title and message are required.');
       return;
     }
     setLoading(true);
     try {
-      // Readers = people who interacted with this series (previously this queried the manga table and only returned the author).
-      const { data: readers, error } = await supabase
-        .from('manga_interactions')
-        .select('user_id')
-        .eq('manga_id', activeManga.id);
-      if (error) throw new Error('Failed to fetch readers');
-      const readerIds = [...new Set((readers || []).map((r) => r.user_id))];
-
       const { error: noticeError } = await supabase.from('writer_announcements').insert([
         {
           writer_id: userId,
@@ -800,28 +778,29 @@ const MangaDashboardScreen = () => {
       ]);
       if (noticeError) throw new Error('Announcement save failed');
 
-      if (readerIds.length > 0) {
-        const notifications = readerIds.map((uid) => ({
+      // Readers of this series hear about it (best-effort; never fails the send).
+      const { notified } = await notifyReaders({
+        userIds: await getTitleReaderIds('manga', activeManga.id),
+        excludeUserId: activeManga.user_id || userId,
+        title: `📣 ${activeManga.title}`,
+        body: `${noticeTitle} — ${noticeText}`,
+        data: { mangaId: activeManga.id, type: 'announcement' },
+        rowFor: (uid) => ({
           user_id: uid,
           manga_id: activeManga.id,
           type: 'announcement',
           message: `${noticeTitle}: ${noticeText}`,
           novel_title: activeManga.title,
-        }));
-        const { error: nErr } = await supabase.from('notifications').insert(notifications);
-        if (nErr) throw new Error('Notification send failed');
+        }),
+      });
 
-        // schedulePushNotification was never defined (ReferenceError); use the existing edge function helper.
-        await sendPushNotification(readerIds, noticeTitle, noticeText, { mangaId: activeManga.id, type: 'announcement' });
-      }
-
-      Alert.alert('Sent 📣', `Announcement delivered to ${readerIds.length} reader${readerIds.length === 1 ? '' : 's'}.`);
+      toast.success(notified ? `Announcement sent to ${notified} reader${notified === 1 ? '' : 's'}` : 'Announcement posted — no readers to notify yet');
       setNoticeTitle('');
       setNoticeText('');
       setNoticeDate(null);
     } catch (err) {
       console.error('Announcement error:', err.message);
-      Alert.alert('Error', `Failed to send announcement: ${err.message}`);
+      toast.error(`Failed to send announcement: ${err.message}`);
     } finally {
       setLoading(false);
     }

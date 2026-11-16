@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
+import { readerAction } from '../../services/readerActions';
+import { toast } from '../Toast';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import { EmbeddedWalletContext } from '../../components/ConnectButtonEnhanced';
@@ -24,11 +26,11 @@ const KA_COLORS_BASE = {
   bgCard: '#141210',
   bgElevated: '#1a1714',
   orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
+  orangeBright: '#FF8A3D',
   orangeSoft: '#e67e22',
   orangeDim: '#8b4513',
   gold: '#c9a84c',
-  goldBright: '#ffd700',
+  goldBright: '#FFC857',
   ivory: '#f5e6d3',
   ivoryDim: '#c4b5a0',
   border: '#2d2418',
@@ -295,6 +297,8 @@ const Comment = ({
   handleCommentSubmit,
   chapter,
 }) => {
+  const { isDark, colors } = useTheme();
+  const styles = useMemo(() => getCommentSectionStyles(colors), [isDark]);
   const isOwner = comment.user_id === currentUserId;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -313,7 +317,7 @@ const Comment = ({
         value={newComment}
         onChangeText={setNewComment}
         placeholder="Type your reply..."
-        placeholderTextColor={c.textMuted}
+        placeholderTextColor={colors.textMuted}
         multiline
         maxLength={500}
       />
@@ -324,14 +328,14 @@ const Comment = ({
             style={styles.cancelReplyButton}
             onPress={cancelReply}
           >
-            <FontAwesome5 name="times" size={16} color={c.textPrimary} />
+            <FontAwesome5 name="times" size={16} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.postReplyButton, !newComment && styles.postReplyButtonDisabled]}
             onPress={handleCommentSubmit}
             disabled={!newComment}
           >
-            <FontAwesome5 name="paper-plane" size={16} color={c.textPrimary} />
+            <FontAwesome5 name="paper-plane" size={16} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -361,7 +365,7 @@ const Comment = ({
             <FontAwesome5
               name="reply"
               size={16}
-              color={replyingTo === comment.id ? c.accent : c.textPrimary}
+              color={replyingTo === comment.id ? colors.accent : colors.textPrimary}
             />
             <Text style={styles.actionButtonText}>{replyingTo === comment.id ? 'Replying' : 'Reply'}</Text>
           </TouchableOpacity>
@@ -373,7 +377,7 @@ const Comment = ({
               <FontAwesome5
                 name={areRepliesVisible[comment.id] ? 'chevron-up' : 'chevron-down'}
                 size={16}
-                color={c.textPrimary}
+                color={colors.textPrimary}
               />
               <Text style={styles.actionButtonText}>({replies.length})</Text>
             </TouchableOpacity>
@@ -383,7 +387,7 @@ const Comment = ({
               style={styles.actionButton}
               onPress={() => deleteComment(comment.id)}
             >
-              <FontAwesome5 name="trash" size={16} color={c.danger} />
+              <FontAwesome5 name="trash" size={16} color={colors.danger} />
             </TouchableOpacity>
           )}
         </View>
@@ -635,53 +639,20 @@ const CommentSection = ({ novelId, chapter }) => {
             username,
             content: newComment,
             parent_id: replyingTo || null,
-            is_rewarded: !hasReachedDailyLimit,
+            is_rewarded: false, // the server marks it when it pays the reward
           },
         ])
         .select()
         .single();
       if (commentError) throw commentError;
 
+      // Points and the reply notification are decided by the server
+      // (daily limit, reward size, who may be notified).
       if (!hasReachedDailyLimit) {
-        await Promise.all([
-          supabase
-            .from('users')
-            .update({ weekly_points: user.weekly_points + rewardAmount })
-            .eq('id', user.id),
-          supabase.from('wallet_events').insert([
-            {
-              destination_user_id: user.id,
-              event_type: 'credit',
-              amount_change: rewardAmount,
-              source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-              destination_chain: 'SOL',
-              source_currency: 'Token',
-              event_details: 'comment_reward',
-              wallet_address: user.wallet_address,
-              source_chain: 'SOL',
-            },
-          ]),
-        ]);
+        readerAction('comment_reward', { table: 'comments', commentId: comment.id })
+          .then((r) => { if (r.ok && r.rewarded) toast.success(`+${r.points} points for commenting`); });
       }
-
-      if (replyingTo) {
-        const { data: parentComment } = await supabase
-          .from('comments')
-          .select('user_id')
-          .eq('id', replyingTo)
-          .single();
-        if (parentComment && parentComment.user_id !== user.id) {
-          await supabase.from('notifications').insert([
-            {
-              user_id: parentComment.user_id,
-              novel_id: novelId,
-              chapter,
-              message: `${username} replied to your comment.`,
-              type: 'reply',
-            },
-          ]);
-        }
-      }
+      if (replyingTo) readerAction('comment_notify', { table: 'comments', commentId: comment.id });
 
       setNewComment('');
       setReplyingTo(null);
@@ -724,7 +695,7 @@ const CommentSection = ({ novelId, chapter }) => {
     <View style={styles.commentSection}>
       <View style={styles.commentSectionContainer}>
         <View style={styles.titleContainer}>
-          <FontAwesome5 name="comment" size={20} color={c.gold} />
+          <FontAwesome5 name="comment" size={20} color={colors.gold} />
           <Text style={styles.title}>Comments</Text>
         </View>
         {error && (
@@ -734,7 +705,7 @@ const CommentSection = ({ novelId, chapter }) => {
               style={styles.clearErrorButton}
               onPress={() => setError(null)}
             >
-              <FontAwesome5 name="times" size={16} color={c.textPrimary} />
+              <FontAwesome5 name="times" size={16} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
         )}
@@ -752,7 +723,7 @@ const CommentSection = ({ novelId, chapter }) => {
             value={newComment}
             onChangeText={setNewComment}
             placeholder={replyingTo ? 'Type your reply...' : 'Add your comment...'}
-            placeholderTextColor={c.textMuted}
+            placeholderTextColor={colors.textMuted}
             multiline
             editable={isWalletConnected}
             maxLength={500}
@@ -764,7 +735,7 @@ const CommentSection = ({ novelId, chapter }) => {
               onPress={handleCommentSubmit}
               disabled={!isWalletConnected || !newComment}
             >
-              <FontAwesome5 name="paper-plane" size={16} color={c.textPrimary} />
+              <FontAwesome5 name="paper-plane" size={16} color={colors.textPrimary} />
               <Text style={styles.postButtonText}>{replyingTo ? 'Post Reply' : 'Post Comment'}</Text>
             </TouchableOpacity>
           </View>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
@@ -13,7 +13,7 @@ const AutopaySettings = ({ onAutopayToggle, walletAddress: propWalletAddress }) 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const themedStyles = getThemedStyles(colors, isDark);
+  const themedStyles = useMemo(() => getThemedStyles(colors, isDark), [colors, isDark]);
 
   useEffect(() => {
     fetchAutopayPreference();

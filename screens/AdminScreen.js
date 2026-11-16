@@ -21,6 +21,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { resolveRefund } from '../utils/bazaar';
+import { toast } from '../components/Toast';
 
 const TABS = [
   { key: 'overview', label: 'Overview', icon: 'chart-line' },
@@ -261,11 +262,11 @@ const AdminScreen = () => {
         }
       }
 
-      Alert.alert('Done', `Application ${approve ? 'approved' : 'rejected'}.`);
+      toast.success(`Application ${approve ? 'approved' : 'rejected'}.`);
       await Promise.all([loadApplications(), loadOverview()]);
     } catch (e) {
       console.error('[AdminScreen] application action failed:', e?.message);
-      Alert.alert('Error', e?.message || 'Action failed');
+      toast.error(e?.message || 'Action failed');
     } finally {
       setActionBusy(null);
     }
@@ -276,11 +277,11 @@ const AdminScreen = () => {
     try {
       const result = await resolveRefund(refundId, action);
       if (!result.ok || result.data?.error) throw new Error(result.data?.error || 'Resolution failed');
-      Alert.alert('Done', `Refund request ${action === 'approve' ? 'approved' : 'rejected'}.`);
+      toast.success(`Refund request ${action === 'approve' ? 'approved' : 'rejected'}.`);
       await Promise.all([loadRefunds(), loadOverview()]);
     } catch (e) {
       console.error('[AdminScreen] resolve refund failed:', e?.message);
-      Alert.alert('Error', e?.message || 'Failed to resolve refund');
+      toast.error(e?.message || 'Failed to resolve refund');
     } finally {
       setActionBusy(null);
     }
@@ -295,7 +296,7 @@ const AdminScreen = () => {
       if (error) throw error;
       setContent((prev) => prev.map((c) => (c.id === item.id ? { ...c, is_visible: next } : c)));
     } catch (e) {
-      Alert.alert('Error', e?.message || 'Update failed');
+      toast.error(e?.message || 'Update failed');
     } finally {
       setActionBusy(null);
     }
@@ -310,7 +311,7 @@ const AdminScreen = () => {
       if (error) throw error;
       setContent((prev) => prev.map((c) => (c.id === item.id ? { ...c, featured: next } : c)));
     } catch (e) {
-      Alert.alert('Error', e?.message || 'Update failed');
+      toast.error(e?.message || 'Update failed');
     } finally {
       setActionBusy(null);
     }
@@ -323,7 +324,7 @@ const AdminScreen = () => {
       if (error) throw error;
       setBazaarBooks((prev) => prev.map((b) => (b.id === book.id ? { ...b, status } : b)));
     } catch (e) {
-      Alert.alert('Error', e?.message || 'Update failed');
+      toast.error(e?.message || 'Update failed');
     } finally {
       setActionBusy(null);
     }
@@ -341,7 +342,7 @@ const AdminScreen = () => {
             if (error) throw error;
             setAnnouncements((prev) => prev.filter((a) => a.id !== ann.id));
           } catch (e) {
-            Alert.alert('Error', e?.message || 'Delete failed');
+            toast.error(e?.message || 'Delete failed');
           } finally {
             setActionBusy(null);
           }
@@ -403,10 +404,10 @@ const AdminScreen = () => {
         setAnnouncements((prev) => prev.map((a) => (a.id === data.id ? { ...a, ...patch } : a)));
       }
       setEditTarget(null);
-      Alert.alert('Saved', 'Changes applied.');
+      toast.success('Changes applied.');
     } catch (e) {
       console.error('[AdminScreen] edit save failed:', e?.message);
-      Alert.alert('Error', e?.message || 'Save failed');
+      toast.error(e?.message || 'Save failed');
     } finally {
       setEditSaving(false);
     }

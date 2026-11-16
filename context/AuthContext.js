@@ -186,8 +186,24 @@ export const AuthProvider = ({ children }) => {
         // Check for stored user data
         const storedUserString = await AsyncStorage.getItem(USER_STORAGE_KEY);
         const skipped = await AsyncStorage.getItem(SKIP_STORAGE_KEY);
-        console.log('[restoreSession] Stored User:', storedUserString, 'Skipped:', skipped);
-        
+
+        // Optimistic restore: a returning user goes straight into the app from
+        // the locally stored profile. The session refresh + database sync
+        // below still run, but in the background — startup no longer waits on
+        // the network (and still works offline).
+        if (storedUserString) {
+          try {
+            const optimisticUser = JSON.parse(storedUserString);
+            if (optimisticUser?.id) {
+              setUser(optimisticUser);
+              setSkippedSignIn(!!optimisticUser.isGuest);
+              setIsLoading(false);
+            }
+          } catch (parseError) {
+            console.warn('[restoreSession] Stored user unreadable:', parseError.message);
+          }
+        }
+
         // Try to get persisted session
         let session = await getPersistedSession();
         
@@ -284,7 +300,9 @@ export const AuthProvider = ({ children }) => {
         
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           if (session) {
-            setIsLoading(true);
+            // No isLoading flip here: TOKEN_REFRESHED fires roughly hourly, and
+            // toggling the global loading flag used to tear down the whole
+            // navigation tree mid-session (blank screen, back to Home).
             await persistSession(session);
             const syncedUser = await syncUserWithDatabase(session.user);
             if (syncedUser) {
@@ -301,9 +319,8 @@ export const AuthProvider = ({ children }) => {
       } catch (err) {
         console.error('[onAuthStateChange] Error:', err.message);
         setError('Authentication state change failed');
-      } finally {
-        setIsLoading(false);
       }
+      // isLoading is owned by restoreSession (initial boot) only.
     });
 
     return () => authListener.subscription?.unsubscribe();

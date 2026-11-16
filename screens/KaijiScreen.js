@@ -39,6 +39,7 @@ import {
 import { getKaijiLeaderboard } from '../services/kaijiLeaderboard';
 import { isOpen, isFinished, viewOf, roundForMe, roundMessage, endInfo, shortAddr } from '../services/kaijiMapping';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -380,7 +381,16 @@ const OppFan = ({ w, rm }) => {
   );
 };
 
+// Subcomponents below read the same themed styles as the screen. They used to
+// reference an undefined `styles` and crashed the moment they rendered.
+const useKaijiStyles = () => {
+  const { isDark, colors } = useTheme();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => getKaijiStyles(colors), [isDark]);
+};
+
 const Slot = ({ label, mode, k, w, h, flip, enter, resolve, state, side }) => {
+  const styles = useKaijiStyles();
   const rotateY = flip.interpolate({ inputRange: [0, 1], outputRange: ['90deg', '0deg'] });
   const enterX = enter.interpolate({ inputRange: [0, 1], outputRange: [side === 'bot' ? -80 : 80, 0] });
   const enterS = enter.interpolate({ inputRange: [0, 1], outputRange: [1.4, 1] });
@@ -421,6 +431,7 @@ const Slot = ({ label, mode, k, w, h, flip, enter, resolve, state, side }) => {
 };
 
 const HandCard = ({ k, count, selected, dim, disabled, w, onPress }) => {
+  const styles = useKaijiStyles();
   const lift = useRef(new Animated.Value(0)).current;
   const press = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -459,6 +470,7 @@ const HandCard = ({ k, count, selected, dim, disabled, w, onPress }) => {
 };
 
 const LockButton = ({ label, enabled, onPress, rm }) => {
+  const styles = useKaijiStyles();
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!enabled || rm) {
@@ -516,7 +528,9 @@ const PulseCard = ({ w, rm }) => {
   );
 };
 
-const ModeTile = ({ title, tagline, badge, locked, onPress, children }) => (
+const ModeTile = ({ title, tagline, badge, locked, onPress, children }) => {
+  const styles = useKaijiStyles();
+  return (
   <Pressable
     style={{ flex: 1 }}
     onPress={onPress}
@@ -539,15 +553,19 @@ const ModeTile = ({ title, tagline, badge, locked, onPress, children }) => (
       </View>
     </ImageBackground>
   </Pressable>
-);
+  );
+};
 
-const Meter = ({ n }) => (
+const Meter = ({ n }) => {
+  const styles = useKaijiStyles();
+  return (
   <View style={{ flexDirection: 'row', marginBottom: 8 }}>
     {[0, 1, 2].map((i) => (
       <View key={i} style={[styles.meterDot, i < n && styles.meterOn]} />
     ))}
   </View>
-);
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Screen
@@ -827,17 +845,17 @@ const KaijiScreen = () => {
     ]);
 
   const onNormal = () => {
-    if (!NORMAL_MODE_ENABLED) return Alert.alert('Normal Mode is coming soon');
+    if (!NORMAL_MODE_ENABLED) return toast.info('Normal Mode is coming soon');
     if (!isWalletConnected) return connectPrompt();
-    if (!cfg) return Alert.alert('Kaiji is offline', 'Could not reach the Kaiji server. Try again in a moment.');
-    if (!cfg.allowed) return Alert.alert('Not enabled yet', 'Normal Mode is limited to test wallets right now.');
+    if (!cfg) return toast.error('Kaiji is offline — Could not reach the Kaiji server. Try again in a moment.');
+    if (!cfg.allowed) return toast.error('Not enabled yet — Normal Mode is limited to test wallets right now.');
     setView('wager');
   };
 
   const onTourney = () => {
-    if (!TOURNEY_ENABLED) return Alert.alert('Tourney Mode is coming soon', 'Tournaments will need a signed-in account and a connected wallet.');
-    if (!signedIn) return Alert.alert('Sign in required', 'Tournaments are tied to your account as well as your wallet.');
-    return Alert.alert('Tourney Mode', 'Connect this to the tournament lobby.');
+    if (!TOURNEY_ENABLED) return toast.info('Tourney Mode is coming soon — Tournaments will need a signed-in account and a connected wallet.');
+    if (!signedIn) return toast.error('Sign in required — Tournaments are tied to your account as well as your wallet.');
+    return toast.info('Tourney Mode — Connect this to the tournament lobby.');
   };
 
   const lockIn = useCallback(async () => {
@@ -1100,10 +1118,7 @@ const KaijiScreen = () => {
           if (m.status === 'settled') clearSession();
           setView('modes');
           setBalTick((t) => t + 1);
-          Alert.alert(
-            'No opponent found',
-            m.status === 'settled' ? 'Your wager was refunded to your wallet.' : 'Your wager is being refunded to your wallet.'
-          );
+          toast.info(`No opponent found — ${m.status === 'settled' ? 'Your wager was refunded to your wallet.' : 'Your wager is being refunded to your wallet.'}`);
         }
         return;
       }
@@ -1148,7 +1163,7 @@ const KaijiScreen = () => {
       const { match, side } = await depositAndJoin({ wallet, signTransactionOnly, wagerTokens });
       attachMatch({ match, side, rounds: [] });
     } catch (e) {
-      Alert.alert('Could not join', friendlyError(e.message));
+      toast.error(`Could not join — ${friendlyError(e.message)}`);
     } finally {
       setJoining(false);
     }
@@ -1165,17 +1180,14 @@ const KaijiScreen = () => {
         setBalTick((t) => t + 1);
       } else {
         // refund sent but not confirmed yet, or it hit a problem: keep the saved match so the menu shows it
-        Alert.alert(
-          'Refund in progress',
-          res.status === 'settle_failed'
+        toast.info(`Refund in progress — ${res.status === 'settle_failed'
             ? `The refund hit a problem and will be retried automatically.${res.error ? `\n\n${res.error}` : ''}`
-            : 'Your wager is being refunded.'
-        );
+            : 'Your wager is being refunded.'}`);
       }
       setView('modes');
     } catch (e) {
       if (e.message === 'cannot_cancel') return; // an opponent just joined; the next poll moves us into the match
-      Alert.alert('Could not cancel', friendlyError(e.message));
+      toast.error(`Could not cancel — ${friendlyError(e.message)}`);
     }
   }, [stopWatching]);
 

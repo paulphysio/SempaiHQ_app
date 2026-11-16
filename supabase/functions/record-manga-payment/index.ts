@@ -42,14 +42,31 @@ async function solUsdPrice(): Promise<number> {
   } catch { return 150; }
 }
 
-// SMP per USD from the Meteora [SMP, SOL] pool (same source as unlock-manga-chapter)
+// SMP per USD. Primary: the same price the app charges with (SMP isn't
+// tradable on Jupiter and the Meteora pool endpoint now returns nothing,
+// which made every SMP payment look like $0). Meteora kept as a backup.
 async function smpPerUsd(): Promise<number> {
+  try {
+    const r = await fetch("https://www.sempaihq.com/api/smp-fallback-price", { signal: AbortSignal.timeout(4000) });
+    const p = Number((await r.json())?.fallbackPrice);
+    if (Number.isFinite(p) && p > 0) return p;
+  } catch { /* fall through */ }
   try {
     const [pool] = await fetch("https://amm-v2.meteora.ag/pools?address=3duTFdX9wrGh3TatuKtorzChL697HpiufZDPnc44Yp33").then((r) => r.json());
     const smp = parseFloat(pool.pool_token_amounts[0]);
     const smpUsd = parseFloat(pool.pool_token_usd_amounts[0]);
     return smp / smpUsd;
   } catch { return 0; }
+}
+
+// The wallet that paid (fee payer / first signer) of a transaction, or null.
+async function payerOf(signature: string): Promise<string | null> {
+  const tx: any = await connection.getTransaction(signature, {
+    maxSupportedTransactionVersion: 0,
+    commitment: "confirmed",
+  });
+  const k = tx?.transaction?.message?.accountKeys?.[0] ?? tx?.transaction?.message?.staticAccountKeys?.[0];
+  return k ? (k.toBase58 ? k.toBase58() : String(k)) : null;
 }
 
 // Returns the amount (in UI units) the merchant wallet received in `mint` (null = SOL).
@@ -60,7 +77,8 @@ async function merchantReceived(signature: string, mint: string | null): Promise
   });
   if (!tx?.meta || tx.meta.err) return 0;
 
-  const accountKeys: string[] = tx.transaction.message.accountKeys.map((k: any) => k.toBase58 ? k.toBase58() : String(k));
+  const rawKeys = tx.transaction.message.accountKeys ?? tx.transaction.message.staticAccountKeys ?? [];
+  const accountKeys: string[] = rawKeys.map((k: any) => k.toBase58 ? k.toBase58() : String(k));
 
   if (!mint) {
     // SOL: lamports delta on the merchant account
@@ -118,6 +136,15 @@ serve(async (req) => {
       .then(throwOnError);
     if (!chapter) return new Response(JSON.stringify({ error: "Chapter not found" }), { status: 404 });
 
+    // Only the wallet that actually paid can claim the payment.
+    const payer = await payerOf(signature);
+    if (!payer) {
+      return new Response(JSON.stringify({ error: "Payment not found on Solana yet — please try again in a minute." }), { status: 503 });
+    }
+    if (payer !== walletAddress) {
+      return new Response(JSON.stringify({ error: "Payment was not made by this wallet." }), { status: 400 });
+    }
+
     // Expected USD value of this unlock
     let expectedUsd = chapter.is_premium ? Number(chapter.price) || 2.5 : 0.005;
     if (paymentType === "threeChapters") expectedUsd = 3;
@@ -130,13 +157,23 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Payment transaction not found or merchant received nothing." }), { status: 402 });
     }
 
-    // Floor: received value must be >= ~85% of expected USD (price drift tolerance)
+    // "Read with SMP" (Earn): a flat SMP amount rather than a USD price.
+    const SMP_READ_COST = 1000;
     let receivedUsd = 0;
-    if (currency === "USDC") receivedUsd = received;
-    else if (currency === "SOL") receivedUsd = received * (await solUsdPrice());
-    else if (currency === "SMP") { const p = await smpPerUsd(); receivedUsd = p ? received / p : 0; }
-    if (receivedUsd < expectedUsd * 0.85) {
-      return new Response(JSON.stringify({ error: `Payment too small: ~$${receivedUsd.toFixed(2)} received, ~$${expectedUsd} expected.` }), { status: 402 });
+    if (paymentType === "smp_read") {
+      if (currency !== "SMP" || received < SMP_READ_COST * 0.85) {
+        return new Response(JSON.stringify({ error: `Payment too small: ${received} SMP received, ${SMP_READ_COST} expected.` }), { status: 402 });
+      }
+      const p = await smpPerUsd();
+      receivedUsd = p ? received / p : 0;
+    } else {
+      // Floor: received value must be >= ~85% of expected USD (price drift tolerance)
+      if (currency === "USDC") receivedUsd = received;
+      else if (currency === "SOL") receivedUsd = received * (await solUsdPrice());
+      else if (currency === "SMP") { const p = await smpPerUsd(); receivedUsd = p ? received / p : 0; }
+      if (receivedUsd < expectedUsd * 0.85) {
+        return new Response(JSON.stringify({ error: `Payment too small: ~$${receivedUsd.toFixed(2)} received, ~$${expectedUsd} expected.` }), { status: 402 });
+      }
     }
 
     const userRow = await supabaseAdmin
@@ -180,6 +217,40 @@ serve(async (req) => {
     }
     await supabaseAdmin.from("unlocked_manga_chapters").insert(unlockRows).then(throwOnError);
 
+    // "Read with SMP" rewards — done here (once per verified payment) instead
+    // of in the app, which used to charge the reader's in-app balance a second
+    // time and overwrite the artist's balance.
+    let readerReward = 0;
+    if (paymentType === "smp_read") {
+      try {
+        const { data: am } = await supabaseAdmin.from("amethyst_balances")
+          .select("amethyst_balance").eq("user_id", userRow.id).maybeSingle();
+        const amethyst = Number(am?.amethyst_balance) || 0;
+        readerReward = amethyst >= 5_000_000 ? 250 : amethyst >= 1_000_000 ? 200 : amethyst >= 500_000 ? 170
+          : amethyst >= 250_000 ? 150 : amethyst >= 100_000 ? 120 : 100;
+        await supabaseAdmin.rpc("increment_weekly_points", { user_id: userRow.id, points: readerReward });
+
+        const { data: owner } = await supabaseAdmin.from("manga")
+          .select("user_id").eq("id", mangaId).maybeSingle();
+        const ARTIST_REWARD = 500;
+        if (owner?.user_id && owner.user_id !== userRow.id) {
+          await supabaseAdmin.rpc("credit_smp", { p_user: owner.user_id, p_amount: ARTIST_REWARD });
+        }
+        const details = `manga:${mangaId}:${chapterId}:${signature}`.slice(0, 255);
+        const SYSTEM_USER = "6f859ff9-3557-473c-b8ca-f23fd9f7af27";
+        await supabaseAdmin.from("wallet_events").insert([
+          { destination_user_id: userRow.id, event_type: "deposit", event_details: details, source_chain: "SOL",
+            source_currency: "Token", amount_change: readerReward, wallet_address: walletAddress,
+            source_user_id: SYSTEM_USER, destination_chain: "SOL" },
+          ...(owner?.user_id && owner.user_id !== userRow.id ? [{
+            destination_user_id: owner.user_id, event_type: "deposit", event_details: details, source_chain: "SOL",
+            source_currency: "SMP", amount_change: ARTIST_REWARD, source_user_id: SYSTEM_USER, destination_chain: "SOL" }] : []),
+        ]);
+      } catch (e: any) {
+        console.warn("[record-manga-payment] reward step failed:", e?.message);
+      }
+    }
+
     const decimals = currency === "SOL" ? 9 : 6;
     await logFeed({
       event_type: "manga_unlock",
@@ -195,7 +266,7 @@ serve(async (req) => {
       meta: { manga_id: mangaId, chapter_id: chapterId, payment_type: paymentType || "single" },
     });
 
-    return new Response(JSON.stringify({ success: true }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, readerReward }), { status: 200 });
   } catch (error: any) {
     console.error("[record-manga-payment] Unexpected error:", error);
     return new Response(JSON.stringify({ error: error?.message || "Internal error" }), { status: 500 });

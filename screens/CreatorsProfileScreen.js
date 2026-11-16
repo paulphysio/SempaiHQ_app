@@ -53,6 +53,7 @@ import {
   SpeechBubble,
   InkButton,
 } from '../components/MangaUI';
+import { toast } from '../components/Toast';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -62,7 +63,9 @@ const CreatorsProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  const { id } = route.params || {};
+  // Accept both param names: some callers passed { userId } and got an empty profile.
+  const { id: idParam, userId: userIdParam } = route.params || {};
+  const id = idParam || userIdParam;
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const signAndSendTransaction = walletContext?.signAndSendTransaction;
@@ -71,7 +74,7 @@ const CreatorsProfileScreen = () => {
   const { isDark, colors } = useTheme();
   const palette = useMemo(() => getProfilePalette(isDark), [isDark]);
   const styles = useMemo(() => getProfileMangaStyles(isDark), [isDark]);
-  const themedStyles = getProfileStyles(isDark); // modals only
+  const themedStyles = useMemo(() => getProfileStyles(isDark), [isDark]); // modals only
   const reduceMotion = useReduceMotion();
 
   const [creatorData, setCreatorData] = useState(null);
@@ -324,7 +327,7 @@ const CreatorsProfileScreen = () => {
 
   const openUrl = (url) => {
     if (!url) return;
-    Linking.openURL(url).catch(() => Alert.alert('Could not open link', url));
+    Linking.openURL(url).catch(() => toast.error(`Could not open link — ${url}`));
   };
 
   const copyWallet = async () => {
@@ -346,15 +349,15 @@ const CreatorsProfileScreen = () => {
 
   const handleSendMessage = async () => {
     if (canMessageCreator === false) {
-      Alert.alert('Subscribers only', `Buy ${creatorData?.name || 'this creator'}'s badge to send them a message.`);
+      toast.info(`Subscribers only — ${`Buy ${creatorData?.name || 'this creator'}'s badge to send them a message.`}`);
       return;
     }
     if (!messageText.trim()) {
-      Alert.alert('Error', 'Please enter a message');
+      toast.error('Please enter a message');
       return;
     }
     if (!isWalletConnected) {
-      Alert.alert('Error', 'Please connect your wallet to send messages');
+      toast.error('Please connect your wallet to send messages');
       return;
     }
 
@@ -371,12 +374,12 @@ const CreatorsProfileScreen = () => {
 
       if (error) throw error;
 
-      Alert.alert('Success', 'Message sent successfully!');
+      toast.success('Message sent successfully!');
       setMessageText('');
       setShowMessageModal(false);
     } catch (error) {
       console.error('[CreatorsProfileScreen] Error sending message:', error);
-      Alert.alert('Error', 'Failed to send message. Please try again.');
+      toast.error('Failed to send message. Please try again.');
     } finally {
       setIsSendingMessage(false);
     }
@@ -385,19 +388,19 @@ const CreatorsProfileScreen = () => {
   const handleTip = () => {
     const amount = parseFloat(tipAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      Alert.alert('Invalid amount', 'Enter a tip amount greater than 0.');
+      toast.error('Invalid amount — Enter a tip amount greater than 0.');
       return;
     }
     if (amount > 100000) {
-      Alert.alert('Amount too large', 'Please keep tips under 100,000.');
+      toast.error('Amount too large — Please keep tips under 100,000.');
       return;
     }
     if (!creatorData?.wallet_address) {
-      Alert.alert('Unavailable', 'This creator has no wallet address to receive tips.');
+      toast.info('Unavailable — This creator has no wallet address to receive tips.');
       return;
     }
     if (!isWalletConnected || !wallet?.publicKey || !signAndSendTransaction) {
-      Alert.alert('Wallet required', 'Please connect your wallet to send a tip.');
+      toast.error('Wallet required — Please connect your wallet to send a tip.');
       return;
     }
 
@@ -502,13 +505,13 @@ const CreatorsProfileScreen = () => {
         console.warn('[CreatorsProfileScreen] tip record failed:', recordErr?.message);
       }
 
-      Alert.alert('Tip sent', `Thank you for supporting ${creatorData?.name || 'the creator'}!`);
+      toast.info(`Tip sent — ${`Thank you for supporting ${creatorData?.name || 'the creator'}!`}`);
       setShowTipModal(false);
       setTipAmount('');
       setTipCurrency('SOL');
     } catch (error) {
       console.error('[CreatorsProfileScreen] Tip error:', error.message);
-      Alert.alert('Tip failed', error.message || 'Something went wrong.');
+      toast.error(`Tip failed — ${error.message || 'Something went wrong.'}`);
     } finally {
       setTipSending(false);
     }
@@ -516,17 +519,17 @@ const CreatorsProfileScreen = () => {
 
   const handleBadgePurchase = useCallback(async () => {
     if (!selectedBadge) {
-      alert('Please select a badge');
+      toast.error('Please select a badge');
       return;
     }
 
     if (!wallet || !wallet.publicKey) {
-      alert('Please connect your wallet first');
+      toast.error('Please connect your wallet first');
       return;
     }
 
     if (!signAndSendTransaction) {
-      alert('Wallet not ready for transactions. Please reconnect.');
+      toast.error('Wallet not ready for transactions. Please reconnect.');
       return;
     }
 
@@ -669,14 +672,14 @@ const CreatorsProfileScreen = () => {
         throw new Error(data.error || 'Failed to record purchase');
       }
 
-      Alert.alert('Success', 'Badge purchased successfully!');
+      toast.success('Badge purchased successfully!');
       setShowBadgePurchaseModal(false);
       setSelectedBadge(null);
       await fetchWriterBadges();
 
     } catch (error) {
       console.error('[CreatorsProfileScreen] Purchase error:', error.message);
-      Alert.alert('Error', error.message || 'Purchase failed. Please try again.');
+      toast.error(error.message || 'Purchase failed. Please try again.');
     } finally {
       setIsProcessingBadgePurchase(false);
     }
@@ -799,10 +802,7 @@ const CreatorsProfileScreen = () => {
                   if (canMessageCreator !== false) {
                     setShowMessageModal(true);
                   } else {
-                    Alert.alert(
-                      'Subscribers only',
-                      `Buy ${creatorData?.name || 'this creator'}'s badge to unlock messaging.`
-                    );
+                    toast.info(`Subscribers only — ${`Buy ${creatorData?.name || 'this creator'}'s badge to unlock messaging.`}`);
                   }
                 }}
               />

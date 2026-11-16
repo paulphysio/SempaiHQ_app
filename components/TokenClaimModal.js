@@ -1,20 +1,12 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase } from '../services/supabaseClient';
 import { getUserDetails } from '../utils/userManagement';
 import { fetchSolBalance } from '../utils/solana';
 import { callSignedEdgeFunction } from '../utils/walletSignature';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
+import { toast } from './Toast';
 
 const MAX_CLAIMS = 500;
 const MINIMUM_SOL_FOR_AIRDROP = 0.005; // 0.5 USD worth of SOL (assuming 1 SOL = $100)
@@ -171,7 +163,7 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
         console.log(`[TokenClaimModal] Attempt ${attempts + 1}/${MAX_RETRIES} to claim tokens`);
         const signature = await (onTokenClaim || defaultOnTokenClaim)();
         console.log('[TokenClaimModal] Airdrop successful, signature:', signature);
-        Alert.alert('Success', `Airdrop claimed!\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`);
+        toast.success(`Airdrop claimed!\nTransaction: ${signature.slice(0, 8)}...${signature.slice(-8)}`);
         setClaimCount(prev => prev + 1);
         setRetryCount(0);
         onClose();
@@ -345,7 +337,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#FFD700',
+    borderColor: '#FFC857',
     minWidth: 150,
     alignItems: 'center',
   },

@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 import { LinearGradient } from 'expo-linear-gradient';
 import { confirmWalletChange } from '../services/kaijiGuard'; // KAIJI: blocks wallet changes in a tourney, warns during a match
 import { useTheme } from '../context/ThemeContext';
+import { toast } from './Toast';
 
 export const EmbeddedWalletContext = createContext();
 
@@ -23,6 +24,26 @@ const connection = new solanaWeb3.Connection(RPC_URL, 'confirmed');
 
 const WALLET_TYPES = {
   EMBEDDED: 'embedded'
+};
+
+/**
+ * The signed-in person's own `users` row. Looked up by account id (which
+ * can't be faked); the email match is only a fallback for older accounts
+ * whose row predates id syncing. Never trust email alone — that's how a
+ * wallet could be pulled into someone else's account.
+ */
+const findMyUserRow = async (authId, email, columns = 'id, wallet_address') => {
+  if (authId) {
+    const { data, error } = await supabase.from('users').select(columns).eq('id', authId).maybeSingle();
+    if (error) return { data: null, error };
+    if (data) return { data, error: null };
+  }
+  if (!email) return { data: null, error: null };
+  const { data, error } = await supabase.from('users').select(columns).eq('email', email).limit(2);
+  if (error) return { data: null, error };
+  // Two rows sharing an email is ambiguous — refuse rather than guess.
+  if (!data || data.length !== 1) return { data: null, error: null };
+  return { data: data[0], error: null };
 };
 
 const secureStoreWrapper = {
@@ -99,45 +120,42 @@ const secureStoreWrapper = {
   },
 };
 
-// Kept outside the component so encryptPrivateKey helpers can call it
-const invokeEncryptionFunction = async (action, data) => {
+// Kept outside the component so encryptPrivateKey helpers can call it.
+//
+// Calls the wallet-encryption edge function directly (the app's server key is
+// accepted there). It used to go through the website's /api/wallet-encryption
+// route and, on ANY error, "encrypt" with base64 — i.e. store private keys in
+// plain text. Encryption now never falls back.
+const isGenuineSecretKey = (plain) => {
   try {
-    const webApiUrl = 'https://www.sempaihq.com/api/wallet-encryption';
-    const response = await fetch(webApiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ action, data }),
-    });
-    const responseData = await response.json();
-    if (!response.ok || responseData.error) {
-      console.error('[invokeEncryptionFunction] Error response:', responseData.error);
-      throw new Error(`Edge function error: ${responseData.error || 'Unknown error'}`);
-    }
-    if (!responseData.result) {
-      console.error('[invokeEncryptionFunction] No result in response:', responseData);
-      throw new Error('No result returned from edge function');
-    }
-    return responseData.result;
-  } catch (err) {
-    console.error(`[invokeEncryptionFunction] ${action} failed:`, err.message);
-    console.warn('[invokeEncryptionFunction] Falling back to local encryption');
-    // Fallback to local encryption using simple XOR (for development only)
-    // In production, this should be replaced with proper encryption
-    if (action === 'encrypt') {
-      // Simple base64 encoding as fallback (NOT secure, just for development)
-      return btoa(data);
-    } else if (action === 'decrypt') {
-      // Simple base64 decoding as fallback
-      try {
-        return atob(data);
-      } catch (e) {
-        throw new Error('Decryption failed with fallback method');
-      }
-    }
-    throw err;
+    const t = String(plain || '').trim();
+    const sk = t.startsWith('[') ? Uint8Array.from(JSON.parse(t)) : bs58.decode(t);
+    return sk.length === 64;
+  } catch {
+    return false;
   }
+};
+
+const invokeEncryptionFunction = async (action, data) => {
+  const { data: res, error } = await supabase.functions.invoke('wallet-encryption', { body: { action, data } });
+  if (!error && typeof res?.result === 'string') return res.result;
+
+  // Read-only compatibility: keys saved by the old base64 fallback can still
+  // be opened — but only if the result is a genuine 64-byte secret key.
+  if (action === 'decrypt') {
+    try {
+      const legacy = atob(data);
+      if (isGenuineSecretKey(legacy)) {
+        console.warn('[invokeEncryptionFunction] Opened a legacy (unencrypted) wallet key — it will be re-encrypted on next save');
+        return legacy;
+      }
+    } catch {
+      /* not legacy base64 */
+    }
+  }
+  const message = error?.message || res?.error || 'Wallet encryption service unavailable';
+  console.error(`[invokeEncryptionFunction] ${action} failed:`, message);
+  throw new Error(`Couldn't ${action === 'encrypt' ? 'secure' : 'unlock'} your wallet — ${message}. Please try again.`);
 };
 
 export const EmbeddedWalletProvider = ({ children }) => {
@@ -245,11 +263,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
         // For authenticated users, verify the wallet still matches their DB record
         if (user && !user.isGuest) {
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, wallet_address')
-            .eq('email', user.email)
-            .single();
+          const { data: userData, error: userError } = await findMyUserRow(user.id, user.email);
 
           if (userError) {
             console.warn('[restoreWallet] Supabase query failed, restoring anyway:', userError.message);
@@ -414,11 +428,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
       try { await disconnectWallet(); } catch (_) {}
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, wallet_address')
-        .eq('email', actualUser.email)
-        .single();
+      const { data: userData, error: userError } = await findMyUserRow(actualUser.id, actualUser.email);
       if (userError || !userData) throw new Error('User not found. Please ensure your account is registered.');
       if (!userData.wallet_address) throw new Error('No wallet address associated with this user. Please create a new wallet.');
 
@@ -1039,7 +1049,7 @@ const ConnectButton = ({ compact = false, label }) => {
           style={styles.dropdownAction}
           onPress={() => {
             Clipboard.setString(wallet.publicKey.toString());
-            Alert.alert('Copied', 'Wallet address copied to clipboard');
+            toast.success('Wallet address copied to clipboard');
           }}
         >
           <Text style={styles.dropdownActionText}>Copy Address</Text>
@@ -1189,11 +1199,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     const checkExistingWallet = async () => {
       if (user && !user.isGuest) {
         try {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('wallet_address')
-            .eq('email', user.email)
-            .single();
+          const { data: userData } = await findMyUserRow(user.id, user.email, 'wallet_address');
           const hasWallet = !!userData?.wallet_address;
           setHasExistingWallet(hasWallet);
 
@@ -1262,11 +1268,11 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
               try {
                 const result = await createEmbeddedWallet(password);
                 if (result) { 
-                  Alert.alert('Success', 'New wallet created successfully!'); 
+                  toast.success('New wallet created successfully!'); 
                   onClose(); 
                 }
               } catch (error) {
-                Alert.alert('Error', error.message);
+                toast.error(error.message);
               } finally {
                 setLoading(false);
               }
@@ -1280,9 +1286,9 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     setLoading(true);
     try {
       const result = await createEmbeddedWallet(password);
-      if (result) { Alert.alert('Success', 'Embedded wallet created successfully!'); onClose(); }
+      if (result) { toast.success('Embedded wallet created successfully!'); onClose(); }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -1295,9 +1301,9 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     setLoading(true);
     try {
       const result = await retrieveEmbeddedWallet(password);
-      if (result) { Alert.alert('Success', 'Embedded wallet retrieved successfully!'); onClose(); }
+      if (result) { toast.success('Embedded wallet retrieved successfully!'); onClose(); }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -1321,11 +1327,11 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     try {
       const result = await importWalletFromPrivateKey(privateKeyInput, password);
       if (result) {
-        Alert.alert('Success', 'Wallet imported successfully!');
+        toast.success('Wallet imported successfully!');
         onClose();
       }
     } catch (error) {
-      Alert.alert('Error', error.message);
+      toast.error(error.message);
     } finally {
       setLoading(false);
     }
@@ -1355,7 +1361,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
             </View>
 
             <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('create')} activeOpacity={0.7}>
-              <LinearGradient colors={['rgba(255, 87, 51, 0.1)', 'rgba(255, 87, 51, 0.05)']} style={styles.walletOptionGradient}>
+              <LinearGradient colors={['rgba(243, 99, 22, 0.1)', 'rgba(243, 99, 22, 0.05)']} style={styles.walletOptionGradient}>
                 <View style={styles.walletOptionHeader}>
                   <View style={styles.walletIconContainer}>
                     <MaterialCommunityIcons name="plus-circle" size={28} color={colors.accent} />
@@ -1414,7 +1420,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
               <Text style={styles.backButtonText}>Back</Text>
             </TouchableOpacity>
             <View style={styles.formHeader}>
-              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(255, 87, 51, 0.15)' }]}>
+              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(243, 99, 22, 0.15)' }]}>
                 <MaterialCommunityIcons name="plus-circle" size={32} color={colors.accent} />
               </View>
               <Text style={styles.modalTitle}>Create New Wallet</Text>

@@ -1,21 +1,18 @@
-import React, { useState, useEffect, useCallback, useContext, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useContext, useRef, useMemo } from 'react';
 import {
   View,
   Text,
-  Image,
-  TouchableOpacity,
+  Pressable,
   FlatList,
-  ActivityIndicator,
   Animated,
-  SafeAreaView,
   StyleSheet,
-  Dimensions,
-  ScrollView,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import * as Network from 'expo-network';
+import { useOnline } from '../hooks/useOnline';
+import { cacheGet, cacheSet, cacheValue } from '../services/localCache';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
 import { deleteNovelForOffline, getNovelForOffline, isErrorNetworkError, isNovelSavedOffline, saveNovelForOffline } from '../services/offlineCache';
@@ -25,12 +22,16 @@ import NovelCommentSection from '../components/Comments/NovelCommentSection';
 import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { getContentReadingProgress } from '../services/readingProgress';
 import { useTheme } from '../context/ThemeContext';
-import { getNovelPageStyles } from '../styles/NovelPageStyles';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { Sheet, EmptyState } from '../components/ui';
+import { toast } from '../components/Toast';
+import { space } from '../theme/tokens';
+import { DetailHero, ChapterRow, makeDetailStyles, formatCount, STATUS } from '../components/detail/DetailKit';
+import { BOTTOM_NAV_CLEARANCE } from '../components/GlobalBottomNav';
 
-const { width, height } = Dimensions.get('window');
+const FREE_CHAPTERS = 3; // indices 0–2 are always free
 
-const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
-
+/* ═════════════════════════════════════════════════════════════ screen ═══ */
 const NovelDetailScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -38,250 +39,140 @@ const NovelDetailScreen = () => {
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const { isDark, colors } = useTheme();
-  const styles = getNovelPageStyles(isDark);
-  
+  const styles = useMemo(() => makeDetailStyles(colors, isDark), [colors, isDark]);
+
   const [novel, setNovel] = useState(null);
   const [novelChapters, setNovelChapters] = useState(null);
   const [isSavedOffline, setIsSavedOffline] = useState(false);
+  const [savingOffline, setSavingOffline] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showConnectPopup, setShowConnectPopup] = useState(false);
-  const [viewCountError, setViewCountError] = useState(null);
   const [unlockedChapters, setUnlockedChapters] = useState([]);
   const [readingProgress, setReadingProgress] = useState(null);
-  const [isOnline, setIsOnline] = useState(null);
-  const menuAnim = useRef(new Animated.Value(280)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const isOnline = useOnline(); // flips offline on real request failures too
+  const [newestFirst, setNewestFirst] = useState(false);
   const contentFade = useRef(new Animated.Value(0)).current;
-  const emberAnims = useRef([]);
   const { session } = useGoogleAuth();
   const [userId, setUserId] = useState(session?.user?.id || null);
+
+  const isWalletConnected = !!wallet?.publicKey;
+  const activePublicKey = wallet?.publicKey || null;
+  const offline = isOnline === false || isOnline === null;
 
   // Restore user ID from AsyncStorage (works offline)
   useEffect(() => {
     (async () => {
       try {
         const storedUserId = await AsyncStorage.getItem('offline_user_id');
-        if (storedUserId && !userId) {
-          if (__DEV__) console.log('[NovelDetailScreen] Restored user ID from storage:', storedUserId);
-          setUserId(storedUserId);
-        }
+        if (storedUserId && !userId) setUserId(storedUserId);
       } catch (e) {
         console.error('[NovelDetailScreen] Failed to restore user ID:', e);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Update userId when session changes
   useEffect(() => {
-    if (session?.user?.id) {
-      setUserId(session.user.id);
-    }
+    if (session?.user?.id) setUserId(session.user.id);
   }, [session?.user?.id]);
 
-  // Initialize ember particles
-  useEffect(() => {
-    const embers = Array.from({ length: 12 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 8,
-      duration: 6 + Math.random() * 4,
-    }));
-    emberAnims.current = embers.map(() => new Animated.Value(0));
-    
-    emberAnims.current.forEach((anim, index) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(embers[index].delay * 1000),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: embers[index].duration * 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    });
-  }, []);
+  const reveal = useCallback(() => {
+    Animated.timing(contentFade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+  }, [contentFade]);
 
-  const isWalletConnected = !!wallet?.publicKey;
-  const activePublicKey = wallet?.publicKey || null;
-
-  const toggleMenu = () => {
-    const toValue = menuOpen ? 280 : 0;
-    Animated.parallel([
-      Animated.timing(menuAnim, {
-        toValue,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: menuOpen ? 0 : 0.6,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    setMenuOpen(!menuOpen);
-    setShowConnectPopup(false);
-  };
-
-  const closeMenu = () => {
-    if (menuOpen) toggleMenu();
-  };
-
-  // Check network status
-  useEffect(() => {
-    let lastOnline = null;
-    const checkNetworkStatus = async () => {
-      try {
-        const networkState = await Network.getNetworkStateAsync();
-        const online = networkState.isConnected && networkState.type !== 'none';
-        setIsOnline(online);
-        if (online !== lastOnline) {
-          lastOnline = online;
-          if (__DEV__) console.log('[NovelDetailScreen] Network status:', online ? 'online' : 'offline');
-        }
-      } catch (error) {
-        console.error('[NovelDetailScreen] Error checking network status:', error);
-        setIsOnline(true);
-      }
-    };
-
-    checkNetworkStatus();
-    const interval = setInterval(checkNetworkStatus, 5000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
+  // Offline fallbacks, best first: the full saved copy (readable chapters),
+  // then the last-seen page (info + chapter list) kept on this device.
+  const loadFromDevice = useCallback(async () => {
+    const saved = await getNovelForOffline(id, userId || 'guest');
+    if (saved?.novel) {
+      setNovel(saved.novel);
+      setNovelChapters(saved.chapters);
+      return 'saved';
+    }
+    const seen = await cacheValue(`novel:${id}`);
+    if (seen) {
+      setNovel(seen);
+      setNovelChapters([]);
+      return 'seen';
+    }
+    return null;
+  }, [id, userId]);
 
   const fetchNovel = useCallback(async () => {
+    if (isOnline === null) return; // wait a beat for the first connection reading
     try {
-      if (__DEV__) console.log('[NovelDetailScreen] Fetching novel with id:', id, 'isOnline:', isOnline, 'userId:', userId);
-
-      // If offline or network status unknown, try cache first
-      if (isOnline === false || isOnline === null) {
-        if (__DEV__) console.log('[NovelDetailScreen] Offline/network unknown - loading novel from cache');
-        const cachedData = await getNovelForOffline(id, userId || 'guest');
-        if (cachedData) {
-          if (__DEV__) console.log('[NovelDetailScreen] Novel loaded from cache:', cachedData.novel.title);
-          setNovel(cachedData.novel);
-          setNovelChapters(cachedData.chapters);
-          Animated.timing(contentFade, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }).start();
-          setLoading(false);
-          return;
+      if (isOnline === false) {
+        const from = await loadFromDevice();
+        if (from) {
+          setError(null);
+          reveal();
         } else {
-          if (__DEV__) console.log('[NovelDetailScreen] Novel not in cache');
-          if (isOnline === false) {
-            setError('Novel not available offline. Please save it for offline reading first.');
-            setLoading(false);
-            return;
-          }
-          // If network status unknown, continue to try network fetch
+          setError('This novel isn’t on your device yet. Open or save it while you’re online to read it offline.');
         }
+        return;
       }
 
-      // Online or status unknown - fetch from network first
-      if (__DEV__) console.log('[NovelDetailScreen] Online/status unknown - fetching from network');
-      let { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('novels')
         .select('*, users:user_id(name)')
         .eq('id', id)
         .eq('is_visible', true)
         .single();
 
-      const isNetworkError = isErrorNetworkError(error);
-      // failed to fetch from network, try cache
-      if(isNetworkError){
-        if (__DEV__) console.log(`[NovelDetailScreen] could not load ${id} from network, trying from cache`);
-        const cachedData = await getNovelForOffline(id, userId);
-        if (cachedData) {
-          data = cachedData.novel;
-          setNovelChapters(cachedData.chapters);
-          if (__DEV__) console.log(`[NovelDetailScreen] novel ${id} loaded successfully from cache`);
+      if (fetchError || !data) {
+        if (isErrorNetworkError(fetchError)) {
+          // The phone said "online" but the request failed: use the device copy.
+          const from = await loadFromDevice();
+          if (from) {
+            setError(null);
+            reveal();
+            return;
+          }
+          setError('You’re offline and this novel isn’t on your device yet.');
+          return;
         }
-      }
-
-      if (!data && error) {
-        console.error('[NovelDetailScreen] Novel fetch error:', error);
         throw new Error('Novel not found');
       }
 
-      if (__DEV__) console.log('[NovelDetailScreen] Novel fetched successfully:', data?.title);
       setNovel(data);
-      Animated.timing(contentFade, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
-    } catch (error) {
-      console.error('[NovelDetailScreen] Unexpected error:', error.message);
-      setError(error.message);
+      setError(null);
+      reveal();
+      // Keep a light copy (no chapter text) so this page opens offline next time.
+      const { chaptercontents, ...light } = data;
+      cacheSet(`novel:${id}`, light);
+    } catch (e) {
+      console.warn('[NovelDetailScreen] load failed:', e.message);
+      setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [id, isOnline, userId]);
+  }, [id, isOnline, reveal, loadFromDevice]);
 
   const updateViewCount = useCallback(async () => {
-    if (!isWalletConnected || !activePublicKey) {
-      if (__DEV__) console.log('No wallet connected, skipping view count update');
-      return;
-    }
-
-    // Skip if offline
-    if (isOnline === false || isOnline === null) {
-      if (__DEV__) console.log('[NovelDetailScreen] Offline - skipping view count update');
-      return;
-    }
-
+    if (!isWalletConnected || !activePublicKey) return;
+    if (isOnline !== true) return;
     try {
       const { data: user, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('wallet_address', activePublicKey)
         .single();
+      if (userError || !user) return;
 
-      if (userError || !user) {
-        console.error('User not found for wallet:', activePublicKey);
-        setViewCountError('Please register your wallet to track views.');
-        return;
-      }
-
-      const userId = user.id;
-
-      // Check if user has already viewed this novel
-      const { data: existingInteraction, error: interactionError } = await supabase
+      const { data: existingInteraction } = await supabase
         .from('novel_interactions')
         .select('id')
         .eq('novel_id', id)
-        .eq('user_id', userId)
+        .eq('user_id', user.id)
         .single();
+      if (existingInteraction) return;
 
-      if (existingInteraction) {
-        if (__DEV__) console.log('User has already viewed this novel, skipping view count increment');
-        return;
-      }
-
-      // Call RPC function to increment viewers_count and add interaction
-      const { error: rpcError } = await supabase.rpc('increment_novel_view', {
-        novel_id: id,
-        user_id: userId,
-      });
-
-      if (rpcError) {
-        console.error('Error in increment_novel_view:', rpcError.message);
-        setViewCountError('Failed to update view count. Please try again later.');
-      } else {
-        if (__DEV__) console.log('Viewers count incremented and interaction recorded for user:', userId);
-      }
-    } catch (error) {
-      console.error('Error in updateViewCount:', error.message);
-      setViewCountError('An unexpected error occurred while updating view count.');
+      const { error: rpcError } = await supabase.rpc('increment_novel_view', { novel_id: id, user_id: user.id });
+      if (rpcError) console.error('Error in increment_novel_view:', rpcError.message);
+    } catch (e) {
+      console.error('Error in updateViewCount:', e.message);
     }
   }, [id, isWalletConnected, activePublicKey, isOnline]);
 
@@ -290,62 +181,42 @@ const NovelDetailScreen = () => {
       setUnlockedChapters([]);
       return;
     }
+    if (isOnline === null) return;
+    const cacheKey = `unlocked:${id}:${activePublicKey}`;
 
-    // Skip if definitely offline
-    if (isOnline === false) {
-      if (__DEV__) console.log('[NovelDetailScreen] Offline - loading unlocked chapters from cache');
-      const cachedData = await getNovelForOffline(id, userId);
-      if (cachedData && cachedData.chapters) {
-        setNovelChapters(cachedData.chapters);
-        const unlockedChapterIds = cachedData.chapters.map(p => p.chapter_number.toString()) || [];
-        setUnlockedChapters(unlockedChapterIds);
-      } else {
-        if (__DEV__) console.log('[NovelDetailScreen] Chapters not in cache - novel was cached without chapter data');
+    const fromDevice = async () => {
+      const saved = await getNovelForOffline(id, userId || 'guest');
+      if (saved?.chapters?.length) {
+        setNovelChapters(saved.chapters);
+        setUnlockedChapters(saved.chapters.map((c) => String(c.chapter_number)));
+        return;
       }
+      setUnlockedChapters(await cacheValue(cacheKey, []));
+    };
+
+    if (isOnline === false) {
+      await fromDevice();
       return;
     }
 
     try {
-      // Fetch unlocked chapters from chapter_payments table
-      let { data: payments, error: paymentsError } = await supabase
+      const { data: payments, error: paymentsError } = await supabase
         .from('chapter_payments')
         .select('chapter_number')
         .eq('wallet_address', activePublicKey)
         .eq('novel_id', id);
-
-      const isNetworkError = isErrorNetworkError(paymentsError);
-      // failed to fetch from network, try cache
-      if(isNetworkError){
-        if (__DEV__) console.log(`[NovelDetailScreen] could not load unlocked chapters ${id} from network, trying from cache`);
-        const cachedData = await getNovelForOffline(id, userId);
-        if (cachedData && cachedData.chapters) {
-          payments = cachedData.chapters;
-          if (__DEV__) console.log(`[NovelDetailScreen] unlocked chapters ${id} loaded successfully from cache`);
-        }
+      if (paymentsError) throw paymentsError;
+      const ids = (payments || []).map((p) => String(p.chapter_number));
+      setUnlockedChapters(ids);
+      cacheSet(cacheKey, ids);
+    } catch (e) {
+      if (isErrorNetworkError(e)) await fromDevice();
+      else {
+        console.warn('[NovelDetailScreen] unlocked chapters:', e?.message);
+        setUnlockedChapters(await cacheValue(cacheKey, []));
       }
-
-      if (!payments && paymentsError) {
-        console.error('Error fetching unlocked chapters:', paymentsError);
-        setUnlockedChapters([]);
-        return;
-      }
-
-      setNovelChapters(payments);
-
-      const unlockedChapterIds = payments?.map(p => p.chapter_number.toString()) || [];
-      setUnlockedChapters(unlockedChapterIds);
-    } catch (error) {
-      console.error('Error in fetchUnlockedChapters:', error.message);
-      setUnlockedChapters([]);
     }
-  }, [id, isWalletConnected, activePublicKey, isOnline]);
-
-  useEffect(() => {
-    if (viewCountError) {
-      const timer = setTimeout(() => setViewCountError(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [viewCountError]);
+  }, [id, isWalletConnected, activePublicKey, isOnline, userId]);
 
   useEffect(() => {
     fetchNovel();
@@ -353,7 +224,22 @@ const NovelDetailScreen = () => {
     fetchUnlockedChapters();
   }, [fetchNovel, updateViewCount, fetchUnlockedChapters]);
 
-  // Pull-to-refresh: refetch novel + unlocked chapters (view count is untouched).
+  // Reading progress: which chapter the user last read + how far through it.
+  const loadReadingProgress = useCallback(async () => {
+    if (!userId || !id) {
+      setReadingProgress(null);
+      return;
+    }
+    setReadingProgress(await getContentReadingProgress(userId, 'novel', id));
+  }, [userId, id]);
+
+  useEffect(() => {
+    loadReadingProgress();
+  }, [loadReadingProgress]);
+
+  // Refresh progress when coming back from the reader.
+  useEffect(() => navigation.addListener('focus', loadReadingProgress), [navigation, loadReadingProgress]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -363,550 +249,253 @@ const NovelDetailScreen = () => {
     }
   };
 
-  // Reading progress: which chapter the user last read + how far through it.
-  const loadReadingProgress = useCallback(async () => {
-    if (!userId || !id) {
-      setReadingProgress(null);
-      return;
-    }
-    const row = await getContentReadingProgress(userId, 'novel', id);
-    setReadingProgress(row);
-  }, [userId, id]);
-
   useEffect(() => {
-    loadReadingProgress();
-  }, [loadReadingProgress]);
-
-  // Check if novel is saved offline on mount
-  useEffect(() => {
-    const checkSavedStatus = async () => {
-      const saved = await isNovelSavedOffline(id);
-      setIsSavedOffline(saved);
-    };
-    checkSavedStatus();
+    isNovelSavedOffline(id).then(setIsSavedOffline).catch(() => {});
   }, [id]);
 
   const handleSaveOffline = useCallback(async () => {
-    if(isSavedOffline){
-      await deleteNovelForOffline(id);
-      setIsSavedOffline(false);
+    if (isSavedOffline) {
+      Alert.alert('Remove download?', 'Saved chapters will no longer be readable offline.', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteNovelForOffline(id);
+            setIsSavedOffline(false);
+            toast.info('Removed from downloads');
+          },
+        },
+      ]);
       return;
     }
-
-    try{
-      if(!novel) return;
-      if (__DEV__) console.log('[NovelDetailScreen] Saving offline with unlockedChapters:', unlockedChapters);
-      // If novel was previously saved with guest key and user is now logged in, it will be re-encrypted with user key
+    if (!novel) return;
+    setSavingOffline(true);
+    try {
       await saveNovelForOffline(novel, unlockedChapters, userId);
       setIsSavedOffline(true);
-    }
-    catch(error){
-      console.error('[NovelDetailScreen] could not save novel:', error);
-      // Don't show error for image download failures - novel content is still saved
-      if (error.message && error.message.includes('timeout')) {
-        console.warn('[NovelDetailScreen] Image download timed out, novel saved without image');
-        setIsSavedOffline(true); // Still mark as saved since content is cached
+      toast.success('Saved for offline reading');
+    } catch (e) {
+      console.error('[NovelDetailScreen] could not save novel:', e);
+      if (e.message && e.message.includes('timeout')) {
+        // Content is cached even if the cover image timed out.
+        setIsSavedOffline(true);
+        toast.success('Saved for offline reading');
       } else {
-        setError(error.message);
+        toast.error(`Could not save offline — ${e.message}`);
       }
+    } finally {
+      setSavingOffline(false);
     }
-  }, [isSavedOffline, novel, unlockedChapters, id]);
+  }, [isSavedOffline, novel, unlockedChapters, id, userId]);
 
   const handleNavigation = async (screen, params) => {
     const chapterNum = params?.chapterId ? parseInt(params.chapterId, 10) : null;
-    if (__DEV__) console.log('[NovelDetailScreen] handleNavigation called:', { screen, params, chapterNum, isWalletConnected, isOnline });
 
     // First 3 chapters (indices 0, 1, 2) are ALWAYS free - no wallet check needed
     if (chapterNum !== null && chapterNum <= 2) {
-      if (__DEV__) console.log('[NovelDetailScreen] First 3 chapters are free, allowing navigation');
       navigation.navigate(screen, params);
       return;
     }
 
-    // For chapters beyond 2, check wallet connection if online
     if (chapterNum !== null && chapterNum > 2 && isWalletConnected !== false) {
       if (isOnline === false || isOnline === null) {
-        if (__DEV__) console.log('[NovelDetailScreen] Offline, checking cache for chapter', chapterNum);
-        // Check if chapter is available in offline cache
         const cachedData = await getNovelForOffline(id, userId);
-        if (__DEV__) console.log('[NovelDetailScreen] Cached novel:', cachedData ? 'found' : 'not found');
-
         if (cachedData && cachedData.chapters) {
-          const offlineChapter = cachedData.chapters.find(c => c.chapter_number === params.chapterId);
-          if (__DEV__) console.log('[NovelDetailScreen] Offline chapter found:', offlineChapter ? 'yes' : 'no');
+          const offlineChapter = cachedData.chapters.find((c) => c.chapter_number === params.chapterId);
           if (offlineChapter && offlineChapter.content) {
-            if (__DEV__) console.log('[NovelDetailScreen] Chapter available offline, allowing navigation');
             navigation.navigate(screen, params);
             return;
           }
         }
       }
       if (!isWalletConnected) {
-        if (__DEV__) console.log('[NovelDetailScreen] Wallet not connected, showing connect popup');
         setShowConnectPopup(true);
         return;
       }
     }
-    
+
     navigation.navigate(screen, params);
   };
 
-  const renderChapterItem = ({ item: [chapterId, title] }) => {
-    const scaleAnim = new Animated.Value(1);
-    const chapterNum = parseInt(chapterId, 10);
+  /* ─────────────── derived data ─────────────── */
+  const chapters = useMemo(() => {
+    if (!novel) return [];
+    let list;
+    if (offline) {
+      // offline: only what's saved on the device
+      list = (novelChapters || []).map((c, i) => [String(c.chapter_number), c.title || `Chapter ${i + 1}`]);
+    } else {
+      list = novel.chaptertitles
+        ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0], 10) - parseInt(b[0], 10))
+        : [];
+    }
+    return newestFirst ? [...list].reverse() : list;
+  }, [novel, novelChapters, offline, newestFirst]);
 
-    // Check if chapter is advance (advance_chapters is an array of objects with index and is_advance fields)
-    const advanceChapterInfo = novel?.advance_chapters?.find(
-      (ch) => ch.index === chapterNum
-    );
-    const isAdvanceChapter = advanceChapterInfo?.is_advance === true;
-    // Check if chapter is unlocked by user or is one of the first 3 free chapters
-    const isUnlocked = unlockedChapters.includes(chapterId) || chapterNum < 3;
-    const isResumeChapter =
-      !!readingProgress && String(readingProgress.chapter_key) === String(chapterId);
-    const resumePct = isResumeChapter ? Math.max(0, Math.min(100, Number(readingProgress.scroll_pct) || 0)) : 0;
+  const resumeKey = readingProgress ? String(readingProgress.chapter_key) : null;
+  const resumePct = readingProgress ? Math.max(0, Math.min(100, Number(readingProgress.scroll_pct) || 0)) : 0;
 
-    const onPressIn = () => {
-      Animated.spring(scaleAnim, {
-        toValue: 0.95,
-        useNativeDriver: true,
-      }).start();
-    };
-
-    const onPressOut = () => {
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-      }).start();
-    };
-
-    return (
-      <TouchableOpacity
-        style={styles.chapterCard}
-        onPress={() => handleNavigation('Chapter', { novelId: id, chapterId })}
-        onPressIn={onPressIn}
-        onPressOut={onPressOut}
-        accessible={true}
-        accessibilityLabel={`View chapter ${title}`}
-        activeOpacity={0.7}
-      >
-        <Animated.View style={[styles.chapterContent, { transform: [{ scale: scaleAnim }] }]}>
-          <View style={styles.chapterGradient}>
-            <View style={styles.chapterHeader}>
-              <Text style={styles.chapterNumber}>Chapter {chapterNum + 1}</Text>
-              <View style={styles.chapterIcons}>
-                {isAdvanceChapter && (
-                  <FontAwesome5 name="star" size={14} color={colors.gold} style={styles.chapterIcon} />
-                )}
-                {!isUnlocked ? (
-                  <FontAwesome5 name="lock" size={14} color={colors.accent} style={styles.chapterIcon} />
-                ) : (
-                  <FontAwesome5 name="lock-open" size={14} color={colors.success} style={styles.chapterIcon} />
-                )}
-              </View>
-            </View>
-            <Text style={styles.chapterTitle}>{title}</Text>
-            {isResumeChapter && (
-              <View style={styles.resumeRow}>
-                <FontAwesome5 name="book-open" size={10} color={colors.accent} />
-                <Text style={styles.resumeText}>Resume · {Math.round(resumePct)}%</Text>
-              </View>
-            )}
-            <View style={styles.chapterAccent} />
-          </View>
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderHeader = () => (
-    <Animated.View style={{ opacity: contentFade }}>
-      {viewCountError && (
-        <View style={styles.errorMessage}>
-          <Text style={styles.errorMessageText}>{viewCountError}</Text>
-          <TouchableOpacity
-            style={styles.clearErrorButton}
-            onPress={() => setViewCountError(null)}
-            accessible={true}
-            accessibilityLabel="Clear error"
-          >
-            <FontAwesome5 name="times" size={16} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-      )}
-      <View style={styles.novelContainer}>
-        <View style={styles.novelHeaderGradient}>
-          <View style={styles.novelHeader}>
-            <View style={styles.novelTitleRow}>
-              <Text style={styles.novelTitle}>{novel.title}</Text>
-              {novel.status && (
-                <View style={[
-                  styles.statusBadge,
-                  novel.status === 'completed' && styles.statusBadgeCompleted,
-                  novel.status === 'ongoing' && styles.statusBadgeOngoing,
-                  novel.status === 'hiatus' && styles.statusBadgeHiatus,
-                ]}>
-                  <Text style={styles.statusBadgeText}>
-                    {novel.status.charAt(0).toUpperCase() + novel.status.slice(1)}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.novelImageWrapper}>
-              <Image
-                source={{ uri: novel.image || FALLBACK_IMAGE }}
-                style={styles.novelImage}
-                resizeMode="cover"
-                defaultSource={{ uri: FALLBACK_IMAGE }}
-              />
-              <View style={styles.imageGlow} />
-            </View>
-            {novel.saved_with_key === 'guest' && (
-              <View style={[styles.guestBadge, { backgroundColor: colors.warning }]}>
-                <Text style={styles.guestBadgeText}>Guest Session</Text>
-              </View>
-            )}
-            <View style={styles.novelViews}>
-              <FontAwesome5 name="eye" size={16} color={colors.accent} />
-              <Text style={styles.novelViewsText}>
-                {(novel.viewers_count || 0).toLocaleString()} Views
-              </Text>
-            </View>
-            {!!novel.user_id && (
-              <TouchableOpacity
-                style={styles.authorRow}
-                onPress={() => navigation.navigate('CreatorsProfile', { id: novel.user_id })}
-                accessible={true}
-                accessibilityLabel={`View ${novel?.users?.name || novel?.writer?.name || 'creator'}'s profile`}
-                activeOpacity={0.8}
-              >
-                <FontAwesome5 name="feather-alt" size={13} color={colors.accent} />
-                <Text style={styles.authorRowText} numberOfLines={1}>
-                  By <Text style={styles.authorRowName}>{novel?.users?.name || novel?.writer?.name || 'Unknown'}</Text>
-                </Text>
-                <FontAwesome5 name="chevron-right" size={11} color={colors.textSecondary} />
-              </TouchableOpacity>
-            )}
-            <Text style={styles.novelIntro}>
-              Dive into the chapters of{' '}
-              <Text style={styles.highlight}>{novel.title}</Text>:
-            </Text>
-          </View>
-        </View>
-        
-        {/* Summary Link */}
-        <View style={styles.summaryLinkContainer}>
-          <TouchableOpacity
-            style={styles.summaryLink}
-            onPress={() => navigation.navigate('NovelSummary', { id })}
-            accessible={true}
-            accessibilityLabel="View novel summary"
-          >
-            <FontAwesome5 name="book-open" size={16} color={colors.textPrimary} />
-            <Text style={styles.summaryLinkText}>View Novel Summary</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.summaryLink}
-            onPress={handleSaveOffline}
-            accessible={true}
-            accessibilityLabel={isSavedOffline ? "Delete from Downloads" : "Save Offline"}
-          >
-            <FontAwesome5 name={isSavedOffline ? "trash" : "arrow-circle-down"} size={16} color={colors.textPrimary} />
-            <Text style={styles.summaryLinkText}>
-              {isSavedOffline ? "Delete from Downloads" : "Save Offline"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.chaptersSection}>
-          <Text style={styles.sectionTitle}>Chapters</Text>
-        </View>
-      </View>
-    </Animated.View>
+  const chapterState = useCallback(
+    (chapterId) => {
+      const n = parseInt(chapterId, 10);
+      if (resumeKey !== null && resumeKey === String(chapterId)) return 'resume';
+      if (offline) return 'unlocked';
+      if (n < FREE_CHAPTERS) return 'free';
+      return unlockedChapters.includes(chapterId) ? 'unlocked' : 'locked';
+    },
+    [resumeKey, offline, unlockedChapters]
   );
 
-  const renderFooter = () => (
-    <View style={styles.novelContainer}>
-      {/* Comments Section - Always visible like web version */}
-      {novel.id && novel.title && (
-        <NovelCommentSection
-          novelId={novel.id}
-          novelTitle={novel.title}
-          isOnline={isOnline}
-        />
-      )}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
-      </View>
-    </View>
+  const firstChapterId = useMemo(() => {
+    if (!novel) return null;
+    if (offline) return novelChapters?.[0] ? String(novelChapters[0].chapter_number) : null;
+    const keys = novel.chaptertitles ? Object.keys(novel.chaptertitles).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)) : [];
+    return keys[0] ?? null;
+  }, [novel, novelChapters, offline]);
+
+  const readTarget = resumeKey ?? firstChapterId;
+  const readLabel = resumeKey !== null ? `Continue Ch. ${parseInt(resumeKey, 10) + 1}` : 'Start reading';
+  const openChapter = useCallback(
+    (chapterId) => handleNavigation('Chapter', { novelId: novel?.id || id, chapterId: String(chapterId) }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [novel?.id, id, isOnline, isWalletConnected, userId]
   );
 
+  /* ─────────────── states ─────────────── */
   if (loading) {
-    return (
-      <SafeAreaView style={styles.page}>
-        <View style={styles.backgroundGradient} />
-        <View style={styles.emberContainer}>
-          {emberAnims.current.map((anim, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                styles.ember,
-                {
-                  left: `${Math.random() * 100}%`,
-                  opacity: anim,
-                  transform: [
-                    {
-                      translateY: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [height, -50],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-          ))}
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="detail" label="Loading novel" />;
   }
 
   if (!novel || error) {
     return (
-      <SafeAreaView style={styles.page}>
-        <View style={styles.backgroundGradient} />
-        <View style={styles.emberContainer}>
-          {emberAnims.current.map((anim, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                styles.ember,
-                {
-                  left: `${Math.random() * 100}%`,
-                  opacity: anim,
-                  transform: [
-                    {
-                      translateY: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [height, -50],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-          ))}
-        </View>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error || 'Novel not found'}</Text>
-          <TouchableOpacity
-            style={styles.backHomeLink}
-            onPress={() => navigation.navigate('Home')}
-            accessible={true}
-            accessibilityLabel="Go to home"
-          >
-            <FontAwesome5 name="home" size={16} color={colors.textPrimary} />
-            <Text style={styles.backHomeText}>Back to Home</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (showConnectPopup) {
-    return (
-      <SafeAreaView style={styles.page}>
-        <View style={styles.connectPopupOverlay}>
-          <View style={styles.connectPopup}>
-            <TouchableOpacity
-              style={styles.closePopupButton}
-              onPress={() => setShowConnectPopup(false)}
-              accessible={true}
-              accessibilityLabel="Close popup"
-            >
-              <FontAwesome5 name="times" size={24} color={colors.accent} />
-            </TouchableOpacity>
-            <Text style={styles.popupTitle}>Connect Wallet</Text>
-            <Text style={styles.popupMessage}>
-              Connect your wallet to access this chapter.
-            </Text>
-            <GoogleSignInButton style={styles.connectWalletButton} />
-            <TouchableOpacity
-              style={styles.backHomeLink}
-              onPress={() => navigation.navigate('Home')}
-              accessible={true}
-              accessibilityLabel="Go to home"
-            >
-              <FontAwesome5 name="home" size={16} color={colors.textPrimary} />
-              <Text style={styles.backHomeText}>Back to Home</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // OFFLINE MODE - Minimal reading UI
-  if (isOnline === false || isOnline === null) {
-    return (
-      <SafeAreaView style={styles.page}>
-        <View style={[styles.offlineContainer, { backgroundColor: colors.bgPrimary }]}>
-          {/* Offline Header */}
-          <View style={[styles.offlineHeader, { borderBottomColor: colors.border }]}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.offlineBackButton}
-            >
-              <FontAwesome5 name="arrow-left" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <FontAwesome5 name="wifi" size={20} color={colors.warning} />
-            <Text style={[styles.offlineHeaderText, { color: colors.textPrimary }]}>Offline Mode</Text>
-          </View>
-
-          {/* Novel Cover and Info */}
-          <ScrollView style={styles.offlineScrollView}>
-            <View style={styles.offlineNovelHeader}>
-              <Image
-                source={{ uri: novel.image || FALLBACK_IMAGE }}
-                style={styles.offlineCoverImage}
-                resizeMode="cover"
-              />
-              <View style={styles.offlineNovelInfo}>
-                <Text style={[styles.offlineTitle, { color: colors.textPrimary }]}>{novel.title}</Text>
-                {novel.user_id ? (
-                  <TouchableOpacity
-                    onPress={() => navigation.navigate('CreatorsProfile', { id: novel.user_id })}
-                    accessible={true}
-                    accessibilityLabel="View creator profile"
-                  >
-                    <Text style={[styles.offlineAuthor, { color: colors.accent }]}>
-                      By {novel.users?.name || novel.writer?.name || 'Unknown'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={[styles.offlineAuthor, { color: colors.textSecondary }]}>
-                    By {novel.users?.name || novel.writer?.name || 'Unknown'}
-                  </Text>
-                )}
-                <Text style={[styles.offlineSummary, { color: colors.textSecondary }]}>
-                  {novel.summary}
-                </Text>
-              </View>
-            </View>
-
-            {/* Saved Chapters List */}
-            <View style={styles.offlineChaptersSection}>
-              <Text style={[styles.offlineSectionTitle, { color: colors.textPrimary }]}>
-                Saved Chapters
-              </Text>
-              {novelChapters && novelChapters.length > 0 ? (
-                novelChapters.map((chapter, index) => (
-                  <TouchableOpacity
-                    key={chapter.chapter_number}
-                    style={[styles.offlineChapterItem, { backgroundColor: colors.bgCard, borderBottomColor: colors.border }]}
-                    onPress={() => handleNavigation('Chapter', {
-                      novelId: novel.id,
-                      chapterId: chapter.chapter_number.toString(),
-                    })}
-                  >
-                    <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
-                      {chapter.title || `Chapter ${index + 1}`}
-                    </Text>
-                    <FontAwesome5 name="chevron-right" size={16} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <Text style={[styles.offlineEmptyText, { color: colors.textSecondary }]}>
-                  No chapters saved
-                </Text>
-              )}
-            </View>
-          </ScrollView>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ONLINE MODE - Full UI
-  return (
-    <SafeAreaView style={styles.page}>
-      <View style={styles.backgroundGradient} />
-      <View style={styles.emberContainer}>
-        {emberAnims.current.map((anim, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.ember,
-              {
-                left: `${Math.random() * 100}%`,
-                opacity: anim,
-                transform: [
-                  {
-                    translateY: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, -50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
+      <View style={[styles.page, styles.center]}>
+        <EmptyState
+          icon={offline ? 'wifi' : 'book-dead'}
+          title={offline ? "You're offline" : 'Novel not found'}
+          subtitle={error || 'This novel may have been removed or hidden by its author.'}
+          action="Back to Home"
+          onAction={() => navigation.navigate('Home')}
+        />
       </View>
+    );
+  }
 
-      {menuOpen && (
-        <>
-          <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
-          <Animated.View style={[styles.navItems, { transform: [{ translateX: menuAnim }] }]}>
-            <TouchableOpacity
-              style={styles.navItem}
-              onPress={() => {
-                toggleMenu();
-                navigation.navigate('Home');
-              }}
-              accessible={true}
-              accessibilityLabel="Go to home"
-            >
-              <FontAwesome5 name="home" size={16} color={colors.textPrimary} />
-              <Text style={styles.navItemText}>Home</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.navItem}
-              onPress={() => {
-                toggleMenu();
-                navigation.navigate('NovelSummary', { id });
-              }}
-              accessible={true}
-              accessibilityLabel="Go to novel summary"
-            >
-              <FontAwesome5 name="book-open" size={16} color={colors.textPrimary} />
-              <Text style={styles.navItemText}>Summary</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </>
-      )}
+  const authorName = novel?.users?.name || novel?.writer?.name || 'Unknown';
+  const status = STATUS[novel.status];
+  const statusColor = status ? colors[status.key] : null;
 
+  /* ─────────────── header (everything above the chapter rows) ─────────────── */
+  const header = (
+    <Animated.View style={{ opacity: contentFade }}>
+      <DetailHero
+        image={novel.image}
+        title={novel.title}
+        author={{
+          name: authorName,
+          onPress: novel.user_id ? () => navigation.navigate('CreatorsProfile', { id: novel.user_id }) : undefined,
+        }}
+        chips={[
+          offline ? { label: 'Offline', icon: 'wifi', color: colors.warning } : null,
+          status ? { label: status.label, dot: true, color: statusColor } : null,
+          { label: formatCount(novel.viewers_count), icon: 'eye', accessibilityLabel: `${novel.viewers_count || 0} views` },
+        ]}
+        primary={{
+          icon: resumeKey !== null ? 'book-reader' : 'book-open',
+          label: readTarget === null ? 'No chapters yet' : readLabel,
+          disabled: readTarget === null,
+          onPress: () => readTarget !== null && openChapter(readTarget),
+        }}
+        secondary={{
+          icon: savingOffline ? 'spinner' : isSavedOffline ? 'check-circle' : 'arrow-circle-down',
+          label: savingOffline ? 'Saving…' : isSavedOffline ? 'Downloaded' : 'Save offline',
+          accessibilityLabel: isSavedOffline ? 'Downloaded. Tap to remove from downloads' : 'Save for offline reading',
+          onPress: savingOffline ? undefined : handleSaveOffline,
+        }}
+        synopsis={novel.summary}
+        more={{ label: 'Read full summary', onPress: () => navigation.navigate('NovelSummary', { id }) }}
+        section={{
+          title: offline ? 'Saved chapters' : 'Chapters',
+          count: chapters.length,
+          newestFirst,
+          onToggleSort: () => setNewestFirst((v) => !v),
+        }}
+        onBack={navigation.canGoBack() ? () => navigation.goBack() : undefined}
+        styles={styles}
+        colors={colors}
+        isDark={isDark}
+      >
+        {novel.saved_with_key === 'guest' ? (
+          <View style={[styles.notice, { borderColor: `${colors.warning}66`, backgroundColor: `${colors.warning}14` }]}>
+            <FontAwesome5 name="user-clock" size={12} color={colors.warning} />
+            <Text style={[styles.noticeText, { color: colors.warning }]}>Saved in a guest session</Text>
+          </View>
+        ) : null}
+      </DetailHero>
+    </Animated.View>
+  );
+
+  const footer = (
+    <View style={{ paddingBottom: BOTTOM_NAV_CLEARANCE + 24 }}>
+      {!offline && novel.id && novel.title ? (
+        <View style={[styles.pad, { marginTop: space.xl }]}>
+          <NovelCommentSection novelId={novel.id} novelTitle={novel.title} isOnline={isOnline} />
+        </View>
+      ) : null}
+    </View>
+  );
+
+  return (
+    <View style={styles.page}>
       <FlatList
-        data={novel.chaptertitles ? Object.entries(novel.chaptertitles).sort((a, b) => parseInt(a[0]) - parseInt(b[0])) : []}
-        renderItem={renderChapterItem}
+        data={chapters}
         keyExtractor={([chapterId]) => `chapter-${chapterId}`}
-        numColumns={1}
-        contentContainerStyle={styles.contentContainer}
-        ListHeaderComponent={renderHeader}
-        ListFooterComponent={renderFooter}
+        renderItem={({ item: [chapterId, title] }) => {
+          const index = parseInt(chapterId, 10);
+          const advance = novel?.advance_chapters?.find((ch) => ch.index === index)?.is_advance === true;
+          return (
+            <View style={styles.rowWrap}>
+              <ChapterRow
+                number={(Number.isNaN(index) ? 0 : index) + 1}
+                title={title}
+                state={chapterState(chapterId)}
+                resumePct={resumePct}
+                badge={advance ? { label: 'Advance', icon: 'star' } : undefined}
+                onPress={() => openChapter(chapterId)}
+                styles={styles}
+                colors={colors}
+              />
+            </View>
+          );
+        }}
+        ListHeaderComponent={header}
+        ListFooterComponent={footer}
         ListEmptyComponent={
-          <Text style={styles.noChapters}>No chapters available for this novel.</Text>
+          <EmptyState
+            icon={offline ? 'download' : 'feather-alt'}
+            title={offline ? 'No saved chapters' : 'No chapters yet'}
+            subtitle={offline ? 'Unlock chapters and tap “Save offline” while connected.' : 'The author hasn’t published any chapters yet.'}
+          />
         }
         showsVerticalScrollIndicator={false}
+        initialNumToRender={14}
+        windowSize={11}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+          offline ? undefined : (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
+          )
         }
       />
-    </SafeAreaView>
+
+      <Sheet visible={showConnectPopup} onClose={() => setShowConnectPopup(false)} title="Unlock this chapter">
+        <Text style={styles.sheetText}>
+          The first {FREE_CHAPTERS} chapters are free. Connect your wallet to unlock the rest of {novel.title}.
+        </Text>
+        <View style={{ marginVertical: space.lg }}>
+          <GoogleSignInButton />
+        </View>
+      </Sheet>
+    </View>
   );
 };
 

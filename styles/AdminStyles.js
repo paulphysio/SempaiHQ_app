@@ -3,14 +3,14 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A18',
+    backgroundColor: '#0B0B14',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -115,7 +115,7 @@ export const styles = StyleSheet.create({
   },
   statCard: {
     width: '47%',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     padding: 20,
     borderRadius: 15,
     alignItems: 'center',
@@ -152,7 +152,7 @@ export const styles = StyleSheet.create({
     fontFamily: 'Yoruka',
   },
   writerCard: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,
@@ -220,7 +220,7 @@ export const styles = StyleSheet.create({
   rewardCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     padding: 15,
     borderRadius: 15,
     marginBottom: 10,

@@ -1,16 +1,5 @@
 import React, {useState, useEffect, useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Modal,
-  ActivityIndicator,
-  Image,
-  SafeAreaView,
-  RefreshControl,
-  TextInput,
-} from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Modal, ActivityIndicator, Image, SafeAreaView, RefreshControl, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -18,6 +7,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getMarketplaceStyles } from '../styles/MarketplaceStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -129,12 +119,12 @@ const MarketplaceScreen = () => {
   };
 
   const handlePurchase = async (listing) => {
-    Alert.alert('Purchase Disabled', 'Purchase functionality is currently disabled. Backend API endpoints not implemented.');
+    toast.info('Purchase Disabled — Purchase functionality is currently disabled. Backend API endpoints not implemented.');
     return;
   };
 
   const handleListItem = async () => {
-    Alert.alert('Listing Disabled', 'Listing functionality is currently disabled. Backend API endpoints not implemented.');
+    toast.info('Listing Disabled — Listing functionality is currently disabled. Backend API endpoints not implemented.');
     return;
   };
 

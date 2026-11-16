@@ -1,17 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  ScrollView,
-  Pressable,
-  Image,
-  ActivityIndicator,
-  Modal,
-  SafeAreaView,
-  TextInput,
-  Alert,
-} from 'react-native';
+import { View, Text, FlatList, ScrollView, Pressable, Image, ActivityIndicator, Modal, SafeAreaView, TextInput } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -28,6 +16,7 @@ import {
   USDC_DECIMALS,
   SKR_DECIMALS,
 } from '../constants';
+import { toast } from '../components/Toast';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -364,11 +353,11 @@ const BadgesScreen = () => {
   const handlePurchaseBadge = async () => {
     if (!selectedBadge) return;
     if (!activePublicKey) {
-      Alert.alert('Wallet needed', 'Connect your wallet first.');
+      toast.error('Wallet needed — Connect your wallet first.');
       return;
     }
     if (!signAndSendTransaction) {
-      Alert.alert('Wallet not ready', 'Wallet not ready for transactions. Please reconnect.');
+      toast.error('Wallet not ready — Wallet not ready for transactions. Please reconnect.');
       return;
     }
 
@@ -523,10 +512,10 @@ const BadgesScreen = () => {
       await Promise.all([fetchUserBadges(), fetchBalances(), loadWriterDetail(selectedWriter)]);
       setSheetView('writer');
       setSelectedBadge(null);
-      Alert.alert('Badge unlocked', `${selectedBadge.name} is now yours.`);
+      toast.info(`Badge unlocked — ${`${selectedBadge.name} is now yours.`}`);
     } catch (error) {
       console.error('[BadgesScreen] Purchase error:', error.message);
-      Alert.alert('Purchase failed', error.message || 'Please try again.');
+      toast.error(`Purchase failed — ${error.message || 'Please try again.'}`);
     } finally {
       setIsProcessing(false);
     }

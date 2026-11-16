@@ -108,7 +108,7 @@ const actionBarStyles = StyleSheet.create({
   },
   btnWave: {
     borderColor: KA_COLORS.orangeBright,
-    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    backgroundColor: 'rgba(255, 138, 61, 0.2)',
   },
   btnText: {
     fontSize: 10,

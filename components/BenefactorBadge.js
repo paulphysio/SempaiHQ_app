@@ -18,9 +18,9 @@ const BenefactorBadge = ({ level = 'bronze', size = 'small', showLabel = false }
       case 'gold':
         return {
           icon: 'gem',
-          color: '#ffd700',
+          color: '#FFC857',
           gradientColors: ['#ffed4e', '#ffa500'],
-          borderColor: '#ffd700',
+          borderColor: '#FFC857',
           label: 'Gold Benefactor',
         };
       case 'silver':

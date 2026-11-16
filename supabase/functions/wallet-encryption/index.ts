@@ -1,5 +1,70 @@
 // Import serve from a stable Deno version
 import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import bs58 from "https://esm.sh/bs58@5.0.0";
+import nacl from "https://esm.sh/tweetnacl@1.0.3";
+
+/*
+ * Access rules (Phase 0 lockdown):
+ *  · encrypt — anyone (an encryption oracle reveals nothing)
+ *  · decrypt — server callers (service role), or a signed-in user decrypting
+ *    a key whose wallet address belongs to them. Ownership is proven from the
+ *    plaintext itself: the ed25519 seed must derive the public key, and that
+ *    address must be one of the caller's wallets.
+ */
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+const bearer = (req: Request) => (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+
+const jwtRole = (token: string): string | null => {
+  try {
+    const part = token.split(".")[1];
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    return JSON.parse(atob(b64))?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/** True only for a genuine service-role key. */
+const isServiceCaller = async (token: string): Promise<boolean> => {
+  if (!token) return false;
+  if (SERVICE_KEY && token === SERVICE_KEY) return true;
+  if (jwtRole(token) !== "service_role") return false;
+  // Different encoding of the key: let the API confirm it (anon gets 401 here).
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/`, { headers: { apikey: token, Authorization: `Bearer ${token}` } });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+};
+
+/** Address of a base58 (or JSON-array) 64-byte secret key, if it is genuine. */
+const addressOfSecret = (plain: string): string | null => {
+  try {
+    const t = plain.trim();
+    const sk = t.startsWith("[") ? Uint8Array.from(JSON.parse(t)) : bs58.decode(t);
+    if (sk.length !== 64) return null;
+    const pub = nacl.sign.keyPair.fromSeed(sk.slice(0, 32)).publicKey;
+    for (let i = 0; i < 32; i++) if (pub[i] !== sk[32 + i]) return null;
+    return bs58.encode(pub);
+  } catch {
+    return null;
+  }
+};
+
+const walletsOf = async (userId: string): Promise<Set<string>> => {
+  const owned = new Set<string>();
+  const { data: rows } = await admin.from("user_wallets").select("address").eq("user_id", userId);
+  (rows || []).forEach((r: any) => r?.address && owned.add(String(r.address)));
+  return owned;
+};
 // Utility to convert between string, buffer, and hex
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -92,7 +157,23 @@ serve(async (req)=>{
     if (action === "encrypt") {
       result = await encrypt(data, KEYPAIR_ENCRYPTION_SECRET);
     } else if (action === "decrypt") {
+      const token = bearer(req);
+      const service = await isServiceCaller(token);
+      let userId: string | null = null;
+      if (!service) {
+        const { data: auth } = await admin.auth.getUser(token);
+        userId = auth?.user?.id ?? null;
+        if (!userId) return json({ error: "Sign in to unlock your wallet" }, 401);
+      }
       result = await decrypt(data, KEYPAIR_ENCRYPTION_SECRET);
+      if (!service) {
+        const address = addressOfSecret(result);
+        const owned = await walletsOf(userId as string);
+        if (!address || !owned.has(address)) {
+          console.warn("[wallet-encryption] Refused decrypt: key is not the caller's wallet", { userId });
+          return json({ error: "This wallet does not belong to your account" }, 403);
+        }
+      }
     } else {
       return new Response(JSON.stringify({
         error: "Invalid action"
@@ -105,7 +186,7 @@ serve(async (req)=>{
     }
     console.log("[wallet-encryption] Success:", {
       action,
-      result: result ? `${result.slice(0, 10)}...` : "undefined"
+      ok: !!result
     });
     return new Response(JSON.stringify({
       result

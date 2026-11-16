@@ -1,522 +1,180 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { View, Text, Image, Animated, StyleSheet, Dimensions, Easing } from 'react-native';
+import React, { useEffect, useRef, useCallback } from 'react';
+import { View, Text, Animated, Easing, StyleSheet, Pressable } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '../context/NavigationContext';
 import { useTheme } from '../context/ThemeContext';
+import { BrandBackdrop, BrandMark, SCREEN_W, SCREEN_H } from '../components/brand/Brand';
 
-const { width, height } = Dimensions.get('window');
-const CENTER = { x: width / 2, y: height / 2 };
+/*
+ * First-launch intro. Opens on the same ink as the native splash, so the
+ * hand-off is seamless; the whole sequence is < 3s and tap-to-skip.
+ */
+const T_MARK = 150;
+const T_CHIPS = 900;
+const T_EXIT = 2700;
+const DURATION_EXIT = 320;
+const TRACK_W = Math.min(220, SCREEN_W * 0.55);
 
-// Brand accent — matches the orange used across ConnectButton/SwapScreen so
-// the splash doesn't feel like a different app from the one it opens into.
-const ORANGE = '#ff6200';
-const ORANGE_BRIGHT = '#ff8a3d';
-const NAVY_DEEP = '#070d16';
-const NAVY_MID = '#0d1b2a';
+const VALUES = [
+  { icon: 'book-open', label: 'Read novels & manga' },
+  { icon: 'coins', label: 'Earn SMP as you read' },
+  { icon: 'award', label: 'Collect & own' },
+];
 
-// ---------------------------------------------------------------------------
-// Timeline (ms) — everything below is keyed off these constants so the
-// choreography stays readable instead of a wall of magic numbers.
-// ---------------------------------------------------------------------------
-const T_BG_IN = 500;
-const T_RINGS_IN = 650;
-const T_LOGO_IN = 250; // delay before logo starts its spring-in
-const T_WORDMARK_IN = 550;
-const T_TITLE_IN = 1150;
-const T_SUBTITLE_IN = 1500;
-const T_HOLD_UNTIL = 2900;
-const T_EXIT = 420;
-const TOTAL_DURATION = T_HOLD_UNTIL + T_EXIT + 100;
-
-const STAR_COUNT = 46;
-const PARTICLE_COUNT = 24;
+const EMBERS = Array.from({ length: 9 }, (_, i) => ({
+  x: (SCREEN_W / 9) * i + Math.random() * 30,
+  size: 2 + Math.random() * 3,
+  delay: Math.random() * 1400,
+  duration: 2600 + Math.random() * 1600,
+}));
 
 const WelcomeScreen = () => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getWelcomeStyles(colors), [isDark]);
+  const { colors } = useTheme();
   const { handleWelcomeComplete } = useNavigation();
 
-  // Entrance / exit choreography
-  const bgFade = useRef(new Animated.Value(0)).current;
-  const wordmarkAnim = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.3)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const titleAnim = useRef(new Animated.Value(0)).current;
-  const subtitleAnim = useRef(new Animated.Value(0)).current;
-  const progressAnim = useRef(new Animated.Value(0)).current;
-  const exitScale = useRef(new Animated.Value(1)).current;
-  const exitOpacity = useRef(new Animated.Value(1)).current;
-  const flashOpacity = useRef(new Animated.Value(0)).current;
+  const mark = useRef(new Animated.Value(0)).current;
+  const chips = useRef(VALUES.map(() => new Animated.Value(0))).current;
+  const bar = useRef(new Animated.Value(0)).current;
+  const exit = useRef(new Animated.Value(0)).current;
+  const embers = useRef(EMBERS.map(() => new Animated.Value(0))).current;
+  const done = useRef(false);
 
-  // Continuous ambient loops
-  const breathe = useRef(new Animated.Value(1)).current;
-  const glowPulse = useRef(new Animated.Value(0.5)).current;
-  const outerSpin = useRef(new Animated.Value(0)).current;
-  const innerSpin = useRef(new Animated.Value(0)).current;
-  const shockwaves = useRef(
-    Array.from({ length: 3 }, () => new Animated.Value(0))
-  ).current;
-
-  const stars = useRef(
-    Array.from({ length: STAR_COUNT }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      size: 1 + Math.random() * 2,
-      anim: new Animated.Value(Math.random()),
-      duration: 1200 + Math.random() * 1800,
-    }))
-  ).current;
-
-  const particles = useRef(
-    Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-      const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
-      return {
-        angle,
-        radius: 70 + Math.random() * 55,
-        translate: new Animated.Value(0),
-        opacity: new Animated.Value(0),
-        scale: new Animated.Value(0.4),
-      };
-    })
-  ).current;
-
-  const [dots, setDots] = useState('.');
+  const finish = useCallback(() => {
+    if (done.current) return;
+    done.current = true;
+    Animated.timing(exit, { toValue: 1, duration: DURATION_EXIT, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(async () => {
+      try {
+        await AsyncStorage.setItem('hasSeenWelcome', 'true');
+      } catch (e) {
+        console.error('Error saving welcome state:', e);
+      }
+      handleWelcomeComplete();
+    });
+  }, [exit, handleWelcomeComplete]);
 
   useEffect(() => {
-    let isMounted = true;
-
-    // ---- Ambient loops (start immediately, run until exit stops them) ----
-    const breatheLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(breathe, { toValue: 1.08, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(breathe, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    const glowLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowPulse, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        Animated.timing(glowPulse, { toValue: 0.5, duration: 1600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-      ])
-    );
-    const outerSpinLoop = Animated.loop(
-      Animated.timing(outerSpin, { toValue: 1, duration: 22000, easing: Easing.linear, useNativeDriver: true })
-    );
-    const innerSpinLoop = Animated.loop(
-      Animated.timing(innerSpin, { toValue: 1, duration: 14000, easing: Easing.linear, useNativeDriver: true })
-    );
-    const shockwaveLoops = shockwaves.map((anim, index) =>
+    Animated.spring(mark, { toValue: 1, delay: T_MARK, useNativeDriver: true, speed: 8, bounciness: 9 }).start();
+    const chipTimer = setTimeout(() => {
+      Animated.stagger(
+        160,
+        chips.map((c) => Animated.timing(c, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }))
+      ).start();
+    }, T_CHIPS);
+    Animated.timing(bar, { toValue: 1, duration: T_EXIT, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+    const emberLoops = embers.map((v, i) =>
       Animated.loop(
         Animated.sequence([
-          Animated.delay(index * 900),
-          Animated.timing(anim, { toValue: 1, duration: 2700, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0, duration: 0, useNativeDriver: true }),
-          Animated.delay(1800 - index * 300),
+          Animated.delay(EMBERS[i].delay),
+          Animated.timing(v, { toValue: 1, duration: EMBERS[i].duration, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: true }),
         ])
       )
     );
-    const starLoops = stars.map((star) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(star.anim, { toValue: 1, duration: star.duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(star.anim, { toValue: 0.15, duration: star.duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        ])
-      )
-    );
-    const particleOrbitLoops = particles.map((p) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(p.translate, { toValue: 1, duration: 3000 + Math.random() * 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(p.translate, { toValue: 0.7, duration: 3000 + Math.random() * 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-        ])
-      )
-    );
-
-    breatheLoop.start();
-    glowLoop.start();
-    outerSpinLoop.start();
-    innerSpinLoop.start();
-    shockwaveLoops.forEach((l) => l.start());
-    starLoops.forEach((l) => l.start());
-
-    // ---- Entrance choreography ----
-    Animated.timing(bgFade, { toValue: 1, duration: T_BG_IN, useNativeDriver: true }).start();
-
-    Animated.timing(wordmarkAnim, {
-      toValue: 1,
-      duration: 500,
-      delay: T_WORDMARK_IN,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-
-    Animated.sequence([
-      Animated.delay(T_LOGO_IN),
-      Animated.parallel([
-        Animated.spring(logoScale, { toValue: 1, friction: 6, tension: 45, useNativeDriver: true }),
-        Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-      ]),
-    ]).start(() => {
-      // Particle burst fires once the logo has materialized.
-      particles.forEach((p, i) => {
-        Animated.parallel([
-          Animated.timing(p.opacity, { toValue: 1, duration: 450, delay: i * 12, useNativeDriver: true }),
-          Animated.timing(p.scale, { toValue: 1, duration: 450, delay: i * 12, easing: Easing.out(Easing.back(1.4)), useNativeDriver: true }),
-        ]).start(() => {
-          if (isMounted) particleOrbitLoops[i].start();
-        });
-      });
-    });
-
-    Animated.timing(titleAnim, {
-      toValue: 1,
-      duration: 550,
-      delay: T_TITLE_IN,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-
-    Animated.timing(subtitleAnim, {
-      toValue: 1,
-      duration: 550,
-      delay: T_SUBTITLE_IN,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-
-    // Progress bar fill spans the full hold duration — width can't use the
-    // native driver, so it's isolated to this one animation.
-    Animated.timing(progressAnim, {
-      toValue: 1,
-      duration: T_HOLD_UNTIL,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-
-    // Cycling loading dots
-    const dotsInterval = setInterval(() => {
-      setDots((prev) => (prev.length >= 3 ? '.' : prev + '.'));
-    }, 400);
-
-    // ---- Exit choreography ----
-    const exitTimer = setTimeout(() => {
-      breatheLoop.stop();
-      glowLoop.stop();
-      outerSpinLoop.stop();
-      innerSpinLoop.stop();
-      shockwaveLoops.forEach((l) => l.stop());
-      starLoops.forEach((l) => l.stop());
-      particleOrbitLoops.forEach((l) => l.stop());
-      clearInterval(dotsInterval);
-
-      Animated.sequence([
-        Animated.timing(flashOpacity, { toValue: 0.55, duration: 120, useNativeDriver: true }),
-        Animated.parallel([
-          Animated.timing(flashOpacity, { toValue: 0, duration: T_EXIT - 120, useNativeDriver: true }),
-          Animated.timing(exitScale, { toValue: 1.12, duration: T_EXIT, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-          Animated.timing(exitOpacity, { toValue: 0, duration: T_EXIT, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
-        ]),
-      ]).start(async () => {
-        try {
-          await AsyncStorage.setItem('hasSeenWelcome', 'true');
-          handleWelcomeComplete();
-        } catch (error) {
-          console.error('Error saving welcome state:', error);
-          handleWelcomeComplete();
-        }
-      });
-    }, T_HOLD_UNTIL);
-
+    emberLoops.forEach((l) => l.start());
+    const exitTimer = setTimeout(finish, T_EXIT);
     return () => {
-      isMounted = false;
+      clearTimeout(chipTimer);
       clearTimeout(exitTimer);
-      clearInterval(dotsInterval);
-      breatheLoop.stop();
-      glowLoop.stop();
-      outerSpinLoop.stop();
-      innerSpinLoop.stop();
-      shockwaveLoops.forEach((l) => l.stop());
-      starLoops.forEach((l) => l.stop());
-      particleOrbitLoops.forEach((l) => l.stop());
+      emberLoops.forEach((l) => l.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const outerSpinDeg = outerSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const innerSpinDeg = innerSpin.interpolate({ inputRange: [0, 1], outputRange: ['360deg', '0deg'] });
-  const progressWidth = progressAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  const sceneStyle = {
+    opacity: exit.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+    transform: [{ scale: exit.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }) }],
+  };
 
   return (
-    <View style={styles.root}>
-      <LinearGradient colors={[NAVY_DEEP, NAVY_MID, NAVY_DEEP]} style={StyleSheet.absoluteFill} />
-
-      {/* Flash pulse for the exit transition */}
-      <Animated.View pointerEvents="none" style={[styles.flash, { opacity: flashOpacity }]} />
-
-      <Animated.View style={[styles.scene, { opacity: exitOpacity, transform: [{ scale: exitScale }] }]}>
-        {/* Starfield */}
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: bgFade }]} pointerEvents="none">
-          {stars.map((star, i) => (
-            <Animated.View
-              key={i}
-              style={[
-                styles.star,
-                {
-                  left: star.x,
-                  top: star.y,
-                  width: star.size,
-                  height: star.size,
-                  borderRadius: star.size,
-                  opacity: star.anim,
-                },
-              ]}
-            />
-          ))}
-        </Animated.View>
-
-        <View style={styles.content}>
-          {/* Wordmark */}
-          <Animated.Text
-            style={[
-              styles.wordmark,
-              {
-                opacity: wordmarkAnim,
-                transform: [{ translateY: wordmarkAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
-              },
-            ]}
-          >
-            SEMPAI
-          </Animated.Text>
-
-          {/* Energy field: counter-rotating dashed rings + expanding shockwave pulses */}
-          <View style={styles.energyField} pointerEvents="none">
-            <Animated.View style={[styles.ringLayer, { transform: [{ rotate: outerSpinDeg }] }]}>
-              <View style={styles.ring1} />
-            </Animated.View>
-            <Animated.View style={[styles.ringLayer, { transform: [{ rotate: innerSpinDeg }] }]}>
-              <View style={styles.ring2} />
-            </Animated.View>
-            <View style={styles.ring3} />
-
-            {shockwaves.map((anim, i) => (
-              <Animated.View
-                key={i}
-                style={[
-                  styles.shockwave,
-                  {
-                    opacity: anim.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.5, 0] }),
-                    transform: [
-                      { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.6] }) },
-                    ],
-                  },
-                ]}
-              />
-            ))}
-
-            {/* Particle burst / orbit */}
-            {particles.map((p, i) => {
-              const tx = p.translate.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(p.angle) * p.radius] });
-              const ty = p.translate.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(p.angle) * p.radius] });
-              return (
-                <Animated.View
-                  key={i}
-                  style={[
-                    styles.particle,
-                    {
-                      opacity: p.opacity,
-                      transform: [{ translateX: tx }, { translateY: ty }, { scale: p.scale }],
-                    },
-                  ]}
-                />
-              );
-            })}
-          </View>
-
-          {/* Logo with breathing glow */}
+    <Pressable style={styles.root} onPress={finish} accessibilityRole="button" accessibilityLabel="Welcome to Sempai HQ. Tap to continue">
+      <BrandBackdrop>
+        {/* rising embers */}
+        {EMBERS.map((e, i) => (
           <Animated.View
-            style={[
-              styles.logoWrapper,
-              { opacity: logoOpacity, transform: [{ scale: Animated.multiply(logoScale, breathe) }] },
-            ]}
-          >
-            <Animated.View style={[styles.logoGlow, { opacity: glowPulse }]} />
-            <Image
-              source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
-              style={styles.logo}
-              defaultSource={{ uri: 'https://via.placeholder.com/100' }}
-            />
-            <View style={styles.logoRing} />
-          </Animated.View>
+            key={i}
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: e.x,
+              bottom: 0,
+              width: e.size,
+              height: e.size,
+              borderRadius: e.size,
+              backgroundColor: i % 3 === 0 ? colors.gold : colors.accentHi,
+              opacity: embers[i].interpolate({ inputRange: [0, 0.15, 0.8, 1], outputRange: [0, 0.9, 0.5, 0] }),
+              transform: [{ translateY: embers[i].interpolate({ inputRange: [0, 1], outputRange: [0, -SCREEN_H * 0.7] }) }],
+            }}
+          />
+        ))}
 
-          {/* Title + subtitle */}
-          <Animated.Text
-            style={[
-              styles.title,
-              {
-                opacity: titleAnim,
-                transform: [{ translateY: titleAnim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
-              },
-            ]}
-          >
-            Welcome to the Adventure
-          </Animated.Text>
-
+        <Animated.View style={[styles.scene, sceneStyle]}>
           <Animated.View
             style={{
-              opacity: subtitleAnim,
-              transform: [{ translateY: subtitleAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-              alignItems: 'center',
+              opacity: mark,
+              transform: [{ scale: mark.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
             }}
           >
-            <Text style={styles.subtitle}>Initializing Nexus{dots}</Text>
-            <View style={styles.progressTrack}>
-              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
-            </View>
+            <BrandMark size={128} />
           </Animated.View>
-        </View>
-      </Animated.View>
-    </View>
+
+          <View style={styles.chips}>
+            {VALUES.map((v, i) => (
+              <Animated.View
+                key={v.label}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: colors.bgCard,
+                    borderColor: colors.borderStrong,
+                    opacity: chips[i],
+                    transform: [{ translateY: chips[i].interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+                  },
+                ]}
+              >
+                <View style={[styles.chipIcon, { backgroundColor: colors.accentSoft }]}>
+                  <FontAwesome5 name={v.icon} size={12} color={colors.accent} solid />
+                </View>
+                <Text style={[styles.chipText, { color: colors.textPrimary }]}>{v.label}</Text>
+              </Animated.View>
+            ))}
+          </View>
+
+          <View style={[styles.track, { backgroundColor: colors.border }]}>
+            <Animated.View
+              style={[
+                StyleSheet.absoluteFill,
+                { transform: [{ translateX: bar.interpolate({ inputRange: [0, 1], outputRange: [-TRACK_W, 0] }) }] },
+              ]}
+            >
+              <LinearGradient colors={[colors.gold, colors.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+            </Animated.View>
+          </View>
+          <Text style={[styles.hint, { color: colors.textMuted }]}>Tap to skip</Text>
+        </Animated.View>
+      </BrandBackdrop>
+    </Pressable>
   );
 };
 
-export const getWelcomeStyles = (c) => StyleSheet.create({
-  root: { flex: 1, backgroundColor: NAVY_DEEP },
-  flash: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: c.accent,
-    zIndex: 10,
-  },
-  scene: { flex: 1 },
-  star: { position: 'absolute', backgroundColor: c.textPrimary },
-  content: {
-    flex: 1,
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  scene: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  chips: { marginTop: 34, gap: 10, alignItems: 'stretch', width: '100%', maxWidth: 300 },
+  chip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  wordmark: {
-    position: 'absolute',
-    top: height * 0.16,
-    color: c.accent,
-    fontSize: 13,
-     
-    letterSpacing: 8,
-  },
-  energyField: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ringLayer: {
-    position: 'absolute',
-    width: 300,
-    height: 300,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ring1: {
-    width: 290,
-    height: 290,
-    borderRadius: 145,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 138, 61, 0.28)',
-    borderStyle: 'dashed',
-  },
-  ring2: {
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 98, 0, 0.4)',
-    borderStyle: 'dashed',
-  },
-  ring3: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    gap: 12,
+    height: 46,
+    paddingHorizontal: 12,
+    borderRadius: 23,
     borderWidth: 1,
-    borderColor: 'rgba(230, 126, 34, 0.35)',
   },
-  shockwave: {
-    position: 'absolute',
-    width: 170,
-    height: 170,
-    borderRadius: 85,
-    borderWidth: 1.5,
-    borderColor: c.accent,
-  },
-  particle: {
-    position: 'absolute',
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: c.accent,
-    shadowColor: c.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 5,
-  },
-  logoWrapper: {
-    width: 120,
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 34,
-  },
-  logoGlow: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255, 98, 0, 0.35)',
-  },
-  logo: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-  },
-  logoRing: {
-    position: 'absolute',
-    width: 122,
-    height: 122,
-    borderRadius: 61,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  title: {
-    fontSize: 21,
-     
-    color: '#f5efe8',
-    letterSpacing: 0.5,
-    marginBottom: 14,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 13,
-     
-    color: c.accentDeep,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    marginBottom: 14,
-  },
-  progressTrack: {
-    width: 140,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: c.border,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: c.accentDeep,
-    borderRadius: 2,
-  },
+  chipIcon: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  chipText: { fontSize: 15, fontWeight: '700' },
+  track: { width: TRACK_W, height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 40 },
+  hint: { fontSize: 11, fontWeight: '700', letterSpacing: 1.6, marginTop: 12, textTransform: 'uppercase' },
 });
 
 export default WelcomeScreen;

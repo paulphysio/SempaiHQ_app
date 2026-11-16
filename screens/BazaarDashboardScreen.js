@@ -15,6 +15,8 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useBazaarTheme } from '../styles/BazaarStyles';
 import { resolveRefund } from '../utils/bazaar';
+import { toast } from '../components/Toast';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const TABS = ['Overview', 'My Books', 'Refunds', 'All Sales'];
 
@@ -242,7 +244,7 @@ const BazaarDashboardScreen = () => {
           style: approve ? 'destructive' : 'default',
           onPress: async () => {
             const res = await resolveRefund(refundId, action);
-            Alert.alert(res.ok ? 'Done' : 'Error', res.data?.message || res.data?.error || '');
+            toast.error([res.ok ? 'Done' : 'Error', res.data?.message || res.data?.error || ''].filter(Boolean).join(' — '));
             load();
           },
         },
@@ -265,7 +267,7 @@ const BazaarDashboardScreen = () => {
               {r.requester_role === 'buyer' ? 'Buyer' : 'Author'} request · {new Date(r.created_at).toLocaleDateString()}
             </Text>
             {!!r.reason && <Text style={styles.listItemSub} numberOfLines={2}>"{r.reason}"</Text>}
-            <View style={[styles.statusPill, { backgroundColor: 'rgba(255,215,0,0.12)' }]}>
+            <View style={[styles.statusPill, { backgroundColor: 'rgba(255, 200, 87,0.12)' }]}>
               <Text style={[styles.statusPillText, { color: statusColor(r.status) }]}>
                 {r.status.replace('_', ' ').toUpperCase()}
               </Text>
@@ -315,13 +317,7 @@ const BazaarDashboardScreen = () => {
     );
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BAZAAR_COLORS.accent} />
-        </View>
-      </View>
-    );
+    return <ScreenSkeleton variant="dashboard" label="Loading your sales" />;
   }
 
   if (!user) {

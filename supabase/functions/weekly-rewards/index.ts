@@ -29,6 +29,29 @@ const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
   }
 });
 
+
+// True only for a genuine service-role key (anon / user tokens are refused).
+function jwtRole(token: string): string | null {
+  try {
+    const part = token.split(".")[1];
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=");
+    return JSON.parse(atob(b64))?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+async function isServiceCaller(token: string): Promise<boolean> {
+  if (!token) return false;
+  if (supabaseServiceRoleKey && token === supabaseServiceRoleKey) return true;
+  if (jwtRole(token) !== "service_role") return false;
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/`, { headers: { apikey: token, Authorization: `Bearer ${token}` } });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   console.log("[http] Request received:", {
     method: req.method,
@@ -45,6 +68,33 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json"
       }
     });
+  }
+
+
+  // ── Caller check: only the server (cron / service key) may pay out ──
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearers+/i, "").trim();
+  if (!(await isServiceCaller(token))) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
+  // ── Once a week: refuse a second payout within 6 days ──
+  {
+    const since = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("rewards_log")
+      .select("distributed_at")
+      .gte("distributed_at", since)
+      .limit(1);
+    if (recent && recent.length > 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        message: "Already distributed this week — skipped.",
+        last_distribution: recent[0].distributed_at
+      }), { status: 409, headers: { "Content-Type": "application/json" } });
+    }
   }
 
   try {

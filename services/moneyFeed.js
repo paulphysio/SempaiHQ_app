@@ -1,13 +1,14 @@
-import { supabase } from './supabaseClient';
+import { readerAction } from './readerActions';
 
-// Fire-and-forget insert into the public money_events feed (DAO Governance).
+// Fire-and-forget entry in the public money_events feed (DAO Governance).
+// The server (reader-actions → money_event) only logs it if `tx_sig` is a
+// real transaction signed by one of the caller's own wallets.
 // Never throws — a feed failure must not break payments.
 export async function logMoneyEvent(row) {
   try {
-    const { error } = await supabase.from('money_events').insert(row);
-    if (error) console.warn('[money_events] insert error:', error.message, error.code);
-    else console.log('[money_events] logged:', row.event_type, row.tx_sig);
+    const res = await readerAction('money_event', row || {});
+    if (!res.ok) console.warn('[money_events] not logged:', res.error);
   } catch (e) {
-    console.warn('[money_events] client insert failed:', e?.message);
+    console.warn('[money_events] failed:', e?.message);
   }
 }

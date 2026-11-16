@@ -1,26 +1,13 @@
-import React, { useState, useEffect, useContext } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  SafeAreaView,
-  StyleSheet,
-  Modal,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  RefreshControl,
-} from 'react-native';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { View, Text, TouchableOpacity, TextInput, ActivityIndicator, Image, ScrollView, SafeAreaView, StyleSheet, Modal, KeyboardAvoidingView, Platform, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { getFeedStyles } from '../styles/FeedStyles';
 import { FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { toast } from '../components/Toast';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -28,7 +15,7 @@ const FeedScreen = () => {
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
   const { isDark, colors } = useTheme();
-  const themedStyles = getFeedStyles(isDark);
+  const themedStyles = useMemo(() => getFeedStyles(isDark), [isDark]);
   
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,7 +153,7 @@ const FeedScreen = () => {
       loadPosts();
     } catch (error) {
       console.error('Error creating post:', error);
-      Alert.alert('Error', 'Failed to create post');
+      toast.error('Failed to create post');
     }
   };
 
@@ -186,7 +173,7 @@ const FeedScreen = () => {
       loadPosts();
     } catch (error) {
       console.error('Error editing post:', error);
-      Alert.alert('Error', 'Failed to edit post');
+      toast.error('Failed to edit post');
     }
   };
 
@@ -203,7 +190,7 @@ const FeedScreen = () => {
       loadPosts();
     } catch (error) {
       console.error('Error deleting post:', error);
-      Alert.alert('Error', 'Failed to delete post');
+      toast.error('Failed to delete post');
     }
   };
 
@@ -276,7 +263,7 @@ const FeedScreen = () => {
       }
     } catch (error) {
       console.error('Error liking post:', error);
-      Alert.alert('Error', 'Failed to like post');
+      toast.error('Failed to like post');
     }
   };
 
@@ -335,7 +322,7 @@ const FeedScreen = () => {
       }
     } catch (error) {
       console.error('Error resharing post:', error);
-      Alert.alert('Error', 'Failed to reshare post');
+      toast.error('Failed to reshare post');
     }
   };
 
@@ -364,7 +351,7 @@ const FeedScreen = () => {
       ));
     } catch (error) {
       console.error('Error creating comment:', error);
-      Alert.alert('Error', 'Failed to create comment');
+      toast.error('Failed to create comment');
     }
   };
 
@@ -565,14 +552,7 @@ const FeedScreen = () => {
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={themedStyles.container}>
-        <View style={themedStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={themedStyles.loadingText}>Loading feed...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="feed" label="Loading feed" />;
   }
 
   return (

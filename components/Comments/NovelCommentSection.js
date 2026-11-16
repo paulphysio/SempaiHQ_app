@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase } from '../../services/supabaseClient';
+import { readerAction } from '../../services/readerActions';
+import { toast } from '../Toast';
 import { isErrorNetworkError } from '../../services/offlineCache';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
@@ -27,11 +29,11 @@ const COLOR = {
     bgCard: '#141210',
     bgElevated: '#1a1714',
     accent: '#cc5500',
-    accentBright: '#ff6b35',
+    accentBright: '#FF8A3D',
     accentSoft: '#e67e22',
     accentDim: '#8b4513',
     gold: '#c9a84c',
-    goldBright: '#ffd700',
+    goldBright: '#FFC857',
     ivory: '#f5e6d3',
     ivoryDim: '#c4b5a0',
     border: '#2d2418',
@@ -433,7 +435,7 @@ const Comment = ({
 const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel', isOnline: propIsOnline }) => {
   const { wallet } = useContext(EmbeddedWalletContext);
   const { isDark, colors } = useTheme();
-  const styles = getCommentStyles(isDark);
+  const styles = useMemo(() => getCommentStyles(isDark), [isDark]);
 
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
@@ -573,26 +575,6 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel', isOnline: 
     }
   };
 
-  const sendNotification = async (receiverId, message, type = 'comment') => {
-    if (!receiverId) return;
-
-    try {
-      const { error } = await supabase.from('notifications').insert([
-        {
-          user_id: receiverId,
-          message,
-          type,
-          is_read: false,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-
-      if (error) console.error('Error inserting notification:', error.message);
-    } catch (error) {
-      console.error('Error sending notification:', error.message);
-    }
-  };
-
   const handleCommentSubmit = async () => {
     if (!isWalletConnected || !activePublicKey) {
       setError('You must connect a wallet to comment.');
@@ -661,7 +643,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel', isOnline: 
             username,
             content: newComment,
             parent_id: replyingTo || null,
-            is_rewarded: !hasReachedDailyLimit,
+            is_rewarded: false, // the server marks it when it pays the reward
           },
         ])
         .select()
@@ -669,47 +651,13 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel', isOnline: 
 
       if (commentError) throw commentError;
 
-      if (replyingTo) {
-        const { data: parentComment } = await supabase
-          .from('comments')
-          .select('user_id')
-          .eq('id', replyingTo)
-          .single();
-        if (parentComment?.user_id && parentComment.user_id !== user.id) {
-          await sendNotification(
-            parentComment.user_id,
-            `${username} replied to your comment on "${novelTitle}".`,
-            'reply'
-          );
-        }
-      }
-
-      await sendNotification(
-        user.id,
-        `Your comment on "${novelTitle || 'a novel'}" was posted successfully.`,
-        'comment'
-      );
-
+      // Points and the reply notification are decided by the server.
+      if (replyingTo) readerAction('comment_notify', { table: 'comments', commentId: insertedComment.id });
       if (!hasReachedDailyLimit) {
-        await Promise.all([
-          supabase
-            .from('users')
-            .update({ weekly_points: user.weekly_points + rewardAmount })
-            .eq('id', user.id),
-          supabase.from('wallet_events').insert([
-            {
-              destination_user_id: user.id,
-              event_type: 'credit',
-              amount_change: rewardAmount,
-              source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-              destination_chain: 'SOL',
-              source_currency: 'Token',
-              event_details: 'comment_reward',
-              wallet_address: user.wallet_address,
-              source_chain: 'SOL',
-            },
-          ]),
-        ]);
+        readerAction('comment_reward', { table: 'comments', commentId: insertedComment.id })
+          .then((r) => toast.success(r.ok && r.rewarded ? `Comment posted · +${r.points} points` : 'Comment posted'));
+      } else {
+        toast.success('Comment posted');
       }
 
       setNewComment('');

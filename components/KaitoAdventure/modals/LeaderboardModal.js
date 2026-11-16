@@ -32,7 +32,7 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
       'Sapling': '#00ced1',
       'Tree': '#32cd32',
       'Forest': '#228b22',
-      'Ancient': '#ffd700',
+      'Ancient': '#FFC857',
     };
     return tierColors[tier] || '#888';
   };
@@ -42,7 +42,7 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
       <View style={militaryStyles.rank}>
         {index < 3 ? (
           <View style={[militaryStyles.rankBadge, militaryStyles[`rank${index + 1}`]]}>
-            {index === 0 && <Icon name="crown" size={14} color="#ffd700" />}
+            {index === 0 && <Icon name="crown" size={14} color="#FFC857" />}
             {index === 1 && <Icon name="medal" size={14} color="#c0c0c0" />}
             {index === 2 && <Icon name="id-badge" size={14} color="#cd7f32" />}
             <Text style={militaryStyles.rankNumber}>{index + 1}</Text>
@@ -79,7 +79,7 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
         style={militaryStyles.shareButton}
         onPress={() => handleShare(item)}
       >
-        <Icon name="share-alt" size={14} color="#ffd700" />
+        <Icon name="share-alt" size={14} color="#FFC857" />
       </TouchableOpacity>
     </View>
   );
@@ -90,9 +90,9 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
       <View style={militaryStyles.campaignHeader}>
         <View style={militaryStyles.campaignBanner}>
           <View style={militaryStyles.campaignTitle}>
-            <Icon name="shield-alt" size={20} color="#ffd700" />
+            <Icon name="shield-alt" size={20} color="#FFC857" />
             <Text style={militaryStyles.campaignTitleText}>Kaito Military Campaign</Text>
-            <Icon name="flag" size={20} color="#ffd700" />
+            <Icon name="flag" size={20} color="#FFC857" />
           </View>
           <Text style={militaryStyles.campaignSubtitle}>
             ⚔️ Rise Through the Ranks - Conquer the Leaderboard ⚔️
@@ -107,7 +107,7 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
               <Text style={militaryStyles.badgeText}>Elite</Text>
             </View>
             <View style={militaryStyles.campaignBadge}>
-              <Icon name="dragon" size={12} color="#ffd700" />
+              <Icon name="dragon" size={12} color="#FFC857" />
               <Text style={militaryStyles.badgeText}>Legendary</Text>
             </View>
           </View>
@@ -188,7 +188,7 @@ const LeaderboardModal = ({ connected, leaderboardData, toggleModal }) => {
             </View>
 
             <TouchableOpacity style={militaryStyles.shareButtonX} onPress={shareToX}>
-              <Icon name="share-alt" size={16} color="#ffd700" style={militaryStyles.shareButtonIcon} />
+              <Icon name="share-alt" size={16} color="#FFC857" style={militaryStyles.shareButtonIcon} />
               <Text style={militaryStyles.shareButtonText}>Share on X</Text>
             </TouchableOpacity>
           </View>
@@ -211,7 +211,7 @@ const militaryStyles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: '#FFC857',
   },
   campaignTitle: {
     flexDirection: 'row',
@@ -223,7 +223,7 @@ const militaryStyles = StyleSheet.create({
   campaignTitleText: {
     fontSize: 16,
     
-    color: '#ffd700',
+    color: '#FFC857',
   },
   campaignSubtitle: {
     fontSize: 12,
@@ -265,7 +265,7 @@ const militaryStyles = StyleSheet.create({
     borderRadius: 6,
   },
   timeFrameActive: {
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
   },
   timeFrameText: {
     fontSize: 12,
@@ -287,7 +287,7 @@ const militaryStyles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     
-    color: '#ffd700',
+    color: '#FFC857',
     textAlign: 'center',
     textTransform: 'uppercase',
   },
@@ -325,9 +325,9 @@ const militaryStyles = StyleSheet.create({
     borderRadius: 18,
   },
   rank1: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
     borderWidth: 2,
-    borderColor: '#ffd700',
+    borderColor: '#FFC857',
   },
   rank2: {
     backgroundColor: 'rgba(192, 192, 192, 0.2)',
@@ -353,7 +353,7 @@ const militaryStyles = StyleSheet.create({
   avatar: {
     width: 28,
     height: 28,
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -382,7 +382,7 @@ const militaryStyles = StyleSheet.create({
   scoreValue: {
     fontSize: 12,
     
-    color: '#ffd700',
+    color: '#FFC857',
   },
   level: {
     flex: 1,
@@ -409,9 +409,9 @@ const militaryStyles = StyleSheet.create({
   shareButton: {
     width: 32,
     height: 32,
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: '#FFC857',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
@@ -419,7 +419,7 @@ const militaryStyles = StyleSheet.create({
   closeButton: {
     marginTop: 12,
     paddingVertical: 10,
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
     borderRadius: 8,
     alignItems: 'center',
   },
@@ -442,7 +442,7 @@ const militaryStyles = StyleSheet.create({
   shareModalContent: {
     backgroundColor: '#2a2a2a',
     borderWidth: 2,
-    borderColor: '#ff6200',
+    borderColor: '#F36316',
     borderRadius: 12,
     padding: 16,
     width: '100%',
@@ -455,7 +455,7 @@ const militaryStyles = StyleSheet.create({
   shareModalTitle: {
     fontSize: 16,
     
-    color: '#ffd700',
+    color: '#FFC857',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -465,12 +465,12 @@ const militaryStyles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: '#FFC857',
   },
   shareCardTitle: {
     fontSize: 14,
     
-    color: '#ff6200',
+    color: '#F36316',
     marginBottom: 8,
     textAlign: 'center',
   },
@@ -494,7 +494,7 @@ const militaryStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 12,
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
     borderRadius: 8,
   },
   shareButtonIcon: {

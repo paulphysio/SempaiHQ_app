@@ -111,7 +111,7 @@ const buildWebViewHtml = (isDark) => `
           'line-height': '1.7'
         },
         'p': { 'margin': '0 0 0.9em 0' },
-        'h1, h2, h3, h4': { 'color': '${isDark ? '#FF5733' : '#3B82F6'}', 'font-family': 'sans-serif' },
+        'h1, h2, h3, h4': { 'color': '${isDark ? '#F36316' : '#3B82F6'}', 'font-family': 'sans-serif' },
         'a': { 'color': '${isDark ? '#FF8C42' : '#2563EB'}', 'text-decoration': 'none' }
       });
       rendition.themes.select('sempai');
@@ -501,7 +501,7 @@ const getEpubLocalStyles = (c) => StyleSheet.create({
     borderBottomColor: '#2A2A45',
   },
   tocItemActive: {
-    backgroundColor: 'rgba(255,87,51,0.12)',
+    backgroundColor: 'rgba(243, 99, 22,0.12)',
   },
   tocItemText: {
     color: c.textSecondary,

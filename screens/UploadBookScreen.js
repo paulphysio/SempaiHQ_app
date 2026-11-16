@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +10,7 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useBazaarTheme } from '../styles/BazaarStyles';
 import { BAZAAR_AUTHOR_SHARE_PCT, BAZAAR_BOOK_PRICE_USD, BAZAAR_LEND_PRICE_SMP } from '../utils/bazaar';
+import { toast } from '../components/Toast';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -114,7 +104,7 @@ const UploadBookScreen = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission needed', 'Allow photo access to choose a cover image.');
+        toast.error('Permission needed — Allow photo access to choose a cover image.');
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -135,7 +125,7 @@ const UploadBookScreen = () => {
       });
     } catch (err) {
       console.error('[UploadBook] cover pick error:', err.message);
-      Alert.alert('Error', 'Failed to select image.');
+      toast.error('Failed to select image.');
     }
   };
 
@@ -150,35 +140,35 @@ const UploadBookScreen = () => {
       const ext = (asset.name || '').split('.').pop().toLowerCase();
       const type = ext === 'pdf' ? 'pdf' : ext === 'epub' ? 'epub' : null;
       if (!type) {
-        Alert.alert('Unsupported file', 'Please choose a PDF or EPUB file.');
+        toast.error('Unsupported file — Please choose a PDF or EPUB file.');
         return;
       }
       if (asset.size && asset.size > MAX_FILE_BYTES) {
-        Alert.alert('File too large', 'Books must be 50MB or smaller.');
+        toast.error('File too large — Books must be 50MB or smaller.');
         return;
       }
       setBookFile({ uri: asset.uri, name: asset.name, size: asset.size || 0, type });
     } catch (err) {
       console.error('[UploadBook] file pick error:', err.message);
-      Alert.alert('Error', 'Failed to select file.');
+      toast.error('Failed to select file.');
     }
   };
 
   const handleSubmit = async () => {
     if (!user) {
-      Alert.alert('Sign in required', 'Connect your wallet and make sure your account exists.');
+      toast.error('Sign in required — Connect your wallet and make sure your account exists.');
       return;
     }
     if (!title.trim()) {
-      Alert.alert('Missing title', 'Please enter a book title.');
+      toast.error('Missing title — Please enter a book title.');
       return;
     }
     if (!bookFile) {
-      Alert.alert('Missing file', 'Please choose a PDF or EPUB file.');
+      toast.error('Missing file — Please choose a PDF or EPUB file.');
       return;
     }
     if (!ownRights && !allowLending) {
-      Alert.alert('Pick an option', 'Enable at least one: sell your book or allow lending.');
+      toast.info('Pick an option — Enable at least one: sell your book or allow lending.');
       return;
     }
 
@@ -186,19 +176,13 @@ const UploadBookScreen = () => {
     // not the wallet. Catch a missing/mismatched session before uploading.
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      Alert.alert(
-        'Sign in required',
-        'Publishing needs an active Google sign-in session. Please sign out and sign back in with the Google account linked to your profile, then try again.'
-      );
+      toast.error('Sign in required — Publishing needs an active Google sign-in session. Please sign out and sign back in with the Google account linked to your profile, then try again.');
       return;
     }
     const sessionEmail = (session.user?.email || '').toLowerCase();
     const profileEmail = (user.email || '').toLowerCase();
     if (profileEmail && sessionEmail && sessionEmail !== profileEmail) {
-      Alert.alert(
-        'Wrong Google account',
-        `You're signed in as ${session.user?.email}, but this profile belongs to ${user.email}. Sign out and sign in with the matching Google account.`
-      );
+      toast.info(`Wrong Google account — ${`You're signed in as ${session.user?.email}, but this profile belongs to ${user.email}. Sign out and sign in with the matching Google account.`}`);
       return;
     }
 
@@ -257,11 +241,11 @@ const UploadBookScreen = () => {
       });
       if (insertError) throw new Error(`Failed to save book: ${insertError.message}`);
 
-      Alert.alert('Published', 'Your book is now live in the Bazaar!');
+      toast.success('Published — Your book is now live in the Bazaar!');
       navigation.goBack();
     } catch (err) {
       console.error('[UploadBook] Submit error:', err.message);
-      Alert.alert('Upload failed', friendlyUploadError(err));
+      toast.error(`Upload failed — ${friendlyUploadError(err)}`);
     } finally {
       setUploading(false);
     }

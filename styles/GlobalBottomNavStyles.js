@@ -4,62 +4,54 @@
 // Floating glass pill. Theme-aware, orange (dark) / blue (light).
 
 import { StyleSheet, Platform } from 'react-native';
+import { palettes } from '../theme/tokens';
 
 // ---------------------------------------------------------------------------
 // Design tokens (palette unchanged, glass tokens added)
 // ---------------------------------------------------------------------------
+// Glass + brand values derived from theme/tokens.js.
 const PALETTE = {
   dark: {
-    bg: '#111218',
-    bgElevated: '#1a1a2e',
-    bgModal: '#1a1a2e',
-
-    accent: '#FF5733',
-    accentDeep: '#F36316',
-    accentBright: '#FF6B35',
-    accentSoft: 'rgba(255, 87, 51, 0.12)',
-    accentGlow: 'rgba(255, 87, 51, 0.02)',
-
-    textPrimary: '#FFFFFF',
-    textSecondary: '#CCCCCC',
-    textMuted: '#888888',
-
-    border: 'rgba(255, 255, 255, 0.1)',
-    borderAccent: 'rgba(243, 99, 22, 0.3)',
-
-    overlay: 'rgba(0, 0, 0, 0.7)',
+    bg: palettes.dark.bgElevated,
+    bgElevated: palettes.dark.bgCardAlt,
+    bgModal: palettes.dark.bgCard,
+    accent: palettes.dark.accent,
+    accentDeep: palettes.dark.accentDeep,
+    accentBright: palettes.dark.accentHi,
+    accentSoft: palettes.dark.accentSoft,
+    accentGlow: 'rgba(243, 99, 22, 0.04)',
+    textPrimary: palettes.dark.textPrimary,
+    textSecondary: palettes.dark.textSecondary,
+    textMuted: palettes.dark.textMuted,
+    border: palettes.dark.border,
+    borderAccent: palettes.dark.borderAccent,
+    overlay: palettes.dark.scrim,
     shadow: '#000000',
-
     // glass
-    glassTint: 'rgba(17, 18, 24, 0.50)',
+    glassTint: 'rgba(17, 18, 25, 0.62)',
     glassSheen: 'rgba(255, 255, 255, 0.14)',
     glassRim: 'rgba(255, 255, 255, 0.16)',
     glassSpecular: 'rgba(255, 255, 255, 0.55)',
     gloss: 'rgba(255, 255, 255, 0.38)',
   },
   light: {
-    bg: '#ffffff',
-    bgElevated: '#f8f8e8',
-    bgModal: '#ffffff',
-
-    accent: '#3b82f6',
-    accentDeep: '#2563eb',
-    accentBright: '#60a5fa',
-    accentSoft: 'rgba(59, 130, 246, 0.12)',
-    accentGlow: 'rgba(59, 130, 246, 0.02)',
-
-    textPrimary: '#1e293b',
-    textSecondary: '#475569',
-    textMuted: '#64748b',
-
-    border: 'rgba(59, 130, 246, 0.15)',
-    borderAccent: 'rgba(59, 130, 246, 0.3)',
-
-    overlay: 'rgba(38, 30, 18, 0.55)',
+    bg: palettes.light.bgElevated,
+    bgElevated: palettes.light.bgCardAlt,
+    bgModal: palettes.light.bgCard,
+    accent: palettes.light.accent,
+    accentDeep: palettes.light.accentDeep,
+    accentBright: palettes.light.accentHi,
+    accentSoft: palettes.light.accentSoft,
+    accentGlow: 'rgba(59, 130, 246, 0.04)',
+    textPrimary: palettes.light.textPrimary,
+    textSecondary: palettes.light.textSecondary,
+    textMuted: palettes.light.textMuted,
+    border: palettes.light.border,
+    borderAccent: palettes.light.borderAccent,
+    overlay: palettes.light.scrim,
     shadow: 'rgba(0, 0, 0, 0.1)',
-
     // glass
-    glassTint: 'rgba(255, 255, 255, 0.55)',
+    glassTint: 'rgba(255, 255, 255, 0.62)',
     glassSheen: 'rgba(255, 255, 255, 0.60)',
     glassRim: 'rgba(255, 255, 255, 0.85)',
     glassSpecular: 'rgba(255, 255, 255, 1)',
@@ -137,11 +129,70 @@ export const getGlobalBottomNavStyles = (isDark = true) => {
       backgroundColor: c.accentGlow,
     },
 
+    // Equal-width slots so the lamp can be positioned by index
+    slot: {
+      flex: 1,
+      height: NAV.height,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    // Glowing light that glides along the top edge to the active orb
+    lamp: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: 34,
+      height: 3,
+      borderBottomLeftRadius: 3,
+      borderBottomRightRadius: 3,
+      shadowOpacity: 1,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 4,
+    },
+    // Soft cone of light the lamp casts down behind the orb
+    lampPool: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: 90,
+      height: NAV.height,
+      borderRadius: 45,
+      overflow: 'hidden',
+    },
+
     navContent: {
       flexDirection: 'row',
-      justifyContent: 'space-around',
       alignItems: 'center',
-      paddingHorizontal: SPACE.md,
+      // no horizontal padding: the lamp is positioned by slot index
+    },
+
+    // Labelled tabs
+    tab: {
+      flex: 1,
+      height: NAV.height,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabInner: {
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    tabIconPill: {
+      width: 46,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 3,
+    },
+    tabLabel: {
+      fontSize: 12,
+      letterSpacing: 0.2,
+      fontWeight: '500',
+    },
+    tabLabelActive: {
+      fontWeight: '700',
     },
 
     // Buttons

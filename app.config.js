@@ -11,7 +11,8 @@ export default ({ config }) => ({
   splash: {
     image: './assets/splash-icon.png',
     resizeMode: 'contain',
-    backgroundColor: '#ffffff',
+    // Brand ink — matches the app's first frame so launch has no white flash.
+    backgroundColor: '#0B0B14',
   },
   assetBundlePatterns: ['assets/**/*'],
   platforms: ['android'],

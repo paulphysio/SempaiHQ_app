@@ -1,10 +1,11 @@
 // screens/ApplyScreen.js
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { supabase } from '../services/supabaseClient'; // Adjust path if needed
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced'; // Adjust path if needed
 import Popup from '../components/Popup';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const ApplyScreen = () => {
   const { isDark, colors } = useTheme();
@@ -128,12 +129,12 @@ const ApplyScreen = () => {
       if (insertError) throw insertError;
 
       setSuccess(`Application approved! You are now a ${role}.`);
-      Alert.alert('Success', `Your application has been approved! You have been granted the ${role} role.`);
+      toast.success(`Your application has been approved! You have been granted the ${role} role.`);
       setReason('');
       setSubmissionLink('');
     } catch (err) {
       setError(err.message);
-      Alert.alert('Error', `Failed to process application: ${err.message}`);
+      toast.error(`Failed to process application: ${err.message}`);
     }
   };
 

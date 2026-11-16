@@ -319,7 +319,7 @@ const NexusScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+      <StatusBar barStyle="light-content" backgroundColor="#1A1B26" />
 
       {/* Messages */}
       {(successMessage || error) && (

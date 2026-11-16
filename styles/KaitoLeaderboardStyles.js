@@ -21,7 +21,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   headerTitle: {
-    color: '#ff6200',
+    color: '#F36316',
     fontSize: 20,
     fontFamily: 'Yoruka',
     
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: '#FFC857',
   },
   campaignTitle: {
     flexDirection: 'row',
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   campaignTitleText: {
-    color: '#ffd700',
+    color: '#FFC857',
     fontSize: 24,
     fontFamily: 'Yoruka',
     
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   timeFrameButtonActive: {
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
   },
   timeFrameButtonText: {
     color: '#aaa',
@@ -132,7 +132,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
     borderRadius: 8,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2a2a2a',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ff6200',
+    borderColor: '#F36316',
     overflow: 'hidden',
   },
   leaderboardHeader: {
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   headerText: {
     flex: 1,
-    color: '#ffd700',
+    color: '#FFC857',
     fontSize: 12,
     fontFamily: 'Yoruka',
     
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scoreValue: {
-    color: '#ffd700',
+    color: '#FFC857',
     fontSize: 14,
     fontFamily: 'Yoruka',
     
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tierText: {
-    color: '#ffd700',
+    color: '#FFC857',
     fontSize: 12,
     fontFamily: 'Yoruka',
   },
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareButton: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
     borderRadius: 8,
     padding: 8,
   },
@@ -282,14 +282,14 @@ const styles = StyleSheet.create({
     padding: 20,
     width: width * 0.9,
     borderWidth: 1,
-    borderColor: '#ff6200',
+    borderColor: '#F36316',
   },
   closeModalButton: {
     alignSelf: 'flex-end',
     padding: 8,
   },
   shareModalTitle: {
-    color: '#ffd700',
+    color: '#FFC857',
     fontSize: 20,
     fontFamily: 'Yoruka',
     
@@ -303,10 +303,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#ffd700',
+    borderColor: '#FFC857',
   },
   shareCardTitle: {
-    color: '#ff6200',
+    color: '#F36316',
     fontSize: 14,
     fontFamily: 'Yoruka',
     marginBottom: 8,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   shareCardRank: {
-    color: '#ffd700',
+    color: '#FFC857',
     fontSize: 32,
     fontFamily: 'Yoruka',
     
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ff6200',
+    backgroundColor: '#F36316',
     borderRadius: 12,
     paddingVertical: 16,
   },

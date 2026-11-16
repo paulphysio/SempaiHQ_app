@@ -1,19 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  Alert,
-  Linking,
-  StyleSheet,
-  SafeAreaView,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Linking, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -198,7 +187,7 @@ export const getKaitoLbStyles = (c) => StyleSheet.create({
     borderRadius: 4,
   },
   rankBadge1: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
     borderWidth: 1,
     borderColor: c.gold,
   },
@@ -485,7 +474,7 @@ const KaitoLeaderboardScreen = () => {
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
     
     Linking.openURL(twitterUrl).catch(() => {
-      Alert.alert('Error', 'Could not open Twitter');
+      toast.error('Could not open Twitter');
     });
     setShowShareModal(false);
   };
@@ -551,7 +540,7 @@ const KaitoLeaderboardScreen = () => {
             <View style={styles.campaignTitle}>
               <Icon name="shield-alt" size={24} color={colors.accent} style={styles.shieldIcon} />
               <Text style={styles.campaignTitleText}>Kaito Military Campaign</Text>
-              <Icon name="flag" size={24} color="#ffd700" style={styles.flagIcon} />
+              <Icon name="flag" size={24} color="#FFC857" style={styles.flagIcon} />
             </View>
             <Text style={styles.campaignSubtitle}>
               ⚔️ Rise Through the Ranks - Conquer the Leaderboard ⚔️
@@ -697,7 +686,7 @@ const KaitoLeaderboardScreen = () => {
             
             <View style={styles.shareCard}>
               <View style={styles.shareCardIcon}>
-                <Icon name="trophy" size={48} color="#ffd700" />
+                <Icon name="trophy" size={48} color="#FFC857" />
               </View>
               <Text style={styles.shareCardName}>{selectedReader?.name || 'Anonymous'}</Text>
               <Text style={styles.shareCardRank}>

@@ -15,7 +15,7 @@ const LeaderboardShareCard = ({
     <View style={styles.shareCard}>
       {/* Background with gradient */}
       <LinearGradient
-        colors={['#1a1a2e', '#2d2d44', '#1a1a2e']}
+        colors={['#1A1B26', '#2d2d44', '#1A1B26']}
         style={styles.cardBackground}
       >
         {/* Decorative elements */}
@@ -174,21 +174,21 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   rankBadge: {
-    backgroundColor: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+    backgroundColor: 'linear-gradient(135deg, #FFC857 0%, #FFA500 100%)',
     borderRadius: 12,
     width: 60,
     height: 60,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
-    shadowColor: '#FFD700',
+    shadowColor: '#FFC857',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
   rankNumber: {
-    color: '#1a1a2e',
+    color: '#1A1B26',
     fontSize: 24,
     
     fontFamily: ' Yoruka',

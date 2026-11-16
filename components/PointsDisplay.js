@@ -158,7 +158,7 @@ const PointsDisplay = () => {
 
         <View style={[styles.pointsCard, styles.effectiveCard]}>
           <View style={styles.cardHeader}>
-            <Icon name="trophy" size={16} color="#FFD700" />
+            <Icon name="trophy" size={16} color="#FFC857" />
             <Text style={styles.cardTitle}>Effective Points</Text>
           </View>
           <Text style={styles.cardValue}>{pointsData.effectivePoints.toLocaleString()}</Text>
@@ -249,8 +249,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(155, 89, 182, 0.2)',
   },
   effectiveCard: {
-    borderColor: 'rgba(255, 215, 0, 0.3)',
-    backgroundColor: 'rgba(255, 215, 0, 0.05)',
+    borderColor: 'rgba(255, 200, 87, 0.3)',
+    backgroundColor: 'rgba(255, 200, 87, 0.05)',
   },
   cardHeader: {
     flexDirection: 'row',

@@ -23,6 +23,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButton';
 import { getChatStyles } from '../styles/ChatStyles';
 import { useTheme } from '../context/ThemeContext';
 
+import { LOGO } from '../theme/tokens';
 const { width, height } = Dimensions.get('window');
 
 const truncateName = (name) => {
@@ -32,6 +33,8 @@ const truncateName = (name) => {
 
 const Message = memo(
   ({ msg, walletAddress, onReply, isPrivate, onScrollToParent }) => {
+    const { isDark, colors } = useTheme();
+    const styles = useMemo(() => getChatStyles(colors), [isDark]);
     const isOwnMessage = isPrivate
       ? String(msg.sender_wallet).toLowerCase() === String(walletAddress).toLowerCase()
       : String(msg.wallet_address).toLowerCase() === String(walletAddress).toLowerCase();
@@ -153,7 +156,10 @@ const Message = memo(
 );
 
 const ChatItem = memo(
-  ({ item, activeChat, switchChat }) => (
+  ({ item, activeChat, switchChat }) => {
+    const { isDark, colors } = useTheme();
+    const styles = useMemo(() => getChatStyles(colors), [isDark]);
+    return (
     <TouchableOpacity
       style={[
         styles.chatItem,
@@ -172,7 +178,8 @@ const ChatItem = memo(
         </Text>
       </View>
     </TouchableOpacity>
-  ),
+    );
+  },
   (prevProps, nextProps) => {
     return (
       prevProps.item.wallet_address === nextProps.item.wallet_address &&
@@ -1170,14 +1177,9 @@ const ChatScreen = () => {
             accessibilityLabel="Go to home"
           >
             <Image
-              source={{
-                uri:
-                  'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' ||
-                  'https://placehold.co/50x50/png?text=Logo',
-              }}
+              source={LOGO}
               style={styles.logo}
               resizeMode="cover"
-              defaultSource={{ uri: 'https://placehold.co/50x50/png?text=Logo' }}
             />
           </TouchableOpacity>
           <Text style={styles.headerTitle} numberOfLines={1}>

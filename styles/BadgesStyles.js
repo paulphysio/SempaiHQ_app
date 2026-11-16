@@ -7,55 +7,10 @@
 //   TIER_COLORS               -> accent colour per badge tier
 
 import { StyleSheet } from 'react-native';
+import { surfacePalettes } from '../theme/tokens';
 
-const PALETTE = {
-  dark: {
-    bg: '#0c0c0c',
-    bgCard: '#141210',
-    bgElevated: '#1a1714',
-    bgElevated2: '#211c15',
-    accent: '#cc5500',
-    accentBright: '#ff6b35',
-    accentSoft: 'rgba(230,126,34,0.16)',
-    gold: '#c9a84c',
-    goldBright: '#ffd700',
-    goldSoft: 'rgba(201,168,76,0.16)',
-    textPrimary: '#f5e6d3',
-    textSecondary: '#a8987f',
-    textMuted: '#6b5d4f',
-    textOnAccent: '#fff8ef',
-    border: '#2c2419',
-    borderStrong: '#3d3221',
-    success: '#5fa876',
-    successSoft: 'rgba(95,168,118,0.16)',
-    error: '#e2495f',
-    errorSoft: 'rgba(226,73,95,0.14)',
-    overlay: 'rgba(5,4,2,0.72)',
-  },
-  light: {
-    bg: '#faf5ea',
-    bgCard: '#ffffff',
-    bgElevated: '#f2e9d8',
-    bgElevated2: '#ece0c6',
-    accent: '#3b82f6',
-    accentBright: '#60a5fa',
-    accentSoft: 'rgba(59,130,246,0.12)',
-    gold: '#96762f',
-    goldBright: '#b28f3a',
-    goldSoft: 'rgba(150,118,47,0.14)',
-    textPrimary: '#2a2216',
-    textSecondary: '#6d5f49',
-    textMuted: '#a2937a',
-    textOnAccent: '#fffaf3',
-    border: '#e7d9bd',
-    borderStrong: '#d6c39c',
-    success: '#3c7a52',
-    successSoft: 'rgba(60,122,82,0.12)',
-    error: '#c13a52',
-    errorSoft: 'rgba(193,58,82,0.10)',
-    overlay: 'rgba(38,30,18,0.55)',
-  },
-};
+// Shared app-wide surface palette (theme/tokens.js) — was a private sepia copy.
+const PALETTE = surfacePalettes;
 
 export const TIER_COLORS = {
   blue: '#4f8ef7',

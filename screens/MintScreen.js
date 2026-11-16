@@ -1,17 +1,5 @@
 import React, {useState, useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  SafeAreaView,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, ScrollView, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -19,6 +7,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { getMintStyles } from '../styles/MintStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -39,12 +28,12 @@ const MintScreen = () => {
   const [mintResult, setMintResult] = useState(null);
 
   const handleMintNFT = async () => {
-    Alert.alert('Minting Disabled', 'Minting functionality is currently disabled. Please check back later.');
+    toast.info('Minting Disabled — Minting functionality is currently disabled. Please check back later.');
     return;
   };
 
   const handleMintToken = async () => {
-    Alert.alert('Minting Disabled', 'Minting functionality is currently disabled. Please check back later.');
+    toast.info('Minting Disabled — Minting functionality is currently disabled. Please check back later.');
     return;
   };
 

@@ -1,21 +1,5 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-  Image,
-  Alert,
-  KeyboardAvoidingView,
-  StyleSheet,
-  Dimensions,
-  Animated,
-} from 'react-native';
+import { View, Text, Pressable, Platform, ScrollView, Image, KeyboardAvoidingView, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import {
@@ -23,47 +7,26 @@ import {
   NestableDraggableFlatList,
 } from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';
+import * as Network from 'expo-network';
+import { LinearGradient } from 'expo-linear-gradient';
+import ChapterEditor from '../components/editor/ChapterEditor';
+import { draftKey, loadDraft, clearDraft, timeSince } from '../services/drafts';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import { useTheme } from '../context/ThemeContext';
-import { getNovelDashboardStyles } from '../styles/NovelDashboardStyles';
-import * as Notifications from 'expo-notifications';
-
-const { width, height } = Dimensions.get('window');
-
-// Kaito Adventure Design System - Japanese Dark-Orange
-const KA_COLORS_BASE = {
-  bgPrimary: '#0c0c0c',
-  bgCard: '#141210',
-  bgElevated: '#1a1714',
-  orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
-  orangeSoft: '#e67e22',
-  orangeDim: '#8b4513',
-  gold: '#c9a84c',
-  goldBright: '#ffd700',
-  ivory: '#f5e6d3',
-  ivoryDim: '#c4b5a0',
-  border: '#2d2418',
-  textPrimary: '#f5e6d3',
-  textSecondary: '#a09080',
-  textMuted: '#6b5d4f',
-  success: '#4a7c59',
-  error: '#c41e3a',
-  warning: '#c9a84c',
-};
-const kaColors = (isDark, c) => isDark ? KA_COLORS_BASE : {
-  ...KA_COLORS_BASE,
-  bgPrimary: c.bg, bgCard: c.bgCard, bgElevated: c.bgElevated,
-  orangePrimary: c.accent, orangeBright: c.accent, orangeSoft: c.accentDeep, orangeDim: c.accentDeep,
-  gold: c.gold, goldBright: c.gold,
-  ivory: c.textPrimary, ivoryDim: c.textSecondary,
-  border: c.border, textPrimary: c.textPrimary, textSecondary: c.textSecondary, textMuted: c.textMuted,
-  success: '#16a34a', error: c.danger, warning: c.gold,
-};
+import { toast } from '../components/Toast';
+import { notifyReaders, getTitleReaderIds, getCreatorReaderIds } from '../services/notify';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { EmptyState } from '../components/ui';
+import GelOrb from '../components/nav/GelOrb';
+import { ActionButton, makeDetailStyles, STATUS, formatCount } from '../components/detail/DetailKit';
+import {
+  Page, PageHeader, SectionHeader, Card, ChipRow, Field, TextField, StatTile, Segmented, Toggle, GUTTER, PAGE_BOTTOM,
+} from '../components/page/PageKit';
+import { coverSource, radius, space } from '../theme/tokens';
 
 
 // Predefined tag options
@@ -135,60 +98,20 @@ const parseISOToSelections = (isoDate) => {
   };
 };
 
-// Function to send push notification via Supabase Edge Function (Firebase FCM)
-const sendPushNotification = async (userIds, title, body, data = {}) => {
-  try {
-    console.log('[sendPushNotification] Sending push notification via Edge Function (Firebase FCM)...');
-    console.log('[sendPushNotification] User IDs:', userIds);
-    console.log('[sendPushNotification] Title:', title);
-    console.log('[sendPushNotification] Body:', body);
-    console.log('[sendPushNotification] Data:', data);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData?.session?.access_token;
-
-    if (!accessToken) {
-      console.error('[sendPushNotification] No access token available');
-      return;
-    }
-
-    const response = await fetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/send-push-notification', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({
-        userIds,
-        title,
-        body,
-        data,
-      }),
-    });
-
-    const result = await response.json();
-    console.log('[sendPushNotification] Edge function response:', result);
-
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to send push notification');
-    }
-
-    console.log('[sendPushNotification] Push notification sent successfully');
-  } catch (error) {
-    console.error('[sendPushNotification] Error sending push notification:', error);
-  }
-};
 
 const NovelDashboardScreen = () => {
-  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark]);
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const { isDark, colors } = useTheme();
-  const styles = getNovelDashboardStyles(isDark);
-  
+  const ss = useMemo(() => makeStudioStyles(colors, isDark), [colors, isDark]);
+  const kit = useMemo(() => makeDetailStyles(colors, isDark), [colors, isDark]);
+
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = wallet?.publicKey;
+  const [access, setAccess] = useState('checking'); // checking | granted | denied | error
+  const [novelsLoaded, setNovelsLoaded] = useState(false);
+  const [announcing, setAnnouncing] = useState(false);
   const [novelTitle, setNovelTitle] = useState('');
   const [novelImage, setNovelImage] = useState(null);
   const [novelImageUrl, setNovelImageUrl] = useState('');
@@ -197,13 +120,7 @@ const NovelDashboardScreen = () => {
   const [newChapterTitle, setNewChapterTitle] = useState('');
   const [newChapterContent, setNewChapterContent] = useState('');
   const [newChapterIsAdvance, setNewChapterIsAdvance] = useState(false);
-  const [chapterReleaseDate, setChapterReleaseDate] = useState({
-    year: '',
-    month: '',
-    day: '',
-    hour: '',
-    minute: '',
-  });
+  const [chapterReleaseDate, setChapterReleaseDate] = useState({ year: '', month: '', day: '', hour: '', minute: '' });
   const [novelsList, setNovelsList] = useState([]);
   const [selectedNovel, setSelectedNovel] = useState(null);
   const [chapterTitles, setChapterTitles] = useState([]);
@@ -214,56 +131,29 @@ const NovelDashboardScreen = () => {
   const [isSuperuser, setIsSuperuser] = useState(false);
   const [writers, setWriters] = useState([]);
   const [editChapterIndex, setEditChapterIndex] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false); // publish / delete in flight
   const [announcementTitle, setAnnouncementTitle] = useState('');
   const [announcementMessage, setAnnouncementMessage] = useState('');
-  const [announcementReleaseDate, setAnnouncementReleaseDate] = useState({
-    year: '',
-    month: '',
-    day: '',
-    hour: '',
-    minute: '',
-  });
+  const [announcementReleaseDate, setAnnouncementReleaseDate] = useState({ year: '', month: '', day: '', hour: '', minute: '' });
   const [tags, setTags] = useState([]);
-  const [showTagModal, setShowTagModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [chapterToDelete, setChapterToDelete] = useState(null);
-  const [showNovelDeleteConfirm, setShowNovelDeleteConfirm] = useState(false);
-  const [novelToDelete, setNovelToDelete] = useState(null);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const chapterTitleRef = useRef(null);
-  const emberAnims = useRef([]);
+  const [reordering, setReordering] = useState(false);
+  useEffect(() => setReordering(false), [selectedNovel?.id]);
 
-  // Initialize ember particles
+  // Writing Studio + device drafts (offline-first)
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState(null);
+  const currentDraftKey = draftKey({ novelId: selectedNovel?.id, chapterIndex: editChapterIndex });
   useEffect(() => {
-    const embers = Array.from({ length: 12 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 8,
-      duration: 6 + Math.random() * 4,
-    }));
-    emberAnims.current = embers.map(() => new Animated.Value(0));
-
-    emberAnims.current.forEach((anim, index) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(embers[index].delay * 1000),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: embers[index].duration * 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    });
-  }, []);
+    let alive = true;
+    if (editorOpen) return undefined;
+    loadDraft(currentDraftKey).then((d) => { if (alive) setPendingDraft(d); });
+    return () => { alive = false; };
+  }, [currentDraftKey, editorOpen]);
+  const chapterTitleRef = useRef(null);
 
   // Focus the chapter title input when editing a chapter
   useEffect(() => {
-    if (editChapterIndex !== null && chapterTitleRef.current) {
-      chapterTitleRef.current.focus();
-    }
+    if (editChapterIndex !== null && chapterTitleRef.current) chapterTitleRef.current.focus();
   }, [editChapterIndex]);
 
   const validateChapterData = () => {
@@ -272,7 +162,7 @@ const NovelDashboardScreen = () => {
         titlesLength: chapterTitles.length,
         contentsLength: chapterContents.length,
       });
-      Alert.alert('Error', 'Chapter data is out of sync. Please reset the form.');
+      toast.error('Chapter data is out of sync. Please reset the form.');
       return false;
     }
     return true;
@@ -280,8 +170,7 @@ const NovelDashboardScreen = () => {
 
   const handleCreatorAccess = async () => {
     if (!isWalletConnected || !activePublicKey) return;
-
-    setLoading(true);
+    setAccess('checking');
     try {
       const walletAddress = activePublicKey.toString();
       const { data, error } = await supabase
@@ -289,31 +178,24 @@ const NovelDashboardScreen = () => {
         .select('id, isWriter, isSuperuser')
         .eq('wallet_address', walletAddress)
         .single();
-
-      if (error) throw new Error(error.message || 'Failed to fetch user data');
-      if (!data) throw new Error('No user found');
-
-      if (!data.isWriter && !data.isSuperuser) {
-        navigation.navigate('Error');
+      if (error && error.code !== 'PGRST116') throw new Error(error.message || 'Failed to fetch user data');
+      if (!data || (!data.isWriter && !data.isSuperuser)) {
+        setAccess('denied');
         return;
       }
-
       setCurrentUserId(data.id);
-      setIsWriter(data.isWriter);
-      setIsSuperuser(data.isSuperuser);
+      setIsWriter(!!data.isWriter);
+      setIsSuperuser(!!data.isSuperuser);
+      setAccess('granted');
     } catch (err) {
       console.error('Error in creator access:', err.message);
-      Alert.alert('Error', `Failed to verify access: ${err.message}`);
-      navigation.navigate('Error');
-    } finally {
-      setLoading(false);
+      setAccess('error');
     }
   };
 
   const fetchNovels = async () => {
     if (!currentUserId) return;
 
-    setLoading(true);
     try {
       let query = supabase.from('novels').select('*, viewers_count, tags');
       if (!isSuperuser) query = query.eq('user_id', currentUserId);
@@ -323,16 +205,15 @@ const NovelDashboardScreen = () => {
       setNovelsList(data || []);
     } catch (err) {
       console.error('Error fetching novels:', err.message);
-      Alert.alert('Error', `Failed to fetch novels: ${err.message}`);
+      toast.error(`Failed to fetch novels: ${err.message}`);
     } finally {
-      setLoading(false);
+      setNovelsLoaded(true);
     }
   };
 
   const fetchWriters = async () => {
     if (!isSuperuser) return;
 
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('users')
@@ -343,9 +224,8 @@ const NovelDashboardScreen = () => {
       setWriters(data || []);
     } catch (err) {
       console.error('Error fetching writers:', err.message);
-      Alert.alert('Error', `Failed to fetch writers: ${err.message}`);
+      toast.error(`Failed to fetch writers: ${err.message}`);
     } finally {
-      setLoading(false);
     }
   };
 
@@ -364,10 +244,7 @@ const NovelDashboardScreen = () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
-          'Permission Denied',
-          'We need permission to access your photo library to select a cover image.'
-        );
+        toast.error('Permission Denied — We need permission to access your photo library to select a cover image.');
         return;
       }
 
@@ -379,7 +256,7 @@ const NovelDashboardScreen = () => {
 
       if (response.canceled) return;
       if (response.errorCode) {
-        Alert.alert('Error', `Image selection failed: ${response.errorMessage}`);
+        toast.error(`Image selection failed: ${response.errorMessage}`);
         return;
       }
       if (response.assets && response.assets[0]) {
@@ -393,13 +270,13 @@ const NovelDashboardScreen = () => {
       }
     } catch (err) {
       console.error('Error in handleImageChange:', err.message);
-      Alert.alert('Error', `Failed to select image: ${err.message}`);
+      toast.error(`Failed to select image: ${err.message}`);
     }
   };
 
   const handleAddChapter = () => {
     if (!newChapterTitle.trim() || !newChapterContent.trim()) {
-      Alert.alert('Error', 'Please provide both a chapter title and content.');
+      toast.error('Please provide both a chapter title and content.');
       return;
     }
 
@@ -407,11 +284,11 @@ const NovelDashboardScreen = () => {
     if (newChapterIsAdvance) {
       const { year, month, day, hour, minute } = chapterReleaseDate;
       if (!year || !month || !day || !hour || !minute) {
-        Alert.alert('Error', 'Please select all date and time components for the advance chapter.');
+        toast.error('Please select all date and time components for the advance chapter.');
         return;
       }
       if (!validateDate(year, month, day, hour, minute)) {
-        Alert.alert('Error', 'Invalid or past release date. Please select a valid future date.');
+        toast.error('Invalid or past release date. Please select a valid future date.');
         return;
       }
     }
@@ -465,6 +342,8 @@ const NovelDashboardScreen = () => {
     setNewChapterContent('');
     setNewChapterIsAdvance(false);
     setChapterReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
+    clearDraft(draftKey({ novelId: selectedNovel?.id, chapterIndex: editChapterIndex }));
+    setPendingDraft(null);
   };
 
   const handleEditChapter = (index) => {
@@ -479,7 +358,7 @@ const NovelDashboardScreen = () => {
         chapterTitlesLength: chapterTitles.length,
         chapterContentsLength: chapterContents.length,
       });
-      Alert.alert('Error', 'Invalid chapter index.');
+      toast.error('Invalid chapter index.');
       setEditChapterIndex(null);
       return;
     }
@@ -498,44 +377,39 @@ const NovelDashboardScreen = () => {
     setEditChapterIndex(index);
   };
 
-  const handleRemoveChapter = (index) => {
+  const deleteChapterAt = (index) => {
     if (index === undefined || index === null || index < 0 || index >= chapterTitles.length) {
-      console.error('Invalid chapter index for deletion:', index);
-      Alert.alert('Error', 'Invalid chapter index for deletion.');
+      toast.error('Invalid chapter index for deletion.');
       return;
     }
-    setChapterToDelete(index);
-    setShowDeleteConfirm(true);
-  };
-
-  const confirmDeleteChapter = () => {
-    const index = chapterToDelete;
-    if (index === undefined || index === null || index < 0 || index >= chapterTitles.length) {
-      console.error('Invalid chapter index for deletion confirmation:', index);
-      Alert.alert('Error', 'Invalid chapter index for deletion.');
-      setShowDeleteConfirm(false);
-      setChapterToDelete(null);
-      return;
-    }
-
     setChapterTitles((prev) => prev.filter((_, i) => i !== index));
     setChapterContents((prev) => prev.filter((_, i) => i !== index));
     setAdvanceChapters((prev) =>
       prev
         .filter((c) => c.index !== index)
-        .map((c) => ({
-          ...c,
-          index: c.index > index ? c.index - 1 : c.index,
-        }))
+        .map((c) => ({ ...c, index: c.index > index ? c.index - 1 : c.index }))
     );
     if (editChapterIndex === index) setEditChapterIndex(null);
-    setShowDeleteConfirm(false);
-    setChapterToDelete(null);
+  };
+
+  const handleRemoveChapter = (index) => {
+    if (index === undefined || index === null || index < 0 || index >= chapterTitles.length) {
+      toast.error('Invalid chapter index for deletion.');
+      return;
+    }
+    Alert.alert(
+      'Delete chapter?',
+      `"${chapterTitles[index]}" will be removed when you save. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteChapterAt(index) },
+      ]
+    );
   };
 
   const handleDragEnd = ({ data }) => {
     if (!validateChapterData()) {
-      Alert.alert('Error', 'Chapter titles and contents are out of sync.');
+      toast.error('Chapter titles and contents are out of sync.');
       return;
     }
 
@@ -560,7 +434,7 @@ const NovelDashboardScreen = () => {
 
   const handleEditNovel = (novel) => {
     if (novel.user_id !== currentUserId && !isSuperuser) {
-      Alert.alert('Error', 'You can only edit your own novels unless you are a superuser.');
+      toast.error('You can only edit your own novels unless you are a superuser.');
       return;
     }
     const nextChapterTitles = Array.isArray(novel.chaptertitles) ? novel.chaptertitles : [];
@@ -581,39 +455,47 @@ const NovelDashboardScreen = () => {
 
   const handleDeleteNovel = (novel) => {
     if (novel.user_id !== currentUserId && !isSuperuser) {
-      Alert.alert('Error', 'You can only delete your own novels unless you are a superuser.');
+      toast.error('You can only delete your own novels unless you are a superuser.');
       return;
     }
-    setNovelToDelete(novel);
-    setShowNovelDeleteConfirm(true);
+    Alert.alert('Delete novel?', `"${novel.title}" and all its chapters will be permanently deleted.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteNovel(novel) },
+    ]);
   };
 
-  const confirmDeleteNovel = async () => {
+  const deleteNovel = async (novel) => {
     setLoading(true);
     try {
-      const { error } = await supabase.from('novels').delete().eq('id', novelToDelete.id);
+      const { error } = await supabase.from('novels').delete().eq('id', novel.id);
       if (error) throw new Error(error.message);
-
-      setNovelsList((prev) => prev.filter((novel) => novel.id !== novelToDelete.id));
-      if (selectedNovel && selectedNovel.id === novelToDelete.id) resetForm();
-      Alert.alert('Success', 'Novel deleted successfully!');
+      setNovelsList((prev) => prev.filter((n) => n.id !== novel.id));
+      if (selectedNovel && selectedNovel.id === novel.id) resetForm();
+      toast.success('Novel deleted');
     } catch (err) {
       console.error('Error deleting novel:', err.message);
-      Alert.alert('Error', `Failed to delete novel: ${err.message}`);
+      toast.error(`Failed to delete novel: ${err.message}`);
     } finally {
       setLoading(false);
-      setShowNovelDeleteConfirm(false);
-      setNovelToDelete(null);
     }
   };
 
   const handleNovelSubmit = async () => {
+    try {
+      const net = await Network.getNetworkStateAsync();
+      if (net && net.isConnected === false) {
+        toast.info("You're offline — your writing is safe on this device. Publish when you're back online.");
+        return;
+      }
+    } catch {
+      /* unknown network state: try anyway */
+    }
     if (!novelTitle.trim() || (!novelImage && !selectedNovel?.image) || !novelSummary.trim()) {
-      Alert.alert('Error', 'Please fill in all novel details.');
+      toast.error('Please fill in all novel details.');
       return;
     }
     if (!validateChapterData()) {
-      Alert.alert('Error', 'Chapter titles and contents are out of sync.');
+      toast.error('Chapter titles and contents are out of sync.');
       return;
     }
 
@@ -622,10 +504,7 @@ const NovelDashboardScreen = () => {
       if (chapter.is_advance && chapter.free_release_date) {
         const { year, month, day, hour, minute } = parseISOToSelections(chapter.free_release_date);
         if (!validateDate(year, month, day, hour, minute)) {
-          Alert.alert(
-            'Error',
-            `Invalid or past release date for chapter ${chapter.index + 1}. Please select a valid future date.`
-          );
+          toast.error(`Invalid or past release date for chapter ${chapter.index + 1}. Please select a valid future date.`);
           return;
         }
       }
@@ -683,59 +562,65 @@ const NovelDashboardScreen = () => {
         message = `A new novel "${novelTitle}" has been published!`;
       }
 
-      // Target users for notifications
-      let targetUsers = [];
-      if (selectedNovel) {
-        // For new chapters, notify users who have interacted with this novel (including the author)
-        const { data: interactions, error: interactionsError } = await supabase
-          .from('novel_interactions')
-          .select('user_id')
-          .eq('novel_id', novelId);
+      // ── Reader notifications (best-effort: never fails the save) ──
+      //  · new chapter(s) on an existing novel → that novel's readers
+      //  · brand-new novel → everyone who reads this writer's other work
+      //  · edits with no new chapter → nobody (used to spam "new chapter")
+      const creatorId = selectedNovel ? selectedNovel.user_id : currentUserId;
+      const prevChapterCount = selectedNovel && Array.isArray(selectedNovel.chaptertitles) ? selectedNovel.chaptertitles.length : 0;
+      const addedChapters = selectedNovel ? chapterTitles.length - prevChapterCount : 0;
+      let notified = 0;
 
-        if (interactionsError) throw new Error(interactionsError.message);
-        targetUsers = interactions?.map(i => i.user_id) || [];
-      } else {
-        // For new novels, notify all users
-        const { data: users, error: usersError } = await supabase.from('users').select('id');
-        if (usersError) throw new Error(usersError.message);
-        targetUsers = users?.map(u => u.id) || [];
-      }
-
-      if (targetUsers.length > 0) {
-        console.log('[NovelDashboard] Creating notifications for', targetUsers.length, 'users');
-        const notifications = targetUsers.map((userId) => ({
-          user_id: userId,
-          novel_id: novelId,
-          novel_title: novelTitle,
-          type: selectedNovel ? 'new_chapter' : 'new_novel',
-          message,
-          chapter: selectedNovel ? chapterNumber : null,
+      if (selectedNovel && addedChapters > 0) {
+        const latestTitle = chapterTitles[chapterTitles.length - 1];
+        const body = addedChapters > 1
+          ? `${addedChapters} new chapters are up — start with Chapter ${prevChapterCount + 1}.`
+          : `Chapter ${chapterNumber}${latestTitle ? `: ${latestTitle}` : ''} is out now.`;
+        ({ notified } = await notifyReaders({
+          userIds: await getTitleReaderIds('novel', novelId),
+          excludeUserId: creatorId,
+          title: `📖 New chapter · ${novelTitle}`,
+          body,
+          data: { novelId, chapterId: String(chapterTitles.length - 1), type: 'new_chapter' },
+          rowFor: (userId) => ({
+            user_id: userId,
+            novel_id: novelId,
+            novel_title: novelTitle,
+            type: 'new_chapter',
+            message,
+            chapter: chapterNumber,
+          }),
         }));
-
-        console.log('[NovelDashboard] Inserting notifications into database...');
-        const { error: notifError } = await supabase.from('notifications').insert(notifications);
-        if (notifError) {
-          console.error('[NovelDashboard] Error inserting notifications:', notifError);
-          throw new Error(notifError.message);
-        }
-        console.log('[NovelDashboard] Notifications inserted successfully');
-
-        console.log('[NovelDashboard] Sending push notification via Edge Function (Firebase FCM)...');
-        await sendPushNotification(
-          targetUsers,
-          selectedNovel ? `New Chapter for ${novelTitle}` : `New Novel: ${novelTitle}`,
-          message,
-          { novelId, type: selectedNovel ? 'new_chapter' : 'new_novel' }
-        );
-      } else {
-        console.log('[NovelDashboard] No target users to notify');
+      } else if (!selectedNovel) {
+        ({ notified } = await notifyReaders({
+          userIds: await getCreatorReaderIds(creatorId, { excludeContentId: novelId }),
+          excludeUserId: creatorId,
+          title: `✨ New novel · ${novelTitle}`,
+          body: 'A writer you read just started a new story. Be one of the first to dive in.',
+          data: { novelId, type: 'new_novel' },
+          rowFor: (userId) => ({
+            user_id: userId,
+            novel_id: novelId,
+            novel_title: novelTitle,
+            type: 'new_novel',
+            message,
+            chapter: null,
+          }),
+        }));
       }
 
+      toast.success(
+        !selectedNovel
+          ? `"${novelTitle}" is live!${notified ? ` ${notified} reader${notified === 1 ? '' : 's'} notified.` : ''}`
+          : addedChapters > 0
+          ? `Chapter published${notified ? ` — ${notified} reader${notified === 1 ? '' : 's'} notified` : ''}`
+          : 'Changes saved'
+      );
       resetForm();
       fetchNovels();
     } catch (err) {
       console.error('Error submitting novel:', err.message);
-      Alert.alert('Error', `Failed to submit novel: ${err.message}`);
+      toast.error(`Failed to submit novel: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -743,11 +628,11 @@ const NovelDashboardScreen = () => {
 
   const handleAnnouncementSubmit = async () => {
     if (!selectedNovel) {
-      Alert.alert('Error', 'Please select a novel to announce.');
+      toast.error('Please select a novel to announce.');
       return;
     }
     if (!announcementTitle.trim() || !announcementMessage.trim()) {
-      Alert.alert('Error', 'Please provide both an announcement title and message.');
+      toast.error('Please provide both an announcement title and message.');
       return;
     }
 
@@ -755,24 +640,17 @@ const NovelDashboardScreen = () => {
     const { year, month, day, hour, minute } = announcementReleaseDate;
     if (year || month || day || hour || minute) {
       if (!year || !month || !day || !hour || !minute) {
-        Alert.alert('Error', 'Please select all date and time components for the announcement.');
+        toast.error('Please select all date and time components for the announcement.');
         return;
       }
       if (!validateDate(year, month, day, hour, minute)) {
-        Alert.alert('Error', 'Invalid or past announcement release date. Please select a valid future date.');
+        toast.error('Invalid or past announcement release date. Please select a valid future date.');
         return;
       }
     }
 
-    setLoading(true);
+    setAnnouncing(true);
     try {
-      const { data: readers, error: readersError } = await supabase
-        .from('novel_interactions')
-        .select('user_id')
-        .eq('novel_id', selectedNovel.id);
-
-      if (readersError) throw new Error(readersError.message);
-
       const announcementData = {
         writer_id: currentUserId,
         novel_id: selectedNovel.id,
@@ -787,36 +665,31 @@ const NovelDashboardScreen = () => {
 
       if (announcementError) throw new Error(announcementError.message);
 
-      if (readers.length > 0) {
-        const notifications = readers.map((reader) => ({
-          user_id: reader.user_id,
+      // Readers of this novel hear about it (best-effort; never fails the send).
+      const { notified } = await notifyReaders({
+        userIds: await getTitleReaderIds('novel', selectedNovel.id),
+        excludeUserId: selectedNovel.user_id,
+        title: `📣 ${selectedNovel.title}`,
+        body: `${announcementTitle} — ${announcementMessage}`,
+        data: { novelId: selectedNovel.id, type: 'announcement' },
+        rowFor: (userId) => ({
+          user_id: userId,
           novel_id: selectedNovel.id,
           type: 'announcement',
           message: `${announcementTitle}: ${announcementMessage}`,
           novel_title: selectedNovel.title,
-        }));
+        }),
+      });
 
-        // NOTE: this line previously had a stray "me" token before ".from(...)"
-        // which would have thrown a syntax error at build time.
-        const { error: notifError } = await supabase.from('notifications').insert(notifications);
-
-        if (notifError) throw new Error(notifError.message);
-
-        await schedulePushNotification(announcementTitle, announcementMessage, {
-          novelId: selectedNovel.id,
-          type: 'announcement',
-        });
-      }
-
-      Alert.alert('Success', 'Announcement sent successfully to readers!');
+      toast.success(notified ? `Announcement sent to ${notified} reader${notified === 1 ? '' : 's'}` : 'Announcement posted — no readers to notify yet');
       setAnnouncementTitle('');
       setAnnouncementMessage('');
       setAnnouncementReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
     } catch (err) {
       console.error('Error sending announcement:', err.message);
-      Alert.alert('Error', `Failed to send announcement: ${err.message}`);
+      toast.error(`Failed to send announcement: ${err.message}`);
     } finally {
-      setLoading(false);
+      setAnnouncing(false);
     }
   };
 
@@ -848,1496 +721,645 @@ const NovelDashboardScreen = () => {
     }
   };
 
+  /* ═════════════════════════════════ render ═════════════════════════════════ */
+
+  const scrollRef = useRef(null);
+  const editorY = useRef(0);
+  const scrollToEditor = () => scrollRef.current?.scrollTo?.({ y: Math.max(0, editorY.current - 12), animated: true });
+
+  const startNewManuscript = () => {
+    resetForm();
+    scrollToEditor();
+  };
+
+  const openManuscript = (novel) => {
+    handleEditNovel(novel);
+    setTimeout(scrollToEditor, 60);
+  };
+
+  const stats = useMemo(() => {
+    const views = novelsList.reduce((sum, n) => sum + (Number(n.viewers_count) || 0), 0);
+    const chapters = novelsList.reduce((sum, n) => sum + (Array.isArray(n.chaptertitles) ? n.chaptertitles.length : 0), 0);
+    return { views, chapters };
+  }, [novelsList]);
+
+  const wordCount = (text) => (text.trim() ? text.trim().split(/\s+/).length : 0);
+
+  /*
+   * Chapter rows render two ways:
+   *  - normal: a plain list, no gesture handlers at all, so the page scrolls
+   *    freely no matter where your finger lands; tap a row to edit it.
+   *  - reorder mode: the draggable list, dragged by the grip handle.
+   * (Previously every row lived inside the drag list, whose gesture handler
+   * claimed any vertical move — the page couldn't scroll over the chapters.)
+   */
   const renderChapterItem = ({ item, drag, isActive }) => {
-    if (item.id === undefined || item.id === null) {
-      console.error('Invalid item id in renderChapterItem:', item);
-      return null;
-    }
+    if (item.id === undefined || item.id === null) return null;
     const advanceInfo = advanceChapters.find((c) => c.index === item.id) || { is_advance: false };
+    const editing = editChapterIndex === item.id;
+    const sorting = !!drag;
     return (
-      <TouchableOpacity
+      <Pressable
+        key={`chapter-${item.id}`}
+        onPress={sorting ? undefined : () => handleEditChapter(item.id)}
         style={[
-          styles.chapterItem,
-          styles.darkChapterItem,
-          isActive && styles.chapterItemActive,
+          ss.chapterRow,
+          (isActive || editing) && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+          isActive && { transform: [{ scale: 1.02 }] },
         ]}
-        onLongPress={drag}
-        delayLongPress={150}
-        activeOpacity={0.7}
-        accessible
-        accessibilityLabel={`Chapter ${item.title}`}
         accessibilityRole="button"
+        accessibilityLabel={`Chapter ${item.id + 1}, ${item.title}${sorting ? '' : '. Tap to edit'}`}
       >
-        <View style={styles.dragHandle}>
-          <FontAwesome5 name="grip-lines" size={14} color={KA_COLORS.textMuted} />
+        <View style={[ss.disc, { backgroundColor: `${colors.accent}1F`, borderColor: `${colors.accent}55` }]}>
+          <Text style={[ss.discText, { color: colors.accent }]}>{item.id + 1}</Text>
         </View>
-        <View style={styles.chapterText}>
-          <Text style={[styles.chapterTitleText, styles.darkText]}>{item.title}</Text>
-          <Text style={[styles.chapterPreview, styles.darkText]}>
-            {item.content.slice(0, 50)}...
-          </Text>
-          {advanceInfo.is_advance && (
-            <Text style={[styles.advanceInfo, styles.darkText]}>
-              Advance (Free on:{' '}
-              {advanceInfo.free_release_date
-                ? new Date(advanceInfo.free_release_date).toLocaleString('sv-SE').slice(0, 16)
-                : 'TBD'}
-              )
-            </Text>
-          )}
+        <View style={{ flex: 1 }}>
+          <Text style={ss.rowTitle} numberOfLines={1}>{item.title}</Text>
+          <Text style={ss.rowSub} numberOfLines={1}>{(item.content || '').replace(/\s+/g, ' ').slice(0, 80)}</Text>
+          {advanceInfo.is_advance ? (
+            <View style={[ss.badge, { backgroundColor: `rgba(${colors.goldRgb},0.16)` }]}>
+              <FontAwesome5 name="star" size={8} color={colors.gold} solid />
+              <Text style={[ss.badgeText, { color: colors.gold }]}>
+                Advance · free{' '}
+                {advanceInfo.free_release_date
+                  ? new Date(advanceInfo.free_release_date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : 'TBD'}
+              </Text>
+            </View>
+          ) : null}
         </View>
-        <View style={styles.chapterActions}>
-          <TouchableOpacity
-            onPress={() => handleEditChapter(item.id)}
-            style={styles.actionButton}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessible
-            accessibilityLabel="Edit chapter"
-            accessibilityRole="button"
+        {sorting ? (
+          // Drag starts the instant the handle is touched — no long-press guessing.
+          <Pressable
+            onPressIn={drag}
+            hitSlop={10}
+            style={[ss.handle, { borderColor: colors.borderAccent, backgroundColor: colors.accentSoft }]}
+            accessibilityRole="adjustable"
+            accessibilityLabel={`Drag to move chapter ${item.id + 1}`}
           >
-            <FontAwesome5 name="edit" size={16} color={KA_COLORS.ivory} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleRemoveChapter(item.id)}
-            style={styles.actionButton}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessible
-            accessibilityLabel="Delete chapter"
-            accessibilityRole="button"
-          >
-            <FontAwesome5 name="trash" size={16} color={KA_COLORS.ivory} />
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
+            <FontAwesome5 name="grip-lines" size={14} color={colors.accent} />
+          </Pressable>
+        ) : (
+          <>
+            <GelOrb icon="pen" size={32} onPress={() => handleEditChapter(item.id)} label={`Edit chapter ${item.id + 1}`} breathe={false} />
+            <GelOrb icon="trash" size={32} tone={colors.danger} onPress={() => handleRemoveChapter(item.id)} label={`Delete chapter ${item.id + 1}`} breathe={false} />
+          </>
+        )}
+      </Pressable>
     );
   };
 
-  const renderNovelCard = (item) => (
-    <View key={item.id} style={[styles.novelCard, styles.darkNovelCard]}>
-      <Image source={{ uri: item.image }} style={styles.novelImage} />
-      <View style={styles.novelInfo}>
-        <Text style={[styles.novelTitle, styles.darkText]}>{item.title}</Text>
-        <Text style={[styles.novelSummary, styles.darkText]}>
-          {(item.summary || '').slice(0, 50)}...
-        </Text>
-        <Text style={[styles.novelTags, styles.darkText]}>
-          Tags: {item.tags?.join(', ') || 'None'}
-        </Text>
-        <Text style={[styles.novelViewers, styles.darkText]}>
-          Viewers: {item.viewers_count || 0}
-        </Text>
-        {(item.user_id === currentUserId || isSuperuser) && (
-          <View style={styles.novelActions}>
-            <TouchableOpacity
-              onPress={() => handleEditNovel(item)}
-              style={styles.editNovelButton}
-              activeOpacity={0.7}
-              accessible
-              accessibilityLabel={`Edit novel ${item.title}`}
-              accessibilityRole="button"
-            >
-              <FontAwesome5 name="edit" size={16} color={KA_COLORS.ivory} />
-              <Text style={styles.editNovelButtonText}>Edit</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDeleteNovel(item)}
-              style={styles.deleteButton}
-              activeOpacity={0.7}
-              accessible
-              accessibilityLabel={`Delete novel ${item.title}`}
-              accessibilityRole="button"
-            >
-              <FontAwesome5 name="trash" size={16} color={KA_COLORS.ivory} />
-            </TouchableOpacity>
+  const renderManuscript = (novel) => {
+    const active = selectedNovel?.id === novel.id;
+    const chapters = Array.isArray(novel.chaptertitles) ? novel.chaptertitles.length : 0;
+    const status = STATUS[novel.status];
+    const canEdit = novel.user_id === currentUserId || isSuperuser;
+    return (
+      <Pressable
+        onPress={() => (canEdit ? openManuscript(novel) : navigation.navigate('NovelDetail', { id: novel.id }))}
+        style={({ pressed }) => [
+          ss.manuscript,
+          active && { borderColor: colors.accent, shadowColor: colors.accent, ...ss.manuscriptActive },
+          pressed && { transform: [{ scale: 0.98 }] },
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={`${novel.title}${active ? ', currently editing' : ''}`}
+      >
+        <Image source={coverSource(novel.image)} style={ss.manuscriptCover} />
+        <View style={{ flex: 1 }}>
+          <Text style={ss.manuscriptTitle} numberOfLines={2}>{novel.title}</Text>
+          <View style={ss.manuscriptMeta}>
+            {status ? (
+              <View style={[ss.dot, { backgroundColor: colors[status.key] }]} />
+            ) : null}
+            <Text style={ss.metaText} numberOfLines={1}>
+              {status ? `${status.label} · ` : ''}{chapters} ch · {formatCount(novel.viewers_count)} views
+            </Text>
           </View>
-        )}
-      </View>
-    </View>
-  );
+          {canEdit ? (
+            <View style={ss.manuscriptActions}>
+              <View style={[ss.editPill, active && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+                <FontAwesome5 name={active ? 'feather-alt' : 'pen'} size={10} color={active ? '#FFFFFF' : colors.accent} />
+                <Text style={[ss.editPillText, active && { color: '#FFFFFF' }]}>{active ? 'Editing' : 'Edit'}</Text>
+              </View>
+              <GelOrb icon="trash" size={30} tone={colors.danger} onPress={() => handleDeleteNovel(novel)} label={`Delete ${novel.title}`} breathe={false} />
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+    );
+  };
 
-  const renderWriterRow = (item) => (
-    <View key={item.id} style={[styles.writerItem, styles.darkWriterItem]}>
-      <Text style={[styles.writerText, styles.darkText]}>
-        {item.name} ({item.email})
-      </Text>
-      <Text style={[styles.writerId, styles.darkText]}>ID: {item.id}</Text>
-    </View>
-  );
+  const renderDatePicker = (type, dateState, setDateState) => {
+    const columns = [
+      { key: 'year', label: 'Year', items: years.map((y) => ({ label: String(y), value: String(y) })) },
+      { key: 'month', label: 'Month', items: months.map((m) => ({ label: m.label.slice(0, 3), value: m.value })) },
+      { key: 'day', label: 'Day', items: days.map((d) => ({ label: d, value: d })) },
+      { key: 'hour', label: 'Hr', items: hours.map((h) => ({ label: h, value: h })) },
+      { key: 'minute', label: 'Min', items: minutes.map((m) => ({ label: m, value: m })) },
+    ];
+    return (
+      <View style={ss.dateRow}>
+        {columns.map((col) => (
+          <View key={col.key} style={[ss.dateCell, col.key === 'year' || col.key === 'month' ? { flex: 1.35 } : null]}>
+            <Picker
+              selectedValue={dateState[col.key]}
+              onValueChange={(value) => setDateState((prev) => ({ ...prev, [col.key]: value }))}
+              style={ss.picker}
+              dropdownIconColor={colors.textMuted}
+              mode="dropdown"
+              accessibilityLabel={`${type} ${col.label}`}
+            >
+              <Picker.Item label={col.label} value="" color={colors.textMuted} />
+              {col.items.map((it) => (
+                <Picker.Item key={it.value} label={it.label} value={it.value} />
+              ))}
+            </Picker>
+          </View>
+        ))}
+      </View>
+    );
+  };
 
-  const renderDatePicker = (type, dateState, setDateState) => (
-    <View style={styles.datePickerContainer}>
-      <View style={styles.datePickerGroup}>
-        <Picker
-          selectedValue={dateState.year}
-          onValueChange={(value) => setDateState((prev) => ({ ...prev, year: value }))}
-          style={[styles.datePicker, styles.darkInput]}
-          itemStyle={styles.pickerItem}
-          accessibilityLabel={`${type} year picker`}
-          accessibilityRole="combobox"
-        >
-          <Picker.Item label="Year" value="" color={KA_COLORS.textMuted} />
-          {years.map((year) => (
-            <Picker.Item key={year} label={year.toString()} value={year.toString()} />
-          ))}
-        </Picker>
-      </View>
-      <View style={styles.datePickerGroup}>
-        <Picker
-          selectedValue={dateState.month}
-          onValueChange={(value) => setDateState((prev) => ({ ...prev, month: value }))}
-          style={[styles.datePicker, styles.darkInput]}
-          itemStyle={styles.pickerItem}
-          accessibilityLabel={`${type} month picker`}
-          accessibilityRole="combobox"
-        >
-          <Picker.Item label="Month" value="" color={KA_COLORS.textMuted} />
-          {months.map((month) => (
-            <Picker.Item key={month.value} label={month.label} value={month.value} />
-          ))}
-        </Picker>
-      </View>
-      <View style={styles.datePickerGroup}>
-        <Picker
-          selectedValue={dateState.day}
-          onValueChange={(value) => setDateState((prev) => ({ ...prev, day: value }))}
-          style={[styles.datePicker, styles.darkInput]}
-          itemStyle={styles.pickerItem}
-          accessibilityLabel={`${type} day picker`}
-          accessibilityRole="combobox"
-        >
-          <Picker.Item label="Day" value="" color={KA_COLORS.textMuted} />
-          {days.map((day) => (
-            <Picker.Item key={day} label={day} value={day} />
-          ))}
-        </Picker>
-      </View>
-      <View style={styles.datePickerGroup}>
-        <Picker
-          selectedValue={dateState.hour}
-          onValueChange={(value) => setDateState((prev) => ({ ...prev, hour: value }))}
-          style={[styles.datePicker, styles.darkInput]}
-          itemStyle={styles.pickerItem}
-          accessibilityLabel={`${type} hour picker`}
-          accessibilityRole="combobox"
-        >
-          <Picker.Item label="Hour" value="" color={KA_COLORS.textMuted} />
-          {hours.map((hour) => (
-            <Picker.Item key={hour} label={hour} value={hour} />
-          ))}
-        </Picker>
-      </View>
-      <View style={styles.datePickerGroup}>
-        <Picker
-          selectedValue={dateState.minute}
-          onValueChange={(value) => setDateState((prev) => ({ ...prev, minute: value }))}
-          style={[styles.datePicker, styles.darkInput]}
-          itemStyle={styles.pickerItem}
-          accessibilityLabel={`${type} minute picker`}
-          accessibilityRole="combobox"
-        >
-          <Picker.Item label="Min" value="" color={KA_COLORS.textMuted} />
-          {minutes.map((minute) => (
-            <Picker.Item key={minute} label={minute} value={minute} />
-          ))}
-        </Picker>
-      </View>
-    </View>
-  );
-
+  /* ─────────────── access states ─────────────── */
   if (!isWalletConnected) {
     return (
-      <SafeAreaView style={[styles.container, styles.darkContainer]}>
-        <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
-        <View style={styles.backgroundGradient} />
-        <View style={styles.emberContainer} pointerEvents="none">
-          {emberAnims.current.map((anim, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                styles.ember,
-                {
-                  left: `${Math.random() * 100}%`,
-                  opacity: anim,
-                  transform: [
-                    {
-                      translateY: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [height, -50],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-          ))}
-        </View>
-        <View style={styles.connectPrompt}>
-          <FontAwesome5
-            name="gem"
-            size={48}
-            color={KA_COLORS.orangePrimary}
-            style={styles.connectFontAwesome5}
+      <Page>
+        <View style={ss.center}>
+          <EmptyState
+            icon="feather-alt"
+            title="Writer's Studio"
+            subtitle="Connect your wallet to write, publish and manage your novels."
           />
-          <Text style={[styles.connectText, styles.darkText]}>
-            Connect your wallet to access the Writer's Vault.
-          </Text>
-          <ConnectButton />
+          <View style={{ alignSelf: 'stretch', paddingHorizontal: space.xl }}>
+            <ConnectButton />
+          </View>
         </View>
-      </SafeAreaView>
+      </Page>
     );
   }
 
-  if (!isWriter && !isSuperuser) {
+  if (access === 'checking' || (access === 'granted' && !novelsLoaded)) {
+    return <ScreenSkeleton variant="studio" label="Loading your studio" />;
+  }
+
+  if (access !== 'granted') {
     return (
-      <SafeAreaView style={[styles.container, styles.darkContainer]}>
-        <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
-        <View style={styles.backgroundGradient} />
-        <View style={styles.accessDenied}>
-          <FontAwesome5
-            name="times"
-            size={48}
-            color={KA_COLORS.error}
-            style={styles.deniedFontAwesome5}
+      <Page>
+        <View style={ss.center}>
+          <EmptyState
+            icon={access === 'error' ? 'exclamation-triangle' : 'lock'}
+            title={access === 'error' ? "Couldn't open your studio" : 'Writers only'}
+            subtitle={
+              access === 'error'
+                ? 'Check your connection and try again.'
+                : 'The Writer’s Studio is for approved writers. Apply to become one and start publishing.'
+            }
+            action={access === 'error' ? 'Try again' : 'Become a writer'}
+            onAction={() => (access === 'error' ? handleCreatorAccess() : navigation.navigate('Apply'))}
           />
-          <Text style={[styles.accessDeniedText, styles.darkText]}>
-            Access Denied. Only writers and superusers may enter.
-          </Text>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Home')}
-            style={styles.backButton}
-            activeOpacity={0.7}
-            accessible
-            accessibilityLabel="Return to home"
-            accessibilityRole="button"
-          >
-            <FontAwesome5 name="home" size={16} color={KA_COLORS.ivory} />
-            <Text style={styles.backButtonText}>Return Home</Text>
-          </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </Page>
     );
   }
 
   const chapterData = chapterTitles
-    .map((title, index) => ({
-      id: index,
-      title,
-      content: chapterContents[index],
-    }))
+    .map((title, index) => ({ id: index, title, content: chapterContents[index] }))
     .filter((item) => item.title && item.content);
+  const chaptersInSync = chapterTitles.length === chapterContents.length;
 
   return (
-    <SafeAreaView style={[styles.container, styles.darkContainer]}>
-      <StatusBar barStyle="light-content" backgroundColor={KA_COLORS.bgCard} />
-      <View style={styles.backgroundGradient} />
-      {/* pointerEvents must be a prop, not a style key, or this invisible
-          full-screen layer can swallow touches on some Android builds -
-          this was very likely the cause of "have to touch the edge to scroll" */}
-      <View style={styles.emberContainer} pointerEvents="none">
-        {emberAnims.current.map((anim, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              styles.ember,
-              {
-                left: `${Math.random() * 100}%`,
-                opacity: anim,
-                transform: [
-                  {
-                    translateY: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, -50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
-        {/* Single top-level scroll container. Everything below (chapters,
-            novels, writers) renders inline instead of as nested FlatLists,
-            so there's only ever one scroll gesture owner. */}
+    <Page>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        {/* One scroll owner; the draggable chapter list nests inside it. */}
         <NestableScrollContainer
+          ref={scrollRef}
           style={{ flex: 1 }}
-          contentContainerStyle={styles.main}
+          contentContainerStyle={ss.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ---- Novel form ---- */}
-          <View style={styles.formSection}>
-            <View style={styles.sectionHeader}>
-              <FontAwesome5 name="book-open" size={20} color={KA_COLORS.ivory} />
-              <Text style={[styles.sectionTitle, styles.darkText]}>
-                {selectedNovel ? 'Edit Manuscript' : 'New Manuscript'}
-              </Text>
-            </View>
+          <PageHeader
+            eyebrow="Writer's Studio"
+            title="Novel Dashboard"
+            subtitle={isSuperuser ? 'Superuser · all manuscripts' : 'Write, publish and grow your readers.'}
+            right={<GelOrb icon="plus" size={42} lit onPress={startNewManuscript} label="New manuscript" breathe={false} />}
+          />
 
-            <View style={styles.novelForm}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, styles.darkText]}>Title</Text>
-                <TextInput
-                  style={[styles.input, styles.darkInput]}
-                  value={novelTitle}
-                  onChangeText={setNovelTitle}
-                  placeholder="Enter novel title"
-                  placeholderTextColor={KA_COLORS.textMuted}
-                  accessible
-                  accessibilityLabel="Novel title input"
-                  accessibilityRole="text"
-                  accessibilityHint="Enter the title of your novel"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, styles.darkText]}>
-                  <FontAwesome5 name="image" size={16} color={KA_COLORS.ivory} /> Cover Image
-                </Text>
-                {novelImageUrl ? (
-                  <Image source={{ uri: novelImageUrl }} style={styles.imagePreview} />
-                ) : (
-                  <Text style={[styles.placeholderText, styles.darkText]}>No image selected</Text>
-                )}
-                <TouchableOpacity
-                  onPress={handleImageChange}
-                  style={styles.fileButton}
-                  activeOpacity={0.7}
-                  accessible
-                  accessibilityLabel="Choose cover image"
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.fileButtonText}>Choose Image</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, styles.darkText]}>Summary</Text>
-                <TextInput
-                  style={[styles.textarea, styles.darkInput]}
-                  value={novelSummary}
-                  onChangeText={setNovelSummary}
-                  placeholder="Write a brief summary"
-                  placeholderTextColor={KA_COLORS.textMuted}
-                  multiline
-                  numberOfLines={3}
-                  accessible
-                  accessibilityLabel="Novel summary input"
-                  accessibilityRole="text"
-                  accessibilityHint="Enter a brief summary of your novel"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, styles.darkText]}>Tags</Text>
-                <TouchableOpacity
-                  onPress={() => setShowTagModal(true)}
-                  style={styles.tagButton}
-                  activeOpacity={0.7}
-                  accessible
-                  accessibilityLabel="Select tags"
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.tagButtonText, styles.darkText]}>
-                    {tags.length > 0 ? tags.map((t) => t.label).join(', ') : 'Select tags...'}
-                  </Text>
-                  <FontAwesome5 name="chevron-down" size={12} color={KA_COLORS.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={[styles.label, styles.darkText]}>Status</Text>
-                <View style={styles.statusOptions}>
-                  {['ongoing', 'completed', 'hiatus'].map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      onPress={() => setNovelStatus(status)}
-                      style={[
-                        styles.statusOption,
-                        novelStatus === status && styles.statusOptionActive,
-                      ]}
-                      activeOpacity={0.7}
-                      accessible
-                      accessibilityLabel={`Set status to ${status}`}
-                      accessibilityRole="radio"
-                      accessibilityState={{ selected: novelStatus === status }}
-                    >
-                      <FontAwesome5
-                        name={novelStatus === status ? 'check-circle' : 'circle'}
-                        size={16}
-                        color={novelStatus === status ? KA_COLORS.ivory : KA_COLORS.textMuted}
-                      />
-                      <Text style={[styles.statusOptionText, styles.darkText]}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.chapterSection}>
-                <View style={styles.sectionHeader}>
-                  <FontAwesome5 name="plus" size={16} color={KA_COLORS.ivory} />
-                  <Text style={[styles.chapterTitle, styles.darkText]}>Chapters</Text>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, styles.darkText]}>Chapter Title</Text>
-                  <TextInput
-                    ref={chapterTitleRef}
-                    style={[styles.input, styles.darkInput]}
-                    value={newChapterTitle}
-                    onChangeText={setNewChapterTitle}
-                    placeholder="Enter chapter title"
-                    placeholderTextColor={KA_COLORS.textMuted}
-                    accessible
-                    accessibilityLabel="Chapter title input"
-                    accessibilityRole="text"
-                    accessibilityHint="Enter the title of the chapter"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, styles.darkText]}>Chapter Content</Text>
-                  <TextInput
-                    style={[styles.textarea, styles.darkInput]}
-                    value={newChapterContent}
-                    onChangeText={setNewChapterContent}
-                    placeholder="Write chapter content"
-                    placeholderTextColor={KA_COLORS.textMuted}
-                    multiline
-                    numberOfLines={4}
-                    accessible
-                    accessibilityLabel="Chapter content input"
-                    accessibilityRole="text"
-                    accessibilityHint="Enter the content of the chapter"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <TouchableOpacity
-                    onPress={() => setNewChapterIsAdvance(!newChapterIsAdvance)}
-                    style={styles.checkboxContainer}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Mark as advance chapter"
-                    accessibilityRole="checkbox"
-                  >
-                    <FontAwesome5
-                      name={newChapterIsAdvance ? 'check-square' : 'square'}
-                      size={20}
-                      color={KA_COLORS.ivory}
-                    />
-                    <Text style={[styles.checkboxLabel, styles.darkText]}>
-                      Mark as Advance Chapter
-                    </Text>
-                  </TouchableOpacity>
-                  {newChapterIsAdvance && (
-                    <View>
-                      <Text style={[styles.label, styles.darkText]}>Release Date</Text>
-                      {renderDatePicker('Chapter', chapterReleaseDate, setChapterReleaseDate)}
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.formActions}>
-                  <TouchableOpacity
-                    onPress={handleAddChapter}
-                    style={[styles.addChapterButton, loading && styles.disabledButton]}
-                    disabled={loading}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel={editChapterIndex !== null ? 'Update chapter' : 'Add chapter'}
-                    accessibilityRole="button"
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color={KA_COLORS.ivory} />
-                    ) : (
-                      <>
-                        <FontAwesome5 name="plus" size={16} color={KA_COLORS.ivory} />
-                        <Text style={styles.addChapterButtonText}>
-                          {editChapterIndex !== null ? 'Update Chapter' : 'Add Chapter'}
-                        </Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={resetForm}
-                    style={styles.resetButton}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Reset form"
-                    accessibilityRole="button"
-                  >
-                    <FontAwesome5 name="undo" size={16} color={KA_COLORS.ivory} />
-                    <Text style={styles.resetButtonText}>Reset</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {chapterData.length > 0 && validateChapterData() && (
-                  // Nestable version works safely inside the outer scroll
-                  // container above - drag reorders, page scroll still works.
-                  <NestableDraggableFlatList
-                    data={chapterData}
-                    renderItem={renderChapterItem}
-                    keyExtractor={(item) => `chapter-${item.id}`}
-                    onDragEnd={handleDragEnd}
-                    activationDistance={12}
-                    containerStyle={styles.chapterList}
-                  />
-                )}
-              </View>
-
-              <TouchableOpacity
-                onPress={handleNovelSubmit}
-                style={[styles.submitButton, loading && styles.disabledButton]}
-                disabled={loading}
-                activeOpacity={0.7}
-                accessible
-                accessibilityLabel={selectedNovel ? 'Update novel' : 'Publish novel'}
-                accessibilityRole="button"
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color={KA_COLORS.ivory} />
-                ) : (
-                  <>
-                    <FontAwesome5 name="upload" size={16} color={KA_COLORS.ivory} />
-                    <Text style={styles.submitButtonText}>
-                      {selectedNovel ? 'Update Novel' : 'Publish Novel'}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {selectedNovel && (
-              <View style={styles.announcementSection}>
-                <View style={styles.sectionHeader}>
-                  <FontAwesome5 name="bullhorn" size={20} color={KA_COLORS.ivory} />
-                  <Text style={[styles.sectionTitle, styles.darkText]}>Announce to Readers</Text>
-                </View>
-                <View style={styles.announcementForm}>
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.label, styles.darkText]}>Announcement Title</Text>
-                    <TextInput
-                      style={[styles.input, styles.darkInput]}
-                      value={announcementTitle}
-                      onChangeText={setAnnouncementTitle}
-                      placeholder="e.g., New Chapter Coming Soon!"
-                      placeholderTextColor={KA_COLORS.textMuted}
-                      accessible
-                      accessibilityLabel="Announcement title input"
-                      accessibilityRole="text"
-                      accessibilityHint="Enter the title of your announcement"
-                    />
-                  </View>
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.label, styles.darkText]}>Message</Text>
-                    <TextInput
-                      style={[styles.textarea, styles.darkInput]}
-                      value={announcementMessage}
-                      onChangeText={setAnnouncementMessage}
-                      placeholder="Write your announcement here"
-                      placeholderTextColor={KA_COLORS.textMuted}
-                      multiline
-                      numberOfLines={3}
-                      accessible
-                      accessibilityLabel="Announcement message input"
-                      accessibilityRole="text"
-                      accessibilityHint="Enter the message for your announcement"
-                    />
-                  </View>
-                  <View style={styles.inputGroup}>
-                    <Text style={[styles.label, styles.darkText]}>Release Date (Optional)</Text>
-                    {renderDatePicker('Announcement', announcementReleaseDate, setAnnouncementReleaseDate)}
-                  </View>
-                  <TouchableOpacity
-                    onPress={handleAnnouncementSubmit}
-                    style={[styles.announcementButton, loading && styles.disabledButton]}
-                    disabled={loading}
-                    activeOpacity={0.7}
-                    accessible
-                    accessibilityLabel="Send announcement"
-                    accessibilityRole="button"
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color={KA_COLORS.ivory} />
-                    ) : (
-                      <>
-                        <FontAwesome5 name="bullhorn" size={16} color={KA_COLORS.ivory} />
-                        <Text style={styles.announcementButtonText}>Send Announcement</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
+          {/* stats */}
+          <View style={ss.stats}>
+            <StatTile icon="book" label="Manuscripts" value={novelsList.length} />
+            <StatTile icon="eye" label="Total views" value={formatCount(stats.views)} tone={colors.info} />
+            <StatTile icon="layer-group" label="Chapters" value={stats.chapters} tone={colors.gold} />
           </View>
 
-          {/* ---- Novels list (mapped inline, not a nested FlatList) ---- */}
-          <View style={styles.novelsSection}>
-            <View style={styles.sectionHeader}>
-              <FontAwesome5 name="book-open" size={20} color={KA_COLORS.ivory} />
-              <Text style={[styles.sectionTitle, styles.darkText]}>Your Manuscripts</Text>
-            </View>
-            {novelsList.length === 0 ? (
-              <Text style={[styles.noNovels, styles.darkText]}>
-                No manuscripts yet. Start creating!
-              </Text>
-            ) : (
-              <View style={styles.novelsGrid}>{novelsList.map(renderNovelCard)}</View>
-            )}
-          </View>
-
-          {/* ---- Writers list (superuser only) ---- */}
-          {isSuperuser && (
-            <View style={styles.writersSection}>
-              <View style={styles.sectionHeader}>
-                <FontAwesome5 name="user-shield" size={20} color={KA_COLORS.ivory} />
-                <Text style={[styles.sectionTitle, styles.darkText]}>Writers</Text>
-              </View>
-              {writers.length === 0 ? (
-                <Text style={[styles.noWriters, styles.darkText]}>No writers found.</Text>
-              ) : (
-                <View style={styles.writersList}>{writers.map(renderWriterRow)}</View>
-              )}
-            </View>
+          {/* manuscripts */}
+          <SectionHeader title={isSuperuser ? 'All manuscripts' : 'Your manuscripts'} count={novelsList.length} />
+          {novelsList.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ss.bleed} contentContainerStyle={ss.rail}>
+              {novelsList.map((n) => (
+                <React.Fragment key={n.id}>{renderManuscript(n)}</React.Fragment>
+              ))}
+            </ScrollView>
+          ) : (
+            <Card tint>
+              <Text style={ss.cardTitle}>Your first story starts here</Text>
+              <Text style={ss.note}>Fill in the manuscript below and publish it to readers across SempaiHQ.</Text>
+            </Card>
           )}
 
-          <View style={[styles.footer, styles.darkFooter]}>
-            <Text style={[styles.footerText, styles.darkText]}>
-              © 2025 Sempai HQ. All rights reserved.
-            </Text>
+          {/* editor */}
+          <View onLayout={(e) => { editorY.current = e.nativeEvent.layout.y; }}>
+            <SectionHeader
+              title={selectedNovel ? 'Editing manuscript' : 'New manuscript'}
+              action={selectedNovel ? 'Cancel' : undefined}
+              onAction={resetForm}
+            />
+            <Card tint>
+              <View style={ss.identity}>
+                <Pressable onPress={handleImageChange} style={ss.coverPick} accessibilityRole="button" accessibilityLabel={novelImageUrl ? 'Change cover image' : 'Choose cover image'}>
+                  {novelImageUrl ? (
+                    <Image source={{ uri: novelImageUrl }} style={ss.fill} resizeMode="cover" />
+                  ) : (
+                    <View style={ss.coverEmpty}>
+                      <FontAwesome5 name="image" size={22} color={colors.textMuted} />
+                      <Text style={ss.coverEmptyText}>Add cover</Text>
+                    </View>
+                  )}
+                  <View style={[ss.coverBadge, { backgroundColor: colors.accent }]}>
+                    <FontAwesome5 name="camera" size={10} color="#FFFFFF" solid />
+                  </View>
+                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <Field label="Title" style={{ marginTop: 0 }}>
+                    <TextField value={novelTitle} onChangeText={setNovelTitle} placeholder="Your novel's title" maxLength={120} />
+                  </Field>
+                  <Field label="Status">
+                    <Segmented
+                      value={novelStatus}
+                      onChange={setNovelStatus}
+                      options={[
+                        { value: 'ongoing', label: 'Ongoing' },
+                        { value: 'completed', label: 'Done' },
+                        { value: 'hiatus', label: 'Hiatus' },
+                      ]}
+                    />
+                  </Field>
+                </View>
+              </View>
+
+              <Field label="Summary" counter={`${novelSummary.length}/1000`}>
+                <TextField multiline value={novelSummary} onChangeText={setNovelSummary} placeholder="Hook your readers in a few lines" maxLength={1000} minHeight={110} />
+              </Field>
+
+              <Field label="Genres" counter={tags.length ? `${tags.length} selected` : undefined}>
+                <ChipRow
+                  options={TAG_OPTIONS}
+                  selected={tags.map((t) => t.value)}
+                  onToggle={(v) => handleTagSelect(TAG_OPTIONS.find((o) => o.value === v))}
+                  onClear={() => setTags([])}
+                  style={{ marginTop: 0 }}
+                />
+              </Field>
+            </Card>
           </View>
+
+          {/* chapters */}
+          <SectionHeader
+            title="Chapters"
+            count={chapterData.length}
+            action={chapterData.length > 1 && chaptersInSync ? (reordering ? 'Done' : 'Reorder') : undefined}
+            onAction={() => setReordering((v) => !v)}
+          />
+          {chapterData.length > 0 && chaptersInSync ? (
+            reordering ? (
+              <>
+                <View style={[ss.reorderHint, { borderColor: colors.borderAccent, backgroundColor: colors.accentSoft }]}>
+                  <FontAwesome5 name="grip-lines" size={12} color={colors.accent} />
+                  <Text style={[ss.note, { flex: 1, color: colors.textPrimary }]}>
+                    Drag a chapter by its handle. Tap Done when you're finished.
+                  </Text>
+                </View>
+                <NestableDraggableFlatList
+                  data={chapterData}
+                  renderItem={renderChapterItem}
+                  keyExtractor={(item) => `chapter-${item.id}`}
+                  onDragEnd={handleDragEnd}
+                  activationDistance={8}
+                />
+              </>
+            ) : (
+              // Plain rows: no gesture handlers, so the page always scrolls.
+              <View>{chapterData.map((item) => renderChapterItem({ item }))}</View>
+            )
+          ) : null}
+
+          <Card tint style={{ marginTop: space.md }}>
+            <Text style={ss.cardTitle}>
+              {editChapterIndex !== null ? `Editing chapter ${editChapterIndex + 1}` : `Chapter ${chapterData.length + 1}`}
+            </Text>
+            {pendingDraft && !newChapterContent.trim() ? (
+              <Pressable
+                onPress={() => setEditorOpen(true)}
+                style={[ss.draftBanner, { borderColor: `${colors.gold}88`, backgroundColor: `rgba(${colors.goldRgb},0.12)` }]}
+                accessibilityRole="button"
+                accessibilityLabel="Resume your unsaved draft"
+              >
+                <FontAwesome5 name="history" size={13} color={colors.gold} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[ss.rowTitle, { fontSize: 14 }]} numberOfLines={1}>
+                    Resume draft{pendingDraft.title ? ` · ${pendingDraft.title}` : ''}
+                  </Text>
+                  <Text style={ss.rowSub}>
+                    {wordCount(pendingDraft.content).toLocaleString()} words · saved {timeSince(pendingDraft.updatedAt)}
+                  </Text>
+                </View>
+                <FontAwesome5 name="chevron-right" size={11} color={colors.gold} />
+              </Pressable>
+            ) : null}
+            <Field label="Chapter title" style={{ marginTop: space.sm }}>
+              <TextField ref={chapterTitleRef} value={newChapterTitle} onChangeText={setNewChapterTitle} placeholder="e.g. The Gate Opens" maxLength={150} />
+            </Field>
+            <Field label="Content" counter={`${wordCount(newChapterContent).toLocaleString()} words`}>
+              {/* The page: tap to write in the full-screen Writing Studio */}
+              <Pressable
+                onPress={() => setEditorOpen(true)}
+                style={({ pressed }) => [ss.pagePreview, pressed && { opacity: 0.85 }]}
+                accessibilityRole="button"
+                accessibilityLabel={newChapterContent.trim() ? 'Continue writing in the Writing Studio' : 'Start writing in the Writing Studio'}
+              >
+                {newChapterContent.trim() ? (
+                  <Text style={ss.pageText} numberOfLines={6}>{newChapterContent}</Text>
+                ) : (
+                  <Text style={[ss.pageText, { color: colors.textMuted }]}>
+                    Tap to open the Writing Studio — find & replace, smart typography, undo/redo, word goals, and drafts saved on your device.
+                  </Text>
+                )}
+                <LinearGradient
+                  pointerEvents="none"
+                  colors={['rgba(0,0,0,0)', colors.bgCard]}
+                  style={ss.pageFade}
+                />
+                <View style={ss.pageCta}>
+                  <LinearGradient
+                    colors={[colors.accentHi, colors.accent, colors.accentDeep]}
+                    start={{ x: 0.1, y: 0 }}
+                    end={{ x: 0.9, y: 1 }}
+                    style={ss.pageCtaFill}
+                  >
+                    <FontAwesome5 name="feather-alt" size={12} color="#FFFFFF" />
+                    <Text style={ss.pageCtaText}>{newChapterContent.trim() ? 'Continue writing' : 'Open writing studio'}</Text>
+                  </LinearGradient>
+                </View>
+              </Pressable>
+            </Field>
+            <Toggle
+              value={newChapterIsAdvance}
+              onChange={setNewChapterIsAdvance}
+              label="Advance chapter"
+              sub="Readers pay to read early; it becomes free on the release date."
+              style={{ marginTop: space.lg }}
+            />
+            {newChapterIsAdvance ? (
+              <Field label="Free on" style={{ marginTop: space.sm }}>
+                {renderDatePicker('Chapter', chapterReleaseDate, setChapterReleaseDate)}
+              </Field>
+            ) : null}
+            <View style={ss.actions}>
+              <ActionButton
+                lit
+                icon={editChapterIndex !== null ? 'check' : 'plus'}
+                label={editChapterIndex !== null ? 'Update chapter' : 'Add chapter'}
+                onPress={handleAddChapter}
+                styles={kit}
+                colors={colors}
+                isDark={isDark}
+              />
+              <ActionButton
+                icon="eraser"
+                label="Clear"
+                onPress={() => {
+                  setNewChapterTitle('');
+                  setNewChapterContent('');
+                  setNewChapterIsAdvance(false);
+                  setChapterReleaseDate({ year: '', month: '', day: '', hour: '', minute: '' });
+                  setEditChapterIndex(null);
+                }}
+                styles={kit}
+                colors={colors}
+                isDark={isDark}
+              />
+            </View>
+          </Card>
+
+          {/* publish */}
+          <View style={[ss.actions, { marginTop: space.xl }]}>
+            <ActionButton
+              lit
+              icon={loading ? 'spinner' : selectedNovel ? 'save' : 'paper-plane'}
+              label={loading ? 'Saving…' : selectedNovel ? 'Save changes' : 'Publish novel'}
+              onPress={loading ? undefined : handleNovelSubmit}
+              disabled={loading}
+              styles={kit}
+              colors={colors}
+              isDark={isDark}
+            />
+          </View>
+          <Text style={[ss.note, { textAlign: 'center', marginTop: space.sm }]}>
+            {selectedNovel ? 'Readers of this novel are notified about new chapters.' : 'Publishing notifies readers across SempaiHQ.'}
+          </Text>
+
+          {/* announce */}
+          {selectedNovel ? (
+            <>
+              <SectionHeader title="Announce to readers" />
+              <Card tint>
+                <Text style={ss.note}>Send an update to everyone reading “{selectedNovel.title}”.</Text>
+                <Field label="Headline">
+                  <TextField value={announcementTitle} onChangeText={setAnnouncementTitle} placeholder="e.g. New arc starts Friday!" maxLength={120} />
+                </Field>
+                <Field label="Message" counter={`${announcementMessage.length}/500`}>
+                  <TextField multiline value={announcementMessage} onChangeText={setAnnouncementMessage} placeholder="What do you want readers to know?" maxLength={500} minHeight={100} />
+                </Field>
+                <Field label="Schedule (optional)" hint="Leave empty to send right away.">
+                  {renderDatePicker('Announcement', announcementReleaseDate, setAnnouncementReleaseDate)}
+                </Field>
+                <View style={ss.actions}>
+                  <ActionButton
+                    lit
+                    icon={announcing ? 'spinner' : 'bullhorn'}
+                    label={announcing ? 'Sending…' : 'Send announcement'}
+                    onPress={announcing ? undefined : handleAnnouncementSubmit}
+                    disabled={announcing}
+                    styles={kit}
+                    colors={colors}
+                    isDark={isDark}
+                  />
+                </View>
+              </Card>
+            </>
+          ) : null}
+
+          {/* writers (superuser) */}
+          {isSuperuser ? (
+            <>
+              <SectionHeader title="Writers" count={writers.length} />
+              <Card>
+                {writers.length === 0 ? (
+                  <Text style={ss.note}>No writers yet.</Text>
+                ) : (
+                  writers.map((w, i) => (
+                    <View key={w.id} style={[ss.writerRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border }]}>
+                      <View style={[ss.avatar, { backgroundColor: colors.accentSoft }]}>
+                        <Text style={{ color: colors.accent, fontWeight: '800' }}>{(w.name || w.email || '?').slice(0, 1).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={ss.rowTitle} numberOfLines={1}>{w.name || 'Unnamed writer'}</Text>
+                        <Text style={ss.rowSub} numberOfLines={1}>{w.email}</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </Card>
+            </>
+          ) : null}
         </NestableScrollContainer>
       </KeyboardAvoidingView>
 
-      {/* ---- Tag picker: proper bottom sheet with its own bounded,
-            scrollable region so it always scrolls regardless of how
-            many tags there are. ---- */}
-      <Modal
-        isVisible={showTagModal}
-        onBackdropPress={() => setShowTagModal(false)}
-        onSwipeComplete={() => setShowTagModal(false)}
-        swipeDirection="down"
-        style={styles.sheetWrapper}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-        propagateSwipe
-      >
-        <View style={styles.sheetContent}>
-          <View style={styles.sheetHandle} />
-          <Text style={[styles.modalTitle, styles.darkText]}>Select Tags</Text>
-          <ScrollView
-            style={styles.tagScroll}
-            contentContainerStyle={styles.tagList}
-            showsVerticalScrollIndicator
-            nestedScrollEnabled
-            keyboardShouldPersistTaps="handled"
-          >
-            {TAG_OPTIONS.map((item) => (
-              <TouchableOpacity
-                key={item.value}
-                onPress={() => handleTagSelect(item)}
-                style={styles.tagOption}
-                activeOpacity={0.7}
-                accessible
-                accessibilityLabel={`Select tag ${item.label}`}
-                accessibilityRole="checkbox"
-              >
-                <FontAwesome5
-                  name={tags.find((t) => t.value === item.value) ? 'check-square' : 'square'}
-                  size={20}
-                  color={KA_COLORS.ivory}
-                />
-                <Text style={[styles.tagOptionText, styles.darkText]}>{item.label}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <TouchableOpacity
-            onPress={() => setShowTagModal(false)}
-            style={styles.modalCloseButton}
-            activeOpacity={0.7}
-            accessible
-            accessibilityLabel="Close tag selection modal"
-            accessibilityRole="button"
-          >
-            <Text style={styles.modalCloseButtonText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      <Modal
-        isVisible={showDeleteConfirm}
-        onBackdropPress={() => setShowDeleteConfirm(false)}
-        style={styles.modalWrapper}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-      >
-        <View style={[styles.modalContainer, styles.darkModal]}>
-          <Text style={[styles.modalTitle, styles.darkText]}>Confirm Deletion</Text>
-          <Text style={[styles.modalText, styles.darkText]}>
-            Are you sure you want to delete{' '}
-            <Text style={{ fontWeight: 'bold' }}>{chapterTitles[chapterToDelete]}</Text>? This
-            action cannot be undone.
-          </Text>
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              onPress={confirmDeleteChapter}
-              style={styles.confirmButton}
-              activeOpacity={0.7}
-              accessible
-              accessibilityLabel="Confirm delete chapter"
-              accessibilityRole="button"
-            >
-              <Text style={styles.confirmButtonText}>Yes, Delete</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowDeleteConfirm(false)}
-              style={styles.cancelButton}
-              activeOpacity={0.7}
-              accessible
-              accessibilityLabel="Cancel delete chapter"
-              accessibilityRole="button"
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        isVisible={showNovelDeleteConfirm}
-        onBackdropPress={() => setShowNovelDeleteConfirm(false)}
-        style={styles.modalWrapper}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-      >
-        <View style={[styles.modalContainer, styles.darkModal]}>
-          <Text style={[styles.modalTitle, styles.darkText]}>Confirm Deletion</Text>
-          <Text style={[styles.modalText, styles.darkText]}>
-            Are you sure you want to delete{' '}
-            <Text style={{ fontWeight: 'bold' }}>{novelToDelete?.title}</Text>? This action cannot
-            be undone.
-          </Text>
-          <View style={styles.modalButtons}>
-            <TouchableOpacity
-              onPress={confirmDeleteNovel}
-              style={styles.confirmButton}
-              activeOpacity={0.7}
-              accessible
-              accessibilityLabel="Confirm delete novel"
-              accessibilityRole="button"
-            >
-              <Text style={styles.confirmButtonText}>Yes, Delete</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setShowNovelDeleteConfirm(false)}
-              style={styles.cancelButton}
-              activeOpacity={0.7}
-              accessible
-              accessibilityLabel="Cancel delete novel"
-              accessibilityRole="button"
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Success Modal */}
-      <Modal
-        isVisible={showSuccessModal}
-        onBackdropPress={() => setShowSuccessModal(false)}
-        style={styles.modalWrapper}
-        animationIn="fadeIn"
-        animationOut="fadeOut"
-      >
-        <View style={[styles.modalContainer, styles.darkModal, styles.successModal]}>
-          <View style={styles.successIconContainer}>
-            <FontAwesome5 name="check-circle" size={60} color={KA_COLORS.orangePrimary} />
-          </View>
-          <Text style={[styles.modalTitle, styles.darkText, styles.successTitle]}>Success!</Text>
-          <Text style={[styles.modalText, styles.darkText, styles.successText]}>
-            {successMessage}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setShowSuccessModal(false)}
-            style={styles.successButton}
-            activeOpacity={0.7}
-            accessible
-            accessibilityLabel="Close success modal"
-            accessibilityRole="button"
-          >
-            <FontAwesome5 name="check" size={16} color={KA_COLORS.ivory} />
-            <Text style={styles.successButtonText}>Continue</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-    </SafeAreaView>
+      <ChapterEditor
+        visible={editorOpen}
+        heading={editChapterIndex !== null ? `Chapter ${editChapterIndex + 1}` : `Chapter ${chapterData.length + 1}`}
+        initialTitle={newChapterTitle}
+        initialContent={newChapterContent}
+        draftKey={currentDraftKey}
+        onClose={() => setEditorOpen(false)}
+        onDone={({ title, content }) => {
+          if (title) setNewChapterTitle(title);
+          setNewChapterContent(content);
+          setEditorOpen(false);
+          toast.success('Chapter ready — add it to your manuscript below');
+        }}
+      />
+    </Page>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: KA_COLORS_BASE.bgPrimary,
-  },
-  darkContainer: {
-    backgroundColor: KA_COLORS_BASE.bgPrimary,
-  },
-  backgroundGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: KA_COLORS_BASE.bgPrimary,
-  },
-  emberContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  ember: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    shadowColor: KA_COLORS_BASE.orangeBright,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 6,
-  },
-  darkText: {
-    color: KA_COLORS_BASE.ivory,
-  },
-  main: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  connectPrompt: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  connectFontAwesome5: {
-    marginBottom: 16,
-  },
-  connectText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 24,
-    letterSpacing: 1,
-  },
-  accessDenied: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  deniedFontAwesome5: {
-    marginBottom: 16,
-  },
-  accessDeniedText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 24,
-    letterSpacing: 1,
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-  },
-  backButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  formSection: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    color: KA_COLORS_BASE.gold,
-    fontSize: 20,
-     
-    letterSpacing: 2,
-  },
-  novelForm: {
-    gap: 16,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  label: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  input: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-  },
-  darkInput: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    color: KA_COLORS_BASE.ivory,
-  },
-  textarea: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  imagePreview: {
-    width: 200,
-    height: 280,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  placeholderText: {
-    color: KA_COLORS_BASE.textMuted,
-    fontSize: 14,
-    marginBottom: 12,
-  },
-  fileButton: {
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  fileButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  tagButton: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  tagButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-    flexShrink: 1,
-  },
-  statusOptions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statusOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  statusOptionActive: {
-    borderColor: KA_COLORS_BASE.gold,
-    backgroundColor: 'rgba(244, 208, 63, 0.1)',
-  },
-  statusOptionText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-  },
-  chapterSection: {
-    marginTop: 16,
-  },
-  chapterTitle: {
-    color: KA_COLORS_BASE.gold,
-    fontSize: 18,
-     
-    letterSpacing: 1,
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  checkboxLabel: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 16,
-  },
-  addChapterButton: {
-    flex: 1,
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  addChapterButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  resetButton: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  resetButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  chapterList: {
-    marginTop: 16,
-  },
-  chapterItem: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    marginBottom: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  darkChapterItem: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-  },
-  chapterItemActive: {
-    borderColor: KA_COLORS_BASE.orangePrimary,
-    opacity: 0.9,
-  },
-  dragHandle: {
-    paddingRight: 12,
-  },
-  chapterText: {
-    flex: 1,
-  },
-  chapterTitleText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 16,
-     
-    marginBottom: 8,
-  },
-  chapterPreview: {
-    color: KA_COLORS_BASE.textSecondary,
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  advanceInfo: {
-    color: KA_COLORS_BASE.gold,
-    fontSize: 12,
-  },
-  chapterActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  submitButton: {
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-  },
-  submitButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  announcementSection: {
-    marginTop: 32,
-  },
-  announcementForm: {
-    gap: 16,
-  },
-  announcementButton: {
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  announcementButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  novelsSection: {
-    marginTop: 32,
-  },
-  novelsGrid: {
-    gap: 16,
-  },
-  novelCard: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    marginBottom: 16,
-    padding: 16,
-  },
-  darkNovelCard: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-  },
-  novelImage: {
-    width: 100,
-    height: 140,
-    borderRadius: 8,
-    marginBottom: 12,
-  },
-  novelInfo: {
-    flex: 1,
-  },
-  novelTitle: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 16,
-     
-    marginBottom: 8,
-  },
-  novelSummary: {
-    color: KA_COLORS_BASE.textSecondary,
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  novelTags: {
-    color: KA_COLORS_BASE.textMuted,
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  novelViewers: {
-    color: KA_COLORS_BASE.gold,
-    fontSize: 12,
-    marginBottom: 12,
-  },
-  novelActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editNovelButton: {
-    flex: 1,
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  editNovelButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 12,
-     
-  },
-  deleteButton: {
-    backgroundColor: KA_COLORS_BASE.error,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 4,
-  },
-  writersSection: {
-    marginTop: 32,
-  },
-  writersList: {
-    gap: 12,
-  },
-  writerItem: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-    padding: 16,
-  },
-  darkWriterItem: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-  },
-  writerText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  writerId: {
-    color: KA_COLORS_BASE.textMuted,
-    fontSize: 12,
-  },
-  noNovels: {
-    color: KA_COLORS_BASE.textMuted,
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 32,
-  },
-  noWriters: {
-    color: KA_COLORS_BASE.textMuted,
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 32,
-  },
-  // --- Confirmation modals (centered) ---
-  modalWrapper: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 0,
-  },
-  modalContainer: {
-    width: width * 0.86,
-    backgroundColor: KA_COLORS_BASE.bgCard,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 8,
-    padding: 24,
-  },
-  darkModal: {
-    backgroundColor: KA_COLORS_BASE.bgCard,
-  },
-  modalTitle: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 20,
-     
-    marginBottom: 16,
-    letterSpacing: 2,
-  },
-  modalText: {
-    color: KA_COLORS_BASE.textSecondary,
-    fontSize: 14,
-    marginBottom: 24,
-    lineHeight: 22,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  confirmButton: {
-    flex: 1,
-    backgroundColor: KA_COLORS_BASE.error,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  confirmButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-    letterSpacing: 1,
-  },
-  // --- Tag picker bottom sheet ---
-  sheetWrapper: {
-    justifyContent: 'flex-end',
-    margin: 0,
-  },
-  sheetContent: {
-    backgroundColor: KA_COLORS_BASE.bgCard,
-    borderTopWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 24,
-    height: height * 0.65,
-  },
-  sheetHandle: {
-    alignSelf: 'center',
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: KA_COLORS_BASE.border,
-    marginBottom: 16,
-  },
-  tagScroll: {
-    flex: 1,
-  },
-  tagOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: KA_COLORS_BASE.border,
-  },
-  tagOptionText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-  },
-  tagList: {
-    paddingBottom: 12,
-  },
-  modalCloseButton: {
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  modalCloseButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 14,
-     
-    letterSpacing: 1,
-  },
-  datePickerContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  datePickerGroup: {
-    flex: 1,
-    minWidth: 60,
-  },
-  datePicker: {
-    backgroundColor: KA_COLORS_BASE.bgElevated,
-    borderWidth: 1,
-    borderColor: KA_COLORS_BASE.border,
-    borderRadius: 4,
-  },
-  pickerItem: {
-    color: KA_COLORS_BASE.ivory,
-  },
-  footer: {
-    padding: 16,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: KA_COLORS_BASE.border,
-  },
-  darkFooter: {
-    backgroundColor: KA_COLORS_BASE.bgCard,
-  },
-  footerText: {
-    color: KA_COLORS_BASE.textMuted,
-    fontSize: 12,
-    letterSpacing: 1,
-  },
-  // --- Success Modal Styles ---
-  successModal: {
-    alignItems: 'center',
-    padding: 32,
-  },
-  successIconContainer: {
-    marginBottom: 24,
-  },
-  successTitle: {
-    color: KA_COLORS_BASE.orangePrimary,
-    fontSize: 28,
-    marginBottom: 12,
-  },
-  successText: {
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 32,
-  },
-  successButton: {
-    backgroundColor: KA_COLORS_BASE.orangePrimary,
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    minWidth: 200,
-  },
-  successButtonText: {
-    color: KA_COLORS_BASE.ivory,
-    fontSize: 16,
-     
-    letterSpacing: 1,
-  },
-});
+const makeStudioStyles = (c, isDark) =>
+  StyleSheet.create({
+    scroll: { paddingHorizontal: GUTTER, paddingTop: GUTTER, paddingBottom: PAGE_BOTTOM },
+    center: { flex: 1, justifyContent: 'center', paddingBottom: PAGE_BOTTOM / 2 },
+    bleed: { marginHorizontal: -GUTTER },
+    rail: { paddingHorizontal: GUTTER, gap: space.md },
+    fill: { width: '100%', height: '100%' },
+    stats: { flexDirection: 'row', gap: space.md },
+    cardTitle: { fontFamily: 'Yoruka', fontSize: 19, color: c.textPrimary },
+    note: { fontSize: 13, lineHeight: 19, color: c.textSecondary },
+    actions: { flexDirection: 'row', gap: space.sm, marginTop: space.lg },
+
+    manuscript: {
+      width: 260,
+      minHeight: 124,
+      flexDirection: 'row',
+      gap: space.md,
+      padding: 12,
+      borderRadius: radius.lg,
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    manuscriptActive: { shadowOpacity: 0.45, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 6 },
+    manuscriptCover: { width: 68, height: 100, borderRadius: radius.sm, backgroundColor: c.bgCardAlt },
+    manuscriptTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
+    manuscriptMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+    metaText: { flex: 1, fontSize: 12, color: c.textMuted },
+    dot: { width: 6, height: 6, borderRadius: 3 },
+    manuscriptActions: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 'auto', paddingTop: 8 },
+    editPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 30,
+      paddingHorizontal: 12,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: c.borderAccent,
+    },
+    editPillText: { fontSize: 12, fontWeight: '800', color: c.accent },
+
+    identity: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
+    coverPick: {
+      width: 110,
+      height: 160,
+      borderRadius: radius.md,
+      overflow: 'hidden',
+      backgroundColor: c.bgCardAlt,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      borderStyle: 'dashed',
+    },
+    coverEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+    coverEmptyText: { fontSize: 12, fontWeight: '700', color: c.textMuted },
+    coverBadge: { position: 'absolute', right: 6, bottom: 6, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+
+    chapterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 10,
+      marginBottom: 8,
+      borderRadius: radius.lg,
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    disc: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+    discText: { fontSize: 14, fontWeight: '800' },
+    rowTitle: { fontSize: 15, fontWeight: '700', color: c.textPrimary },
+    rowSub: { fontSize: 12, color: c.textMuted, marginTop: 2 },
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 7, height: 20, borderRadius: 10, marginTop: 6 },
+    badgeText: { fontSize: 10, fontWeight: '800' },
+    handle: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    draftBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, marginTop: space.md, borderRadius: radius.md, borderWidth: 1 },
+    pagePreview: {
+      minHeight: 190,
+      padding: 16,
+      paddingBottom: 64,
+      borderRadius: radius.md,
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      overflow: 'hidden',
+    },
+    pageText: { fontSize: 15, lineHeight: 23, color: c.textSecondary },
+    pageFade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 90 },
+    pageCta: { position: 'absolute', left: 16, right: 16, bottom: 12, height: 42, borderRadius: 21, overflow: 'hidden' },
+    pageCtaFill: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    pageCtaText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+    reorderHint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      padding: 12,
+      marginBottom: space.sm,
+      borderRadius: radius.md,
+      borderWidth: 1,
+    },
+
+    dateRow: { flexDirection: 'row', gap: 6 },
+    dateCell: {
+      flex: 1,
+      height: 48,
+      justifyContent: 'center',
+      borderRadius: radius.md,
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      overflow: 'hidden',
+    },
+    picker: { color: c.textPrimary, marginHorizontal: Platform.OS === 'android' ? -8 : 0 },
+
+    writerRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 10 },
+    avatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  });
 
 export default NovelDashboardScreen;

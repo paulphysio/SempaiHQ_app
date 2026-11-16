@@ -55,6 +55,7 @@ import {
 import { radius, space, glow, useMangaTheme } from '../theme/theme';
 import { getStyles as getChapterStyles } from '../styles/MangaChapterStyles';
 import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -191,7 +192,8 @@ const PlanCard = ({ icon, title, desc, usd, days, best, solLabel, busy, onSol, o
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const MERCHANT_WALLET = TARGET_WALLET;
-const SMP_READ_COST = 1000; // Fixed cost for single chapter
+const SMP_READ_COST = 1000; // Fixed cost for single chapter (server: record-manga-payment "smp_read")
+const shortSigOf = (sig) => (sig ? `${String(sig).slice(0, 4)}…${String(sig).slice(-4)}` : '');
 const threeChaptersSmp = 6480139; // Fixed $3 equivalent for 3 chapters
 const fullChaptersSmp = 32400693; // Fixed $15 equivalent for all chapters
 
@@ -729,15 +731,7 @@ const MangaChapterScreen = () => {
         .single();
       if (userError || !userData) throw new Error(`User not found: ${userError?.message}`);
 
-      const { data: walletBalance, error: balanceError } = await supabase
-        .from('wallet_balances')
-        .select('amount')
-        .eq('wallet_address', activeWalletAddress)
-        .eq('currency', 'SMP')
-        .maybeSingle();
-      if (balanceError && balanceError.code !== 'PGRST116') throw new Error(`Wallet balance not found: ${balanceError?.message}`);
-      if (!walletBalance || walletBalance.amount < SMP_READ_COST) throw new Error(`Insufficient SMP balance: ${walletBalance?.amount?.toLocaleString() || 0} SMP`);
-
+      // (The reader pays on-chain below — their in-app balance is not touched.)
       let sourceATA;
       try {
         sourceATA = await getOrCreateAssociatedTokenAccount(
@@ -826,122 +820,49 @@ const MangaChapterScreen = () => {
 
       await confirmTransactionWithRetry(signature, blockhash, lastValidBlockHeight);
 
-      const newSmpBalance = (walletBalance?.amount || 0) - SMP_READ_COST;
-      await supabase
-        .from('wallet_balances')
-        .upsert({
-          user_id: userData.id,
-          wallet_address: activeWalletAddress,
-          chain: 'SOL',
-          currency: 'SMP',
-          amount: newSmpBalance,
-          decimals: 0,
-        }, { onConflict: 'wallet_address,currency' });
-
-      let readerReward = 100;
-      const authorReward = 500;
-      const numericBalance = Number(amethystBalance) || 0;
-      if (numericBalance >= 5000000) readerReward = 250;
-      else if (numericBalance >= 1000000) readerReward = 200;
-      else if (numericBalance >= 500000) readerReward = 170;
-      else if (numericBalance >= 250000) readerReward = 150;
-      else if (numericBalance >= 100000) readerReward = 120;
-
-      const newReaderBalance = (userData.weekly_points || 0) + readerReward;
-      const newAuthorBalance = mangaOwner.balance + authorReward;
-
-      await Promise.all([
-        supabase
-          .from('users')
-          .update({ weekly_points: newReaderBalance })
-          .eq('id', userData.id),
-        mangaOwner.id !== userData.id &&
-          supabase
-            .from('users')
-            .update({ balance: newAuthorBalance })
-            .eq('id', mangaOwner.id),
-        supabase.from('wallet_balances').upsert([
-          {
-            user_id: mangaOwner.id,
-            chain: 'SOL',
-            currency: 'SMP',
-            amount: newAuthorBalance,
-            decimals: 0,
-            wallet_address: mangaOwner.wallet_address,
-          },
-        ]),
-        supabase.from('wallet_events').insert([
-          {
-            destination_user_id: userData.id,
-            event_type: 'deposit',
-            event_details: eventDetails,
-            source_chain: 'SOL',
-            source_currency: 'Token',
-            amount_change: readerReward,
-            wallet_address: activeWalletAddress,
-            source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-            destination_chain: 'SOL',
-          },
-          {
-            destination_user_id: mangaOwner.id,
-            event_type: 'deposit',
-            event_details: eventDetails,
-            source_chain: 'SOL',
-            source_currency: 'SMP',
-            amount_change: authorReward,
-            wallet_address: mangaOwner.wallet_address,
-            source_user_id: '6f859ff9-3557-473c-b8ca-f23fd9f7af27',
-            destination_chain: 'SOL',
-          },
-          {
-            destination_user_id: userData.id,
-            event_type: 'withdrawal',
-            event_details: eventDetails,
-            source_chain: 'SOL',
-            source_currency: 'SMP',
-            amount_change: -SMP_READ_COST,
-            wallet_address: activeWalletAddress,
-            source_user_id: userData.id,
-            destination_chain: 'SOL',
-          },
-        ]),
-      ]);
-
-      // Record server-side (edge function re-verifies the on-chain transfer)
-      const { error: recError } = await supabase.functions.invoke('record-manga-payment', {
+      // The server verifies the transfer on-chain, unlocks the chapter and
+      // gives the rewards (reader points, artist's 500 SMP) exactly once.
+      const { data: recData, error: recError } = await supabase.functions.invoke('record-manga-payment', {
         body: {
           signature,
           chapterId,
           mangaId,
           currency: 'SMP',
-          paymentType: 'single',
+          paymentType: 'smp_read',
           walletAddress: activeWalletAddress,
-          amountUsd: chapterPrice || 0.005,
         },
       });
       if (recError) {
         console.warn('[updateTokenBalance] Failed to record payment:', recError.message);
+        throw new Error(`PAID_NOT_SAVED: ${shortSigOf(signature)}`);
       }
+      const readerReward = Number(recData?.readerReward) || 0;
 
       // Pioneer badge is granted server-side; show the modal if earned
       if (await claimPioneerBadge(signature)) {
         showPioneerIfEarned(mangaOwner.id, mangaOwner.wallet_address);
       }
 
-      setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent. You earned ${readerReward} points.`);
-      setSmpBalance(newSmpBalance);
-      setWeeklyPoints(newReaderBalance);
+      setSuccessMessage(`Payment successful! ${SMP_READ_COST.toLocaleString()} SMP sent.` +
+        (readerReward ? ` You earned ${readerReward} points.` : ''));
+      setSmpBalance((b) => Math.max(0, (Number(b) || 0) - SMP_READ_COST));
+      if (readerReward) setWeeklyPoints((p) => (Number(p) || 0) + readerReward);
       setHasReadChapter(true);
       setIsLocked(false);
       setTimeout(() => setSuccessMessage(''), 5000);
     } catch (error) {
       console.error('Error in updateTokenBalance:', error);
+      const msg = String(error?.message || '');
       setError(
-        error.message.includes('Insufficient SMP balance')
-          ? 'Not enough SMP tokens to read this chapter.'
-          : `SMP update failed: ${error.message}`
+        msg.startsWith('PAID_NOT_SAVED')
+          ? `Your ${SMP_READ_COST.toLocaleString()} SMP was sent, but we couldn't save the unlock yet. Please DON'T pay again — reopen the chapter in a minute, or contact support with code ${msg.split(': ')[1] || ''}.`
+          : msg.includes('Insufficient SMP balance')
+            ? `Not enough SMP in your wallet — reading with SMP costs ${SMP_READ_COST.toLocaleString()} SMP. You were not charged.`
+            : /user rejected|cancel/i.test(msg)
+              ? 'Payment cancelled. You were not charged.'
+              : `Couldn't complete the payment: ${msg}`
       );
-      setTimeout(() => setError(null), 5000);
+      setTimeout(() => setError(null), msg.startsWith('PAID_NOT_SAVED') ? 20000 : 8000);
     }
   }, [activeWalletAddress, manga, chapterId, isPremium, activePublicKey, amethystBalance, claimPioneerBadge, showPioneerIfEarned]);
 
@@ -1303,7 +1224,9 @@ const MangaChapterScreen = () => {
       if (recError) throw new Error(recError.message || 'Failed to record payment.');
       if (recData?.error) throw new Error(recData.error);
 
-      console.log('Unlock successful:', paymentData);
+      // (Was `paymentData` — undefined, so a SUCCESSFUL payment threw here and
+      // the reader was told the unlock failed.)
+      console.log('Unlock successful:', recData);
 
       // Pioneer badge is granted server-side; show the modal if earned
       if (await claimPioneerBadge(signature)) {
@@ -1559,21 +1482,7 @@ const MangaChapterScreen = () => {
   }
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
-        <Screen>
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={{ ...type.body, marginTop: space.md }}>Loading chapter…</Text>
-            <View style={{ width: '70%', marginTop: space.xl }}>
-              <Skeleton height={12} />
-              <Skeleton height={12} width="80%" style={{ marginTop: 8 }} />
-            </View>
-          </View>
-        </Screen>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="manga" label="Loading chapter" />;
   }
 
   // Only take over the screen for a fatal error. Transient errors show as a toast instead.

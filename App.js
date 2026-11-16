@@ -1,11 +1,11 @@
 import './utils/fontScale';
 import 'react-native-get-random-values';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
-import { NavigationContainer, useNavigationContainerRef, useRoute } from '@react-navigation/native';
-import { Platform, Alert, View, Text, StyleSheet } from 'react-native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { NavigationContainer, useNavigationContainerRef, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { Platform, View, Text, StyleSheet, Easing, Pressable } from 'react-native';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { EmbeddedWalletProvider } from './components/ConnectButtonEnhanced';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -13,98 +13,110 @@ import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import * as Font from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Orientation from 'react-native-orientation-locker';
 import { supabase } from './services/supabaseClient';
 import { NavigationProvider, useNavigationHandler } from './context/NavigationContext';
 import { NotificationEmitter } from './services/NotificationEmitter';
 import HomeScreen from './screens/HomeScreen';
-import EditProfileScreen from './screens/EditProfileScreen';
-import NovelDetailScreen from './screens/NovelDetailScreen';
-import MangaDetailScreen from './screens/MangaDetailScreen';
-import NovelsPageScreen from './screens/NovelsPageScreen';
-import SwapScreen from './screens/SwapScreen';
-import StatPageScreen from './screens/StatPageScreen';
-import ChatScreen from './screens/ChatScreen';
-import KaitoAdventureScreen from './screens/KaitoAdventureScreen';
-import DAOGovernanceScreen from './screens/DAOGovernanceScreen';
-import KeepItSimpleScreen from './screens/KeepItSimpleScreen';
-import WalletImportScreen from './screens/WalletImportScreen';
-import ApplyScreen from './screens/ApplyScreen';
-import ChapterScreen from './screens/ChapterScreen';
-import NovelSummaryScreen from './screens/NovelSummaryScreen';
-import NovelDashboardScreen from './screens/NovelDashboardScreen';
-import MangaDashboardScreen from './screens/MangaDashboardScreen';
-import MangaPageScreen from './screens/MangaPageScreen';
-import CreatorsProfileScreen from './screens/CreatorsProfileScreen';
-import MangaChapterScreen from './screens/MangaChapterScreen';
 import WelcomeScreen from './screens/WelcomeScreen';
 import SignIn from './components/SignIn';
 import { GoogleAuthProvider } from './components/GoogleAuthProvider';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { SystemUiContext } from './context/SystemUiContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-import WalletScreen from './screens/WalletScreen';
 import GlobalNavbar from './components/GlobalNavbar';
 import GlobalBottomNav from './components/GlobalBottomNav';
 import GlobalSidebar from './components/GlobalSidebar';
-import NavigationLoadingOverlay from './components/NavigationLoadingOverlay';
-import FeedScreen from './screens/FeedScreen';
-import RampScreen from './screens/RampScreen';
-import MarketplaceScreen from './screens/MarketplaceScreen';
-import MintScreen from './screens/MintScreen';
-import LeaderboardScreen from './screens/LeaderboardScreen';
-import AdminScreen from './screens/AdminScreen';
-import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
-import TermsScreen from './screens/TermsScreen';
-import SupportScreen from './screens/SupportScreen';
-import ProfileScreen from './screens/ProfileScreen';
-import DownloadScreen from './screens/DownloadScreen';
-import KaitoLeaderboardScreen from './screens/KaitoLeaderboardScreen';
-import AddGifScreen from './screens/AddGifScreen';
-import BadgesScreen from './screens/BadgesScreen';
-import CreatorDashboardScreen from './screens/CreatorDashboardScreen';
-import KaijiScreen from './screens/KaijiScreen';
-import InboxScreen from './screens/InboxScreen';
-import ReaderScreen from './screens/ReaderScreen';
-import BazaarScreen from './screens/BazaarScreen';
-import BazaarBookScreen from './screens/BazaarBookScreen';
-import UploadBookScreen from './screens/UploadBookScreen';
-import BazaarDashboardScreen from './screens/BazaarDashboardScreen';
+import { ToastHost, toast } from './components/Toast';
+import OfflineBanner from './components/OfflineBanner';
+import { withScreenBoundary } from './components/ScreenBoundary';
 
+// Every screen gets its own crash guard (see components/ScreenBoundary).
+const GuardedHome = withScreenBoundary(HomeScreen, 'Home');
+const GuardedSignIn = withScreenBoundary(SignIn, 'SignIn');
+
+// Full-screen experiences: no floating tab bar over the content.
+const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader']);
+
+// Keep the native splash up until fonts + auth are ready, instead of flashing
+// a blank screen while the app boots.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Every screen except the first-paint ones is required on first visit. Loading
+// all ~50 screens (plus the Solana / PDF / game code they pull in) up front
+// was the bulk of JS startup time.
+const LAZY_SCREENS = [
+  ['EditProfile', () => require('./screens/EditProfileScreen').default],
+  ['NovelDetail', () => require('./screens/NovelDetailScreen').default],
+  ['MangaDetail', () => require('./screens/MangaDetailScreen').default],
+  ['NovelsPage', () => require('./screens/NovelsPageScreen').default],
+  ['Swap', () => require('./screens/SwapScreen').default],
+  ['Stats', () => require('./screens/StatPageScreen').default],
+  ['Chat', () => require('./screens/ChatScreen').default],
+  ['KaitoAdventure', () => require('./screens/KaitoAdventureScreen').default],
+  ['DAOGovernance', () => require('./screens/DAOGovernanceScreen').default],
+  ['KeepItSimple', () => require('./screens/KeepItSimpleScreen').default],
+  ['Apply', () => require('./screens/ApplyScreen').default],
+  ['Chapter', () => require('./screens/ChapterScreen').default],
+  ['NovelSummary', () => require('./screens/NovelSummaryScreen').default],
+  ['NovelDashboard', () => require('./screens/NovelDashboardScreen').default],
+  ['MangaDashboard', () => require('./screens/MangaDashboardScreen').default],
+  ['CreatorDashboard', () => require('./screens/CreatorDashboardScreen').default],
+  ['MangaPage', () => require('./screens/MangaPageScreen').default],
+  ['CreatorsProfile', () => require('./screens/CreatorsProfileScreen').default],
+  ['MangaChapter', () => require('./screens/MangaChapterScreen').default],
+  ['Wallet', () => require('./screens/WalletScreen').default],
+  ['Feed', () => require('./screens/FeedScreen').default],
+  ['Crazy Corner', () => require('./screens/FeedScreen').default],
+  ['FeedScreen', () => require('./screens/FeedScreen').default],
+  ['Ramp', () => require('./screens/RampScreen').default],
+  ['Marketplace', () => require('./screens/MarketplaceScreen').default],
+  ['WalletImport', () => require('./screens/WalletImportScreen').default],
+  ['Mint', () => require('./screens/MintScreen').default],
+  ['Leaderboard', () => require('./screens/LeaderboardScreen').default],
+  ['Admin', () => require('./screens/AdminScreen').default],
+  ['Announcements', () => require('./screens/AnnouncementsScreen').default],
+  ['PrivacyPolicy', () => require('./screens/PrivacyPolicyScreen').default],
+  ['Terms', () => require('./screens/TermsScreen').default],
+  ['Support', () => require('./screens/SupportScreen').default],
+  ['Profile', () => require('./screens/ProfileScreen').default],
+  ['Download', () => require('./screens/DownloadScreen').default],
+  ['KaitoLeaderboard', () => require('./screens/KaitoLeaderboardScreen').default],
+  ['AddGif', () => require('./screens/AddGifScreen').default],
+  ['Badges', () => require('./screens/BadgesScreen').default],
+  ['Kaiji', () => require('./screens/KaijiScreen').default],
+  ['Inbox', () => require('./screens/InboxScreen').default],
+  ['Reader', () => require('./screens/ReaderScreen').default],
+  ['Bazaar', () => require('./screens/BazaarScreen').default],
+  ['BazaarBook', () => require('./screens/BazaarBookScreen').default],
+  ['UploadBook', () => require('./screens/UploadBookScreen').default],
+  ['BazaarDashboard', () => require('./screens/BazaarDashboardScreen').default],
+];
+
+// Short, decelerating slide. The default Android transition (~350ms+) made
+// every tap feel like it was waiting on something.
+const FAST_TRANSITION = {
+  animation: 'timing',
+  config: { duration: 230, easing: Easing.bezier(0.2, 0, 0, 1) },
+};
+
+// Pushes that arrive while the app is open still show the system banner,
+// play the sound and land in the status bar.
 Notifications.setNotificationHandler({
-  handleNotification: async (notification) => {
-    console.log('[App] Notification received:', notification);
-    return {
-      shouldShowAlert: true, // Show in-app alert
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    };
-  },
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
 });
 
 const Stack = createStackNavigator();
 
-// Create global text styles
-const globalTextStyles = StyleSheet.create({
-  default: {
-    fontFamily: 'Yoruka',
-    color: '#FFFFFF',
-  },
-  title: {
-    fontFamily: 'Yoruka',
-    fontSize: 24,
-    color: '#FFFFFF',
-  },
-  subtitle: {
-    fontFamily: 'Yoruka',
-    fontSize: 18,
-    color: '#CCCCCC',
-  }
-});
-
-// Apply to all Text components
-Text.defaultProps = Text.defaultProps || {};
-Text.defaultProps.style = globalTextStyles.default;
+// Text colour/scale defaults live in utils/fontScale.js (theme-aware).
 
 class ErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -117,19 +129,40 @@ class ErrorBoundary extends React.Component {
     console.error('ErrorBoundary:', error, errorInfo);
   }
 
+  reset = () => this.setState({ hasError: false, error: null });
+
   render() {
     if (this.state.hasError) {
       return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0A0A18' }}>
-          <Text style={{ color: '#FFFFFF', fontSize: 18 }}>
-            Something went wrong: {this.state.error?.message}
+        <View style={shellStyles.errorWrap}>
+          <Text style={shellStyles.errorTitle}>Something went wrong</Text>
+          <Text style={shellStyles.errorBody} numberOfLines={4}>
+            {this.state.error?.message || 'An unexpected error occurred.'}
           </Text>
+          <Pressable
+            onPress={this.reset}
+            style={({ pressed }) => [shellStyles.errorBtn, pressed && shellStyles.pressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Try again"
+          >
+            <Text style={shellStyles.errorBtnText}>Try again</Text>
+          </Pressable>
         </View>
       );
     }
     return this.props.children;
   }
-};
+}
+
+const shellStyles = StyleSheet.create({
+  root: { flex: 1 },
+  pressed: { opacity: 0.8 },
+  errorWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0B14', padding: 32 },
+  errorTitle: { color: '#FFFFFF', fontSize: 20, marginBottom: 10, textAlign: 'center' },
+  errorBody: { color: '#C9C9D1', fontSize: 14, lineHeight: 20, textAlign: 'center', marginBottom: 24 },
+  errorBtn: { backgroundColor: '#F36316', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 999 },
+  errorBtnText: { color: '#FFFFFF', fontSize: 15 },
+});
 
 const MainApp = () => {
   const [isSystemUiVisible, setIsSystemUiVisible] = useState(false);
@@ -164,33 +197,37 @@ const MainApp = () => {
 
 const AppContent = ({ setIsStatusBarHidden }) => {
   const { user, isLoading } = useAuth();
-  const [showWelcome, setShowWelcome] = useState(true);
+  const { isDark, colors } = useTheme();
+  // null = not decided yet (still reading the first-launch flag)
+  const [showWelcome, setShowWelcome] = useState(null);
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [authBooted, setAuthBooted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentRoute, setCurrentRoute] = useState(null);
-  const [isNavigating, setIsNavigating] = useState(false);
   const navigationRef = useNavigationContainerRef();
 
   useNavigationHandler(() => {
     setShowWelcome(false);
   });
 
-  // Track current route to hide bottom nav on KaitoAdventure
+  // Latch: once auth has resolved the first time, later isLoading flips must
+  // never unmount the navigator again (that reset the user back to Home).
   useEffect(() => {
-    const unsubscribe = navigationRef?.addListener('state', (e) => {
-      const route = e.data.state?.routes[e.data.state.index];
-      setCurrentRoute(route?.name);
-      setIsNavigating(false);
-    });
-    return unsubscribe;
-  }, [navigationRef]);
+    if (!isLoading) setAuthBooted(true);
+  }, [isLoading]);
 
-  // Add navigation listener for loading state
+  // The animated intro is a first-launch moment only. Returning users go
+  // straight to their content instead of sitting through ~3.4s on every open.
   useEffect(() => {
-    const unsubscribe = navigationRef?.addListener('beforeRemove', () => {
-      setIsNavigating(true);
-    });
-    return unsubscribe;
+    let alive = true;
+    AsyncStorage.getItem('hasSeenWelcome')
+      .then((seen) => { if (alive) setShowWelcome(seen !== 'true'); })
+      .catch(() => { if (alive) setShowWelcome(false); });
+    return () => { alive = false; };
+  }, []);
+
+  const syncRoute = useCallback(() => {
+    setCurrentRoute(navigationRef.getCurrentRoute()?.name ?? null);
   }, [navigationRef]);
 
   useEffect(() => {
@@ -202,114 +239,142 @@ const AppContent = ({ setIsStatusBarHidden }) => {
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('Font load timeout')), 10000)),
         ]);
-        setFontsLoaded(true);
-        console.log('Yoruka font loaded successfully');
       } catch (error) {
-        console.error('Error loading Yoruka font:', error.message);
-        Alert.alert(
-          'Font Error',
-          'Failed to load Yoruka font. Using system font as fallback.',
-          [{ text: 'OK' }]
-        );
-        setFontsLoaded(true); // Proceed even if font fails
+        // Fall back to the system font silently — a blocking alert about a
+        // font is noise the user can do nothing about.
+        console.warn('Yoruka font failed to load, using system font:', error.message);
+      } finally {
+        setFontsLoaded(true);
       }
     };
     loadFonts();
   }, []);
 
-  // Request notification permissions and register push token with Firebase
+  const ready = fontsLoaded && authBooted && showWelcome !== null;
   useEffect(() => {
-    const setupNotifications = async () => {
-      console.log('[App] Setting up notifications...');
+    if (ready) global.__SEMPAI_APP_READY = true;
+  }, [ready]);
+
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  const navTheme = useMemo(() => {
+    const base = isDark ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      colors: { ...base.colors, background: colors.bg, card: colors.bg, primary: colors.accent, text: colors.textPrimary },
+    };
+  }, [isDark, colors]);
+
+  const screenOptions = useMemo(() => ({
+    headerShown: false,
+    cardStyle: { backgroundColor: colors.bg },
+    cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+    transitionSpec: { open: FAST_TRANSITION, close: FAST_TRANSITION },
+    cardOverlayEnabled: false,
+    cardShadowEnabled: false,
+    // Screens underneath the focused one stop re-rendering while hidden.
+    freezeOnBlur: true,
+  }), [colors.bg]);
+
+  const toggleSidebar = useCallback(() => setSidebarOpen((open) => !open), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+
+  // ── Push notifications ─────────────────────────────────────────────────
+  // 1) Android channel: MAX importance = heads-up banner + sound + vibration
+  //    + status-bar icon. ("reading-updates" is what the server targets; the
+  //    "default" channel is set up the same way as a fallback.)
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const channel = {
+      importance: Notifications.AndroidImportance.MAX,
+      sound: 'notification_sound.mp3',
+      vibrationPattern: [0, 250, 150, 250],
+      enableVibrate: true,
+      lightColor: '#F36316',
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      showBadge: true,
+    };
+    Notifications.setNotificationChannelAsync('reading-updates', {
+      ...channel,
+      name: 'Reading updates',
+      description: 'New chapters, new titles and announcements from creators you read',
+    }).catch((e) => console.warn('[App] channel setup:', e?.message));
+    Notifications.setNotificationChannelAsync('default', { ...channel, name: 'General' })
+      .catch((e) => console.warn('[App] default channel setup:', e?.message));
+  }, []);
+
+  // 2) Register this device's push token for whoever is signed in — runs on
+  //    sign-in too (it used to run only at launch, so signing in later meant
+  //    never receiving pushes), and again if the device token rotates.
+  useEffect(() => {
+    if (!user || user.isGuest) return undefined;
+    let alive = true;
+    const register = async () => {
       try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        console.log('[App] Notification permission status:', finalStatus);
+        let { status } = await Notifications.getPermissionsAsync();
+        if (status !== 'granted') ({ status } = await Notifications.requestPermissionsAsync());
+        if (status !== 'granted' || !alive) return;
 
-        if (finalStatus !== 'granted') {
-          console.warn('[App] Failed to get push token for push notification!');
-          return;
-        }
-
-        // Get Expo push token with projectId (required for Firebase)
         const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
-        console.log('[App] EAS Project ID:', projectId);
+        const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+        if (!token || !alive) return;
 
-        const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
-        console.log('[App] Expo push token obtained:', pushToken.data);
-
-        // Store push token in Supabase for the current user
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.id) {
-          console.log('[App] Storing push token for user:', session.user.id);
-          const { error: tokenError } = await supabase
-            .from('users')
-            .update({ push_token: pushToken.data })
-            .eq('id', session.user.id);
+        const id = session?.user?.id || user.id;
+        const { error } = await supabase.from('users').update({ push_token: token }).eq('id', id);
+        if (error) console.warn('[App] saving push token:', error.message);
+      } catch (e) {
+        console.warn('[App] push registration:', e?.message || e);
+      }
+    };
+    register();
+    const tokenSub = Notifications.addPushTokenListener(() => register());
+    return () => {
+      alive = false;
+      tokenSub.remove();
+    };
+  }, [user?.id]);
 
-          if (tokenError) {
-            console.error('[App] Error storing push token:', tokenError);
-          } else {
-            console.log('[App] Push token stored successfully');
-          }
+  // 3) Foreground arrivals refresh the unread badge (the system shows the
+  //    banner itself — see setNotificationHandler), and tapping a
+  //    notification opens what it is about — including when it launched the app.
+  useEffect(() => {
+    const openFromNotification = (response) => {
+      const data = response?.notification?.request?.content?.data || {};
+      const go = () => {
+        if (!navigationRef.isReady()) return false;
+        try {
+          if (data.mangaId) navigationRef.navigate('MangaDetail', { id: data.mangaId });
+          else if (data.novelId) navigationRef.navigate('NovelDetail', { id: data.novelId });
+          else return true;
+          return true;
+        } catch (e) {
+          console.warn('[App] open from notification:', e?.message);
+          return true;
         }
-
-        // Track last notification to prevent duplicates
-        let lastNotificationId = null;
-
-        // Listen for notification opens
-        const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-          console.log('[App] Notification response received:', response);
-        });
-
-        // Listen for notifications received in foreground
-        const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
-          console.log('[App] Notification received in foreground:', notification);
-          
-          // Check if this is a remote push notification (not a local one)
-          if (notification.request.trigger && notification.request.trigger.type === 'push') {
-            const notificationId = notification.request.identifier;
-            
-            // Prevent duplicate notifications
-            if (notificationId !== lastNotificationId) {
-              lastNotificationId = notificationId;
-              
-              // Schedule a local notification to show in Android notification bar
-              Notifications.scheduleNotificationAsync({
-                content: {
-                  title: notification.request.content.title,
-                  body: notification.request.content.body,
-                  data: notification.request.content.data,
-                  sound: 'notification_sound',
-                },
-                trigger: null, // Show immediately
-              });
-            }
-          }
-          
-          // Show alert
-          Alert.alert(
-            notification.request.content.title,
-            notification.request.content.body
-          );
-          NotificationEmitter.emit();
-        });
-
-        return () => {
-          subscription.remove();
-          foregroundSubscription.remove();
-        };
-      } catch (error) {
-        console.error('[App] Error setting up notifications:', error);
+      };
+      // The navigator may still be mounting on a cold start.
+      if (!go()) {
+        let tries = 0;
+        const t = setInterval(() => {
+          tries += 1;
+          if (go() || tries > 20) clearInterval(t);
+        }, 250);
       }
     };
 
-    setupNotifications();
-  }, []);
+    Notifications.getLastNotificationResponseAsync()
+      .then((r) => { if (r) openFromNotification(r); })
+      .catch(() => {});
+    const responseSub = Notifications.addNotificationResponseReceivedListener(openFromNotification);
+    const receivedSub = Notifications.addNotificationReceivedListener(() => NotificationEmitter.emit());
+    return () => {
+      responseSub.remove();
+      receivedSub.remove();
+    };
+  }, [navigationRef]);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
@@ -329,7 +394,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
           try {
             await NavigationBar.setVisibilityAsync('visible');
             try {
-              await NavigationBar.setBehaviorAsync('overlay');
+              await NavigationBar.setBehaviorAsync('inset-touch'); // 'overlay' is not a valid behavior
             } catch (behaviorError) {
               console.warn('System UI behavior cleanup warning:', behaviorError);
             }
@@ -343,101 +408,46 @@ const AppContent = ({ setIsStatusBarHidden }) => {
     }
   }, [setIsStatusBarHidden]);
 
-  if (!fontsLoaded || isLoading) {
-    return null; // Render nothing until fonts and auth are loaded
+  if (!ready) {
+    return null; // the native splash is still covering the screen
   }
 
+  // Global chrome belongs to the signed-in app only — not the intro or sign-in.
+  const inApp = !showWelcome && !!user;
+  // The chapter reader has its own bar; the app header would just eat reading space.
+  const showNavbar = inApp && currentRoute !== 'Kaiji' && currentRoute !== 'Chapter';
+  // Readers are immersive: the tab bar would sit over the page being read.
+  const showBottomNav = inApp && !IMMERSIVE_ROUTES.has(currentRoute);
+
   return (
-    <NavigationContainer ref={navigationRef}>
-      <View style={{ flex: 1, backgroundColor: '#0A0A18' }}>
-        {currentRoute !== 'Kaiji' && <GlobalNavbar />}
-        <Stack.Navigator
-          screenOptions={{
-            headerShown: false,
-            cardStyle: { backgroundColor: '#0A0A18' },
-          }}
-        >
-        {showWelcome ? (
-          <Stack.Screen
-            name="Welcome"
-            component={WelcomeScreen}
-            options={{
-              cardStyle: {
-                backgroundColor: '#0A0A18',
-              },
-            }}
-          />
-        ) : !user ? (
-          <Stack.Screen
-            name="SignIn"
-            component={SignIn}
-            options={{
-              cardStyle: {
-                backgroundColor: '#0A0A18',
-              },
-            }}
-          />
-        ) : (
-          <>
-            <Stack.Screen name="Home" component={HomeScreen} />
-            <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-            <Stack.Screen name="NovelDetail" component={NovelDetailScreen} />
-            <Stack.Screen name="MangaDetail" component={MangaDetailScreen} />
-            <Stack.Screen name="NovelsPage" component={NovelsPageScreen} />
-            <Stack.Screen name="Swap" component={SwapScreen} />
-            <Stack.Screen name="Stats" component={StatPageScreen} />
-            <Stack.Screen name="Chat" component={ChatScreen} />
-            <Stack.Screen name="KaitoAdventure" component={KaitoAdventureScreen} />
-            <Stack.Screen name="DAOGovernance" component={DAOGovernanceScreen} />
-            <Stack.Screen name="KeepItSimple" component={KeepItSimpleScreen} />
-            <Stack.Screen name="Apply" component={ApplyScreen} />
-            <Stack.Screen name="Chapter" component={ChapterScreen} />
-            <Stack.Screen name="NovelSummary" component={NovelSummaryScreen} />
-            <Stack.Screen name="NovelDashboard" component={NovelDashboardScreen} />
-            <Stack.Screen name="MangaDashboard" component={MangaDashboardScreen} />
-            <Stack.Screen name="CreatorDashboard" component={CreatorDashboardScreen} />
-            <Stack.Screen name="MangaPage" component={MangaPageScreen} />
-            <Stack.Screen name="CreatorsProfile" component={CreatorsProfileScreen} />
-            <Stack.Screen name="MangaChapter" component={MangaChapterScreen} />
-            <Stack.Screen name="Wallet" component={WalletScreen} />
-            <Stack.Screen name="Feed" component={FeedScreen} />
-            <Stack.Screen name="Crazy Corner" component={FeedScreen} />
-            <Stack.Screen name="FeedScreen" component={FeedScreen} />
-            <Stack.Screen name="Ramp" component={RampScreen} />
-            <Stack.Screen name="Marketplace" component={MarketplaceScreen} />
-            <Stack.Screen name="WalletImport" component={WalletImportScreen} />
-            <Stack.Screen name="Mint" component={MintScreen} />
-            <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-            <Stack.Screen name="Admin" component={AdminScreen} />
-            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
-            <Stack.Screen name="Terms" component={TermsScreen} />
-            <Stack.Screen name="Support" component={SupportScreen} />
-            <Stack.Screen name="Profile" component={ProfileScreen} />
-            <Stack.Screen name="Download" component={DownloadScreen} />
-            <Stack.Screen name="KaitoLeaderboard" component={KaitoLeaderboardScreen} />
-            <Stack.Screen name="AddGif" component={AddGifScreen} />
-            <Stack.Screen name="Badges" component={BadgesScreen} />
-            <Stack.Screen name="Kaiji" component={KaijiScreen} />
-            <Stack.Screen name="Inbox" component={InboxScreen} />
-            <Stack.Screen name="Reader" component={ReaderScreen} />
-            <Stack.Screen name="Bazaar" component={BazaarScreen} />
-            <Stack.Screen name="BazaarBook" component={BazaarBookScreen} />
-            <Stack.Screen name="UploadBook" component={UploadBookScreen} />
-            <Stack.Screen name="BazaarDashboard" component={BazaarDashboardScreen} />
-          </>
+    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={syncRoute} onStateChange={syncRoute}>
+      <View style={[shellStyles.root, { backgroundColor: colors.bg }]}>
+        {showNavbar && <GlobalNavbar />}
+        <Stack.Navigator screenOptions={screenOptions}>
+          {showWelcome ? (
+            <Stack.Screen name="Welcome" component={WelcomeScreen} />
+          ) : !user ? (
+            <Stack.Screen name="SignIn" component={GuardedSignIn} />
+          ) : (
+            <>
+              <Stack.Screen name="Home" component={GuardedHome} />
+              {LAZY_SCREENS.map(([name, getComponent]) => (
+                <Stack.Screen key={name} name={name} getComponent={() => withScreenBoundary(getComponent(), name)} />
+              ))}
+            </>
+          )}
+        </Stack.Navigator>
+        {showBottomNav && (
+          <GlobalBottomNav onMenuToggle={toggleSidebar} menuOpen={sidebarOpen} />
         )}
-      </Stack.Navigator>
-        {currentRoute !== 'KaitoAdventure' && currentRoute !== 'Kaiji' && (
-          <GlobalBottomNav 
-            onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-            menuOpen={sidebarOpen}
+        {inApp && <GlobalSidebar isVisible={sidebarOpen} onClose={closeSidebar} />}
+        {inApp ? (
+          <OfflineBanner
+            topOffset={showNavbar ? 64 : 10}
+            onOpenSaved={() => navigationRef.isReady() && navigationRef.navigate('Home')}
           />
-        )}
-        <GlobalSidebar 
-          isVisible={sidebarOpen}
-          onClose={() => setSidebarOpen(false)}
-        />
-        <NavigationLoadingOverlay visible={isNavigating} />
+        ) : null}
+        <ToastHost />
       </View>
     </NavigationContainer>
   );

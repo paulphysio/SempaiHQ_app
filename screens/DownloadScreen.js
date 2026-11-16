@@ -1,15 +1,9 @@
 import React, {useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Linking,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { getDownloadStyles } from '../styles/DownloadStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -85,10 +79,10 @@ const DownloadScreen = () => {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('Error', 'Cannot open this URL');
+        toast.error('Cannot open this URL');
       }
     } catch (err) {
-      Alert.alert('Error', 'Failed to open download link');
+      toast.error('Failed to open download link');
     }
   };
 
@@ -122,7 +116,7 @@ const DownloadScreen = () => {
                     style={styles.downloadButton}
                     onPress={() => handleDownload(apk.download_url)}
                   >
-                    <Icon name="download" size={20} color="#FFF" />
+                    <FontAwesome5 name="download" size={18} color="#FFF" />
                     <Text style={styles.downloadButtonText}>Download APK</Text>
                   </TouchableOpacity>
                 </View>

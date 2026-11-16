@@ -6,6 +6,7 @@
 // are defined here.
 
 import { StyleSheet, Dimensions, Platform } from 'react-native';
+import { surfacePalettes } from '../theme/tokens';
 
 const { width } = Dimensions.get('window');
 
@@ -16,82 +17,8 @@ const { width } = Dimensions.get('window');
 // aged gold) so the brand reads identically in either mode — dark leans into
 // lantern-lit paper, light leans into sun-bleached parchment.
 
-const PALETTE = {
-  dark: {
-    bg: '#0c0c0c',
-    bgCard: '#141210',
-    bgElevated: '#1a1714',
-    bgElevated2: '#211c15',
-    bgInput: '#181410',
-
-    accent: '#cc5500',
-    accentBright: '#ff6b35',
-    accentSoft: 'rgba(230,126,34,0.16)',
-    accentDim: '#8b4513',
-
-    gold: '#c9a84c',
-    goldBright: '#ffd700',
-    goldSoft: 'rgba(201,168,76,0.16)',
-
-    textPrimary: '#f5e6d3',
-    textSecondary: '#a8987f',
-    textMuted: '#6b5d4f',
-    textOnAccent: '#fff8ef',
-    textOnGold: '#1b1710',
-
-    border: '#2c2419',
-    borderStrong: '#3d3221',
-    divider: '#221c14',
-
-    success: '#5fa876',
-    successSoft: 'rgba(95,168,118,0.14)',
-    error: '#e2495f',
-    errorSoft: 'rgba(226,73,95,0.14)',
-    warning: '#c9a84c',
-    warningSoft: 'rgba(201,168,76,0.14)',
-
-    overlay: 'rgba(5,4,2,0.88)',
-    shadow: '#000000',
-    skeleton: '#211c15',
-  },
-  light: {
-    bg: '#faf5ea',
-    bgCard: '#ffffff',
-    bgElevated: '#f2e9d8',
-    bgElevated2: '#ece0c6',
-    bgInput: '#ffffff',
-
-    accent: '#c65200',
-    accentBright: '#e0662a',
-    accentSoft: 'rgba(198,82,0,0.10)',
-    accentDim: '#a85f2b',
-
-    gold: '#96762f',
-    goldBright: '#b28f3a',
-    goldSoft: 'rgba(150,118,47,0.12)',
-
-    textPrimary: '#2a2216',
-    textSecondary: '#6d5f49',
-    textMuted: '#a2937a',
-    textOnAccent: '#fffaf3',
-    textOnGold: '#fffaf3',
-
-    border: '#e7d9bd',
-    borderStrong: '#d6c39c',
-    divider: '#efe3cc',
-
-    success: '#3c7a52',
-    successSoft: 'rgba(60,122,82,0.10)',
-    error: '#c13a52',
-    errorSoft: 'rgba(193,58,82,0.10)',
-    warning: '#96762f',
-    warningSoft: 'rgba(150,118,47,0.10)',
-
-    overlay: 'rgba(38,30,18,0.55)',
-    shadow: '#2a2216',
-    skeleton: '#f2e9d8',
-  },
-};
+// Shared app-wide surface palette (theme/tokens.js) — was a private sepia copy.
+const PALETTE = surfacePalettes;
 
 const RADIUS = { xs: 8, sm: 12, md: 16, lg: 20, xl: 26, pill: 999 };
 const SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 };

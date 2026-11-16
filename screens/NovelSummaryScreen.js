@@ -21,6 +21,7 @@ import { getNovelForOffline, isErrorNetworkError } from '../services/offlineCach
 import { useTheme } from '../context/ThemeContext';
 import { getNovelPageStyles } from '../styles/NovelPageStyles';
 
+import { LOGO } from '../theme/tokens';
 const { width, height } = Dimensions.get('window');
 
 // Kaito Adventure Design System - Japanese Dark-Orange
@@ -29,11 +30,11 @@ const KA_COLORS_BASE = {
   bgCard: '#141210',
   bgElevated: '#1a1714',
   orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
+  orangeBright: '#FF8A3D',
   orangeSoft: '#e67e22',
   orangeDim: '#8b4513',
   gold: '#c9a84c',
-  goldBright: '#ffd700',
+  goldBright: '#FFC857',
   ivory: '#f5e6d3',
   ivoryDim: '#c4b5a0',
   border: '#2d2418',
@@ -295,12 +296,13 @@ const styles = StyleSheet.create({
 });
 
 const NovelSummaryScreen = () => {
-  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark]);
   const navigation = useNavigation();
   const route = useRoute();
   const { id } = route.params || {};
   const { isDark, colors } = useTheme();
-  const styles = getNovelPageStyles(isDark);
+  // After useTheme(): it used to read isDark/colors before they existed and crash.
+  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark, colors]);
+  const styles = useMemo(() => getNovelPageStyles(isDark), [isDark]);
   
   const [novels, setNovels] = useState([]);
   const [singleNovel, setSingleNovel] = useState(null);
@@ -579,15 +581,9 @@ const NovelSummaryScreen = () => {
             onPress={() => navigation.navigate('Home')}
           >
             <Image
-              source={{
-                uri:
-                  'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' ||
-                  'https://placehold.co/50x50/png?text=Logo',
-              }}
+              source={LOGO}
               style={styles.logo}
-              resizeMode="cover"
-              defaultSource={{ uri: 'https://placehold.co/50x50/png?text=Logo' }}
-            />
+              resizeMode="cover"            />
             <Text style={styles.logoText}>SempaiHQ</Text>
           </TouchableOpacity>
           <Text style={styles.summaryPageTitle}>Novel Summaries</Text>

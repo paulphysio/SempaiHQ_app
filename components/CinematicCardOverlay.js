@@ -5,6 +5,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { styles, HOME_COLORS } from '../styles/HomeStyles';
 import { EXPANDED_RECT } from '../utils/cardExpansion';
 
+import { coverSource } from '../theme/tokens';
 const { height: SCREEN_H } = Dimensions.get('window');
 
 const CinematicCardOverlay = ({ expandedCard, progress, kenBurns, onClose, onReadNow }) => {
@@ -59,7 +60,7 @@ const CinematicCardOverlay = ({ expandedCard, progress, kenBurns, onClose, onRea
         <TouchableWithoutFeedback onPress={onClose}>
           <View style={{ flex: 1 }}>
             <Animated.Image
-              source={{ uri: item.image || 'https://via.placeholder.com/400x600' }}
+              source={coverSource(item.image)}
               style={{ width: '100%', height: '100%', transform: [{ scale: kenBurnsScale }] }}
               resizeMode="cover"
             />

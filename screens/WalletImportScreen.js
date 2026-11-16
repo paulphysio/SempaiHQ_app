@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const WalletImportScreen = () => {
   const { isDark, colors } = useTheme();
@@ -40,14 +41,14 @@ const WalletImportScreen = () => {
     try {
       const result = await importWalletFromPrivateKey(privateKey.trim(), password);
       if (result) {
-        Alert.alert('Success', 'Wallet imported successfully!');
+        toast.success('Wallet imported successfully!');
         navigation.replace('Home');
       } else {
-        Alert.alert('Error', 'Failed to import wallet');
+        toast.error('Failed to import wallet');
       }
     } catch (error) {
       console.error('[WalletImportScreen] Import error:', error);
-      Alert.alert('Import Failed', error.message || 'Failed to import wallet. Check your private key and try again.');
+      toast.error(`Import Failed — ${error.message || 'Failed to import wallet. Check your private key and try again.'}`);
     } finally {
       setImporting(false);
     }

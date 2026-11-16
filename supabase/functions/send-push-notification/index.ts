@@ -14,6 +14,26 @@ serve(async (req) => {
       return new Response("Method not allowed", { status: 405 });
     }
 
+    // Server only: pushes go out through reader-actions (which checks who may
+    // notify whom). Without this, anyone with the public key could push any
+    // message to every user's phone.
+    const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+    let isServer = !!supabaseAdminKey && token === supabaseAdminKey;
+    if (!isServer && token) {
+      try {
+        const part = token.split(".")[1] || "";
+        const role = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")
+          .padEnd(Math.ceil(part.length / 4) * 4, "=")))?.role;
+        if (role === "service_role") {
+          const probe = await fetch(`${supabaseUrl}/rest/v1/`, { headers: { apikey: token, Authorization: `Bearer ${token}` } });
+          isServer = probe.status === 200;
+        }
+      } catch { /* not a server token */ }
+    }
+    if (!isServer) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+    }
+
     const { userIds, title, body, data } = await req.json();
 
     if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
@@ -42,20 +62,21 @@ serve(async (req) => {
       if (chunk) users.push(...chunk);
     }
 
-    if (usersError) {
-      console.error("[send-push-notification] Error fetching users:", usersError);
-      return new Response(JSON.stringify({ error: "Failed to fetch users" }), { status: 500 });
-    }
+    // (A second `if (usersError)` check used to sit here, outside the loop where
+    // `usersError` is scoped. It threw "usersError is not defined" on every
+    // call, so no push notification was ever sent.)
 
     if (!users || users.length === 0) {
       console.log("[send-push-notification] No users found");
       return new Response(JSON.stringify({ success: true, message: "No users to notify" }), { status: 200 });
     }
 
-    // Filter users with valid push tokens
-    const pushTokens = users
-      .filter((user: any) => user.push_token)
-      .map((user: any) => user.push_token);
+    // Valid tokens only, de-duplicated (one device can be linked to several rows).
+    const pushTokens = [...new Set(
+      users
+        .map((user: any) => user.push_token)
+        .filter((t: any) => typeof t === "string" && /^Expo(nent)?PushToken\[/.test(t))
+    )];
 
     console.log("[send-push-notification] Found", pushTokens.length, "valid push tokens");
 
@@ -73,6 +94,10 @@ serve(async (req) => {
       title,
       body,
       data: data || {},
+      // Android: the app's MAX-importance channel (heads-up banner, custom
+      // sound, vibration, status-bar icon) and wake the device immediately.
+      channelId: "reading-updates",
+      priority: "high",
     }));
 
     console.log("[send-push-notification] Sending notifications to Expo Push API");
@@ -115,11 +140,34 @@ serve(async (req) => {
       }), { status: 500 });
     }
 
-    console.log("[send-push-notification] Push notifications sent successfully");
+    // Expo answers per message. "DeviceNotRegistered" means the app was
+    // uninstalled or the token rotated — clear it so we stop sending to it.
+    const deadTokens: string[] = [];
+    const ticketErrors: any[] = [];
+    tickets.forEach((ticket: any, i: number) => {
+      if (ticket?.status === "error") {
+        ticketErrors.push(ticket?.details?.error || ticket?.message);
+        if (ticket?.details?.error === "DeviceNotRegistered") deadTokens.push(messages[i]?.to);
+      }
+    });
+    if (deadTokens.length) {
+      const { error: clearError } = await supabaseAdmin
+        .from("users")
+        .update({ push_token: null })
+        .in("push_token", deadTokens.filter(Boolean));
+      if (clearError) console.error("[send-push-notification] Failed to clear dead tokens:", clearError);
+      else console.log("[send-push-notification] Cleared", deadTokens.length, "dead tokens");
+    }
+
+    const delivered = tickets.filter((t: any) => t?.status === "ok").length;
+    console.log("[send-push-notification] Sent:", delivered, "ok,", ticketErrors.length, "failed");
     return new Response(JSON.stringify({
       success: true,
-      message: "Notifications sent successfully",
-      count: pushTokens.length
+      message: "Notifications sent",
+      count: pushTokens.length,
+      delivered,
+      failed: ticketErrors.length,
+      errors: ticketErrors.slice(0, 5),
     }), { status: 200 });
 
   } catch (error: any) {

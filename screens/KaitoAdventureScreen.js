@@ -1985,7 +1985,7 @@ const KaitoAdventureScreen = () => {
                   </Text>
                 </View>
                 <View style={styles.stat}>
-                  <Icon name="coins" size={16} color="#ffd700" />
+                  <Icon name="coins" size={16} color="#FFC857" />
                   <Text style={styles.statText}>{player.gold} Gold</Text>
                 </View>
                 <View style={styles.stat}>

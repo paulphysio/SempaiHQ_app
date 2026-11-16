@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const SignInScreen = () => {
   const { signIn, skipSignIn } = useAuth();
@@ -15,10 +16,10 @@ const SignInScreen = () => {
       if (success) {
         navigation.navigate('Home');
       } else {
-        Alert.alert('Error', 'Failed to sign in with Google');
+        toast.error('Failed to sign in with Google');
       }
     } catch (err) {
-      Alert.alert('Error', 'Sign-in failed: ' + err.message);
+      toast.error('Sign-in failed: ' + err.message);
     }
   };
 
@@ -27,7 +28,7 @@ const SignInScreen = () => {
       await skipSignIn();
       navigation.navigate('Home');
     } catch (err) {
-      Alert.alert('Error', 'Failed to skip sign-in');
+      toast.error('Failed to skip sign-in');
     }
   };
 

@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
-  TouchableWithoutFeedback,
   Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -515,29 +514,34 @@ export const EmptyState = ({ icon = 'book-open', title, subtitle, action, onActi
 export const Sheet = ({ visible, onClose, title, children, footer, tall }) => {
   const t = useMangaTheme();
   const { colors, type } = t;
+  // The backdrop is its own layer *behind* the panel. (The panel used to sit
+  // inside a TouchableWithoutFeedback to stop taps closing it — on Android
+  // that wrapper also swallowed drag gestures, so lists inside sheets could
+  // not scroll.)
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={onClose}>
-          <View style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }}>
-            <TouchableWithoutFeedback>
-              <Animated.View
-                entering={FadeInDown.springify().damping(18)}
-                style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: colors.lineStrong, maxHeight: tall ? '90%' : '78%', paddingTop: 10 }}
-              >
-                <View style={{ alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: colors.lineStrong, marginBottom: 10 }} />
-                {title ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingBottom: space.md }}>
-                    <Text style={type.h1}>{title}</Text>
-                    <IconButton icon="times" onPress={onClose} label="Close" size={34} />
-                  </View>
-                ) : null}
-                <View style={{ paddingHorizontal: space.xl, flexShrink: 1 }}>{children}</View>
-                {footer ? <View style={{ padding: space.xl, paddingTop: space.md }}>{footer}</View> : null}
-              </Animated.View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+        <Pressable
+          style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim }]}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        />
+        <Animated.View
+          entering={FadeInDown.springify().damping(18)}
+          style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: colors.lineStrong, maxHeight: tall ? '90%' : '78%', paddingTop: 10 }}
+        >
+          <View style={{ alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: colors.lineStrong, marginBottom: 10 }} />
+          {title ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingBottom: space.md }}>
+              <Text style={type.h1}>{title}</Text>
+              <IconButton icon="times" onPress={onClose} label="Close" size={34} />
+            </View>
+          ) : null}
+          {/* flexShrink lets a ScrollView child take the remaining height and scroll */}
+          <View style={{ paddingHorizontal: space.xl, flexShrink: 1 }}>{children}</View>
+          {footer ? <View style={{ padding: space.xl, paddingTop: space.md }}>{footer}</View> : null}
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );

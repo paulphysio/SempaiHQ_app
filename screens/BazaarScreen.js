@@ -1,28 +1,30 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../services/supabaseClient';
-import { useBazaarTheme } from '../styles/BazaarStyles';
+import { cacheSet, cacheValue } from '../services/localCache';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { EmptyState } from '../components/ui';
+import GelOrb from '../components/nav/GelOrb';
+import { useTheme } from '../context/ThemeContext';
+import { formatCount } from '../components/detail/DetailKit';
+import { Page, PageHeader, SearchField, ChipRow, SectionHeader, PosterGrid } from '../components/page/PageKit';
+
+const FILTERS = [
+  { value: 'sale', label: 'For sale' },
+  { value: 'lend', label: 'Lending' },
+  { value: 'pdf', label: 'PDF' },
+  { value: 'epub', label: 'EPUB' },
+];
 
 const BazaarScreen = () => {
-  const { colors: BAZAAR_COLORS, styles } = useBazaarTheme();
   const navigation = useNavigation();
-  const insets = useSafeAreaInsets();
-  // Clear the floating GlobalBottomNav (68px) so the last row stays visible.
-  const bottomNavClearance = Math.max(insets.bottom, 8) + 12 + 68 + 8;
+  const { colors } = useTheme();
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState('');
+  const [filters, setFilters] = useState([]);
 
   const loadBooks = useCallback(async () => {
     try {
@@ -33,8 +35,12 @@ const BazaarScreen = () => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       setBooks(data || []);
+      cacheSet('lib:bazaar', data || []);
     } catch (err) {
-      console.error('[Bazaar] Failed to load books:', err.message);
+      // Offline / flaky connection: show the last shelf we had.
+      const cached = await cacheValue('lib:bazaar');
+      if (cached) setBooks(cached);
+      else console.warn('[Bazaar] Failed to load books:', err.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -45,111 +51,91 @@ const BazaarScreen = () => {
     loadBooks();
   }, [loadBooks]);
 
-  const renderBook = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.85}
-      onPress={() => navigation.navigate('BazaarBook', { bookId: item.id })}
-    >
-      {item.cover_url ? (
-        <Image source={{ uri: item.cover_url }} style={styles.cardCover} resizeMode="cover" />
-      ) : (
-        <View style={[styles.cardCover, styles.cardCoverPlaceholder]}>
-          <Ionicons name="book" size={36} color={BAZAAR_COLORS.textMuted} />
-        </View>
-      )}
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.cardAuthor} numberOfLines={1}>
-          {item.author_name || 'Unknown author'}
-        </Text>
-        <View style={styles.cardFooter}>
-          {item.sale_enabled ? (
-            <View style={styles.priceBadge}>
-              <Text style={styles.priceText}>${Number(item.price_usd).toFixed(2)}</Text>
-            </View>
-          ) : item.lending_enabled ? (
-            <View style={[styles.typeBadge, { backgroundColor: 'rgba(255,215,0,0.15)' }]}>
-              <Text style={[styles.typeText, { color: '#FFD700' }]}>LEND</Text>
-            </View>
-          ) : (
-            <View />
-          )}
-          <View style={styles.typeBadge}>
-            <Text style={styles.typeText}>{item.file_type}</Text>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  const toggle = (v) => setFilters((f) => (f.includes(v) ? f.filter((x) => x !== v) : [...f, v]));
+
+  const cards = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return books
+      .filter((b) => {
+        if (q && !b.title?.toLowerCase().includes(q) && !b.author_name?.toLowerCase().includes(q)) return false;
+        if (filters.includes('sale') && !b.sale_enabled) return false;
+        if (filters.includes('lend') && !b.lending_enabled) return false;
+        const type = String(b.file_type || '').toLowerCase();
+        if (filters.includes('pdf') && type !== 'pdf') return false;
+        if (filters.includes('epub') && type !== 'epub') return false;
+        return true;
+      })
+      .map((b) => ({
+        id: b.id,
+        kind: 'book',
+        title: b.title,
+        image: b.cover_url,
+        author: b.author_name,
+        badge: b.file_type ? { label: String(b.file_type).toUpperCase() } : undefined,
+        meta: b.sale_enabled
+          ? `$${Number(b.price_usd).toFixed(2)} · ${b.author_name || 'Unknown author'}`
+          : b.lending_enabled
+          ? `Lend · ${formatCount(b.lend_price_smp)} SMP`
+          : b.author_name || 'Unknown author',
+      }));
+  }, [books, query, filters]);
+
+  const openBook = useCallback((item) => navigation.navigate('BazaarBook', { bookId: item.id }), [navigation]);
+  const filtering = !!(query || filters.length);
 
   if (loading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Bazaar</Text>
-        </View>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={BAZAAR_COLORS.accent} />
-        </View>
-      </View>
-    );
+    return <ScreenSkeleton variant="grid" label="Loading Bazaar" />;
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Bazaar</Text>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => navigation.navigate('UploadBook')}
-          accessibilityLabel="Upload a book"
-        >
-          <Ionicons name="cloud-upload-outline" size={24} color={BAZAAR_COLORS.accent} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={() => navigation.navigate('BazaarDashboard')}
-          accessibilityLabel="My bazaar dashboard"
-        >
-          <Ionicons name="stats-chart-outline" size={24} color={BAZAAR_COLORS.textSecondary} />
-        </TouchableOpacity>
-      </View>
+    <Page
+      scroll
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => {
+            setRefreshing(true);
+            loadBooks();
+          }}
+          tintColor={colors.accent}
+          colors={[colors.accent]}
+        />
+      }
+    >
+      <PageHeader
+        eyebrow="Marketplace"
+        title="Bazaar"
+        subtitle="Indie books, sold and lent by their authors."
+        right={
+          <>
+            <GelOrb icon="chart-line" size={40} onPress={() => navigation.navigate('BazaarDashboard')} label="My Bazaar sales" breathe={false} />
+            <GelOrb icon="cloud-upload-alt" size={40} lit onPress={() => navigation.navigate('UploadBook')} label="Upload a book" breathe={false} />
+          </>
+        }
+      />
+      <SearchField value={query} onChangeText={setQuery} placeholder="Search title or author" />
+      <ChipRow options={FILTERS} selected={filters} onToggle={toggle} onClear={() => setFilters([])} />
 
-      {books.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Ionicons name="book-outline" size={56} color={BAZAAR_COLORS.textMuted} />
-          <Text style={[styles.mutedText, { marginTop: 16 }]}>
-            No books in the bazaar yet.{"\n"}Be the first to upload one.
-          </Text>
-          <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate('UploadBook')}>
-            <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
-            <Text style={styles.primaryButtonText}>Upload a Book</Text>
-          </TouchableOpacity>
-        </View>
+      <SectionHeader title={filtering ? 'Results' : 'New arrivals'} count={cards.length} />
+      {cards.length ? (
+        <PosterGrid items={cards} onOpen={openBook} />
       ) : (
-        <FlatList
-          data={books}
-          keyExtractor={(item) => item.id}
-          renderItem={renderBook}
-          numColumns={2}
-          columnWrapperStyle={{ gap: 16, paddingHorizontal: 16 }}
-          contentContainerStyle={{ paddingVertical: 16, gap: 16, paddingBottom: bottomNavClearance }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                loadBooks();
-              }}
-              tintColor={BAZAAR_COLORS.accent}
-            />
-          }
+        <EmptyState
+          icon="store"
+          title={filtering ? 'No matches' : 'The Bazaar is empty'}
+          subtitle={filtering ? 'Try a different search or filter.' : 'Be the first to publish a book here.'}
+          action={filtering ? 'Clear filters' : 'Upload a book'}
+          onAction={() => {
+            if (filtering) {
+              setQuery('');
+              setFilters([]);
+            } else {
+              navigation.navigate('UploadBook');
+            }
+          }}
         />
       )}
-    </View>
+    </Page>
   );
 };
 

@@ -9,8 +9,15 @@ const SMP_DIRECTORY = 'smp-novels';
  * @param {any} error
  */
 export function isErrorNetworkError(error) {
-  const message = error instanceof Error ? error.message : String(error);
-  const lowerMessage = message.toLowerCase();
+  if (!error) return false;
+  // Supabase returns plain objects ({ message, details, code }), not Error
+  // instances — String(error) gave "[object Object]", so network failures were
+  // never detected and every offline fallback in the app was skipped.
+  const message =
+    error instanceof Error
+      ? error.message
+      : [error.message, error.details, error.hint, typeof error === 'string' ? error : ''].filter(Boolean).join(' ');
+  const lowerMessage = String(message || '').toLowerCase();
   return lowerMessage.includes("network request failed") ||
          lowerMessage.includes("network error") ||
          lowerMessage.includes("fetch failed") ||
@@ -187,9 +194,10 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
  * @returns {Promise<Object|null>} - Object with { novel, chapters } or null
  */
 export async function getNovelForOffline(novelId, userId) {
+  // Declared outside try: the catch block deletes this file when it's corrupt.
+  const filePath = getSmpDirectory() + novelId + '.smp';
   try {
     console.log('[getNovelForOffline] Loading novel:', novelId);
-    const filePath = getSmpDirectory() + novelId + '.smp';
 
     const fileInfo = await FileSystem.getInfoAsync(filePath);
     if (!fileInfo.exists) {
@@ -203,6 +211,22 @@ export async function getNovelForOffline(novelId, userId) {
     });
 
     const data = JSON.parse(jsonData);
+    if (!data || !data.novel) throw new Error('Saved file has no novel data');
+
+    // Saved files keep chapter text in `chapters`, but every reader looks up
+    // `novel.chaptercontents[id]` — merge them so offline chapters open
+    // (they used to show "Chapter not found" offline).
+    data.chapters = Array.isArray(data.chapters) ? data.chapters : [];
+    const contents = { ...(data.novel.chaptercontents || {}) };
+    const titles = { ...(data.novel.chaptertitles || {}) };
+    data.chapters.forEach((c) => {
+      if (!c || c.content == null) return;
+      const key = String(c.chapter_number);
+      contents[key] = c.content;
+      if (c.title && !titles[key]) titles[key] = c.title;
+    });
+    data.novel.chaptercontents = contents;
+    data.novel.chaptertitles = titles;
 
     // Check if image exists locally
     const imagePath = getSmpDirectory() + novelId + '.jpg';

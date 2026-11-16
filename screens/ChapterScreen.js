@@ -1,23 +1,7 @@
 import React, { useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-  Animated,
-  Image,
-  TouchableOpacity,
-  Modal,
-  StatusBar,
-  SafeAreaView,
-  Linking,
-  Alert,
-  ActivityIndicator,
-  Share,
-  TextInput,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, Animated, Image, TouchableOpacity, Modal, StatusBar, SafeAreaView, Linking, ActivityIndicator, Share, TextInput, Platform, Pressable, FlatList } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode, Audio } from 'expo-av';
 import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -53,8 +37,17 @@ import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
 import pioneerBadge from '../assets/Pioneer.png';
 import { useReadingTimer, formatReadingTime } from '../hooks/useReadingTimer';
 import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
+import { toast } from '../components/Toast';
+import { readerAction } from '../services/readerActions';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { useOnline } from '../hooks/useOnline';
+import { EmptyState, Sheet } from '../components/ui';
+import GelOrb from '../components/nav/GelOrb';
+import { ActionButton, makeDetailStyles } from '../components/detail/DetailKit';
+import { Page, PageHeader, Card, Field, TextField } from '../components/page/PageKit';
+import { radius, space } from '../theme/tokens';
 
-const { height } = Dimensions.get('window');
+const { height, width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Create connection with fallback logic
 const connection = new Connection(RPC_URL, 'confirmed', {
@@ -151,7 +144,126 @@ const AD_VIDEO_URI = require('../assets/ad_video.mp4');
 // USD cost of unlocking a single chapter. Centralized here so the displayed
 // SMP cost (SMP_READ_COST) and the amount actually charged on-chain
 // (processChapterPayment) can never drift apart.
-const CHAPTER_READ_USD_COST = 0.0025; // Reduced for testing
+const CHAPTER_READ_USD_COST = 0.0025; // matches the server (supabase/functions/unlock-chapter)
+
+// ---------------------------------------------------------------------------
+// Payment errors readers can act on
+// ---------------------------------------------------------------------------
+// `sent` = the transaction was already signed and submitted. Before that point
+// nothing can have left the wallet, so we can promise "you were not charged";
+// after it, we must never invite a second payment.
+const SIGN_IN_REQUIRED = 'SIGN_IN_REQUIRED';
+const shortSig = (sig) => (sig ? `${String(sig).slice(0, 4)}…${String(sig).slice(-4)}` : '');
+
+const friendlyPaymentError = (err, currency = 'SMP', sent = false, signature = null) => {
+  const raw = String(err?.message || err || '');
+  const m = raw.toLowerCase();
+
+  if (raw.startsWith('UNLOCK_REFUSED: ')) {
+    return `We couldn't confirm this payment for the chapter: ${raw.slice(16)}. ` +
+      `If tokens left your wallet, please DON'T pay again — contact support with code ${shortSig(signature)}.`;
+  }
+  if (raw === SIGN_IN_REQUIRED) {
+    return 'Please sign in with Google to unlock chapters — your unlocks are saved to your account so you never pay twice. You were not charged.';
+  }
+  if (m.includes('user rejected') || m.includes('cancelled') || m.includes('canceled')) {
+    return 'Payment cancelled. You were not charged.';
+  }
+  if (m.includes('failed on-chain') || m.includes('transaction failed:')) {
+    return 'The Solana network rejected this payment, so no tokens were taken (only a tiny network fee). Please try again.';
+  }
+  if (sent && (m.includes('not confirmed') || m.includes('timeout') || m.includes('network request failed') || m.includes('fetch'))) {
+    return `Your payment was sent but hasn't confirmed yet. Please DON'T pay again — wait a minute and reopen this chapter. If it's still locked, contact support with code ${shortSig(signature)}.`;
+  }
+  if (m.includes('insufficient lamports') || m.includes('no record of a prior credit') ||
+      m.includes('insufficient funds for fee') || m.includes('insufficient sol')) {
+    return 'Not enough SOL for the network fee. Add a little SOL (about 0.003 SOL covers it, more the first time you hold a token) and try again. You were not charged.';
+  }
+  if (m.includes('insufficient') || m.includes('custom program error: 0x1') || m.includes('"custom":1')) {
+    return `Not enough ${currency} in your wallet for this chapter. You were not charged.`;
+  }
+  if (m.includes('token account')) {
+    return `You don't hold any ${currency} yet. Get some ${currency} first, then unlock the chapter. You were not charged.`;
+  }
+  if (m.includes('blockhash') || m.includes('block height exceeded') || m.includes('expired')) {
+    return 'The network was busy and the payment expired before it went through. You were not charged — please try again.';
+  }
+  if (m.includes('429') || m.includes('rate limit') || m.includes('too many requests')) {
+    return 'The Solana network is busy right now. Wait a few seconds and try again. You were not charged.';
+  }
+  if (m.includes('network request failed') || m.includes('timeout') || m.includes('fetch')) {
+    return 'Connection problem — the payment was not sent. Check your internet and try again.';
+  }
+  if (m.includes('author wallet') || m.includes('novel data')) {
+    return "Couldn't load this writer's payment details. You were not charged — please try again shortly.";
+  }
+  if (m.includes('price')) {
+    return "Couldn't get the current token price. You were not charged — please try again.";
+  }
+  if (m.includes('connect your wallet')) return raw;
+  return sent
+    ? `Something went wrong after your payment was sent (${raw}). Please DON'T pay again — contact support with code ${shortSig(signature)}.`
+    : `Payment failed: ${raw}. You were not charged — please try again.`;
+};
+
+// Payments that went through on-chain but whose unlock couldn't be saved yet.
+// Kept on the phone and retried, and they count as "paid" so nobody is
+// charged twice for the same chapter.
+const PENDING_UNLOCKS_KEY = 'pending_chapter_unlocks';
+const UNLOCK_FUNCTION_URL = 'https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/unlock-chapter';
+
+const readPendingUnlocks = async () => {
+  try {
+    return JSON.parse((await AsyncStorage.getItem(PENDING_UNLOCKS_KEY)) || '[]');
+  } catch {
+    return [];
+  }
+};
+const writePendingUnlocks = async (list) => {
+  try {
+    await AsyncStorage.setItem(PENDING_UNLOCKS_KEY, JSON.stringify(list));
+  } catch {}
+};
+
+/** Save a paid unlock on the server, retrying briefly. Returns { ok, data, error }. */
+const recordChapterUnlock = async (body, attempts = 3) => {
+  let lastError = 'Unknown error';
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s?.session?.access_token;
+      if (!token) return { ok: false, error: 'Not signed in' };
+      const res = await safeFetch(UNLOCK_FUNCTION_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && !data?.error) return { ok: true, data };
+      lastError = data?.error || `Server error ${res.status}`;
+      if (/already recorded/i.test(lastError)) return { ok: true, data };
+      // 400 = the server checked the blockchain and refused this payment
+      // (fake, reused, too small…). Retrying can't change that.
+      if (res.status === 400) return { ok: false, permanent: true, error: lastError };
+    } catch (e) {
+      lastError = e?.message || String(e);
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+  }
+  return { ok: false, error: lastError };
+};
+
+/** Retry any saved-but-unrecorded unlocks (called when the reader opens). */
+const flushPendingUnlocks = async () => {
+  const pending = await readPendingUnlocks();
+  if (!pending.length) return;
+  const left = [];
+  for (const body of pending) {
+    const r = await recordChapterUnlock(body, 1);
+    if (!r.ok && !r.permanent) left.push(body);
+  }
+  await writePendingUnlocks(left);
+};
 
 // ---------------------------------------------------------------------------
 // Live pricing (Jupiter)
@@ -350,7 +462,7 @@ const ChapterScreen = () => {
   const { novelId, chapterId } = route.params || {};
   const { wallet, isWalletConnected: contextWalletConnected, signAndSendTransaction } = useContext(EmbeddedWalletContext);
   const { isDark, colors } = useTheme();
-  const styles = getChapterScreenStyles(isDark);
+  const styles = useMemo(() => getChapterScreenStyles(isDark), [isDark]);
 
   const [novel, setNovel] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -406,7 +518,7 @@ const ChapterScreen = () => {
   const [isUnlockedViaSubscription, setIsUnlockedViaSubscription] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const paymentInProgressRef = useRef(false);
-  const [isOnline, setIsOnline] = useState(null);
+  const isOnline = useOnline(); // shared app-wide monitor (hooks/useOnline)
   const emberAnims = useRef([]);
 
   // Reading time tracking
@@ -416,8 +528,6 @@ const ChapterScreen = () => {
   const embersData = useRef([]);
   const embersInitialized = useRef(false);
 
-  // Calculate if user has insufficient SMP balance
-  const hasInsufficientSmp = smpBalance < (SMP_READ_COST / 10 ** SMP_DECIMALS);
 
   // Ad unlock system
   const [hasUsedAdUnlockToday, setHasUsedAdUnlockToday] = useState(false);
@@ -512,70 +622,7 @@ const ChapterScreen = () => {
   // Fullscreen mode
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Initialize ember particles
-  useEffect(() => {
-    if (embersInitialized.current) return;
 
-    try {
-      const embers = Array.from({ length: 12 }, (_, i) => ({
-        id: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 8,
-        duration: 6 + Math.random() * 4,
-      }));
-      embersData.current = embers;
-
-      // Only initialize Animated.Value if Animated is available
-      if (Animated && Animated.Value) {
-        emberAnims.current = embers.map(() => new Animated.Value(0));
-
-        emberAnims.current.forEach((anim, index) => {
-          if (Animated.loop && Animated.sequence && Animated.delay && Animated.timing) {
-            Animated.loop(
-              Animated.sequence([
-                Animated.delay(embers[index].delay * 1000),
-                Animated.timing(anim, {
-                  toValue: 1,
-                  duration: embers[index].duration * 1000,
-                  useNativeDriver: true,
-                }),
-              ])
-            ).start();
-          }
-        });
-      }
-
-      embersInitialized.current = true;
-    } catch (error) {
-      console.error('Error initializing ember particles:', error);
-    }
-  }, []);
-
-  // Check network status
-  useEffect(() => {
-    let lastOnline = null;
-    const checkNetworkStatus = async () => {
-      try {
-        const networkState = await Network.getNetworkStateAsync();
-        const online = networkState.isConnected && networkState.type !== 'none';
-        setIsOnline(online);
-        if (online !== lastOnline) {
-          lastOnline = online;
-          if (__DEV__) console.log('[ChapterScreen] Network status:', online ? 'online' : 'offline');
-        }
-      } catch (error) {
-        console.error('[ChapterScreen] Error checking network status:', error);
-        setIsOnline(true);
-      }
-    };
-
-    checkNetworkStatus();
-    const interval = setInterval(checkNetworkStatus, 5000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
 
   const isWalletConnected = !!wallet?.publicKey;
   const activePublicKey = useMemo(() => {
@@ -594,12 +641,16 @@ const ChapterScreen = () => {
   const SMP_READ_COST = useMemo(() => {
     if (!smpPrice || smpPrice <= 0) {
       console.warn('[SMP_READ_COST] Invalid SMP price, using default value');
-      return 250000000; // Fallback: 0.0025 USD / 0.00000001 USD per SMP = 250,000,000 (6 decimals)
+      return 2500000000; // Fallback (no live price): 0.025 USD at the 0.00000001 USD fallback rate, in 6-decimal base units
     }
     const costInSmp = Math.ceil((CHAPTER_READ_USD_COST / smpPrice) * 10 ** SMP_DECIMALS);
     if (__DEV__) console.log('[SMP_READ_COST] Calculated SMP cost for $' + CHAPTER_READ_USD_COST + ':', costInSmp, 'SMP price:', smpPrice);
     return costInSmp;
   }, [smpPrice]);
+
+  // Must follow SMP_READ_COST: computed earlier it compared against undefined
+  // (NaN), so the low-balance prompt could never show.
+  const hasInsufficientSmp = smpBalance < (SMP_READ_COST / 10 ** SMP_DECIMALS);
 
   // Fetch live SOL + SMP prices from Jupiter, with a short-lived cache and a
   // /quote-based fallback for any mint Jupiter's price index omits.
@@ -926,10 +977,7 @@ const ChapterScreen = () => {
 
         if (subscriptionData && !subscriptionError) {
           if (new Date(subscriptionData.expires_at) <= new Date()) {
-            await supabase
-              .from('writer_subscriptions')
-              .update({ is_active: false })
-              .eq('id', subscriptionData.id);
+            // Expired — treated as inactive here; the server marks it when next used.
             setBenefactorAccess(null);
           } else if (subscriptionData.chapters_remaining <= 0 && subscriptionData.plan_type !== 'gold') {
             setBenefactorAccess(null);
@@ -994,8 +1042,8 @@ const ChapterScreen = () => {
       return;
     }
     try {
-      // If offline or status unknown, try cache first
-      if (isOnline === false || isOnline === null) {
+      // Offline: read from the device
+      if (isOnline === false) {
         if (__DEV__) console.log('[ChapterScreen] Offline/status unknown - loading novel from cache');
         const cachedData = await getNovelForOffline(id, userId || 'guest');
         if (cachedData) {
@@ -1050,12 +1098,11 @@ const ChapterScreen = () => {
         if (isOnline === false) {
           const cachedData = await getNovelForOffline(id, userId || 'guest');
           if (cachedData) {
-            const chapter = cachedData.chapters.find(c => c.chapter_number === chapter);
-            if (chapter && chapter.content) {
+            // (Used to declare `const chapter` here, shadowing the chapter id
+            // being searched for — the lookup could never match.)
+            if (cachedData.novel?.chaptercontents?.[String(chapter)]) {
               if (__DEV__) console.log('[ChapterScreen] Chapter found in offline cache');
               data = cachedData.novel;
-              data.chaptercontents = {};
-              data.chaptercontents[chapter] = chapter.content;
             } else {
               throw new Error('Chapter not available offline');
             }
@@ -1203,36 +1250,13 @@ const ChapterScreen = () => {
     try {
       const chapterNum = parseInt(chapterId, 10);
 
-      // Record ad unlock
-      const { error: adUnlockError } = await supabase
-        .from('ad_based_unlocks')
-        .insert({
-          user_id: userId,
-          novel_id: novelId,
-          chapter_number: chapterNum,
-          unlocked_at: new Date().toISOString(),
-          ad_watched_at: new Date().toISOString(),
-        });
-
-      if (adUnlockError) throw new Error(`Failed to record ad unlock: ${adUnlockError.message}`);
-
-      // Record in chapter_payments
-      const { error: paymentError } = await supabase
-        .from('chapter_payments')
-        .insert({
-          wallet_address: activeWalletAddress,
-          novel_id: novelId,
-          chapter_number: chapterNum,
-          payment_type: 'AD_BASED',
-          currency: 'FREE',
-          amount: 0,
-          transaction_id: `AD_UNLOCK_${Date.now()}`,
-          created_at: new Date().toISOString(),
-        });
-
-      if (paymentError) {
-        console.warn('[handleVideoAdEnd] Failed to record payment entry:', paymentError.message);
-      }
+      // The server records the unlock and enforces one free ad unlock per day.
+      const res = await readerAction('ad_unlock', {
+        novelId,
+        chapterNumber: chapterNum,
+        walletAddress: activeWalletAddress || undefined,
+      });
+      if (!res.ok) throw new Error(res.error);
 
       // Unlock the chapter
       setIsLocked(false);
@@ -1303,12 +1327,7 @@ const ChapterScreen = () => {
       if (subscriptionData) {
         // Check if subscription has expired
         if (new Date(subscriptionData.expires_at) <= new Date()) {
-          // Expire the subscription
-          await supabase
-            .from('writer_subscriptions')
-            .update({ is_active: false })
-            .eq('id', subscriptionData.id);
-
+          // Expired — treated as inactive; the server marks it when next used.
           return null;
         }
 
@@ -1329,7 +1348,13 @@ const ChapterScreen = () => {
 
   // Process benefactor payment
   const processBenefactorPayment = useCallback(async (paymentAmount, novelIdParam, paymentMint) => {
+    // Set once the transaction is submitted — after that, never invite a retry.
+    let signature = null;
     try {
+      // The subscription is saved to the reader's account: sign in before paying.
+      const { data: preSession } = await supabase.auth.getSession();
+      if (!preSession?.session?.access_token) throw new Error(SIGN_IN_REQUIRED);
+
       if (!activeWalletAddress || !novelIdParam || !activePublicKey || !signAndSendTransaction) {
         return { success: false, error: 'Please connect your wallet and try again.' };
       }
@@ -1371,40 +1396,18 @@ const ChapterScreen = () => {
       transaction.feePayer = activePublicKey;
 
       // Sign and send
-      const signature = await signAndSendTransaction(transaction);
+      signature = await signAndSendTransaction(transaction);
 
-      // Wait for confirmation
-      const start = Date.now();
-      let landed = false;
-
-      while (Date.now() - start < 10000) {
-        const statusResp = await connection.getSignatureStatus(signature);
-        const status = statusResp?.value;
-
-        if (status?.err) throw new Error('Transaction failed on-chain.');
-        if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
-          landed = true;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      if (!landed) {
-        const finalStatus = await connection.getSignatureStatus(signature, { searchTransactionHistory: true });
-        if (finalStatus?.value?.confirmationStatus === 'confirmed' || finalStatus?.value?.confirmationStatus === 'finalized') {
-          landed = true;
-        } else if (finalStatus?.value?.err) {
-          throw new Error(`Transaction failed: ${JSON.stringify(finalStatus?.value?.err)}`);
-        }
-      }
-
-      if (!landed) throw new Error('Transaction not confirmed yet. Please try again.');
+      // Wait for confirmation (same 45s polling as chapter payments — 10s was
+      // too short on a busy network and invited a second payment)
+      const landed = await waitForSignature(connection, signature, lastValidBlockHeight);
+      if (!landed) throw new Error('Transaction not confirmed yet.');
 
       return { success: true, signature };
 
     } catch (error) {
       console.error('[processBenefactorPayment] Error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error, sent: !!signature, signature };
     }
   }, [activeWalletAddress, activePublicKey, signAndSendTransaction]);
 
@@ -1475,45 +1478,43 @@ const ChapterScreen = () => {
       const paymentResult = await processBenefactorPayment(paymentAmount, novelId, paymentMint);
 
       if (!paymentResult.success) {
-        throw new Error(paymentResult.error || 'Payment failed');
+        setSuccessMessage('');
+        setError(friendlyPaymentError(paymentResult.error, currency, paymentResult.sent, paymentResult.signature));
+        toast.error(paymentResult.sent ? 'Payment sent — please don’t pay again' : 'Payment didn’t go through', { duration: 5000 });
+        setTimeout(() => setError(null), paymentResult.sent ? 20000 : 10000);
+        return;
+      }
+      const paidSignature = paymentResult.signature;
+
+      // The server verifies the payment on-chain and activates the plan.
+      // Paid already, so retry a few times rather than give up.
+      let activation = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        activation = await readerAction('benefactor_activate', {
+          signature: paidSignature,
+          novelId,
+          plan: plan.id,
+          currency,
+          walletAddress: activeWalletAddress,
+        });
+        if (activation.ok || (activation.status && activation.status !== 503 && activation.status < 500)) break;
+        await new Promise((r) => setTimeout(r, 2000 * (attempt + 1)));
       }
 
-      // Create subscription record
-      const { data: novelData } = await supabase
-        .from('novels')
-        .select('user_id')
-        .eq('id', novelId)
-        .single();
-
-      const writerId = novelData.user_id;
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + (tier.chapters === 999 ? 30 : 14));
-
-      const { error: subError } = await supabase
-        .from('writer_subscriptions')
-        .insert({
-          benefactor_wallet: activeWalletAddress,
-          writer_id: writerId,
-          plan_type: plan.id,
-          chapters_unlocked: tier.chapters,
-          chapters_remaining: tier.chapters,
-          expires_at: expiresAt.toISOString(),
-          is_active: true,
-        });
-
-      if (subError) throw new Error(subError.message);
-
-      // Update user's benefactor status
-      const { error: userUpdateError } = await supabase
-        .from('users')
-        .update({
-          is_benefactor: true,
-          benefactor_level: plan.id,
-        })
-        .eq('wallet_address', activeWalletAddress);
-
-      if (userUpdateError) {
-        console.warn('[handleBenefactorUnlock] Failed to update user benefactor status:', userUpdateError.message);
+      if (!activation?.ok) {
+        // Money has moved — make that unmistakable and keep a record for support.
+        try {
+          const key = 'pending_writer_subscriptions';
+          const list = JSON.parse((await AsyncStorage.getItem(key)) || '[]');
+          list.push({ signature: paidSignature, novelId, plan: plan.id, currency, wallet: activeWalletAddress, at: Date.now(), error: activation?.error });
+          await AsyncStorage.setItem(key, JSON.stringify(list));
+        } catch {}
+        setSuccessMessage('');
+        setError(`Payment received ✓ — but we couldn't activate your ${tier.name} subscription (${activation?.error || 'unknown error'}). ` +
+          `Please DON'T pay again — contact support with code ${shortSig(paidSignature)} and we'll activate it.`);
+        toast.error('Paid — activation needs support', { duration: 6000 });
+        setTimeout(() => setError(null), 30000);
+        return;
       }
 
       // Success
@@ -1534,9 +1535,11 @@ const ChapterScreen = () => {
       setTimeout(() => setRecentlyUnlocked(false), 10000);
 
     } catch (error) {
+      // Only pre-payment problems reach here (balance checks, plan) — nothing was charged.
       console.error('[handleBenefactorUnlock] Error:', error);
-      setError(`Benefactor unlock failed: ${error.message}`);
-      setTimeout(() => setError(null), 6000);
+      setSuccessMessage('');
+      setError(friendlyPaymentError(error, plan?.selectedToken || selectedBenefactorToken, false));
+      setTimeout(() => setError(null), 10000);
     } finally {
       setIsProcessing(false);
     }
@@ -1721,21 +1724,29 @@ const ChapterScreen = () => {
       return false;
     }
     try {
-      const { data, error } = await supabase
+      // Paid on-chain but not yet saved on the server? Still counts as paid.
+      const pending = await readPendingUnlocks();
+      if (pending.some((p) => p.walletAddress === activeWalletAddress &&
+                              String(p.novelId) === String(novelId) &&
+                              Number(p.chapterId) === Number(chapterNum))) {
+        return true;
+      }
+
+      // limit(1), not single(): a reader who (sadly) paid twice has two rows,
+      // and single() would call that "not paid" and ask for a third payment.
+      const { data: rows, error } = await supabase
         .from('chapter_payments')
         .select('id')
         .eq('wallet_address', activeWalletAddress)
         .eq('novel_id', novelId)
         .eq('chapter_number', chapterNum)
-        .single();
-      if(isErrorNetworkError(error)){
+        .limit(1);
+      if (isErrorNetworkError(error)) {
         const cachedData = await getNovelForOffline(novelId, userId || 'guest');
-        if (cachedData && cachedData.chapters) {
-          data = cachedData.chapters.find(({ chapter_number }) => chapter_number == chapterNum);
-        }
+        return !!cachedData?.chapters?.find(({ chapter_number }) => chapter_number == chapterNum);
       }
-      else if (error && error.code !== 'PGRST116') throw new Error(error.message);
-      return !!data;
+      if (error) throw new Error(error.message);
+      return (rows || []).length > 0;
     } catch (error) {
       console.error('[checkChapterPayment] Error:', error.message);
       return false;
@@ -1842,48 +1853,18 @@ const ChapterScreen = () => {
         }
       }
 
-      // Check for writer subscription access (legacy benefactor system)
+      // Writer subscription (benefactor): the server checks it, logs the chapter
+      // and counts it against the plan — once per chapter.
       const subscriptionData = await checkBenefactorAccess();
-      if (subscriptionData) {
-        // Check if this chapter has already been accessed under this subscription
-        const { data: accessLog, error: logError } = await supabase
-          .from('writer_access_log')
-          .select('id')
-          .eq('subscription_id', subscriptionData.id)
-          .eq('novel_id', novelData.id)
-          .eq('chapter_number', chapterNum)
-          .maybeSingle();
-
-        if (!logError && accessLog) {
+      if (subscriptionData && walletAddress) {
+        const res = await readerAction('subscription_access', {
+          novelId: novelData.id,
+          chapterNumber: chapterNum,
+          walletAddress,
+        });
+        if (res.ok && res.access) {
           setIsLocked(false);
-          return;
-        }
-
-        // For unlimited access (gold plan) or remaining chapters > 0, grant access
-        if (subscriptionData.plan_type === 'gold' || subscriptionData.chapters_remaining > 0) {
-          setIsLocked(false);
-
-          // Log the chapter access
-          await supabase
-            .from('writer_access_log')
-            .insert({
-              subscription_id: subscriptionData.id,
-              novel_id: novelData.id,
-              chapter_number: chapterNum,
-              accessed_at: new Date().toISOString(),
-            });
-
-          // Only decrement if not gold (unlimited)
-          if (subscriptionData.plan_type !== 'gold') {
-            const newRemaining = subscriptionData.chapters_remaining - 1;
-            await supabase
-              .from('writer_subscriptions')
-              .update({ chapters_remaining: newRemaining })
-              .eq('id', subscriptionData.id);
-
-            setBenefactorAccess({ ...subscriptionData, chapters_remaining: newRemaining });
-          }
-
+          if (res.subscription) setBenefactorAccess(res.subscription);
           return;
         }
       }
@@ -2067,6 +2048,10 @@ const ChapterScreen = () => {
       setSuccessMessage('');
       setWarningMessage('');
 
+      // Set once the transaction is submitted — from then on we must never
+      // tell the reader to "try again" (that's how people pay twice).
+      let signature = null;
+
       try {
         // Check if already paid
         const isPaid = await checkChapterPayment(parsedChapterId);
@@ -2075,6 +2060,11 @@ const ChapterScreen = () => {
           setIsLocked(false);
           return true;
         }
+
+        // The unlock is saved to the reader's account, so they must be signed
+        // in BEFORE paying — otherwise the payment could never be recorded.
+        const { data: preSession } = await supabase.auth.getSession();
+        if (!preSession?.session?.access_token) throw new Error(SIGN_IN_REQUIRED);
 
         // Fetch author data for payment
         const { data: novelData, error: novelError } = await supabase
@@ -2161,7 +2151,7 @@ const ChapterScreen = () => {
 
         // Sign and send transaction
         if (__DEV__) console.log('[processChapterPayment] Signing and sending transaction...');
-        const signature = await signAndSendTransaction(transaction);
+        signature = await signAndSendTransaction(transaction);
         console.log('[processChapterPayment] Transaction sent, signature:', signature);
 
         // Poll for confirmation — confirmTransaction's websocket subscription
@@ -2183,34 +2173,26 @@ const ChapterScreen = () => {
           signature,
         };
 
-        console.log('[processChapterPayment] Calling unlock-chapter edge function...');
+        console.log('[processChapterPayment] Saving the unlock (unlock-chapter)...');
+        const recorded = await recordChapterUnlock(requestBody);
+        if (!recorded.ok && recorded.permanent) {
+          // The server looked at this payment on Solana and refused it.
+          throw new Error(`UNLOCK_REFUSED: ${recorded.error}`);
+        }
+        if (!recorded.ok) {
+          // Paid, but the server didn't save it. Keep it on the phone (counts as
+          // paid, retried automatically) and tell the reader plainly.
+          console.warn('[processChapterPayment] Paid but not saved yet:', recorded.error);
+          const pending = await readPendingUnlocks();
+          if (!pending.some((p) => p.signature === signature)) {
+            await writePendingUnlocks([...pending, { ...requestBody, savedAt: Date.now() }]);
+          }
+        }
         try {
-          // Use fetch directly for better control
-          const { data: sessionData } = await supabase.auth.getSession();
-          const accessToken = sessionData?.session?.access_token;
-
-          if (!accessToken) {
-            console.warn('[processChapterPayment] No access token available');
-          } else {
-            const supabaseUrl = 'https://xqeimsncmnqsiowftdmz.supabase.co';
-            const functionUrl = `${supabaseUrl}/functions/v1/unlock-chapter`;
-
-            if (__DEV__) console.log('[processChapterPayment] Calling edge function at:', functionUrl);
-
-            const response = await safeFetch(functionUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-              },
-              body: JSON.stringify(requestBody),
-            });
-
-            if (__DEV__) console.log('[processChapterPayment] Edge function response status:', response.status);
-
-            const data = await response.json();
-            if (__DEV__) console.log('[processChapterPayment] Edge function response:', JSON.stringify(data, null, 2));
-            if (__DEV__) console.log('[processChapterPayment] isPioneer flag:', data?.isPioneer);
+          {
+            const data = recorded.data || {};
+            const response = { ok: recorded.ok };
+            if (__DEV__) console.log('[processChapterPayment] unlock-chapter result:', JSON.stringify(recorded));
 
             if (response.ok && data?.isPioneer) {
               if (__DEV__) console.log('[processChapterPayment] Pioneer badge detected! Showing modal...');
@@ -2297,31 +2279,45 @@ const ChapterScreen = () => {
           console.warn('[processChapterPayment] Payment succeeded but database recording failed');
         }
 
-        setSuccessMessage('Payment successful! Chapter unlocked.');
-        await fetchSmpBalanceOnChain();
+        if (recorded.ok) {
+          setSuccessMessage('Payment successful! Chapter unlocked.');
+          toast.success('Chapter unlocked');
+          setTimeout(() => setSuccessMessage(''), 5000);
+        } else {
+          const note = `Payment received ✓ — but we couldn't save the unlock yet (${recorded.error}). ` +
+            `It's kept on this phone and retried automatically, so you will NOT be charged again for this chapter. ` +
+            `If it ever re-locks, contact support with code ${shortSig(signature)}.`;
+          setWarningMessage(note);
+          toast.info('Paid — saving your unlock…', { duration: 6000 });
+          setTimeout(() => setWarningMessage(''), 15000);
+        }
+        fetchSmpBalanceOnChain().catch(() => {});
         setIsLocked(false);
         setCanUnlockNextThree(true);
         setRecentlyUnlocked(true);
 
         // Keep chapter unlocked for 30 seconds to prevent re-locking during DB replication
         setTimeout(() => setRecentlyUnlocked(false), 30000);
-
-        setTimeout(() => setSuccessMessage(''), 5000);
         return true;
 
       } catch (err) {
-        console.error('[processChapterPayment] Error:', err.message);
-        if (err.message.includes('Insufficient')) {
-          setWarningMessage(`Insufficient ${currency} balance. Get more tokens to continue.`);
+        console.error('[processChapterPayment] Error:', err?.message);
+        const sent = !!signature;
+        const message = friendlyPaymentError(err, currency, sent, signature);
+        const lowBalance = !sent && /insufficient|not enough|don't hold/i.test(message) && !/SOL for the network fee/.test(message);
+        if (lowBalance) {
+          setWarningMessage(`${message} Taking you to Swap…`);
+          setTimeout(() => setWarningMessage(''), 6000);
           setTimeout(() => {
             navigation.navigate('Swap', {
               returnScreen: 'Chapter',
               returnParams: { novelId, chapterId: targetChapterId },
             });
-          }, 2000);
+          }, 2500);
         } else {
-          setError(err.message || 'Transaction failed. Please try again.');
-          setTimeout(() => setError(null), 5000);
+          setError(message);
+          toast.error(sent ? 'Payment sent — please don’t pay again' : 'Payment didn’t go through', { duration: 5000 });
+          setTimeout(() => setError(null), sent ? 20000 : 10000);
         }
         return false;
       } finally {
@@ -2341,10 +2337,9 @@ const ChapterScreen = () => {
         const success = await processChapterPayment(nextChapterId);
         if (success) {
           navigation.navigate('Chapter', { novelId, chapterId: nextChapterId });
-        } else {
-          setError('Failed to unlock next chapter.');
-          setTimeout(() => setError(null), 5000);
         }
+        // On failure processChapterPayment has already told the reader exactly
+        // why — don't replace that with a vaguer message.
       } catch (err) {
         console.error('[handleNextChapter] Error:', err.message);
         setError('Failed to process next chapter.');
@@ -2356,6 +2351,11 @@ const ChapterScreen = () => {
     [processChapterPayment, navigation, novelId]
   );
 
+  // Paid-but-unsaved unlocks from earlier: retry whenever we're online.
+  useEffect(() => {
+    if (isOnline) flushPendingUnlocks().catch(() => {});
+  }, [isOnline]);
+
   useEffect(() => {
     if (!novelId || !chapterId) {
       setError('Invalid novel or chapter ID.');
@@ -2364,11 +2364,10 @@ const ChapterScreen = () => {
       return;
     }
 
-    // Wait for user ID to be loaded before proceeding offline
-    if ((isOnline === false || isOnline === null) && !userId) {
-      if (__DEV__) console.log('[ChapterScreen] Waiting for user ID to load before checking cache');
-      return;
-    }
+    // Wait for the first connection reading (a beat) instead of treating
+    // "unknown" as offline — that used to flash offline errors to online users.
+    // Saved novels don't need a user id, so offline never waits for one.
+    if (isOnline === null) return;
 
     const initialize = async () => {
       // Reset loading state when chapter changes
@@ -2378,14 +2377,14 @@ const ChapterScreen = () => {
       const chapterNum = parseInt(chapterId, 10);
       if (__DEV__) console.log('[ChapterScreen] initialize - chapterId:', chapterId, 'chapterNum:', chapterNum, 'isWalletConnected:', isWalletConnected, 'isOnline:', isOnline);
 
-      // If offline or status unknown, only allow chapters that are saved
-      if (isOnline === false || isOnline === null) {
+      // Offline: only chapters saved on the device
+      if (isOnline === false) {
         if (__DEV__) console.log('[ChapterScreen] Offline/status unknown mode, checking cache');
         const cachedData = await getNovelForOffline(novelId, userId || 'guest');
         if (cachedData) {
           if (__DEV__) console.log('[ChapterScreen] Cached novel found:', cachedData.novel.title);
           // Check if chapter is in the saved chapters
-          const chapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
+          const chapter = cachedData.chapters.find(c => String(c.chapter_number) === String(chapterId));
           if (chapter && chapter.content) {
             if (__DEV__) console.log('[ChapterScreen] Chapter available in offline cache, unlocking:', chapterNum);
             setIsLocked(false);
@@ -2394,10 +2393,9 @@ const ChapterScreen = () => {
             setIsUnlockedViaSubscription(false);
             setReadingMode('free');
             // Set novel with chapter content
-            const novelWithChapter = { ...cachedData.novel };
-            novelWithChapter.chaptercontents = {};
-            novelWithChapter.chaptercontents[chapterId] = chapter.content;
-            setNovel(novelWithChapter);
+            // All saved chapters (merged by getNovelForOffline) so prev/next
+            // and the chapter list work offline too.
+            setNovel(cachedData.novel);
             setLoading(false);
             return;
           } else {
@@ -2438,7 +2436,7 @@ const ChapterScreen = () => {
         (async () => {
           const cachedData = await getNovelForOffline(novelId, userId || 'guest');
           if (cachedData) {
-            const chapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
+            const chapter = cachedData.chapters.find(c => String(c.chapter_number) === String(chapterId));
             if (chapter && chapter.content) {
               if (__DEV__) console.log('[ChapterScreen] Chapter in offline cache, unlocking:', chapterNum);
               setIsLocked(false);
@@ -2495,7 +2493,7 @@ const ChapterScreen = () => {
           try {
             const cachedData = await getNovelForOffline(novelId, userId || 'guest');
             if (cachedData && cachedData.chapters) {
-              const offlineChapter = cachedData.chapters.find(c => c.chapter_number === chapterId);
+              const offlineChapter = cachedData.chapters.find(c => String(c.chapter_number) === String(chapterId));
               if (offlineChapter && offlineChapter.content) {
                 if (__DEV__) console.log('[ChapterScreen] Chapter in offline cache, skipping payment');
                 return;
@@ -2600,619 +2598,525 @@ const ChapterScreen = () => {
       .map((line) => line.trim());
   }, [chapterContent]);
 
+  /* ═════════════════════════════ reader presentation ═════════════════════════════ */
+  const insets = useSafeAreaInsets();
+  const walletModal = useContext(EmbeddedWalletContext)?.setShowModal;
+  const rs = useMemo(() => makeReaderStyles(colors, isDark), [colors, isDark]);
+  const kit = useMemo(() => makeDetailStyles(colors, isDark), [colors, isDark]);
+  const readProgress = useRef(new Animated.Value(0)).current;
+  const [fontScale, setFontScale] = useState(1);
+
+  useEffect(() => {
+    AsyncStorage.getItem('reader_font_scale')
+      .then((v) => { const n = parseFloat(v); if (n >= 0.85 && n <= 1.45) setFontScale(n); })
+      .catch(() => {});
+  }, []);
+  const changeFont = useCallback((delta) => {
+    setFontScale((cur) => {
+      const next = Math.round(Math.min(1.45, Math.max(0.85, cur + delta)) * 100) / 100;
+      AsyncStorage.setItem('reader_font_scale', String(next)).catch(() => {});
+      return next;
+    });
+  }, []);
+
+  const onReaderScroll = useCallback((e) => {
+    handleContentScroll(e);
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent || {};
+    if (!contentSize || !layoutMeasurement) return;
+    const max = contentSize.height - layoutMeasurement.height;
+    readProgress.setValue(max > 0 ? Math.min(1, Math.max(0, contentOffset.y / max)) : 0);
+  }, [handleContentScroll, readProgress]);
+
+  const goChapter = useCallback(
+    (ch) => navigation.replace('Chapter', { novelId, chapterId: String(ch) }),
+    [navigation, novelId]
+  );
+
   if (loading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.accent} />
-        <Text style={styles.loadingText}>Loading Chapter...</Text>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="reader" label="Loading chapter" />;
   }
 
   if (useInput || (error && (!isWalletConnected && parseInt(chapterId, 10) < 2))) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>{error || 'Missing Parameters'}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Novel ID (UUID)"
-            placeholderTextColor="#888"
-            value={inputNovelId}
-            onChangeText={setInputNovelId}
-            accessibilityLabel="Novel ID input"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Chapter ID (e.g., 1)"
-            placeholderTextColor="#888"
-            value={inputChapterId}
-            onChangeText={setInputChapterId}
-            keyboardType="numeric"
-            accessibilityLabel="Chapter ID input"
-          />
-          <TouchableOpacity style={styles.actionButton} onPress={handleManualFetch}>
-            <Text style={styles.actionButtonText}>Fetch Chapter</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-            <FontAwesome5 name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
-            <Text style={styles.secondaryButtonText}>Back to Home</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <Page scroll>
+        <PageHeader eyebrow="Reader" title="Open a chapter" subtitle={error || 'This link is missing the novel or chapter.'} />
+        <Card tint>
+          <Field label="Novel ID" style={{ marginTop: 0 }}>
+            <TextField value={inputNovelId} onChangeText={setInputNovelId} placeholder="Novel ID (UUID)" autoCapitalize="none" />
+          </Field>
+          <Field label="Chapter number">
+            <TextField value={inputChapterId} onChangeText={setInputChapterId} placeholder="e.g. 1" keyboardType="numeric" />
+          </Field>
+          <View style={kit.actions}>
+            <ActionButton lit icon="book-open" label="Open chapter" onPress={handleManualFetch} styles={kit} colors={colors} isDark={isDark} />
+            <ActionButton icon="home" label="Home" onPress={() => navigation.navigate('Home')} styles={kit} colors={colors} isDark={isDark} />
+          </View>
+        </Card>
+      </Page>
     );
   }
 
   if (!novel || !novel.chaptercontents?.[chapterId]) {
     return (
-      <SafeAreaView style={styles.errorContainer}>
-        <View>
-          <Text style={styles.errorTitle}>Chapter Not Found</Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => {
-              setUseInput(true);
-              setError('Enter new values to try again.');
-            }}
-          >
-            <Text style={styles.actionButtonText}>Try Another Chapter</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Home')}>
-            <FontAwesome5 name="home" size={16} color="#ffffff" style={styles.buttonIcon} />
-            <Text style={styles.secondaryButtonText}>Back to Home</Text>
-          </TouchableOpacity>
+      <Page>
+        <View style={rs.center}>
+          <EmptyState
+            icon={isOnline === false ? 'cloud-download-alt' : 'book-dead'}
+            title={isOnline === false ? 'Not saved on this device' : 'Chapter not found'}
+            subtitle={
+              isOnline === false
+                ? 'This chapter isn’t in your offline library yet. Save the novel while online to read it anywhere.'
+                : 'It may have been moved or removed by the author.'
+            }
+            action={novelId ? 'Back to the novel' : 'Back to Home'}
+            onAction={() => (novelId ? navigation.navigate('NovelDetail', { id: novelId }) : navigation.navigate('Home'))}
+          />
         </View>
-      </SafeAreaView>
+      </Page>
     );
   }
 
-  const chapterTitle = novel.chaptertitles?.[chapterId] || `Chapter ${parseInt(chapterId) + 1}`;
+  const chapterNumber = parseInt(chapterId, 10) + 1;
+  const chapterTitle = novel.chaptertitles?.[chapterId] || `Chapter ${chapterNumber}`;
   const chapterKeys = Object.keys(novel.chaptercontents || {});
-  const chapterIdStr = String(chapterId);
-  const currentIndex = chapterKeys.findIndex(key => String(key) === chapterIdStr);
+  const currentIndex = chapterKeys.findIndex((key) => String(key) === String(chapterId));
   const prevChapter = currentIndex > 0 ? chapterKeys[currentIndex - 1] : null;
   const nextChapter = currentIndex >= 0 && currentIndex < chapterKeys.length - 1 ? chapterKeys[currentIndex + 1] : null;
-  const releaseDateMessage =
+  const offlineMode = isOnline === false || isOnline === null;
+  const words = paragraphs.reduce((n, p) => n + p.split(/\s+/).length, 0);
+  const minutes = Math.max(1, Math.round(words / 230));
+  const smpCost = (SMP_READ_COST / 10 ** SMP_DECIMALS).toLocaleString();
+  const lockedMessage =
     advanceInfo?.is_advance && advanceInfo?.free_release_date
-      ? `Locked until ${new Date(advanceInfo.free_release_date).toLocaleString()}`
-      : 'This chapter is locked.';
-  const threeChaptersSol = solPrice ? (3 / solPrice).toFixed(4) : 'N/A';
-  const fullChaptersSol = solPrice ? (15 / solPrice).toFixed(4) : 'N/A';
-  const threeChaptersUsdc = 3;
-  const fullChaptersUsdc = 15;
-  const threeChaptersSmp = smpPrice ? Math.ceil(3 / smpPrice) : 'N/A';
-  const fullChaptersSmp = smpPrice ? Math.ceil(15 / smpPrice) : 'N/A';
+      ? `Free for everyone on ${new Date(advanceInfo.free_release_date).toLocaleDateString(undefined, { month: 'long', day: 'numeric' })}.`
+      : 'Unlock it once and it’s yours to read anytime.';
+  const pSize = 18 * fontScale;
 
-  // OFFLINE MODE - Minimal reading UI
-  if (isOnline === false || isOnline === null) {
-    const chapterContent = novel?.chaptercontents?.[chapterId] || '';
-    const chapterTitle = novel?.chaptertitles?.[parseInt(chapterId, 10)] || `Chapter ${parseInt(chapterId, 10) + 1}`;
+  const renderParagraphs = () =>
+    paragraphs.map((p, i) => (
+      <Text
+        key={`p-${i}`}
+        style={[rs.paragraph, { fontSize: pSize, lineHeight: Math.round(pSize * 1.7) }]}
+        selectable
+      >
+        {p}
+      </Text>
+    ));
 
-    if (isFullscreen) {
-      return (
-        <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
-          <StatusBar hidden={true} />
-
-          {/* Fullscreen close button */}
-          <TouchableOpacity
-            style={styles.fullscreenCloseButton}
-            onPress={() => setIsFullscreen(false)}
-          >
-            <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-
-          {/* Chapter Content - Full Screen */}
-          <ScrollView style={styles.fullscreenScrollView} contentContainerStyle={styles.fullscreenContent}>
-            <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
-              {chapterTitle}
-            </Text>
-            <Text style={[styles.offlineChapterContent, { color: colors.textPrimary }]}>
-              {chapterContent}
-            </Text>
-          </ScrollView>
+  const chapterHead = (
+    <View style={rs.chapterHead}>
+      <Text style={rs.eyebrow}>CHAPTER {chapterNumber}{chapterKeys.length ? ` OF ${chapterKeys.length}` : ''}</Text>
+      <Text style={rs.chapterTitle}>{chapterTitle}</Text>
+      <View style={rs.metaRow}>
+        <View style={rs.metaChip}>
+          <FontAwesome5 name="clock" size={10} color={colors.textMuted} />
+          <Text style={rs.metaText}>{minutes} min read</Text>
         </View>
-      );
-    }
-
-    return (
-      <SafeAreaView style={[styles.offlineContainer, { backgroundColor: colors.bg }]}>
-        <StatusBar
-          barStyle={isDark ? 'light-content' : 'dark-content'}
-          backgroundColor={colors.bg}
-        />
-
-        {/* Offline Header */}
-        <View style={[styles.offlineHeader, { borderBottomColor: colors.border }]}>
-          <TouchableOpacity
-            onPress={() => navigation.goBack()}
-            style={styles.offlineBackButton}
-          >
-            <FontAwesome5 name="arrow-left" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <FontAwesome5 name="wifi" size={20} color={colors.warning} />
-          <Text style={[styles.offlineHeaderText, { color: colors.textPrimary }]}>Offline Mode</Text>
-          <TouchableOpacity
-            onPress={() => setIsFullscreen(true)}
-            style={styles.offlineFullscreenButton}
-          >
-            <FontAwesome5 name="expand" size={20} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Chapter Content */}
-        <ScrollView style={styles.offlineScrollView}>
-          <View style={styles.offlineChapterContainer}>
-            <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
-              {chapterTitle}
-            </Text>
-            <Text style={[styles.offlineChapterContent, { color: colors.textPrimary }]}>
-              {chapterContent}
-            </Text>
+        {offlineMode ? (
+          <View style={[rs.metaChip, { borderColor: `${colors.warning}66` }]}>
+            <FontAwesome5 name="wifi" size={10} color={colors.warning} />
+            <Text style={[rs.metaText, { color: colors.warning }]}>Offline copy</Text>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
+        ) : null}
+        {hasReadChapter ? (
+          <View style={[rs.metaChip, { borderColor: `${colors.gold}66` }]}>
+            <FontAwesome5 name="star" size={10} color={colors.gold} solid />
+            <Text style={[rs.metaText, { color: colors.gold }]}>Points earned</Text>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
 
-  // ONLINE MODE - Full UI
-  // If fullscreen, render only chapter content
+  /* ─────────────── immersive fullscreen ─────────────── */
   if (isFullscreen) {
-    const chapterContent = novel?.chaptercontents?.[chapterId] || '';
-
-    // Never reveal chapter content in fullscreen when the chapter is locked
-    if (!shouldShowContent) {
-      return (
-        <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
-          <StatusBar hidden={true} />
-          <TouchableOpacity
-            style={styles.fullscreenCloseButton}
-            onPress={() => setIsFullscreen(false)}
-          >
-            <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <View style={styles.lockedContainer}>
-            <FontAwesome5 name="lock" size={48} color={colors.accent} style={styles.lockIcon} />
-            <Text style={styles.lockedMessage}>This chapter is locked</Text>
-            <Text style={styles.lockedSubMessage}>Unlock it to read in fullscreen.</Text>
-          </View>
-        </View>
-      );
-    }
-
+    const canRead = offlineMode || shouldShowContent;
     return (
-      <View style={[styles.fullscreenContainer, { backgroundColor: colors.bg }]}>
-        <StatusBar hidden={true} />
-
-        {/* Fullscreen close button */}
-        <TouchableOpacity
-          style={styles.fullscreenCloseButton}
-          onPress={() => setIsFullscreen(false)}
-        >
-          <FontAwesome5 name="times" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-
-        {/* Chapter Content - Full Screen */}
-        <ScrollView
-          style={styles.fullscreenScrollView}
-          contentContainerStyle={styles.fullscreenContent}
-          scrollEventThrottle={200}
-          onScroll={handleContentScroll}
-        >
-          <Text style={[styles.offlineChapterTitle, { color: colors.textPrimary }]}>
-            {chapterTitle}
-          </Text>
-          <Text style={[styles.offlineChapterContent, { color: colors.textPrimary }]}>
-            {chapterContent}
-          </Text>
-        </ScrollView>
+      <View style={[rs.page, { paddingTop: Platform.OS === 'ios' ? insets.top : 0 }]}>
+        <StatusBar hidden />
+        <View style={[rs.floatClose, { top: (Platform.OS === 'ios' ? insets.top : 0) + 10 }]}>
+          <GelOrb icon="compress" size={40} onPress={() => setIsFullscreen(false)} label="Exit full screen" breathe={false} />
+        </View>
+        {canRead ? (
+          <ScrollView contentContainerStyle={rs.fullscreenContent} scrollEventThrottle={64} onScroll={offlineMode ? undefined : handleContentScroll}>
+            {chapterHead}
+            {renderParagraphs()}
+          </ScrollView>
+        ) : (
+          <View style={rs.center}>
+            <EmptyState icon="lock" title="This chapter is locked" subtitle="Unlock it to read in full screen." action="Exit full screen" onAction={() => setIsFullscreen(false)} />
+          </View>
+        )}
       </View>
     );
   }
 
-  // Normal online mode
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle={isDark ? 'light-content' : 'dark-content'}
-        backgroundColor={colors.bg}
+  /* ─────────────── top bar ─────────────── */
+  const readerBar = (
+    <View style={[rs.bar, { paddingTop: (Platform.OS === 'ios' ? insets.top : 0) + 8 }]}>
+      <GelOrb icon="arrow-left" size={38} onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('NovelDetail', { id: novelId }))} label="Back" breathe={false} />
+      <View style={rs.barText}>
+        <Text style={rs.barNovel} numberOfLines={1}>{novel.title}</Text>
+        <View style={rs.barRow}>
+          <Text style={rs.barChapter} numberOfLines={1}>Ch. {chapterNumber} · {chapterTitle}</Text>
+          {isTracking && !offlineMode ? (
+            <Text style={rs.timer}>{formatReadingTime(getCurrentDuration())}</Text>
+          ) : null}
+        </View>
+      </View>
+      <GelOrb icon="list-ul" size={38} onPress={() => setShowChapterSelector(true)} label="All chapters" breathe={false} />
+      <GelOrb icon="expand" size={38} onPress={() => setIsFullscreen(true)} label="Full screen" breathe={false} />
+    </View>
+  );
+
+  const progressLine = (
+    <View style={rs.progressTrack}>
+      <Animated.View
+        style={[
+          rs.progressFill,
+          { transform: [{ translateX: readProgress.interpolate({ inputRange: [0, 1], outputRange: [-SCREEN_WIDTH, 0] }) }] },
+        ]}
+      >
+        <LinearGradient colors={[colors.gold, colors.accent]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+      </Animated.View>
+    </View>
+  );
+
+  const banner = successMessage || error || warningMessage ? (
+    <View
+      style={[
+        rs.banner,
+        { borderColor: error ? colors.danger : warningMessage ? colors.warning : colors.success },
+      ]}
+    >
+      <FontAwesome5
+        name={error ? 'exclamation-circle' : warningMessage ? 'exclamation-triangle' : 'check-circle'}
+        size={14}
+        color={error ? colors.danger : warningMessage ? colors.warning : colors.success}
+        solid
       />
-      <View style={styles.backgroundGradient} />
-      <View style={styles.emberContainer} pointerEvents="none">
-        {embersInitialized.current && emberAnims.current && emberAnims.current.length > 0 && embersData.current && embersData.current.map((ember, index) => {
-          const anim = emberAnims.current[index];
-          if (!anim) return null;
-          return (
-            <Animated.View
-              key={ember.id}
-              style={[
-                styles.ember,
-                {
-                  left: `${ember.left}%`,
-                  opacity: anim,
-                  transform: [
-                    {
-                      translateY: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [height, -50],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+      <Text style={rs.bannerText}>{successMessage || error || warningMessage}</Text>
+    </View>
+  ) : null;
+
+  const balances = isWalletConnected ? (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={rs.balances}>
+      {[
+        { icon: 'coins', label: 'SMP', value: smpBalance, tone: colors.accent },
+        { icon: 'gem', label: 'Amethyst', value: amethystBalance, tone: colors.electric },
+        { icon: 'gem', label: 'SKR', value: skrBalance, tone: colors.info },
+        { icon: 'star', label: 'Points', value: weeklyPoints, tone: colors.gold },
+      ].map((b) => (
+        <View key={b.label} style={rs.balanceChip}>
+          <FontAwesome5 name={b.icon} size={10} color={b.tone} solid />
+          <Text style={rs.balanceValue}>{formatNumber(b.value)}</Text>
+          <Text style={rs.balanceLabel}>{b.label}</Text>
+        </View>
+      ))}
+    </ScrollView>
+  ) : null;
+
+  /* ─────────────── locked / connect panels ─────────────── */
+  const needsWallet = !offlineMode && !isWalletConnected && parseInt(chapterId, 10) > 2;
+
+  const lockedPanel = (
+    <ScrollView contentContainerStyle={[rs.panelScroll, { paddingBottom: insets.bottom + 32 }]} showsVerticalScrollIndicator={false}>
+      {chapterHead}
+      <View style={rs.lockCard}>
+        <LinearGradient
+          colors={[`rgba(${colors.accentRgb},${isDark ? 0.22 : 0.12})`, 'rgba(0,0,0,0)']}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View pointerEvents="none" style={{ alignItems: 'center' }}>
+          <GelOrb icon={needsWallet ? 'wallet' : isAdvanceChapter ? 'crown' : 'lock'} size={64} lit breathe />
+        </View>
+        <Text style={rs.lockTitle}>
+          {needsWallet ? 'Connect to keep reading' : isAdvanceChapter ? 'Advance chapter' : 'Unlock this chapter'}
+        </Text>
+        <Text style={rs.lockSub}>
+          {needsWallet
+            ? 'The first three chapters are free. Connect your wallet to read the rest and earn points as you go.'
+            : isAdvanceChapter
+            ? `Read it before anyone else. ${lockedMessage}`
+            : lockedMessage}
+        </Text>
+
+        {needsWallet ? (
+          <View style={kit.actions}>
+            <ActionButton
+              lit
+              icon="wallet"
+              label="Connect wallet"
+              onPress={() => (walletModal ? walletModal(true) : navigation.navigate('WalletImport'))}
+              styles={kit}
+              colors={colors}
+              isDark={isDark}
             />
-          );
-        })}
-      </View>
-      {isWalletConnected && (
-        <View style={styles.balanceContainer}>
-          <View style={styles.balanceRow}>
-            <View style={styles.balanceCard}>
-              <FontAwesome5 name="wallet" size={12} color={colors.gold} />
-              <Text style={styles.balanceLabel}>SMP</Text>
-              <Text style={styles.balanceValue}>{formatNumber(smpBalance)}</Text>
-            </View>
-            <View style={styles.balanceCard}>
-              <FontAwesome5 name="gem" size={12} color={colors.gold} />
-              <Text style={styles.balanceLabel}>Amethyst</Text>
-              <Text style={styles.balanceValue}>{formatNumber(amethystBalance)}</Text>
-            </View>
-            <View style={styles.balanceCard}>
-              <FontAwesome5 name="gem" size={12} color={colors.gold} />
-              <Text style={styles.balanceLabel}>SKR</Text>
-              <Text style={styles.balanceValue}>{formatNumber(skrBalance)}</Text>
-            </View>
           </View>
-          <View style={styles.pointsCard}>
-            <FontAwesome5 name="star" size={12} color={colors.gold} />
-            <Text style={styles.pointsLabel}>Points</Text>
-            <Text style={styles.pointsValue}>{formatNumber(weeklyPoints)}</Text>
-          </View>
-        </View>
-      )}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => navigation.navigate('Home')}>
-          <FontAwesome5 name="home" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{chapterTitle}</Text>
-          {isTracking && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-              <FontAwesome5 name="clock" size={10} color={colors.gold} />
-              <Text style={{ color: colors.gold, fontSize: 10, marginLeft: 4, fontFamily: 'monospace' }}>
-                {formatReadingTime(getCurrentDuration())}
-              </Text>
+        ) : isAdvanceChapter ? (
+          <>
+            {showBenefactorOption && !hasWriterBadge && !benefactorAccess ? (
+              <View style={kit.actions}>
+                <ActionButton
+                  lit
+                  icon="crown"
+                  label="Get the writer's badge"
+                  onPress={() => navigation.navigate('Badges', { writerId: novel?.user_id })}
+                  disabled={isProcessing}
+                  styles={kit}
+                  colors={colors}
+                  isDark={isDark}
+                />
+              </View>
+            ) : null}
+            {hasWriterBadge ? (
+              <View style={[rs.statusPill, { borderColor: `${colors.gold}88` }]}>
+                <FontAwesome5 name="crown" size={12} color={colors.gold} solid />
+                <Text style={[rs.statusPillText, { color: colors.gold }]}>Writer's badge holder</Text>
+              </View>
+            ) : null}
+            {benefactorAccess ? (
+              <View style={rs.subCard}>
+                <Text style={rs.subTitle}>{String(benefactorAccess.plan_type || '').toUpperCase()} subscription</Text>
+                {benefactorAccess.plan_type !== 'gold' ? (
+                  <Text style={rs.subLine}>
+                    {benefactorAccess.chapters_remaining}/{benefactorAccess.chapters_unlocked} chapters remaining
+                  </Text>
+                ) : null}
+                <Text style={rs.subLine}>Renews {new Date(benefactorAccess.expires_at).toLocaleDateString()}</Text>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <>
+            {balances}
+            <View style={kit.actions}>
+              <ActionButton
+                lit
+                icon={isProcessing ? 'spinner' : 'gem'}
+                label={isProcessing ? 'Unlocking…' : `Read for ${smpCost} SMP`}
+                onPress={isProcessing ? undefined : () => processChapterPayment(chapterId, 'SINGLE', 'SMP')}
+                disabled={isProcessing}
+                styles={kit}
+                colors={colors}
+                isDark={isDark}
+              />
             </View>
-          )}
-        </View>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => navigation.navigate('NovelsPage', { novelId })}
-        >
-          <FontAwesome5 name="book" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => setIsFullscreen(true)}
-        >
-          <FontAwesome5 name="expand" size={20} color={colors.textPrimary} />
-        </TouchableOpacity>
+            <Text style={rs.lockFoot}>You earn points for every chapter you unlock.</Text>
+            <View style={kit.actions}>
+              <ActionButton
+                icon="shopping-cart"
+                label="Get SMP"
+                onPress={() => {
+                  const rampUrl = `https://buy.ramp.network/?hostApiKey=${WEB_API_BASE_URL}&defaultAsset=SOL`;
+                  Linking.openURL(rampUrl).catch((err) => console.error('Failed to open URL:', err));
+                }}
+                styles={kit}
+                colors={colors}
+                isDark={isDark}
+              />
+            </View>
+          </>
+        )}
       </View>
-      {(successMessage || error || warningMessage) && (
-        <View
-          style={[
-            styles.messageContainer,
-            error ? styles.errorMessage : warningMessage ? styles.warningMessage : styles.successMessage,
-          ]}
-        >
-          <FontAwesome5
-            name={error ? 'exclamation-circle' : warningMessage ? 'exclamation-triangle' : 'check-circle'}
-            size={14}
-            color={error ? colors.error : warningMessage ? colors.warning : colors.success}
-          />
-          <Text style={styles.messageText}>{successMessage || error || warningMessage}</Text>
-        </View>
-      )}
-      {!isWalletConnected && parseInt(chapterId, 10) > 2 ? (
-        <View style={styles.lockedContainer}>
-          <FontAwesome5 name="wallet" size={48} color={colors.accent} style={styles.lockIcon} />
-          <Text style={styles.lockedMessage}>Connect Wallet to Continue Reading</Text>
-          <Text style={styles.lockedSubMessage}>Please connect your wallet to read chapters.</Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('WalletImport')}
-          >
-            <FontAwesome5 name="wallet" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-            <Text style={styles.actionButtonText}>Connect Wallet</Text>
-          </TouchableOpacity>
-        </View>
-      ) : loading ? (
-        <View style={styles.lockedContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.lockedMessage}>Loading chapter...</Text>
-        </View>
-      ) : isLocked ? (
-        <View style={styles.lockedContainer}>
-          <UBBadge type="writer" size="large" showLabel={false} />
-          <Text style={styles.lockedMessage}>Read this Chapter</Text>
 
-          {/* For advance chapters, show benefactor options */}
-          {isAdvanceChapter ? (
+      {!needsWallet && !isAdvanceChapter && showAdOption ? (
+        <Card tint style={{ marginTop: space.md }}>
+          <View style={rs.optionRow}>
+            <View pointerEvents="none">
+              <GelOrb icon="video" size={42} lit={!hasUsedAdUnlockToday} breathe={false} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={rs.optionTitle}>Watch an ad, read free</Text>
+              <Text style={rs.optionSub}>One free chapter per day when you're low on SMP.</Text>
+            </View>
+          </View>
+          <View style={kit.actions}>
+            <ActionButton
+              lit={!hasUsedAdUnlockToday}
+              icon="play"
+              label={hasUsedAdUnlockToday ? 'Used today' : 'Watch ad'}
+              onPress={hasUsedAdUnlockToday || isProcessing ? undefined : handleAdBasedUnlock}
+              disabled={isProcessing || hasUsedAdUnlockToday}
+              styles={kit}
+              colors={colors}
+              isDark={isDark}
+            />
+          </View>
+        </Card>
+      ) : null}
+
+      {!needsWallet && !isAdvanceChapter && hasInsufficientSmp && !showAdOption ? (
+        <Card style={{ marginTop: space.md }}>
+          <Text style={rs.optionTitle}>Low on SMP</Text>
+          <Text style={[rs.optionSub, { marginBottom: space.sm }]}>Turn on autopay to unlock chapters automatically as you read.</Text>
+          <AutopaySettings onAutopayToggle={(enabled) => setAutopayEnabled(enabled)} />
+        </Card>
+      ) : null}
+
+      <View style={[kit.actions, { marginTop: space.xl }]}>
+        {prevChapter !== null ? (
+          <ActionButton icon="chevron-left" label="Previous" onPress={() => goChapter(prevChapter)} styles={kit} colors={colors} isDark={isDark} />
+        ) : null}
+        <ActionButton icon="list-ul" label="All chapters" onPress={() => setShowChapterSelector(true)} styles={kit} colors={colors} isDark={isDark} />
+      </View>
+    </ScrollView>
+  );
+
+  /* ─────────────── reading view ─────────────── */
+  const readingView = (
+    <ScrollView
+      ref={contentScrollRef}
+      contentContainerStyle={[rs.readScroll, { paddingBottom: insets.bottom + 40 }]}
+      scrollEventThrottle={32}
+      onScroll={offlineMode ? undefined : onReaderScroll}
+      onLayout={handleContentViewLayout}
+      onContentSizeChange={handleContentSizeChange}
+      showsVerticalScrollIndicator={false}
+    >
+      {chapterHead}
+
+      {/* reader toolbar */}
+      <View style={rs.toolbar}>
+        <Pressable
+          onPress={isSpeaking ? (isPaused ? resumeText : pauseText) : readText}
+          style={[rs.toolBtn, isSpeaking && !isPaused && { backgroundColor: colors.accentSoft, borderColor: colors.accent }]}
+          accessibilityRole="button"
+          accessibilityLabel={isSpeaking ? (isPaused ? 'Resume reading aloud' : 'Pause reading aloud') : 'Read aloud'}
+        >
+          <FontAwesome5 name={isSpeaking && !isPaused ? 'pause' : 'headphones'} size={13} color={colors.accent} solid />
+          <Text style={rs.toolText}>{isSpeaking ? (isPaused ? 'Resume' : 'Pause') : 'Listen'}</Text>
+        </Pressable>
+        {isSpeaking ? (
+          <Pressable onPress={stopText} style={rs.toolIcon} accessibilityRole="button" accessibilityLabel="Stop reading aloud">
+            <FontAwesome5 name="stop" size={12} color={colors.textSecondary} solid />
+          </Pressable>
+        ) : null}
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={() => changeFont(-0.1)} style={rs.toolIcon} accessibilityRole="button" accessibilityLabel="Smaller text">
+          <Text style={[rs.fontGlyph, { fontSize: 12 }]}>A</Text>
+        </Pressable>
+        <Pressable onPress={() => changeFont(0.1)} style={rs.toolIcon} accessibilityRole="button" accessibilityLabel="Larger text">
+          <Text style={[rs.fontGlyph, { fontSize: 17 }]}>A</Text>
+        </Pressable>
+        <Pressable onPress={handleShare} style={rs.toolIcon} accessibilityRole="button" accessibilityLabel="Share chapter">
+          <FontAwesome5 name="share-alt" size={13} color={colors.textSecondary} />
+        </Pressable>
+      </View>
+
+      <View style={rs.body}>{renderParagraphs()}</View>
+
+      {/* end of chapter */}
+      <View style={rs.endMark}>
+        <View style={rs.endLine} />
+        <FontAwesome5 name="feather-alt" size={12} color={colors.accent} />
+        <View style={rs.endLine} />
+      </View>
+      <Text style={rs.endText}>End of chapter {chapterNumber}</Text>
+
+      <View style={kit.actions}>
+        {prevChapter !== null ? (
+          <ActionButton icon="chevron-left" label="Previous" onPress={() => goChapter(prevChapter)} styles={kit} colors={colors} isDark={isDark} />
+        ) : null}
+        {nextChapter !== null ? (
+          <ActionButton lit icon="chevron-right" label="Next chapter" onPress={() => goChapter(nextChapter)} styles={kit} colors={colors} isDark={isDark} />
+        ) : (
+          <ActionButton icon="book" label="Back to novel" onPress={() => navigation.navigate('NovelDetail', { id: novelId })} styles={kit} colors={colors} isDark={isDark} />
+        )}
+      </View>
+
+      {!offlineMode && isWalletConnected ? (
+        <Card tint style={{ marginTop: space.xl }}>
+          <Text style={rs.cardTitle}>Rate this chapter</Text>
+          <View style={rs.starsRow}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Pressable key={star} onPress={() => handleRating(star)} hitSlop={6} accessibilityRole="button" accessibilityLabel={`Rate ${star} star${star > 1 ? 's' : ''}`}>
+                <FontAwesome5 name="star" size={28} color={star <= (userRating || 0) ? colors.gold : colors.border} solid />
+              </Pressable>
+            ))}
+          </View>
+          <Text style={rs.optionSub}>
+            {averageRating ? `Readers rate it ${averageRating.toFixed(1)} / 5` : 'Be the first to rate it.'}
+          </Text>
+        </Card>
+      ) : null}
+
+      {!offlineMode && isWalletConnected && (authorNote || isAuthor) ? (
+        <Card style={{ marginTop: space.md }}>
+          <View style={rs.noteHead}>
+            <FontAwesome5 name="feather-alt" size={12} color={colors.accent} />
+            <Text style={rs.cardTitle}>Author's note</Text>
+            {isAuthor && !isEditingAuthorNote ? (
+              <Pressable onPress={() => setIsEditingAuthorNote(true)} hitSlop={8} style={{ marginLeft: 'auto' }} accessibilityRole="button">
+                <Text style={rs.link}>{authorNote ? 'Edit' : 'Add'}</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {isAuthor && isEditingAuthorNote ? (
             <>
-              {showBenefactorOption && !hasWriterBadge && !benefactorAccess && (
-                <View style={styles.benefactorContainer}>
-                  <Text style={styles.lockedSubMessage}>This is an advance chapter</Text>
-                  <Text style={styles.lockedSubMessage}>Buy the writer's badge to access advance chapters</Text>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.badgesButton]}
-                    onPress={() => navigation.navigate('Badges', { writerId: novel?.user_id })}
-                    disabled={isProcessing}
-                  >
-                    <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
-                    <Text style={styles.badgesButtonText}>Buy Writer's Badge</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Benefactor badge status */}
-              {hasWriterBadge && (
-                <View style={styles.benefactorStatus}>
-                  <FontAwesome5 name="crown" size={16} color={colors.gold} style={styles.buttonIcon} />
-                  <Text style={styles.benefactorStatusText}>
-                    Writer's Badge Holder
-                  </Text>
-                </View>
-              )}
-
-              {/* Benefactor subscription status (legacy) */}
-              {benefactorAccess && (
-                <View style={styles.benefactorStatus}>
-                  <FontAwesome5 name="star" size={16} color={colors.gold} style={styles.buttonIcon} />
-                  <Text style={styles.benefactorStatusText}>
-                    Writer Subscription: {benefactorAccess.plan_type?.toUpperCase()} Plan
-                  </Text>
-                  {benefactorAccess.plan_type !== 'gold' && (
-                    <Text style={styles.benefactorStatusText}>
-                      {benefactorAccess.chapters_remaining}/{benefactorAccess.chapters_unlocked} chapters remaining
-                    </Text>
-                  )}
-                  <Text style={styles.benefactorStatusText}>
-                    Expires: {new Date(benefactorAccess.expires_at).toLocaleDateString()}
-                  </Text>
-                </View>
-              )}
+              <TextField multiline value={authorNote} onChangeText={setAuthorNote} placeholder="Say something to your readers…" minHeight={100} style={{ marginTop: space.sm }} />
+              <View style={kit.actions}>
+                <ActionButton lit icon="check" label="Save note" onPress={handleSaveAuthorNote} styles={kit} colors={colors} isDark={isDark} />
+                <ActionButton icon="times" label="Cancel" onPress={() => setIsEditingAuthorNote(false)} styles={kit} colors={colors} isDark={isDark} />
+              </View>
             </>
           ) : (
-            <>
-              {/* For regular chapters, show payment options */}
-              {/* Ad unlock option */}
-              {showAdOption && (
-                <View style={styles.adUnlockContainer}>
-                  <Text style={styles.lockedSubMessage}>You don't have enough SMP. Watch an ad to unlock for free!</Text>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.adUnlockButton]}
-                    onPress={handleAdBasedUnlock}
-                    disabled={isProcessing || hasUsedAdUnlockToday}
-                  >
-                    <FontAwesome5 name="video" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                    <Text style={styles.actionButtonText}>
-                      {hasUsedAdUnlockToday ? 'Ad Unlock Used Today' : 'Watch Ad - Free Unlock'}
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={styles.lockedSubMessage}>One chapter per day</Text>
-                </View>
-              )}
-
-              {/* Small balance check and autopay options */}
-              {hasInsufficientSmp && !showAdOption && (
-                <View style={styles.smallBalanceContainer}>
-                  <Text style={styles.lockedSubMessage}>Low SMP balance detected</Text>
-                  <Text style={styles.lockedSubMessage}>Enable autopay to automatically unlock chapters</Text>
-                  <AutopaySettings onAutopayToggle={(enabled) => setAutopayEnabled(enabled)} />
-                </View>
-              )}
-
-              <View style={styles.actionButtonsContainer}>
-                <TouchableOpacity
-                  style={styles.smpButton}
-                  onPress={() => processChapterPayment(chapterId, 'SINGLE', 'SMP')}
-                  disabled={isProcessing}
-                >
-                  <FontAwesome5 name="gem" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                  <Text style={styles.smpButtonText}>
-                    Read with {(SMP_READ_COST / 10 ** SMP_DECIMALS).toLocaleString()} SMP (Earn Points)
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.getSmpButton}
-                  onPress={() => {
-                    const rampUrl = `https://buy.ramp.network/?hostApiKey=${WEB_API_BASE_URL}&defaultAsset=SOL`;
-                    Linking.openURL(rampUrl).catch(err => console.error('Failed to open URL:', err));
-                  }}
-                >
-                  <FontAwesome5 name="shopping-cart" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                  <Text style={styles.getSmpButtonText}>Get Tokens</Text>
-                </TouchableOpacity>
-              </View>
-            </>
+            <Text style={rs.noteText}>{authorNote || 'No note for this chapter yet.'}</Text>
           )}
+        </Card>
+      ) : null}
+
+      {!offlineMode ? (
+        <View style={{ marginTop: space.xl }}>
+          <CommentSection novelId={novelId} chapter={chapterNumber} />
         </View>
-      ) : (
-        <View style={styles.contentContainer}>
-          <ScrollView
-            ref={contentScrollRef}
-            contentContainerStyle={styles.scrollContent}
-            scrollEventThrottle={200}
-            onScroll={handleContentScroll}
-            onLayout={handleContentViewLayout}
-            onContentSizeChange={handleContentSizeChange}
-          >
-            {/* Audio controls and share */}
-            <View style={styles.audioControls}>
-              <TouchableOpacity style={styles.audioButton} onPress={readText} disabled={isSpeaking}>
-                <FontAwesome5 name="volume-up" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.audioButtonText}>Read Aloud</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.audioButton} onPress={pauseText} disabled={!isSpeaking || isPaused}>
-                <FontAwesome5 name="pause" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.audioButtonText}>Pause</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.audioButton} onPress={resumeText} disabled={!isSpeaking || !isPaused}>
-                <FontAwesome5 name="play" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.audioButtonText}>Resume</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.audioButton} onPress={stopText} disabled={!isSpeaking}>
-                <FontAwesome5 name="stop" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.audioButtonText}>Stop</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.audioButton} onPress={handleShare}>
-                <FontAwesome5 name="share-alt" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.audioButtonText}>Share</Text>
-              </TouchableOpacity>
-            </View>
+      ) : null}
+    </ScrollView>
+  );
 
-            {/* Story content */}
-            {hasReadChapter && (
-              <View style={styles.readingOptions}>
-                <Text style={styles.readingModeText}>You've earned points from this chapter</Text>
-              </View>
-            )}
-            {paragraphs.map((paragraph, index) => (
-              <Text key={`paragraph-${index}`} style={styles.paragraph}>{paragraph}</Text>
-            ))}
+  return (
+    <View style={rs.page}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
+      {readerBar}
+      {progressLine}
+      {banner}
+      {offlineMode || (!needsWallet && !isLocked) ? readingView : lockedPanel}
 
-            {/* Chapter selector */}
-            <View style={styles.chapterSelector}>
-              <TouchableOpacity style={styles.chapterSelectorButton} onPress={() => setShowChapterSelector(true)}>
-                <FontAwesome5 name="book-open" size={16} color={colors.textPrimary} style={styles.buttonIcon} />
-                <Text style={styles.chapterSelectorText}>Jump to Chapter</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Rating section */}
-            {isWalletConnected && (
-              <View style={styles.ratingSection}>
-                <View style={styles.userRating}>
-                  <Text style={styles.ratingLabel}>Your Rating:</Text>
-                  <View style={styles.starsContainer}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <TouchableOpacity key={star} onPress={() => handleRating(star)}>
-                        <FontAwesome5
-                          name="star"
-                          size={20}
-                          color={star <= (userRating || 0) ? colors.goldBright : colors.textMuted}
-                          style={styles.star}
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+      <Sheet visible={showChapterSelector} onClose={() => setShowChapterSelector(false)} title="Chapters" tall>
+        <FlatList
+          data={chapterKeys}
+          keyExtractor={(k) => String(k)}
+          initialScrollIndex={currentIndex > 4 ? currentIndex - 2 : undefined}
+          getItemLayout={(_, i) => ({ length: 60, offset: 60 * i, index: i })}
+          style={{ maxHeight: 520 }}
+          renderItem={({ item: ch }) => {
+            const current = String(ch) === String(chapterId);
+            const n = parseInt(ch, 10) + 1;
+            return (
+              <Pressable
+                onPress={() => {
+                  setShowChapterSelector(false);
+                  if (!current) goChapter(ch);
+                }}
+                style={[rs.selRow, current && { backgroundColor: colors.accentSoft }]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: current }}
+              >
+                <View style={[rs.selDisc, current && { backgroundColor: colors.accent, borderColor: colors.accent }]}>
+                  <Text style={[rs.selNum, current && { color: '#FFFFFF' }]}>{n}</Text>
                 </View>
-                <View style={styles.averageRating}>
-                  <Text style={styles.ratingLabel}>Average Rating:</Text>
-                  <View style={styles.starsContainer}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <FontAwesome5
-                        key={star}
-                        name="star"
-                        size={20}
-                        color={star <= Math.round(averageRating || 0) ? colors.goldBright : colors.textMuted}
-                        style={styles.star}
-                      />
-                    ))}
-                  </View>
-                  <Text style={styles.ratingValue}>
-                    {averageRating ? ` (${averageRating.toFixed(1)} / 5)` : ' (No ratings yet)'}
-                  </Text>
-                </View>
-              </View>
-            )}
+                <Text style={[rs.selTitle, current && { color: colors.accent }]} numberOfLines={1}>
+                  {novel?.chaptertitles?.[ch] || `Chapter ${n}`}
+                </Text>
+                {current ? <Text style={rs.selNow}>Reading</Text> : null}
+              </Pressable>
+            );
+          }}
+        />
+      </Sheet>
 
-            {/* Author's Note Section */}
-            {isWalletConnected && (
-              <View style={styles.authorNoteSection}>
-                <Text style={styles.authorNoteTitle}>Author's Note</Text>
-                {isAuthor ? (
-                  <>
-                    {isEditingAuthorNote ? (
-                      <View style={styles.authorNoteEdit}>
-                        <TextInput
-                          value={authorNote}
-                          onChangeText={setAuthorNote}
-                          placeholder="Add a note for your readers..."
-                          placeholderTextColor="#888"
-                          multiline
-                          numberOfLines={4}
-                          style={styles.authorNoteTextarea}
-                        />
-                        <View style={styles.authorNoteActions}>
-                          <TouchableOpacity style={styles.saveButton} onPress={handleSaveAuthorNote}>
-                            <Text style={styles.saveButtonText}>Save Note</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={() => setIsEditingAuthorNote(false)}
-                          >
-                            <Text style={styles.cancelButtonText}>Cancel</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.authorNoteDisplay}>
-                        {authorNote ? (
-                          <Text style={styles.authorNoteText}>{authorNote}</Text>
-                        ) : (
-                          <Text style={styles.authorNoteEmpty}>No author's note yet.</Text>
-                        )}
-                        <TouchableOpacity
-                          style={styles.editButton}
-                          onPress={() => setIsEditingAuthorNote(true)}
-                        >
-                          <Text style={styles.editButtonText}>Edit Note</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </>
-                ) : (
-                  <View style={styles.authorNoteDisplay}>
-                    {authorNote ? (
-                      <Text style={styles.authorNoteText}>{authorNote}</Text>
-                    ) : (
-                      <Text style={styles.authorNoteEmpty}>No author's note for this chapter.</Text>
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Chapter Navigation Buttons */}
-            <View style={styles.chapterNavigation}>
-              {prevChapter !== null && (
-                <TouchableOpacity
-                  style={styles.navButton}
-                  onPress={() => navigation.navigate('Chapter', { novelId, chapterId: prevChapter })}
-                >
-                  <FontAwesome5 name="chevron-left" size={16} color={colors.gold} />
-                  <Text style={styles.navButtonText}>Previous</Text>
-                </TouchableOpacity>
-              )}
-              <View style={styles.navSpacer} />
-              {nextChapter !== null && (
-                <TouchableOpacity
-                  style={styles.navButton}
-                  onPress={() => navigation.navigate('Chapter', { novelId, chapterId: nextChapter })}
-                >
-                  <Text style={styles.navButtonText}>Next</Text>
-                  <FontAwesome5 name="chevron-right" size={16} color={colors.gold} />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View style={{ height: 80 }} />
-
-            {/* Comment Section */}
-            <CommentSection novelId={novelId} chapter={parseInt(chapterId, 10) + 1} />
-          </ScrollView>
-        </View>
-      )}
       <Modal
         visible={showTransactionPopup}
         transparent
@@ -3639,42 +3543,6 @@ const ChapterScreen = () => {
         </View>
       </Modal>
 
-      {/* Chapter Selector Modal */}
-      <Modal
-        visible={showChapterSelector}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowChapterSelector(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowChapterSelector(false)}
-            >
-              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Jump to Chapter</Text>
-            <ScrollView style={styles.chapterList}>
-              {Object.keys(novel?.chaptercontents || {}).map((ch) => (
-                <TouchableOpacity
-                  key={ch}
-                  style={styles.chapterListItem}
-                  onPress={() => {
-                    setShowChapterSelector(false);
-                    navigation.navigate('Chapter', { novelId, chapterId: ch });
-                  }}
-                >
-                  <Text style={styles.chapterListItemText}>
-                    {novel?.chaptertitles?.[ch] || `Chapter ${parseInt(ch) + 1}`}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
       {/* Pioneer Badge Modal */}
       <Modal
         visible={showPioneerModal}
@@ -3698,15 +3566,15 @@ const ChapterScreen = () => {
             {/* Perks */}
             <View style={styles.pioneerPerks}>
               <View style={styles.pioneerPerkRow}>
-                <FontAwesome5 name="medal" size={13} color="#FFD700" style={styles.pioneerPerkIcon} />
+                <FontAwesome5 name="medal" size={13} color="#FFC857" style={styles.pioneerPerkIcon} />
                 <Text style={styles.pioneerPerkText}>Exclusive Pioneer badge on your profile</Text>
               </View>
               <View style={styles.pioneerPerkRow}>
-                <FontAwesome5 name="star" size={13} color="#FFD700" style={styles.pioneerPerkIcon} />
+                <FontAwesome5 name="star" size={13} color="#FFC857" style={styles.pioneerPerkIcon} />
                 <Text style={styles.pioneerPerkText}>Recognized as this writer's first supporter</Text>
               </View>
               <View style={styles.pioneerPerkRow}>
-                <FontAwesome5 name="crown" size={13} color="#FFD700" style={styles.pioneerPerkIcon} />
+                <FontAwesome5 name="crown" size={13} color="#FFC857" style={styles.pioneerPerkIcon} />
                 <Text style={styles.pioneerPerkText}>Rare badge — cannot be earned again</Text>
               </View>
             </View>
@@ -3718,44 +3586,13 @@ const ChapterScreen = () => {
               onPress={async () => {
                 setIsClaimingPioneer(true);
                 try {
-                  // Try to grant Pioneer badge manually if edge function didn't
-                  const { data: pioneerBadgeRow } = await supabase
-                    .from('badges')
-                    .select('id')
-                    .eq('type', 'pioneer')
-                    .limit(1)
-                    .maybeSingle();
-
-                  if (pioneerBadgeRow && userId) {
-                    const { data: existingBadge } = await supabase
-                      .from('user_badges')
-                      .select('id')
-                      .eq('user_id', userId)
-                      .eq('badge_id', pioneerBadgeRow.id)
-                      .maybeSingle();
-
-                    if (!existingBadge) {
-                      // Try to insert badge (might fail due to RLS)
-                      const { error: badgeError } = await supabase
-                        .from('user_badges')
-                        .insert({
-                          user_id: userId,
-                          badge_id: pioneerBadgeRow.id,
-                          acquired_at: new Date().toISOString(),
-                        });
-
-                      if (badgeError) {
-                        console.error('[Pioneer Badge] Manual insert failed:', badgeError);
-                        // Badge might already be granted by edge function
-                      }
-                    }
-                  }
-
-                  Alert.alert('Congratulations!', 'You have earned the Pioneer badge!');
+                  // The badge was granted on the server when your payment was
+                  // verified (unlock-chapter) — nothing to write from the phone.
+                  toast.success('Congratulations — You have earned the Pioneer badge!');
                   setShowPioneerModal(false);
                 } catch (error) {
                   console.error('[Pioneer Badge] Error:', error);
-                  Alert.alert('Error', 'Failed to add Pioneer badge: ' + error.message);
+                  toast.error('Failed to add Pioneer badge: ' + error.message);
                 } finally {
                   setIsClaimingPioneer(false);
                 }
@@ -3793,7 +3630,7 @@ const ChapterScreen = () => {
           <View style={styles.ataModalContent}>
             <View style={styles.ataModalHeader}>
               <View style={styles.ataModalIcon}>
-                <FontAwesome5 name="exclamation-triangle" size={28} color={colors.warning || '#FFD700'} />
+                <FontAwesome5 name="exclamation-triangle" size={28} color={colors.warning || '#FFC857'} />
               </View>
               <Text style={styles.ataModalTitle}>Writer Missing ATA</Text>
               <Text style={styles.ataModalDescription}>
@@ -3860,7 +3697,7 @@ const ChapterScreen = () => {
                   }
                 }}
               >
-                <FontAwesome5 name="arrow-right" size={16} color={colors.warning || '#FFD700'} style={styles.ataButtonIcon} />
+                <FontAwesome5 name="arrow-right" size={16} color={colors.warning || '#FFC857'} style={styles.ataButtonIcon} />
                 <Text style={styles.ataSecondaryButtonText}>Skip - Send to Treasury</Text>
               </TouchableOpacity>
 
@@ -3874,9 +3711,161 @@ const ChapterScreen = () => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
+
+/* Reader styles — geometry mirrors <ScreenSkeleton variant="reader" />. */
+const READ_GUTTER = 22;
+const makeReaderStyles = (c, isDark) =>
+  StyleSheet.create({
+    page: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, justifyContent: 'center' },
+
+    // top bar
+    bar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 8,
+      paddingBottom: 8,
+      backgroundColor: c.bgElevated,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: c.border,
+    },
+    barText: { flex: 1, paddingHorizontal: 4 },
+    barNovel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', color: c.accent },
+    barRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 1 },
+    barChapter: { flex: 1, fontSize: 15, fontWeight: '700', color: c.textPrimary },
+    timer: { fontSize: 11, fontWeight: '700', color: c.gold, fontVariant: ['tabular-nums'] },
+    progressTrack: { height: 2, backgroundColor: c.border, overflow: 'hidden' },
+    progressFill: { ...StyleSheet.absoluteFillObject },
+
+    banner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginHorizontal: space.lg,
+      marginTop: space.md,
+      padding: 12,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderLeftWidth: 4,
+      backgroundColor: c.bgCard,
+    },
+    bannerText: { flex: 1, fontSize: 14, lineHeight: 20, color: c.textPrimary },
+
+    // chapter heading
+    chapterHead: { paddingTop: space.xl, paddingBottom: space.md },
+    eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 2, color: c.accent },
+    chapterTitle: { fontFamily: 'Yoruka', fontSize: 30, lineHeight: 36, color: c.textPrimary, marginTop: 6 },
+    metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: space.md },
+    metaChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 26,
+      paddingHorizontal: 10,
+      borderRadius: 13,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+    },
+    metaText: { fontSize: 12, fontWeight: '700', color: c.textMuted },
+
+    // reading
+    readScroll: { paddingHorizontal: READ_GUTTER },
+    fullscreenContent: { paddingHorizontal: READ_GUTTER, paddingTop: 56, paddingBottom: 80 },
+    floatClose: { position: 'absolute', right: 10, zIndex: 10 },
+    toolbar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      padding: 5,
+      borderRadius: 24,
+      backgroundColor: c.bgCard,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    toolBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      height: 36,
+      paddingHorizontal: 14,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: c.borderAccent,
+    },
+    toolText: { fontSize: 13, fontWeight: '800', color: c.accent },
+    toolIcon: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+    fontGlyph: { fontWeight: '800', color: c.textSecondary },
+    body: { paddingTop: space.lg },
+    paragraph: { color: isDark ? '#E9E7F0' : c.textPrimary, marginBottom: 18, letterSpacing: 0.15 },
+
+    endMark: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: space.lg },
+    endLine: { flex: 1, height: 1, backgroundColor: c.border },
+    endText: { textAlign: 'center', fontSize: 12, fontWeight: '700', letterSpacing: 1, color: c.textMuted, marginTop: 8 },
+
+    cardTitle: { fontFamily: 'Yoruka', fontSize: 18, color: c.textPrimary },
+    starsRow: { flexDirection: 'row', gap: 14, marginVertical: space.md },
+    noteHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    noteText: { fontSize: 15, lineHeight: 23, color: c.textSecondary, marginTop: space.sm },
+    link: { fontSize: 13, fontWeight: '800', color: c.accent },
+
+    // locked
+    panelScroll: { paddingHorizontal: space.lg },
+    lockCard: {
+      borderRadius: radius.xl,
+      borderWidth: 1,
+      borderColor: c.borderAccent,
+      backgroundColor: c.bgCard,
+      padding: space.xl,
+      overflow: 'hidden',
+    },
+    lockTitle: { fontFamily: 'Yoruka', fontSize: 24, textAlign: 'center', color: c.textPrimary, marginTop: space.md },
+    lockSub: { fontSize: 14, lineHeight: 21, textAlign: 'center', color: c.textSecondary, marginTop: 6 },
+    lockFoot: { fontSize: 12, textAlign: 'center', color: c.textMuted, marginTop: 8 },
+    balances: { gap: 8, paddingTop: space.lg },
+    balanceChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      height: 30,
+      paddingHorizontal: 11,
+      borderRadius: 15,
+      backgroundColor: c.bgCardAlt,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    balanceValue: { fontSize: 13, fontWeight: '800', color: c.textPrimary },
+    balanceLabel: { fontSize: 11, fontWeight: '600', color: c.textMuted },
+    statusPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      alignSelf: 'center',
+      height: 34,
+      paddingHorizontal: 14,
+      borderRadius: 17,
+      borderWidth: 1,
+      marginTop: space.lg,
+    },
+    statusPillText: { fontSize: 13, fontWeight: '800' },
+    subCard: { marginTop: space.lg, padding: space.md, borderRadius: radius.md, backgroundColor: c.bgCardAlt, alignItems: 'center', gap: 2 },
+    subTitle: { fontSize: 14, fontWeight: '800', color: c.gold },
+    subLine: { fontSize: 13, color: c.textSecondary },
+    optionRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+    optionTitle: { fontSize: 16, fontWeight: '800', color: c.textPrimary },
+    optionSub: { fontSize: 13, lineHeight: 19, color: c.textSecondary, marginTop: 2 },
+
+    // chapter sheet
+    selRow: { height: 60, flexDirection: 'row', alignItems: 'center', gap: space.md, paddingHorizontal: 8, borderRadius: radius.md },
+    selDisc: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: c.borderStrong },
+    selNum: { fontSize: 13, fontWeight: '800', color: c.textSecondary },
+    selTitle: { flex: 1, fontSize: 15, fontWeight: '600', color: c.textPrimary },
+    selNow: { fontSize: 11, fontWeight: '800', color: c.accent, letterSpacing: 0.5 },
+  });
 
 // Set navigation options to avoid overlay issues
 ChapterScreen.navigationOptions = {

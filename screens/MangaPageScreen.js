@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useContext } from 'react';
-import { View, Text, FlatList, SafeAreaView, StatusBar, Alert, Image, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, FlatList, SafeAreaView, StatusBar, Image, ScrollView, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { supabase } from '../services/supabaseClient';
+import { readerAction } from '../services/readerActions';
 import { getReadingProgressMap } from '../services/readingProgress';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
@@ -18,6 +19,11 @@ import {
 } from '../components/ui';
 import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
 import { getStyles as getPageStyles } from '../styles/MangaPageStyles';
+import { toast } from '../components/Toast';
+import { cacheSet, cacheValue } from '../services/localCache';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import GelOrb from '../components/nav/GelOrb';
+import { Page, PageHeader, SearchField, ChipRow, SectionHeader, PosterGrid } from '../components/page/PageKit';
 
 const TAG_OPTIONS = [
   'Action', 'Adult(18+)', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance',
@@ -28,6 +34,8 @@ const TAG_OPTIONS = [
 const MIN_WITHDRAWAL = 2500;
 
 const MangaPageScreen = () => {
+  // Weekly reward countdown (was set below but never declared — a crash).
+  const [countdown, setCountdown] = useState(null); // eslint-disable-line no-unused-vars
   const navigation = useNavigation();
   const { isDark, colors: themeColors } = useTheme();
   const mangaTheme = useMangaTheme();
@@ -80,10 +88,9 @@ const MangaPageScreen = () => {
     };
 
     const resetTimer = async () => {
-      const { error } = await supabase
-        .from('settings')
-        .update({ value: new Date().toISOString() })
-        .eq('key', 'weekly_reward_timer');
+      // The server restarts the countdown only when it's actually due.
+      const res = await readerAction('reward_timer_reset');
+      const error = res.ok ? null : { message: res.error };
       if (error) {
         console.error('Timer reset failed:', error.message);
         if (!cancelled) setCountdown('Error');
@@ -158,7 +165,7 @@ const MangaPageScreen = () => {
       setPendingWithdrawal(pendingData?.reduce((sum, w) => sum + w.amount, 0) || 0);
     } catch (error) {
       setMessage(error.message);
-      Alert.alert('Error', error.message);
+      toast.error(error.message);
     }
   };
 
@@ -234,7 +241,7 @@ const MangaPageScreen = () => {
     try {
       const { data: mangaData, error: mangaError } = await supabase
         .from('manga')
-        .select('id, title, cover_image, summary, tags, user_id, users:user_id (name)')
+        .select('id, title, cover_image, summary, tags, status, user_id, users:user_id (name)')
         .eq('is_visible', true);
       if (mangaError) throw new Error(`Failed to fetch manga: ${mangaError.message}`);
 
@@ -249,13 +256,17 @@ const MangaPageScreen = () => {
         return acc;
       }, {});
 
-      setMangaList(
-        mangaData.map((m) => ({ ...m, uniqueViewers: viewerCounts[m.id] ? viewerCounts[m.id].size : 0 }))
-      );
+      const list = mangaData.map((m) => ({ ...m, uniqueViewers: viewerCounts[m.id] ? viewerCounts[m.id].size : 0 }));
+      setMangaList(list);
+      cacheSet('lib:manga', list);
     } catch (error) {
-      console.error('Error fetching manga:', error);
-      setMessage(error.message);
-      Alert.alert('Error', error.message);
+      // Offline / flaky connection: show the last library we had.
+      const cached = await cacheValue('lib:manga');
+      if (cached) setMangaList(cached);
+      else {
+        console.warn('Error fetching manga:', error?.message);
+        toast.error("Couldn't load manga — check your connection.");
+      }
     }
   };
 
@@ -267,66 +278,6 @@ const MangaPageScreen = () => {
       return matchQ && matchT;
     });
   }, [mangaList, searchQuery, selectedTag]);
-
-  /* ───── weekly reward countdown (interval is now cleaned up correctly) ───── */
-  useEffect(() => {
-    let interval;
-    let cancelled = false;
-
-    const nextSundayMidnight = (last) => {
-      const d = new Date(last);
-      d.setDate(last.getDate() + ((7 - last.getDay()) % 7 || 7));
-      d.setHours(0, 0, 0, 0);
-      return d;
-    };
-
-    const resetTimer = async () => {
-      const { error } = await supabase
-        .from('settings')
-        .update({ value: new Date().toISOString() })
-        .eq('key', 'weekly_reward_timer');
-      if (error) {
-        console.error('Timer reset failed:', error.message);
-        if (!cancelled) setCountdown('Error');
-      } else if (!cancelled) {
-        init();
-      }
-    };
-
-    const init = async () => {
-      const { data, error } = await supabase.from('settings').select('value').eq('key', 'weekly_reward_timer').single();
-      if (cancelled) return;
-      if (error || !data) {
-        setCountdown('Unknown');
-        return;
-      }
-      const end = nextSundayMidnight(new Date(data.value));
-      const tick = () => {
-        const diff = end - new Date();
-        if (diff <= 0) {
-          clearInterval(interval);
-          setCountdown('Resetting…');
-          resetTimer();
-          return;
-        }
-        setCountdown({
-          d: Math.floor(diff / 86400000),
-          h: Math.floor((diff / 3600000) % 24),
-          m: Math.floor((diff / 60000) % 60),
-          s: Math.floor((diff / 1000) % 60),
-        });
-      };
-      clearInterval(interval);
-      tick();
-      interval = setInterval(tick, 1000);
-    };
-
-    init();
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
 
   const loadData = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true);
@@ -355,113 +306,77 @@ const MangaPageScreen = () => {
     }
   };
 
-  const renderItem = useCallback(
-    ({ item, index }) => {
-      const prog = progressMap?.[`manga:${item.id}`];
-      const progPct = prog ? Math.max(0, Math.min(100, Number(prog.scroll_pct) || 0)) : 0;
-      return (
-      <PosterCard
-        index={index}
-        cover={item.cover_image}
-        title={item.title}
-        author={item.users?.name}
-        views={formatNumber(item.uniqueViewers)}
-        adult={item.tags?.includes('Adult(18+)')}
-        progress={prog ? progPct : undefined}
-        badge={prog ? (
-          <View style={styles.progressChip}>
-            <Text style={styles.progressChipText}>
-              Ch. {prog.chapter_number ?? '—'} · {Math.round(progPct)}%
-            </Text>
-          </View>
-        ) : undefined}
-        onPress={() => navigation.navigate('MangaDetail', { id: item.id })}
-        onAuthor={() => navigation.navigate('CreatorsProfile', { userId: item.user_id })}
-      />
-      );
-    },
-    [navigation, progressMap]
-  );
+  const openManga = useCallback((item) => navigation.navigate('MangaDetail', { id: item.id }), [navigation]);
+  const filtering = !!(searchQuery || selectedTag);
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedTag('');
+  };
 
-  /* ───── header: search + genre rail ───── */
-  const header = (
-    <View>
-      <View style={styles.searchWrap}>
-        <Input
-          icon="search"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search titles or artists"
-          returnKeyType="search"
-          autoCorrect={false}
-          accessibilityLabel="Search manga"
-        />
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRail}>
-        <Chip label="All" active={!selectedTag} onPress={() => setSelectedTag('')} />
-        {TAG_OPTIONS.map((t) => (
-          <Chip key={t} label={t} active={selectedTag === t} onPress={() => setSelectedTag(selectedTag === t ? '' : t)} color={t === 'Adult(18+)' ? colors.danger : colors.primary} />
-        ))}
-      </ScrollView>
-
-      <View style={styles.resultsRow}>
-        <Text style={type.label}>{loading ? 'Loading' : `${filteredManga.length} ${filteredManga.length === 1 ? 'series' : 'series'}`}</Text>
-        {(searchQuery || selectedTag) && !loading ? (
-          <Tap onPress={() => { setSearchQuery(''); setSelectedTag(''); }}>
-            <Text style={styles.clearText}>Clear filters</Text>
-          </Tap>
-        ) : null}
-      </View>
-    </View>
+  const cards = useMemo(
+    () =>
+      filteredManga.map((m) => {
+        const prog = progressMap?.[`manga:${m.id}`];
+        const pct = prog ? Math.max(0, Math.min(100, Number(prog.scroll_pct) || 0)) : undefined;
+        return {
+          id: m.id,
+          kind: 'manga',
+          title: m.title,
+          image: m.cover_image,
+          author: m.users?.name,
+          status: m.status,
+          views: m.uniqueViewers,
+          isAdult: !!m.tags?.includes('Adult(18+)'),
+          progress: pct,
+          meta: prog ? `Ch. ${prog.chapter_number ?? '—'} · ${Math.round(pct)}%` : undefined,
+        };
+      }),
+    [filteredManga, progressMap]
   );
 
   const isError = message && !message.startsWith('Successfully');
 
+  if (loading) {
+    return <ScreenSkeleton variant="grid" label="Loading manga" />;
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={themeColors.bg} />
-      <Screen style={{ backgroundColor: themeColors.bg }}>
-        {loading ? (
-          <View style={{ flex: 1 }}>
-            {header}
-            <PosterGridSkeleton />
-          </View>
+    <>
+      <Page
+        scroll
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />}
+      >
+        <PageHeader
+          eyebrow="Library"
+          title="Manga Hoard"
+          subtitle="Series from independent artists."
+          right={
+            isWalletConnected ? (
+              <GelOrb icon="wallet" size={40} lit={walletOpen} onPress={() => setWalletOpen(true)} label={`Wallet, ${formatNumber(balance)} SMP`} breathe={false} />
+            ) : null
+          }
+        />
+        <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search titles or artists" />
+        <ChipRow
+          options={TAG_OPTIONS.map((t) => ({ value: t, label: t }))}
+          selected={selectedTag ? [selectedTag] : []}
+          onToggle={(t) => setSelectedTag(selectedTag === t ? '' : t)}
+          onClear={() => setSelectedTag('')}
+        />
+
+        <SectionHeader title={filtering ? 'Results' : 'All series'} count={cards.length} />
+        {cards.length ? (
+          <PosterGrid items={cards} onOpen={openManga} />
         ) : (
-          <FlatList
-            data={filteredManga}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderItem}
-            numColumns={2}
-            columnWrapperStyle={styles.columnWrap}
-            contentContainerStyle={[styles.grid, { paddingBottom: 100 }]}
-            ListHeaderComponent={header}
-            ListEmptyComponent={
-              <EmptyState
-                icon="book-open"
-                title={searchQuery || selectedTag ? 'No matches found' : 'The library is empty'}
-                subtitle={searchQuery || selectedTag ? 'Try a different search or genre.' : 'New series will appear here soon.'}
-                action={searchQuery || selectedTag ? 'Clear filters' : undefined}
-                onAction={() => { setSearchQuery(''); setSelectedTag(''); }}
-              />
-            }
-            keyboardShouldPersistTaps="handled"
-            initialNumToRender={6}
-            windowSize={9}
-            removeClippedSubviews
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />
-            }
+          <EmptyState
+            icon="images"
+            title={filtering ? 'No matches' : 'No series yet'}
+            subtitle={filtering ? 'Try a different title, artist or genre.' : 'New series will appear here soon.'}
+            action={filtering ? 'Clear filters' : undefined}
+            onAction={clearFilters}
           />
         )}
-
-        {isWalletConnected ? (
-          <View style={styles.pillWrap} pointerEvents="box-none">
-            <WalletPill smp={formatNumber(balance)} points={formatNumber(weeklyPoints)} open={walletOpen} onPress={() => setWalletOpen(true)} />
-          </View>
-        ) : null}
-      </Screen>
+      </Page>
 
       {/* ───── Wallet sheet ───── */}
       <Sheet visible={walletOpen} onClose={() => setWalletOpen(false)} title="Your Wallet" tall>
@@ -502,7 +417,7 @@ const MangaPageScreen = () => {
           <GhostButton label="Refresh balances" icon="sync-alt" onPress={checkBalance} disabled={withdrawing} />
         </ScrollView>
       </Sheet>
-    </SafeAreaView>
+    </>
   );
 };
 

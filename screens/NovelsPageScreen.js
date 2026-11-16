@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useContext, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabaseClient';
+import { readerAction } from '../services/readerActions';
 import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import WalletPanel from '../components/WalletPanel';
 import { PublicKey } from '@solana/web3.js';
@@ -26,6 +27,10 @@ import { callSignedEdgeFunction } from '../utils/walletSignature';
 import { useTheme } from '../context/ThemeContext';
 import { getNovelsStyles } from '../styles/NovelsStyles';
 import { getReadingProgressMap } from '../services/readingProgress';
+import { cacheSet, cacheValue } from '../services/localCache';
+import ScreenSkeleton from '../components/ScreenSkeleton';
+import { EmptyState } from '../components/ui';
+import { Page, PageHeader, SearchField, ChipRow, SectionHeader, PosterGrid } from '../components/page/PageKit';
 
 const { width, height } = Dimensions.get('window');
 const isTablet = width >= 768;
@@ -65,7 +70,7 @@ const NovelsPageScreen = () => {
   const wallet = walletContext?.wallet;
   const secretKey = walletContext?.secretKey;
   const { isDark, colors } = useTheme();
-  const themedStyles = getNovelsStyles(isDark);
+  const themedStyles = useMemo(() => getNovelsStyles(isDark), [isDark]);
   
   const [publicKey, setPublicKey] = useState(null);
   const [isWalletConnected, setIsWalletConnected] = useState(false);
@@ -87,40 +92,7 @@ const NovelsPageScreen = () => {
   const [timeLeft, setTimeLeft] = useState(null);
   const [onChainBalance, setOnChainBalance] = useState(0);
   const isMounted = useRef(true);
-  const emberAnims = useRef([]);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const cardWidth = isDesktop ? (width - 96) / 4 : isTablet ? (width - 64) / 3 : (width - 56) / 2;
-
-  // Initialize ember particles
-  useEffect(() => {
-    const embers = Array.from({ length: 12 }, (_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      delay: Math.random() * 8,
-      duration: 6 + Math.random() * 4,
-    }));
-    emberAnims.current = embers.map(() => new Animated.Value(0));
-    
-    emberAnims.current.forEach((anim, index) => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(embers[index].delay * 1000),
-          Animated.timing(anim, {
-            toValue: 1,
-            duration: embers[index].duration * 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
-    });
-
-    // Fade in content
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, []);
 
   // Sync wallet state
   useEffect(() => {
@@ -321,21 +293,8 @@ const NovelsPageScreen = () => {
         throw new Error(errorMessage);
       }
 
-      // Update off-chain balance after successful on-chain transfer
-      const { error: updateError } = await supabase
-        .from('wallet_balances')
-        .update({ 
-          amount: offChainBalance - amount 
-        })
-        .eq('user_id', user.id)
-        .eq('currency', 'SMP')
-        .eq('chain', 'OFF_CHAIN');
-
-      if (updateError) {
-        console.error('Error updating off-chain balance:', updateError);
-        throw new Error('Failed to update off-chain balance');
-      }
-
+      // The withdraw-smp function already deducted the balance (debit_smp) —
+      // just reflect it on screen.
       setOffChainBalance(offChainBalance - amount);
       setWithdrawAmount('');
       setErrorMessage(`Successfully withdrew ${amount.toLocaleString()} SMP to your wallet! Transaction signature: ${result.signature}`);
@@ -375,9 +334,17 @@ const NovelsPageScreen = () => {
         setNovels(novelsData);
         setFilteredNovels(novelsData);
       }
+      cacheSet('lib:novels', novelsData);
     } catch (error) {
-      console.error('Error fetching novels:', error);
-      setErrorMessage(error.message);
+      // Offline / flaky connection: show the last library we had.
+      const cached = await cacheValue('lib:novels');
+      if (cached && isMounted.current) {
+        setNovels(cached);
+        setFilteredNovels(cached);
+      } else {
+        console.warn('Error fetching novels:', error?.message);
+        setErrorMessage(error.message);
+      }
     }
   };
 
@@ -456,11 +423,9 @@ const NovelsPageScreen = () => {
     };
 
     const resetTimer = async () => {
-      const newTime = new Date().toISOString();
-      const { error } = await supabase
-        .from('settings')
-        .update({ value: newTime })
-        .eq('key', 'weekly_reward_timer');
+      // The server restarts the countdown only when it's actually due.
+      const res = await readerAction('reward_timer_reset');
+      const error = res.ok ? null : { message: res.error };
 
       if (error) {
         console.error('Timer reset failed:', error.message);
@@ -518,300 +483,93 @@ const NovelsPageScreen = () => {
     };
   }, []);
 
-  const renderNovelItem = ({ item }) => {
-    const prog = progressMap?.[`novel:${item.id}`];
-    const progPct = prog ? Math.max(0, Math.min(100, Number(prog.scroll_pct) || 0)) : 0;
-    const progChapter = prog ? parseInt(prog.chapter_key, 10) : null;
-    return (
-    <View style={[themedStyles.novelCard, { width: cardWidth }]}>
-      <TouchableOpacity
-        style={themedStyles.novelCardTouchable}
-        onPress={() => navigation.navigate('NovelDetail', { id: item.id })}
-        accessible={true}
-        accessibilityLabel={`View novel ${item.title}`}
-        activeOpacity={0.8}
-      >
-        <View style={themedStyles.novelCoverContainer}>
-          {item.image ? (
-            <Image
-              source={{ uri: item.image }}
-              style={themedStyles.novelCover}
-              resizeMode="cover"
-              defaultSource={{ uri: FALLBACK_IMAGE }}
-            />
-          ) : (
-            <View style={themedStyles.novelCoverPlaceholder}>
-              <FontAwesome5 name="book" size={32} color={colors.textMuted} />
-              <Text style={themedStyles.novelCoverPlaceholderText}>No Cover</Text>
-            </View>
-          )}
-          {item.tags?.includes('Adult(18+)') && (
-            <View style={themedStyles.adultBadge}>
-              <Text style={themedStyles.adultBadgeText}>18+</Text>
-            </View>
-          )}
-          {item.status && (
-            <View style={[
-              themedStyles.statusBadge,
-              item.status === 'completed' ? themedStyles.statusBadgeCompleted : item.status === 'ongoing' ? themedStyles.statusBadgeOngoing : themedStyles.statusBadgeHiatus
-            ]}>
-              <Text style={themedStyles.statusBadgeText}>
-                {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-              </Text>
-            </View>
-          )}
-        </View>
-        <View style={themedStyles.novelInfo}>
-          <Text style={themedStyles.novelTitle} numberOfLines={2}>
-            {item.title}
-          </Text>
-          <View style={themedStyles.novelMeta}>
-            <TouchableOpacity
-              style={themedStyles.novelAuthor}
-              onPress={() => navigation.navigate('CreatorsProfile', { id: item.user_id })}
-              accessible={true}
-              accessibilityLabel={`View profile of ${item.users?.name || 'Unknown'}`}
-            >
-              <FontAwesome5 name="feather-alt" size={12} color={colors.textPrimary} style={themedStyles.novelAuthorIcon} />
-              <Text style={themedStyles.novelAuthorText} numberOfLines={1}>
-                {item.users?.name || 'Unknown'}
-              </Text>
-            </TouchableOpacity>
-            <View style={themedStyles.novelViewers}>
-              <FontAwesome5 name="eye" size={12} color={colors.textPrimary} style={themedStyles.novelViewersIcon} />
-              <Text style={themedStyles.novelViewersText}>
-                {item.viewers_count >= 1000 
-                  ? `${(item.viewers_count / 1000).toFixed(1)}k` 
-                  : item.viewers_count.toLocaleString()}
-              </Text>
-            </View>
-          </View>
-          {prog && (
-            <View>
-              <View style={themedStyles.progressBadge}>
-                <FontAwesome5 name="book-open" size={10} color={colors.accent} />
-                <Text style={themedStyles.progressBadgeText}>
-                  {isNaN(progChapter) ? 'Reading' : `Ch. ${progChapter + 1}`} · {Math.round(progPct)}%
-                </Text>
-              </View>
-              <View style={themedStyles.progressTrack}>
-                <View style={[themedStyles.progressFill, { width: `${progPct}%` }]} />
-              </View>
-            </View>
-          )}
-        </View>
-      </TouchableOpacity>
-    </View>
-    );
-  };
+  const openNovel = useCallback((item) => navigation.navigate('NovelDetail', { id: item.id }), [navigation]);
 
-  const renderSkeletonCard = () => (
-    <View style={[themedStyles.skeletonCard, { width: cardWidth }]}>
-      <View style={themedStyles.skeletonCover} />
-      <View style={themedStyles.skeletonInfo}>
-        <View style={themedStyles.skeletonTitle} />
-        <View style={themedStyles.skeletonMeta} />
-      </View>
-    </View>
+  const cards = useMemo(
+    () =>
+      filteredNovels.map((n) => {
+        const prog = progressMap?.[`novel:${n.id}`];
+        const pct = prog ? Math.max(0, Math.min(100, Number(prog.scroll_pct) || 0)) : undefined;
+        const ch = prog ? parseInt(prog.chapter_key, 10) : NaN;
+        return {
+          id: n.id,
+          kind: 'novel',
+          title: n.title,
+          image: n.image,
+          author: n.users?.name,
+          status: n.status,
+          views: n.viewers_count,
+          isAdult: !!n.tags?.includes('Adult(18+)'),
+          progress: pct,
+          meta: prog ? `${Number.isNaN(ch) ? 'Reading' : `Ch. ${ch + 1}`} · ${Math.round(pct)}%` : undefined,
+        };
+      }),
+    [filteredNovels, progressMap]
   );
 
-  if (loading) {
-    return (
-      <View style={themedStyles.container}>
-        <View style={themedStyles.backgroundGradient} />
-        <View style={themedStyles.emberContainer}>
-          {emberAnims.current.map((anim, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                themedStyles.ember,
-                {
-                  left: `${Math.random() * 100}%`,
-                  opacity: anim,
-                  transform: [
-                    {
-                      translateY: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [height, -50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-        </View>
-        <View style={themedStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={themedStyles.loadingText}>Loading novels...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  const renderEmptyState = () => (
-    <View style={themedStyles.emptyContainer}>
-      <FontAwesome5 name="book-open" size={64} color={colors.textMuted} style={themedStyles.emptyIcon} />
-      <Text style={themedStyles.emptyTitle}>No Novels Found</Text>
-      <Text style={themedStyles.emptyText}>
-        {searchQuery || selectedTags.length > 0
-          ? 'Try adjusting your search or filters to find what you\'re looking for.'
-          : 'There are no novels in the library yet.'}
-      </Text>
-      {(searchQuery || selectedTags.length > 0) && (
-        <TouchableOpacity
-          style={themedStyles.emptyButton}
-          onPress={() => {
+  // Memoised: the reward countdown below ticks every second and must not
+  // re-render the whole grid with it.
+  const grid = useMemo(
+    () =>
+      cards.length ? (
+        <PosterGrid items={cards} onOpen={openNovel} />
+      ) : (
+        <EmptyState
+          icon="book-open"
+          title={searchQuery || selectedTags.length ? 'No matches' : 'No novels yet'}
+          subtitle={
+            searchQuery || selectedTags.length
+              ? 'Try a different title, author or genre.'
+              : 'New stories are on the way — check back soon.'
+          }
+          action={searchQuery || selectedTags.length ? 'Clear filters' : undefined}
+          onAction={() => {
             setSearchQuery('');
             setSelectedTags([]);
           }}
-        >
-          <FontAwesome5 name="times" size={16} color={colors.textOnAccent} />
-          <Text style={themedStyles.emptyButtonText}>Clear Filters</Text>
-        </TouchableOpacity>
-      )}
-    </View>
+        />
+      ),
+    [cards, openNovel, searchQuery, selectedTags.length]
   );
 
+  if (loading) {
+    return <ScreenSkeleton variant="grid" label="Loading novels" />;
+  }
+
   return (
-    <View style={themedStyles.container}>
-      <View style={themedStyles.backgroundGradient} />
-      <View style={themedStyles.emberContainer}>
-        {emberAnims.current.map((anim, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              themedStyles.ember,
-              {
-                left: `${Math.random() * 100}%`,
-                opacity: anim,
-                transform: [
-                  {
-                    translateY: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, -50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-      </View>
+    <Page
+      scroll
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
+    >
+      <PageHeader eyebrow="Library" title="Hoard" subtitle="Every novel on SempaiHQ, in one place." />
+      <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search title or author" />
+      <ChipRow
+        options={TAG_OPTIONS}
+        selected={selectedTags}
+        onToggle={toggleTag}
+        onClear={() => setSelectedTags([])}
+      />
 
-      <Animated.ScrollView
-        style={{ opacity: fadeAnim }}
-        contentContainerStyle={themedStyles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
-        }
-      >
-        {/* Hero Section */}
-        <View style={themedStyles.heroSection}>
-          <View style={themedStyles.heroContent}>
-            <Text style={themedStyles.heroTitle}>Novel Library</Text>
-            <Text style={themedStyles.heroSubtitle}>Discover amazing stories and adventures</Text>
-            
-            {/* Search Bar */}
-            <View style={themedStyles.searchContainer}>
-              <FontAwesome5 name="search" size={16} color={colors.textMuted} style={themedStyles.searchIcon} />
-              <TextInput
-                style={themedStyles.searchInput}
-                placeholder="Search novels by title or author..."
-                placeholderTextColor={colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity style={themedStyles.clearButton} onPress={() => setSearchQuery('')}>
-                  <FontAwesome5 name="times" size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
+      <SectionHeader title={searchQuery || selectedTags.length ? 'Results' : 'All novels'} count={cards.length} />
+      {grid}
 
-            {/* Tag Filters */}
-            <View style={themedStyles.tagFiltersContainer}>
-              <Text style={themedStyles.tagFiltersLabel}>Filter by Genre:</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={themedStyles.tagFiltersScroll}>
-                {selectedTags.length > 0 && (
-                  <TouchableOpacity
-                    style={themedStyles.clearTagsButton}
-                    onPress={() => setSelectedTags([])}
-                  >
-                    <FontAwesome5 name="times" size={12} color={colors.textOnAccent} />
-                    <Text style={themedStyles.clearTagsText}>Clear All</Text>
-                  </TouchableOpacity>
-                )}
-                {TAG_OPTIONS.map((tag) => (
-                  <TouchableOpacity
-                    key={tag.value}
-                    style={[
-                      themedStyles.tagChip,
-                      selectedTags.includes(tag.value) && themedStyles.tagChipActive,
-                    ]}
-                    onPress={() => toggleTag(tag.value)}
-                  >
-                    <Text
-                      style={[
-                        themedStyles.tagChipText,
-                        selectedTags.includes(tag.value) && themedStyles.tagChipTextActive,
-                      ]}
-                    >
-                      {tag.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        </View>
-
-        {/* Results Header */}
-        <View style={themedStyles.resultsHeader}>
-          <Text style={themedStyles.resultsCount}>
-            Showing <Text style={themedStyles.resultsCountHighlight}>{filteredNovels.length}</Text> novel{filteredNovels.length !== 1 ? 's' : ''}
-          </Text>
-        </View>
-
-        {/* Novels Grid */}
-        <View style={themedStyles.gridContainer}>
-          {filteredNovels.length === 0 ? (
-            renderEmptyState()
-          ) : (
-            <View style={themedStyles.gridContent}>
-              {filteredNovels.map((item) => (
-                <View key={`novel-${item.id}`}>
-                  {renderNovelItem({ item })}
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Wallet Panel */}
-        <WalletPanel
-          isWalletConnected={isWalletConnected}
-          balance={balance}
-          offChainBalance={offChainBalance}
-          onChainBalance={onChainBalance}
-          weeklyPoints={weeklyPoints}
-          pendingWithdrawal={pendingWithdrawal}
-          withdrawAmount={withdrawAmount}
-          setWithdrawAmount={setWithdrawAmount}
-          isWithdrawing={isWithdrawing}
-          handleWithdraw={handleWithdraw}
-          checkBalance={checkBalance}
-          errorMessage={errorMessage}
-          timeLeft={timeLeft}
-        />
-
-        {/* Footer */}
-        <View style={themedStyles.footer}>
-          <Text style={themedStyles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
-        </View>
-      </Animated.ScrollView>
-    </View>
+      <SectionHeader title="Your rewards" />
+      <WalletPanel
+        isWalletConnected={isWalletConnected}
+        balance={balance}
+        offChainBalance={offChainBalance}
+        onChainBalance={onChainBalance}
+        weeklyPoints={weeklyPoints}
+        pendingWithdrawal={pendingWithdrawal}
+        withdrawAmount={withdrawAmount}
+        setWithdrawAmount={setWithdrawAmount}
+        isWithdrawing={isWithdrawing}
+        handleWithdraw={handleWithdraw}
+        checkBalance={checkBalance}
+        errorMessage={errorMessage}
+        timeLeft={timeLeft}
+      />
+    </Page>
   );
 };
 

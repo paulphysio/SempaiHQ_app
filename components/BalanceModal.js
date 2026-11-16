@@ -1,15 +1,5 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  Clipboard,
-  Alert,
-  StyleSheet,
-  Image,
-} from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Clipboard, StyleSheet, Image } from 'react-native';
 import Modal from 'react-native-modal';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
@@ -23,6 +13,7 @@ import {
 } from '../constants';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from './Toast';
 
 const connection = new Connection(RPC_URL);
 
@@ -116,7 +107,7 @@ const BalanceModal = ({ isOpen, onClose, activeWalletAddress }) => {
 
   const copyToClipboard = (text) => {
     Clipboard.setString(text);
-    Alert.alert('Copied', 'Address copied to clipboard');
+    toast.success('Address copied to clipboard');
   };
 
   const formatBalance = (balance) => {

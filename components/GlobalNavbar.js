@@ -1,236 +1,253 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, Animated, Alert, Clipboard } from 'react-native';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { View, Text, Pressable, Image, Animated, Easing, Platform, StyleSheet, Modal } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useGoogleAuth } from './GoogleAuthProvider';
 import { EmbeddedWalletContext } from './ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { getGlobalNavbarStyles } from '../styles/GlobalNavbarStyles';
+import { goToTopLevel } from '../utils/navigation';
+import { LOGO } from '../theme/tokens';
+import { toast } from './Toast';
+import GelOrb from './nav/GelOrb';
+import { haptics } from '../utils/haptics';
+
+/** Glossy gel pill — same material as the orbs, stretched. */
+const GelPill = ({ lit, tint, onPress, disabled, label, children, styles, colors, isDark }) => {
+  const press = useRef(new Animated.Value(1)).current;
+  const to = (v) => Animated.spring(press, { toValue: v, useNativeDriver: true, speed: 36, bounciness: 10 }).start();
+  const fill = lit
+    ? [colors.accentHi, colors.accent, colors.accentDeep]
+    : isDark
+    ? ['rgba(255,255,255,0.10)', colors.bgCardAlt, colors.bgCard]
+    : ['#FFFFFF', colors.bgCardAlt, colors.bgElevated];
+  return (
+    <Pressable
+      onPress={(e) => { haptics.tap(); onPress?.(e); }}
+      onPressIn={() => to(0.94)}
+      onPressOut={() => to(1)}
+      disabled={disabled}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <Animated.View style={[styles.pill, { shadowColor: lit ? colors.accent : tint || '#000', transform: [{ scale: press }] }]}>
+        <LinearGradient colors={fill} start={{ x: 0.1, y: 0 }} end={{ x: 0.9, y: 1 }} style={styles.pillFill}>
+          {children}
+        </LinearGradient>
+        <LinearGradient
+          pointerEvents="none"
+          colors={[isDark || lit ? 'rgba(255,255,255,0.32)' : 'rgba(255,255,255,0.9)', 'rgba(255,255,255,0)']}
+          style={styles.pillGloss}
+        />
+        <View
+          pointerEvents="none"
+          style={[styles.pillRim, { borderColor: lit ? 'rgba(255,255,255,0.4)' : tint ? `${tint}66` : colors.borderStrong }]}
+        />
+      </Animated.View>
+    </Pressable>
+  );
+};
 
 const GlobalNavbar = () => {
   const navigation = useNavigation();
-  const { session, signIn, signOut } = useGoogleAuth();
+  const insets = useSafeAreaInsets();
+  const { session, signIn } = useGoogleAuth();
   const walletContext = React.useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
+  const address = wallet?.publicKey?.toString();
   const disconnectWallet = walletContext?.disconnectWallet;
   const setShowModal = walletContext?.setShowModal;
-  const isLoading = walletContext?.isLoading;
+  const walletBusy = walletContext?.isLoading;
   const { isDark, toggleTheme, colors } = useTheme();
-  const styles = getGlobalNavbarStyles(colors, isDark);
-  const [showWalletMenu, setShowWalletMenu] = useState(false);
+  const styles = useMemo(() => getGlobalNavbarStyles(colors, isDark), [colors, isDark]);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  // Animation refs
-  const headerPulse = useRef(new Animated.Value(0)).current;
-  const fadeInAnim = useRef(new Animated.Value(0)).current;
-  const slideDownAnim = useRef(new Animated.Value(-50)).current;
-  const glowAnim = useRef(new Animated.Value(0)).current;
-
+  // One entrance, then the bar stays still: the life is in the glow, not motion.
+  const enter = useRef(new Animated.Value(0)).current;
+  const menuAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeInAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(slideDownAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(enter, { toValue: 1, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [enter]);
+  useEffect(() => {
+    Animated.spring(menuAnim, { toValue: menuOpen ? 1 : 0, useNativeDriver: true, speed: 22, bounciness: 6 }).start();
+  }, [menuOpen, menuAnim]);
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(headerPulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
-        Animated.timing(headerPulse, { toValue: 0, duration: 1400, useNativeDriver: true }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
-        Animated.timing(glowAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  // Header surface + wallet-pill gradients follow the active theme, same
-  // pairing as --nav-bg-1/--nav-bg-2 and the orange/blue accent swap in
-  // Navbar.module.css.
-  const surfaceGradient = isDark
-    ? ['rgba(17, 18, 24, 0.95)', 'rgba(11, 11, 20, 0.98)']
-    : ['rgba(253, 251, 212, 0.95)', 'rgba(245, 240, 208, 0.98)'];
-
-  const accentGradient = [colors.accent, colors.accentDeep];
-
-  const walletGradientColors = wallet
-    ? ['rgba(76, 175, 80, 0.3)', 'rgba(76, 175, 80, 0.2)']
-    : [colors.accentSoft, colors.accentSoft];
-
-  const toggleWalletMenu = () => {
-    if (!wallet && setShowModal) {
-      setShowModal(true);
-    } else {
-      setShowWalletMenu(!showWalletMenu);
+  const goHome = useCallback(() => goToTopLevel(navigation, 'Home'), [navigation]);
+  const onWallet = () => {
+    if (!wallet) {
+      setShowModal?.(true);
+      return;
     }
+    haptics.open();
+    setMenuOpen((v) => !v);
+  };
+  const copy = async () => {
+    setMenuOpen(false);
+    if (!address) return;
+    await Clipboard.setStringAsync(address);
+    toast.success('Wallet address copied');
+  };
+  const openWallet = () => {
+    setMenuOpen(false);
+    goToTopLevel(navigation, 'Wallet');
+  };
+  const disconnect = () => {
+    setMenuOpen(false);
+    disconnectWallet?.();
   };
 
-  const copyWalletAddress = () => {
-    if (wallet?.publicKey) {
-      Clipboard.setString(wallet.publicKey.toString());
-      Alert.alert('Copied', 'Wallet address copied to clipboard');
-      setShowWalletMenu(false);
-    }
-  };
-
-  const handleDisconnect = () => {
-    if (disconnectWallet) {
-      disconnectWallet();
-    }
-    setShowWalletMenu(false);
-  };
+  const short = address ? `${address.slice(0, 4)}…${address.slice(-4)}` : '';
+  const sealColors = ['rgba(0,0,0,0)', colors.accent, colors.gold, 'rgba(0,0,0,0)'];
+  const topInset = Platform.OS === 'ios' ? insets.top : 0;
 
   return (
     <Animated.View
       style={[
         styles.header,
-        { opacity: fadeInAnim, transform: [{ translateY: slideDownAnim }] },
+        {
+          paddingTop: topInset,
+          opacity: enter,
+          transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [-14, 0] }) }],
+        },
       ]}
     >
-      <LinearGradient colors={surfaceGradient} style={styles.gradientOverlay} />
-      <Animated.View
-        style={[
-          styles.glowEffect,
-          { opacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }) },
-        ]}
+      {/* surface: depth gradient + ember glow behind the brand + gold wash right */}
+      <LinearGradient colors={[colors.bgElevated, colors.bg]} style={styles.surface} />
+      <LinearGradient
+        colors={[`rgba(${colors.accentRgb},${isDark ? 0.22 : 0.12})`, 'rgba(0,0,0,0)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 0.6, y: 0.5 }}
+        style={styles.surface}
       />
-      <View style={styles.headerContent}>
-        <View style={styles.brandContainer}>
-          <TouchableOpacity
-            style={styles.brand}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('Home')}
-          >
-            <Animated.View
-              style={{
-                transform: [
-                  {
-                    scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.05] }),
-                  },
-                ],
-              }}
-            >
-              <Image
-                source={{ uri: 'https://xqeimsncmnqsiowftdmz.supabase.co/storage/v1/object/public/covers/logo.png' }}
-                style={styles.brandLogo}
-                defaultSource={{ uri: 'https://via.placeholder.com/28x28' }}
-              />
-            </Animated.View>
-          </TouchableOpacity>
+      <LinearGradient
+        colors={['rgba(0,0,0,0)', `rgba(${colors.goldRgb},${isDark ? 0.08 : 0.06})`]}
+        start={{ x: 0.5, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={styles.surface}
+      />
+      {/* seal line: the bar's lit bottom edge */}
+      <LinearGradient
+        colors={[`rgba(${colors.accentRgb},0)`, `rgba(${colors.accentRgb},${isDark ? 0.16 : 0.08})`]}
+        style={styles.sealGlow}
+        pointerEvents="none"
+      />
+      <LinearGradient colors={sealColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.sealLine} pointerEvents="none" />
 
-          {/* Theme Toggle Button - always visible beside brand */}
-          <TouchableOpacity
+      <View style={styles.row}>
+        <Pressable
+          onPress={goHome}
+          style={styles.brand}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Sempai HQ, go to home"
+        >
+          <LinearGradient
+            colors={[colors.accentHi, colors.gold, colors.accentDeep]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.logoRing}
+          >
+            <View style={styles.logoInner}>
+              <Image source={LOGO} style={styles.logo} />
+            </View>
+          </LinearGradient>
+          <View>
+            <Text style={styles.wordmark} numberOfLines={1}>Sempai HQ</Text>
+            <Text style={styles.eyebrow}>READ · EARN · OWN</Text>
+          </View>
+        </Pressable>
+
+        <View style={styles.actions}>
+          <GelOrb
+            icon={isDark ? 'sun' : 'moon'}
+            size={36}
+            tone={isDark ? colors.gold : undefined}
             onPress={toggleTheme}
-            activeOpacity={0.85}
-            style={styles.themeToggleBtn}
-            accessible
-            accessibilityLabel="Toggle theme"
-            accessibilityHint="Switch between light and dark mode"
-          >
-            <FontAwesome5 name={isDark ? 'sun' : 'moon'} size={13} color={isDark ? colors.gold : colors.accent} />
-          </TouchableOpacity>
-        </View>
+            label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            breathe={false}
+          />
 
-        <View style={styles.headerAuthRow}>
           {!session ? (
-            <Animated.View
-              style={{
-                transform: [
-                  { scale: fadeInAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) },
-                ],
-              }}
+            <GelPill lit onPress={signIn} label="Sign in with Google" styles={styles} colors={colors} isDark={isDark}>
+              <FontAwesome5 name="google" size={13} color="#FFFFFF" brand />
+              <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Sign in</Text>
+            </GelPill>
+          ) : wallet ? (
+            <GelPill
+              onPress={onWallet}
+              disabled={walletBusy}
+              tint={colors.success}
+              label={`Wallet ${short}, open wallet menu`}
+              styles={styles}
+              colors={colors}
+              isDark={isDark}
             >
-              <TouchableOpacity
-                onPress={signIn}
-                activeOpacity={0.85}
-                style={styles.headerSignInBtn}
-                accessible
-                accessibilityLabel="Sign in with Google"
-              >
-                <LinearGradient
-                  colors={accentGradient}
-                  style={styles.signInGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Image
-                    source={{
-                      uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
-                    }}
-                    style={styles.headerSignInIcon}
-                  />
-                  <Text style={styles.headerSignInText}>Sign in</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
+              <View style={[styles.statusDot, { backgroundColor: colors.success, shadowColor: colors.success }]} />
+              <Text style={[styles.pillText, { color: colors.textPrimary }]}>{short}</Text>
+              <FontAwesome5 name={menuOpen ? 'chevron-up' : 'chevron-down'} size={10} color={colors.textMuted} />
+            </GelPill>
           ) : (
-            <>
-              <Animated.View
-                style={{
-                  transform: [
-                    { scale: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.03] }) },
-                  ],
-                  shadowColor: colors.accent,
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }),
-                  shadowRadius: headerPulse.interpolate({ inputRange: [0, 1], outputRange: [4, 8] }),
-                }}
-              >
-                <TouchableOpacity
-                  onPress={toggleWalletMenu}
-                  activeOpacity={0.85}
-                  style={styles.headerWalletBtn}
-                  accessible
-                  accessibilityLabel="Wallet menu"
-                  disabled={isLoading}
-                >
-                  <LinearGradient
-                    colors={walletGradientColors}
-                    style={styles.walletGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                  >
-                    <FontAwesome5 name="wallet" size={11} color={wallet ? '#4CAF50' : colors.textPrimary} />
-                    <Text style={[styles.headerWalletText, { color: wallet ? '#4CAF50' : colors.textPrimary }]}>
-                      {wallet
-                        ? `${wallet.publicKey.toString().slice(0, 4)}...${wallet.publicKey.toString().slice(-4)}`
-                        : 'Connect'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Animated.View>
-
-              {showWalletMenu && wallet && (
-                <View style={styles.walletDropdown}>
-                  <TouchableOpacity onPress={copyWalletAddress} style={styles.walletDropdownItem}>
-                    <FontAwesome5 name="copy" size={12} color={colors.accent} />
-                    <Text style={styles.walletDropdownText}>Copy Address</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleDisconnect} style={styles.walletDropdownItem}>
-                    <FontAwesome5 name="sign-out-alt" size={12} color={colors.accent} />
-                    <Text style={styles.walletDropdownText}>Disconnect</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              <TouchableOpacity
-                onPress={signOut}
-                activeOpacity={0.85}
-                style={styles.signOutBtn}
-                accessible
-                accessibilityLabel="Sign out"
-              >
-                <FontAwesome5 name="sign-out-alt" size={12} color={colors.accent} />
-                <Text style={styles.signOutText}>Sign out</Text>
-              </TouchableOpacity>
-            </>
+            <GelPill lit onPress={onWallet} disabled={walletBusy} label="Connect wallet" styles={styles} colors={colors} isDark={isDark}>
+              <FontAwesome5 name="wallet" size={13} color="#FFFFFF" solid />
+              <Text style={[styles.pillText, { color: '#FFFFFF' }]}>Connect</Text>
+            </GelPill>
           )}
         </View>
       </View>
+
+      {/* In a Modal: Android doesn't deliver touches outside a parent's bounds,
+          and the backdrop gives tap-anywhere-to-close for free. */}
+      <Modal
+        visible={!!wallet && menuOpen}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuOpen(false)} accessibilityLabel="Close wallet menu" />
+        <Animated.View
+          style={[
+            styles.dropdown,
+            {
+              top: topInset + 56,
+              opacity: menuAnim,
+              transform: [
+                { translateY: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) },
+                { scale: menuAnim.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) },
+              ],
+            },
+          ]}
+        >
+          <LinearGradient colors={[colors.bgCardAlt, colors.bgElevated]} style={StyleSheet.absoluteFill} />
+          <View style={styles.dropdownHead}>
+            <Text style={styles.dropdownLabel}>CONNECTED WALLET</Text>
+            <Text style={styles.dropdownAddress}>{address ? `${address.slice(0, 8)}…${address.slice(-6)}` : ''}</Text>
+          </View>
+          {[
+            { icon: 'copy', label: 'Copy address', onPress: copy },
+            { icon: 'wallet', label: 'Open wallet', onPress: openWallet },
+            { icon: 'unlink', label: 'Disconnect', onPress: disconnect, danger: true },
+          ].map((item) => (
+            <Pressable
+              key={item.label}
+              onPress={item.onPress}
+              style={({ pressed }) => [styles.dropdownItem, pressed && styles.pressed]}
+              accessibilityRole="button"
+            >
+              <View style={[styles.dropdownIcon, item.danger && { backgroundColor: `${colors.danger}22` }]}>
+                <FontAwesome5 name={item.icon} size={12} color={item.danger ? colors.danger : colors.accent} solid />
+              </View>
+              <Text style={[styles.dropdownText, item.danger && { color: colors.danger }]}>{item.label}</Text>
+            </Pressable>
+          ))}
+        </Animated.View>
+      </Modal>
     </Animated.View>
   );
 };
 
-export default GlobalNavbar;
+export default React.memo(GlobalNavbar);

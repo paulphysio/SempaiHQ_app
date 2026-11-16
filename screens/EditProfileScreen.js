@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import axios from 'axios';
 import { supabase } from '../services/supabaseClient';
+import { readerAction } from '../services/readerActions';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
@@ -377,7 +378,7 @@ const EditProfileScreen = () => {
   const { session } = useGoogleAuth();
   const { colors, isDark } = useTheme();
   
-  const themedStyles = getThemedStyles(colors, isDark);
+  const themedStyles = useMemo(() => getThemedStyles(colors, isDark), [colors, isDark]);
   
   const [userId, setUserId] = useState(null);
   const [isCreator, setIsCreator] = useState(false);
@@ -764,27 +765,13 @@ const EditProfileScreen = () => {
       }
 
       if (isNewUser && !currentUserData.has_updated_profile && currentUserData.referred_by) {
-        await supabase
-          .from('users')
-          .update({ weekly_points: (currentUserData.weekly_points || 0) + 100 })
-          .eq('id', userId);
-
-        const { data: inviterData, error: inviterError } = await supabase
-          .from('users')
-          .select('weekly_points')
-          .eq('id', currentUserData.referred_by)
-          .single();
-
-        if (inviterError) throw new Error('Error fetching inviter data: ' + inviterError.message);
-
-        await supabase
-          .from('users')
-          .update({ weekly_points: (inviterData?.weekly_points || 0) + 100 })
-          .eq('id', currentUserData.referred_by);
-
+        // The server pays the referral bonus — once per account, never to yourself.
+        const bonus = await readerAction('referral_bonus');
         setIsNewUser(false);
         setReferralMessage('');
-        setSuccess('Profile updated successfully! You\'ve claimed 100 points, and your inviter received 100 points!');
+        setSuccess(bonus.ok && bonus.awarded
+          ? 'Profile updated successfully! You\'ve claimed 100 points, and your inviter received 100 points!'
+          : 'Profile updated successfully!');
       } else {
         setSuccess('Profile updated successfully!');
       }

@@ -5,7 +5,7 @@ const { width } = Dimensions.get('window');
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
   },
   containerArtist: {
     backgroundColor: '#1A0B2E',
@@ -17,11 +17,11 @@ export const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
   },
   navbar: {
     padding: 16,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderBottomWidth: 1,
     borderBottomColor: '#444',
   },
@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
     borderBottomColor: 'rgba(147, 51, 234, 0.6)',
   },
   navbarBoth: {
-    borderBottomColor: 'rgba(255, 215, 0, 0.6)',
+    borderBottomColor: 'rgba(255, 200, 87, 0.6)',
   },
   navContainer: {
     flexDirection: 'row',
@@ -56,7 +56,7 @@ export const styles = StyleSheet.create({
     color: '#9333EA',
   },
   logoTextBoth: {
-    color: '#FFD700',
+    color: '#FFC857',
   },
   menuToggle: {
     padding: 8,
@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
     color: '#9333EA',
   },
   menuToggleIconBoth: {
-    color: '#FFD700',
+    color: '#FFC857',
   },
   navMenu: {
     backgroundColor: '#2A2A2A',
@@ -80,7 +80,7 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(147, 51, 234, 0.2)',
   },
   navMenuBoth: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
   },
   navLink: {
     flexDirection: 'row',
@@ -107,7 +107,7 @@ export const styles = StyleSheet.create({
     backgroundColor: '#9333EA',
   },
   headerBoth: {
-    backgroundColor: '#FFD700',
+    backgroundColor: '#FFC857',
   },
   title: {
     fontSize: 24,
@@ -139,7 +139,7 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(147, 51, 234, 0.2)',
   },
   profileCardBoth: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
   },
   profileHeader: {
     flexDirection: 'row',
@@ -291,7 +291,7 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(147, 51, 234, 0.2)',
   },
   creatorChoicePopupBoth: {
-    backgroundColor: 'rgba(255, 215, 0, 0.2)',
+    backgroundColor: 'rgba(255, 200, 87, 0.2)',
   },
   closePopupButton: {
     position: 'absolute',
@@ -350,7 +350,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderRadius: 20,
     padding: 24,
     width: width * 0.85,

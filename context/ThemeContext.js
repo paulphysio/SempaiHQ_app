@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { palettes } from '../theme/tokens';
+import { setBaseTextColor } from '../utils/fontScale';
 
 const ThemeContext = createContext();
 
@@ -52,76 +54,26 @@ export const ThemeProvider = ({ children }) => {
     }
   };
 
-  // Theme colors matching web version ("Ink & Seal" dark / "Paper & Current"
-  // light — see page.module.css). IMPORTANT: light mode's accent and its
-  // "gold" companion are both cool tones (blue / teal) on purpose — the web
-  // light theme never uses orange, so neither should this one. Only the
-  // sidebar's fixed brand-orange stamp is exempt, and even that should be
-  // reconsidered per-surface; this file no longer offers an orange option
-  // for anything theme-driven.
-  const colors = isDark
-    ? {
-        // Dark mode — "Ink & Seal"
-        bg: '#0B0B14',
-        bgElevated: '#111219',
-        bgCard: '#15161F',
-        bgCardAlt: '#1A1B26',
-        accent: '#FF5733',
-        accentDeep: '#F36316',
-        accentRgb: '255, 87, 51',
-        accentGlow: 'rgba(255, 87, 51, 0.35)',
-        accentSoft: 'rgba(255, 87, 51, 0.12)',
-        sakura: '#E94560',
-        gold: '#FFD700',
-        goldRgb: '255, 215, 0',
-        badgeInk: '#0a0602',
-        textPrimary: '#FFFFFF',
-        textSecondary: '#C9C9D1',
-        textMuted: '#8A8A99',
-        border: 'rgba(255, 255, 255, 0.08)',
-        borderAccent: 'rgba(255, 87, 51, 0.35)',
-        danger: '#FF6B6B',
-        warning: '#F59E0B',
-        overlayChip: 'rgba(11, 11, 20, 0.78)',
-        bgPrimary: '#0d0d0d',
-        bgSecondary: '#141414',
-        inputBg: '#1a1a1a',
-      }
-    : {
-        // Light mode — "Paper & Current". Cool blue accent, teal "gold" —
-        // no orange, matching the web light theme exactly.
-        bg: '#FDFBD4',
-        bgElevated: '#f5f0d0',
-        bgCard: '#ffffff',
-        bgCardAlt: '#f8f8e8',
-        accent: '#3b82f6',
-        accentDeep: '#2563eb',
-        accentRgb: '59, 130, 246',
-        accentGlow: 'rgba(59, 130, 246, 0.35)',
-        accentSoft: 'rgba(59, 130, 246, 0.12)',
-        sakura: '#E94560',
-        gold: '#0891b2',
-        goldRgb: '8, 145, 178',
-        badgeInk: '#0f2733',
-        textPrimary: '#1e293b',
-        textSecondary: '#475569',
-        textMuted: '#64748b',
-        border: 'rgba(59, 130, 246, 0.15)',
-        borderAccent: 'rgba(59, 130, 246, 0.35)',
-        danger: '#ef4444',
-        warning: '#d97706',
-        overlayChip: 'rgba(253, 251, 212, 0.9)',
-        bgPrimary: '#FDFBD4',
-        bgSecondary: '#f5f0d0',
-        inputBg: '#ffffff',
-      };
+  // Palettes live in theme/tokens.js (single source of truth). They are
+  // module constants, so `colors` keeps a stable identity between renders.
+  const colors = isDark ? palettes.dark : palettes.light;
+
+  // Unstyled / colourless <Text> follows the theme (see utils/fontScale.js).
+  setBaseTextColor(colors.textPrimary);
+
+  const value = useMemo(
+    () => ({ isDark, colors, toggleTheme, setTheme }),
+    // toggleTheme/setTheme only close over isDark and stable setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isDark, colors]
+  );
 
   if (isLoading) {
     return null;
   }
 
   return (
-    <ThemeContext.Provider value={{ isDark, colors, toggleTheme, setTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

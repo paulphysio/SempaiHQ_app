@@ -3,14 +3,14 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A18',
+    backgroundColor: '#0B0B14',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
   },
@@ -125,7 +125,7 @@ export const styles = StyleSheet.create({
   },
   migrationForm: {
     margin: 20,
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,

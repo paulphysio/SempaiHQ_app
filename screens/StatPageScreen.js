@@ -23,6 +23,7 @@ import { SMP_MINT_ADDRESS, TREASURY_PUBLIC_KEY, RPC_URL, SMP_DECIMALS } from '..
 import { getStatStyles } from '../styles/StatStyles';
 import { formatNumber } from '../utils/formatNumber';
 import { useTheme } from '../context/ThemeContext';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const { width } = Dimensions.get('window');
 const connection = new Connection(RPC_URL, 'confirmed');
@@ -388,7 +389,7 @@ const StatPageScreen = () => {
 
   const chartConfig = {
     backgroundGradientFrom: '#23234A',
-    backgroundGradientTo: '#1A1A2E',
+    backgroundGradientTo: '#1A1B26',
     backgroundGradientFromOpacity: 0.95,
     backgroundGradientToOpacity: 0.95,
     color: (opacity = 1) => `rgba(242, 140, 56, ${opacity})`, // vibrant orange
@@ -429,20 +430,12 @@ const StatPageScreen = () => {
   }, [fetchStats]);
 
   if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading Stats...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="dashboard" label="Loading stats" />;
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1A2E" />
+      <StatusBar barStyle="light-content" backgroundColor="#1A1B26" />
 
       {errorMessage && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.errorContainer}>
@@ -541,7 +534,6 @@ const StatPageScreen = () => {
                 color: item.color,
                 legendFontColor: '#FFD580',
                 legendFontSize: 14,
-                legend, 
                 legendFontFamily: 'System',
                 name: item.name,
               }))}

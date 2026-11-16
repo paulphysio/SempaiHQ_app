@@ -4,7 +4,7 @@ import { StyleSheet } from 'react-native';
 export const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#1A1B26',
     padding: 20,
   },
   novelTitle: {
@@ -28,14 +28,14 @@ export const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#1A1B26',
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#1A1B26',
   },
   errorText: {
     color: '#ff5555',
@@ -188,7 +188,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
   },
   transactionPopup: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#1A1B26',
     padding: 20,
     borderRadius: 10,
     width: '80%',

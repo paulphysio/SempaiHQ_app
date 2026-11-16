@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const InboxScreen = () => {
   const navigation = useNavigation();
@@ -84,15 +85,7 @@ const InboxScreen = () => {
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
-          <Text style={[styles.loadingText, { color: colors.textPrimary }]}>Loading messages...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="list" label="Loading messages" />;
   }
 
   return (

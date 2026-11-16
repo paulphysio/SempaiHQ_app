@@ -1,26 +1,14 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  SafeAreaView,
-  StatusBar,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Modal,
-  StyleSheet,
-  RefreshControl,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, SafeAreaView, StatusBar, KeyboardAvoidingView, Platform, Modal, StyleSheet, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
+import { readerAction } from '../services/readerActions';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { getAnnouncementsStyles } from '../styles/AnnouncementsStyles';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
+import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const AnnouncementsScreen = () => {
   const { isDark, colors } = useTheme();
@@ -90,7 +78,7 @@ const AnnouncementsScreen = () => {
 
   const handleAnnouncementSubmit = async () => {
     if (!announcementTitle.trim() || !announcementMessage.trim()) {
-      Alert.alert('Error', 'Please provide both an announcement title and message.');
+      toast.error('Please provide both an announcement title and message.');
       return;
     }
 
@@ -124,7 +112,7 @@ const AnnouncementsScreen = () => {
 
         if (worksError) throw new Error(`Failed to fetch works: ${worksError.message}`);
         if (!works || works.length === 0) {
-          Alert.alert('Error', 'You have no works to announce about.');
+          toast.error('You have no works to announce about.');
           setLoading(false);
           return;
         }
@@ -143,7 +131,7 @@ const AnnouncementsScreen = () => {
       }
 
       if (targetUsers.length === 0) {
-        Alert.alert('Error', 'No users to notify for the selected audience.');
+        toast.error('No users to notify for the selected audience.');
         setLoading(false);
         return;
       }
@@ -157,47 +145,33 @@ const AnnouncementsScreen = () => {
         audience: isSuperuser ? audience : null,
       };
 
-      const { error: announcementError } = await supabase
+      const { data: saved, error: announcementError } = await supabase
         .from("announcements")
-        .insert([announcementData]);
+        .insert([announcementData])
+        .select("id")
+        .single();
 
       if (announcementError) throw new Error(`Failed to insert announcement: ${announcementError.message}`);
 
-      const notifications = targetUsers.map((userId) => ({
-        user_id: userId,
-        type: "announcement",
-        message: `${announcementTitle}: ${announcementMessage}`,
-      }));
+      // The server delivers it (in-app + push) after checking who may send to whom.
+      const sent = await readerAction("announcement_notify", { announcementId: saved.id });
+      if (!sent.ok) throw new Error(`Announcement saved, but delivery failed: ${sent.error}`);
 
-      const { error: notifError } = await supabase
-        .from("notifications")
-        .insert(notifications);
-
-      if (notifError) throw new Error(`Failed to insert notifications: ${notifError.message}`);
-
-      Alert.alert('Success', 'Announcement sent successfully!');
+      toast.success(sent.notified ? `Announcement sent to ${sent.notified} reader${sent.notified === 1 ? '' : 's'}!` : 'Announcement posted!');
       setAnnouncementTitle("");
       setAnnouncementMessage("");
       setAnnouncementReleaseDate(null);
       setAudience("all");
     } catch (err) {
       console.error("Full error details:", err);
-      Alert.alert('Error', `Failed to send announcement: ${err.message || 'Unknown error'}`);
+      toast.error(`Failed to send announcement: ${err.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
   };
 
   if (loading && !hasAccess) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#9B59B6" />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <ScreenSkeleton variant="list" label="Loading announcements" />;
   }
 
   return (

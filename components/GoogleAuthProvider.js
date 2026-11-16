@@ -289,7 +289,7 @@ export const GoogleAuthProvider = ({ children }) => {
         <Animated.View style={[styles.modalContainer, animatedBackdropStyle]}>
           <Animated.View style={[styles.modalContent, animatedModalStyle]}>
             <LinearGradient
-              colors={['rgba(255, 87, 51, 0.35)', 'rgba(255, 147, 0, 0.35)']}
+              colors={['rgba(243, 99, 22, 0.35)', 'rgba(255, 147, 0, 0.35)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.modalBackground}
@@ -306,7 +306,7 @@ export const GoogleAuthProvider = ({ children }) => {
                   disabled={loading || isSigningIn}
                 >
                   <LinearGradient
-                    colors={['#FF4500', '#FF8C00', '#FFD700']}
+                    colors={['#FF4500', '#FF8C00', '#FFC857']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.googleButtonGradient}
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     width: '100%',
     borderWidth: 1,
-    borderColor: 'rgba(255, 215, 0, 0.4)',
+    borderColor: 'rgba(255, 200, 87, 0.4)',
   },
   googleButtonGradient: {
     flexDirection: 'row',

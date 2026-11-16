@@ -28,13 +28,13 @@ const KA_COLORS = {
   bgElevated:     '#1a1714',
   bgInput:        '#0f0e0d',
   orangePrimary:  '#cc5500',
-  orangeBright:   '#ff6b35',
+  orangeBright:   '#FF8A3D',
   orangeSoft:     '#e67e22',
   orangeDim:      '#8b4513',
   redAccent:      '#c41e3a',
   redDeep:        '#8b0000',
   gold:           '#c9a84c',
-  goldBright:     '#ffd700',
+  goldBright:     '#FFC857',
   ivory:          '#f5e6d3',
   ivoryDim:       '#c4b5a0',
   ink:            '#2a2520',
@@ -106,12 +106,12 @@ const ENEMY_ATTACK_INTERVAL_MS = 2800;
 const ENEMY_ATTACK_VARIANCE    = 800;
 
 const ANNOUNCEMENT_CONFIGS = {
-  FIGHT:        { text: 'FIGHT!',           color: '#ffd700', duration: 1800 },
+  FIGHT:        { text: 'FIGHT!',           color: '#FFC857', duration: 1800 },
   FINISH_HIM:   { text: 'FINISH HIM!',      color: '#ff0000', duration: 3000 },
   FATALITY:     { text: 'FATALITY',         color: '#dc143c', duration: 4000 },
-  VICTORY:      { text: 'VICTORY',          color: '#ffd700', duration: 3000 },
+  VICTORY:      { text: 'VICTORY',          color: '#FFC857', duration: 3000 },
   DEFEAT:       { text: 'DEFEAT',           color: '#8b0000', duration: 3000 },
-  FLAWLESS:     { text: 'FLAWLESS VICTORY', color: '#ffd700', duration: 4000 },
+  FLAWLESS:     { text: 'FLAWLESS VICTORY', color: '#FFC857', duration: 4000 },
   CRITICAL:     { text: 'CRITICAL HIT!',    color: '#ff6347', duration: 1200 },
   BLOCK:        { text: 'BLOCK!',           color: '#4169e1', duration: 900  },
   DODGE:        { text: 'DODGE!',           color: '#32cd32', duration: 900  },
@@ -206,7 +206,7 @@ const CooldownRing = memo(({ progress, ready }) => {
       <Circle
         cx={16} cy={16} r={r}
         fill="none"
-        stroke={ready ? '#ffd700' : '#ff6347'}
+        stroke={ready ? '#FFC857' : '#ff6347'}
         strokeWidth={2.5}
         strokeDasharray={`${dash} ${circ}`}
         strokeDashoffset={circ * 0.25}
@@ -241,7 +241,7 @@ const ActionButton = memo(({ icon, kanji, label, onPress, disabled, progress, re
 ══════════════════════════════════════════════════════════ */
 const DistanceMeter = memo(({ distance, maxDistance = 100 }) => {
   const pct   = (distance / maxDistance) * 100;
-  const color = distance <= 20 ? '#ffd700' : distance <= 50 ? '#ff6347' : '#90ee90';
+  const color = distance <= 20 ? '#FFC857' : distance <= 50 ? '#ff6347' : '#90ee90';
   return (
     <View style={styles.distanceMeter}>
       <Text style={styles.distanceLabel}>DISTANCE</Text>
@@ -1123,12 +1123,12 @@ const styles = StyleSheet.create({
   actionCooling: { opacity: 0.45 },
 
   jpAttackBtn: { borderColor: KA_COLORS.orangePrimary,  backgroundColor: 'rgba(204,85,0,0.25)' },
-  jpMoveBtn:   { borderColor: KA_COLORS.orangeBright,   backgroundColor: 'rgba(255,107,53,0.2)' },
+  jpMoveBtn:   { borderColor: KA_COLORS.orangeBright,   backgroundColor: 'rgba(255, 138, 61,0.2)' },
   jpBlockBtn:  { borderColor: KA_COLORS.gold,             backgroundColor: 'rgba(201,168,76,0.2)' },
   jpDodgeBtn:  { borderColor: KA_COLORS.orangeSoft,       backgroundColor: 'rgba(230,126,34,0.2)' },
-  jpSkillBtn:  { borderColor: KA_COLORS.orangeBright,     backgroundColor: 'rgba(255,107,53,0.25)' },
+  jpSkillBtn:  { borderColor: KA_COLORS.orangeBright,     backgroundColor: 'rgba(255, 138, 61,0.25)' },
   jpPotionBtn: { borderColor: KA_COLORS.orangeDim,        backgroundColor: 'rgba(139,69,19,0.25)' },
-  activeBtnBlock: { borderColor: KA_COLORS.orangeBright, backgroundColor: 'rgba(255,107,53,0.35)' },
+  activeBtnBlock: { borderColor: KA_COLORS.orangeBright, backgroundColor: 'rgba(255, 138, 61,0.35)' },
   activeBtnDodge: { borderColor: KA_COLORS.orangePrimary, backgroundColor: 'rgba(204,85,0,0.35)'  },
 
   hintBar: { marginTop: 5, alignItems: 'center' },

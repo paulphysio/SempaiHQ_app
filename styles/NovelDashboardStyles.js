@@ -4,12 +4,12 @@ const { width } = Dimensions.get('window');
 
 const COLOR = {
   dark: {
-    bg: '#1A1A2E',
+    bg: '#1A1B26',
     bgElevated: '#2a2a2a',
     bgCard: '#2a2a2a',
     accent: '#F36316',
     accentDeep: '#D94F04',
-    accentSoft: 'rgba(255, 87, 51, 0.1)',
+    accentSoft: 'rgba(243, 99, 22, 0.1)',
     textPrimary: '#fff',
     textSecondary: 'rgba(255, 255, 255, 0.7)',
     textMuted: 'rgba(255, 255, 255, 0.5)',
@@ -682,7 +682,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   darkContainer: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
   },
   lightContainer: {
     backgroundColor: '#fff',
@@ -698,7 +698,7 @@ export const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   darkNavbar: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderBottomColor: '#444',
   },
   lightNavbar: {
@@ -777,7 +777,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 87, 51, 0.1)',
+    backgroundColor: 'rgba(243, 99, 22, 0.1)',
   },
   connectIcon: {
     marginBottom: 16,
@@ -1281,7 +1281,7 @@ export const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   darkFooter: {
-    backgroundColor: '#1A1A2E',
+    backgroundColor: '#1A1B26',
     borderTopColor: '#444',
   },
   lightFooter: {

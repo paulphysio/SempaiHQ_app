@@ -691,7 +691,7 @@ const marketModalStyles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 215, 0, 0.12)',
+    backgroundColor: 'rgba(255, 200, 87, 0.12)',
     borderWidth: 1,
     borderColor: KA_COLORS.gold,
   },

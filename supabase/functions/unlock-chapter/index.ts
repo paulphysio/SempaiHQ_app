@@ -68,6 +68,128 @@ async function getPrices(currency: string) {
   }
 }
 
+// ─── On-chain payment verification ─────────────────────────────────────────
+// A chapter is only unlocked for a real, successful, recent payment made BY
+// the reader's wallet TO the writer / SempaiHQ, that hasn't been used before.
+const RPC_ENDPOINT = Deno.env.get("RPC_URL") || Deno.env.get("SOLANA_RPC_URL") ||
+  Deno.env.get("HELIUS_RPC_URL") || "https://api.mainnet-beta.solana.com";
+const PLATFORM_WALLET = "71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD"; // SempaiHQ + founder fund
+const SOL_MINT = "So11111111111111111111111111111111111111112";
+const MAX_TX_AGE_SECONDS = 24 * 60 * 60; // phones may retry a saved unlock later
+const MIN_PAID_FRACTION = 0.5;           // generous: price feeds differ between app and server
+
+async function rpc(method: string, params: unknown[]) {
+  const res = await fetch(RPC_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    signal: AbortSignal.timeout(10000),
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(`RPC ${method}: ${json.error.message}`);
+  return json.result;
+}
+
+async function fetchConfirmedTx(signature: string) {
+  for (let i = 0; i < 5; i++) {
+    const tx = await rpc("getTransaction", [signature, {
+      encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0,
+    }]).catch(() => null);
+    if (tx) return tx;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  return null;
+}
+
+/** Live USD price per whole token (Jupiter). null if unavailable. */
+async function usdPrice(mint: string): Promise<number | null> {
+  // SMP isn't tradable on Jupiter — use the same price the app charges with.
+  if (mint === SMP_MINT_ADDRESS) {
+    try {
+      const res = await fetch("https://www.sempaihq.com/api/smp-fallback-price", { signal: AbortSignal.timeout(4000) });
+      const json = await res.json();
+      const smpPerUsd = Number(json?.fallbackPrice);
+      return Number.isFinite(smpPerUsd) && smpPerUsd > 0 ? 1 / smpPerUsd : null;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    const res = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`, { signal: AbortSignal.timeout(4000) });
+    const json = await res.json();
+    const p = Number(json?.[mint]?.usdPrice);
+    return Number.isFinite(p) && p > 0 ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Throws a reader-safe error unless `signature` is a successful payment from
+ * `payer` to the writer/platform in `currency`. Returns the raw amount received.
+ */
+async function verifyChapterPayment(opts: {
+  signature: string; payer: string; authorWallet: string; currency: string; usdAmount: number;
+}) {
+  const { signature, payer, authorWallet, currency, usdAmount } = opts;
+  const tx = await fetchConfirmedTx(signature);
+  if (!tx) throw new Error("Payment not found on Solana yet — please try again in a minute");
+  if (tx.meta?.err) throw new Error("Payment transaction failed on-chain");
+  if (tx.blockTime && Date.now() / 1000 - tx.blockTime > MAX_TX_AGE_SECONDS) {
+    throw new Error("Payment transaction is too old to unlock a chapter");
+  }
+
+  const keys: string[] = (tx.transaction?.message?.accountKeys || []).map((k: any) =>
+    typeof k === "string" ? k : k.pubkey);
+  const signers = new Set((tx.transaction?.message?.accountKeys || [])
+    .filter((k: any) => typeof k !== "string" && k.signer).map((k: any) => k.pubkey));
+  if (keys[0] !== payer || !signers.has(payer)) {
+    throw new Error("Payment was not made by this wallet");
+  }
+
+  // The payer's own accounts never count as "received" — that matters when a
+  // writer reads their own paid chapter (they're both payer and author).
+  const recipients = new Set([authorWallet, PLATFORM_WALLET].filter((w) => w !== payer));
+  let received = 0;
+  let decimals = currency === "SOL" ? 9 : 6;
+  const mint = currency === "USDC" ? USDC_MINT_ADDRESS : currency === "SMP" ? SMP_MINT_ADDRESS
+    : currency === "SKR" ? SKR_MINT_ADDRESS : null;
+
+  if (currency === "SOL") {
+    keys.forEach((k, i) => {
+      if (recipients.has(k)) received += (tx.meta.postBalances[i] ?? 0) - (tx.meta.preBalances[i] ?? 0);
+    });
+  } else if (mint) {
+    const pre = new Map<number, number>();
+    for (const b of tx.meta?.preTokenBalances || []) {
+      if (b.mint === mint) pre.set(b.accountIndex, Number(b.uiTokenAmount?.amount || 0));
+    }
+    for (const b of tx.meta?.postTokenBalances || []) {
+      if (b.mint !== mint || !recipients.has(b.owner)) continue;
+      decimals = b.uiTokenAmount?.decimals ?? decimals;
+      received += Number(b.uiTokenAmount?.amount || 0) - (pre.get(b.accountIndex) || 0);
+    }
+  } else {
+    throw new Error(`Invalid currency: ${currency}`);
+  }
+
+  if (received <= 0) throw new Error("This transaction didn't pay the writer");
+
+  // Amount floor from a live price; skipped (but logged) if no price is available.
+  const price = currency === "USDC" ? 1 : await usdPrice(currency === "SOL" ? SOL_MINT : mint!);
+  if (price) {
+    // Self-payment: only the platform's half (30% + 20%) leaves the wallet.
+    const share = authorWallet === payer ? 0.5 : 1;
+    const expectedRaw = (usdAmount / price) * 10 ** decimals * share;
+    if (received < expectedRaw * MIN_PAID_FRACTION) {
+      throw new Error("Payment amount is too low for this chapter");
+    }
+  } else {
+    console.warn("[unlock-chapter] No live price for", currency, "- amount floor skipped");
+  }
+  return received;
+}
+
 serve(async (req) => {
   try {
     console.log("[unlock-chapter] Request received");
@@ -75,8 +197,13 @@ serve(async (req) => {
     const jwt = req.headers.get("authorization")?.replace(/^Bearer /, "");
     if (!jwt) throw new Error("Authorization header missing");
 
-    const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(jwt.split(".")[1])));
-    if (typeof jwtBody?.email !== "string") throw new Error("JWT missing email");
+    // The gateway has verified this JWT's signature; read who it is.
+    const part = jwt.split(".")[1] || "";
+    const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(
+      part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="))));
+    if (typeof jwtBody?.sub !== "string" && typeof jwtBody?.email !== "string") {
+      throw new Error("Please sign in to unlock chapters");
+    }
 
     const { novelId, chapterId, paymentType, currency, signature, transactionId, walletAddress } = await req.json();
 
@@ -85,13 +212,20 @@ serve(async (req) => {
     }
 
     // Parallel DB fetches
-    const [userResult, novelResult] = await Promise.all([
-      supabaseAdmin.from("users").select("id").eq("email", jwtBody.email).maybeSingle(),
+    const [userByIdResult, novelResult] = await Promise.all([
+      jwtBody.sub
+        ? supabaseAdmin.from("users").select("id").eq("id", jwtBody.sub).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
       supabaseAdmin.from("novels").select("id, user_id, chaptertitles, advance_chapters").eq("id", novelId).maybeSingle()
     ]);
 
-    const userData = throwOnError(userResult);
-    if (!userData) throw new Error(`User not found for email ${jwtBody.email}`);
+    // By account id first (can't be faked); email only for older accounts.
+    let userData = throwOnError(userByIdResult);
+    if (!userData && typeof jwtBody.email === "string") {
+      const { data: byEmail } = await supabaseAdmin.from("users").select("id").eq("email", jwtBody.email).limit(2);
+      if (byEmail?.length === 1) userData = byEmail[0];
+    }
+    if (!userData) throw new Error("Account not found — please sign in again");
 
     const novel = throwOnError(novelResult);
     if (!novel) throw new Error("Novel not found");
@@ -153,6 +287,29 @@ serve(async (req) => {
     } else {
       throw new Error(`Invalid currency: ${currency}`);
     }
+
+    // One payment, one unlock: a signature already recorded for anything else is refused.
+    const { data: usedFor } = await supabaseAdmin
+      .from("chapter_payments")
+      .select("wallet_address, novel_id, chapter_number")
+      .eq("transaction_id", signature)
+      .limit(1);
+    if (usedFor?.length) {
+      const u = usedFor[0];
+      const same = u.wallet_address === walletAddress && String(u.novel_id) === String(novelId) &&
+        Number(u.chapter_number) === parseInt(chapterId, 10);
+      if (!same) throw new Error("This payment was already used to unlock another chapter");
+      return Response.json({ success: true, signature, message: "Payment already recorded" });
+    }
+
+    // Prove the payment happened on-chain before unlocking anything.
+    await verifyChapterPayment({
+      signature,
+      payer: walletAddress,
+      authorWallet: authorData.wallet_address,
+      currency,
+      usdAmount,
+    });
 
     // Record payment
     try {
@@ -332,7 +489,12 @@ serve(async (req) => {
     console.error("[unlock-chapter] Error:", error.message);
     return Response.json(
       { error: error.message || "Internal server error" },
-      { status: error.message.includes("not found") || error.message.includes("requires") ? 400 : 500 }
+      {
+        status: /not found on solana yet/i.test(error.message || "") ? 503 // temporary: retry later
+          : /not found|requires|already used|too low|didn't pay|not made by this wallet|failed on-chain|too old|invalid currency|sign in/i
+              .test(error.message || "") ? 400 // permanent: retrying won't help
+          : 500,
+      }
     );
   }
 });

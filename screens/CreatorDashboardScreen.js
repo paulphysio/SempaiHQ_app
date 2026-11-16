@@ -1,21 +1,5 @@
 import React, { useState, useEffect, useRef, useContext, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  SafeAreaView,
-  StatusBar,
-  Platform,
-  ScrollView,
-  ActivityIndicator,
-  Image,
-  Alert,
-  KeyboardAvoidingView,
-  StyleSheet,
-  Dimensions,
-  Animated,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Platform, ScrollView, ActivityIndicator, Image, KeyboardAvoidingView, StyleSheet, Dimensions, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import {
@@ -30,6 +14,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
+import { toast } from '../components/Toast';
 
 const { width, height } = Dimensions.get('window');
 
@@ -39,11 +24,11 @@ const KA_COLORS_BASE = {
   bgCard: '#141210',
   bgElevated: '#1a1714',
   orangePrimary: '#cc5500',
-  orangeBright: '#ff6b35',
+  orangeBright: '#FF8A3D',
   orangeSoft: '#e67e22',
   orangeDim: '#8b4513',
   gold: '#c9a84c',
-  goldBright: '#ffd700',
+  goldBright: '#FFC857',
   ivory: '#f5e6d3',
   ivoryDim: '#c4b5a0',
   border: '#2d2418',
@@ -66,8 +51,9 @@ const kaColors = (isDark, c) => isDark ? KA_COLORS_BASE : {
 
 
 const CreatorDashboardScreen = () => {
-  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark]);
   const { isDark, colors } = useTheme();
+  // After useTheme(): it used to read isDark/colors before they existed and crash.
+  const KA_COLORS = useMemo(() => kaColors(isDark, colors), [isDark, colors]);
   const styles = useMemo(() => getCreatorDashStyles(colors), [isDark]);
   const navigation = useNavigation();
   const walletContext = useContext(EmbeddedWalletContext);
@@ -165,13 +151,13 @@ const CreatorDashboardScreen = () => {
       }
     } catch (error) {
       console.error('[CreatorDashboard] Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      toast.error('Failed to pick image');
     }
   };
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Error', 'Please enter a title');
+      toast.error('Please enter a title');
       return;
     }
 
