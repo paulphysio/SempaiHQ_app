@@ -16,7 +16,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { readerAction } from '../services/readerActions';
 import ConnectButton, { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import WalletPanel from '../components/WalletPanel';
@@ -264,7 +264,7 @@ const NovelsPageScreen = () => {
       }
 
       // Make the withdrawal request with wallet signature authentication
-      const edgeUrl = `https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/withdraw-smp`;
+      const edgeUrl = `${FUNCTIONS_URL}/withdraw-smp`;
       console.log('Making withdrawal request to:', edgeUrl, {
         walletAddress: publicKey,
         amount

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { supabase } from '../services/supabaseClient';
+import { supabase, refreshReaderMode, refreshTestPricing, USER_AUTH_MODE } from '../services/supabaseClient';
+import { toast } from '../components/Toast';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
@@ -59,6 +60,22 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [skippedSignIn, setSkippedSignIn] = useState(false);
+
+  // Phase 3 live test: switch this account into "reader mode" if the
+  // database says so (settings.reader_mode). Off for everyone by default.
+  useEffect(() => {
+    let cancelled = false;
+    refreshTestPricing(user).then((on) => {
+      if (!cancelled && on) console.log('[AuthContext] Test pricing ($0.0025 chapters) for this account');
+    });
+    refreshReaderMode(user).then((on) => {
+      if (!cancelled && on && !USER_AUTH_MODE) {
+        console.log('[AuthContext] Reader mode ON for this account (Phase 3 test)');
+        toast.info('🔒 Security test mode is on for your account', { duration: 4000 });
+      }
+    });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // Store session securely
   const persistSession = async (session) => {

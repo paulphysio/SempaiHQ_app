@@ -62,6 +62,54 @@ begin
     case when check_ is null then '' else ' with check (' || check_ || ')' end);
 end $$;
 
+-- ── snapshot (for the undo file) ───────────────────────────────────────────
+-- Saves the current rules, row-security switches and public/signed-in
+-- permissions of every public table, so 20261123_phase3_rls_ROLLBACK.sql can
+-- put things back exactly. Taken once; re-running keeps the first snapshot.
+create table if not exists public._p3_backup_policies as
+  select schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check
+  from pg_policies where schemaname = 'public';
+create table if not exists public._p3_backup_rls as
+  select c.relname as tablename, c.relrowsecurity as rls_on
+  from pg_class c join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public' and c.relkind = 'r' and c.relname not like '\_p3\_%';
+create table if not exists public._p3_backup_grants as
+  select table_name, grantee, privilege_type
+  from information_schema.role_table_grants
+  where table_schema = 'public' and grantee in ('anon', 'authenticated');
+create table if not exists public._p3_backup_column_grants as
+  select table_name, column_name, grantee, privilege_type
+  from information_schema.column_privileges
+  where table_schema = 'public' and grantee in ('anon', 'authenticated');
+create table if not exists public._p3_backup_functions as
+  select p.oid::regprocedure::text as sig, p.prosecdef
+  from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public';
+revoke all on public._p3_backup_policies, public._p3_backup_rls, public._p3_backup_grants,
+  public._p3_backup_column_grants, public._p3_backup_functions from anon, authenticated;
+
+-- ── start clean: drop any older rules on the tables this file manages ────
+-- (so the result never depends on forgotten leftovers)
+do $$
+declare r record;
+begin
+  for r in
+    select schemaname, tablename, policyname from pg_policies
+    where schemaname = 'public' and tablename = any (array[
+      'comments','manga_comments','manga_detail_comments','chapter_ratings','feed_posts','feed_comments',
+      'feed_post_likes','feed_comment_likes','feed_shares','polls','votes','hoard_items','writer_profiles',
+      'messages','feed_follows','reading_progress','reading_time_sessions','manga_interactions',
+      'feed_user_engagement','notifications','private_messages','players','novels','manga','manga_chapters',
+      'manga_pages','writer_announcements','announcements','creator_applications','support_requests','users',
+      'gifs','bazaar_books','bazaar_read_sessions','challenge_attempts','manga_subscriptions','user_wallets',
+      'chapter_payments','ad_based_unlocks','user_badges','writer_subscriptions','writer_access_log',
+      'settings','badges','wallet_balances','wallet_events','amethyst_balances','unlocked_story_chapters',
+      'unlocked_manga_chapters','user_payments','benefactor_early_access','novel_interactions'])
+  loop
+    execute format('drop policy if exists %I on %I.%I', r.policyname, r.schemaname, r.tablename);
+  end loop;
+end $$;
+
 -- ── public: everyone reads, owner writes (user_id) ────────────────────────
 do $$
 declare t text;
@@ -226,6 +274,61 @@ select pg_temp.pol('users', 'users: edit my row', 'update', 'authenticated',
   'id = auth.uid() or public.is_admin()', 'id = auth.uid() or public.is_admin()');
 revoke insert, update on public.users from anon;
 
+-- ── creator & admin tools ──────────────────────────────────────────────────
+-- GIF library: everyone reads, admins add/remove
+alter table public.gifs enable row level security;
+select pg_temp.pol('gifs', 'gifs: read', 'select', 'anon, authenticated', 'true', null);
+select pg_temp.pol('gifs', 'gifs: admins manage', 'all', 'authenticated', 'public.is_admin()', 'public.is_admin()');
+grant select on public.gifs to anon, authenticated;
+grant insert, update, delete on public.gifs to authenticated;
+revoke insert, update, delete on public.gifs from anon;
+
+-- Bazaar books: listed books are public; authors upload their own at the
+-- OFFICIAL economics (price $1, 70% author share, 12,500 SMP lend) — the
+-- purchase function trusts these columns, so authors can't set their own.
+-- Only admins change status/prices afterwards.
+alter table public.bazaar_books enable row level security;
+select pg_temp.pol('bazaar_books', 'bazaar_books: read', 'select', 'anon, authenticated',
+  'status = ''active'' or author_id = auth.uid() or public.is_admin()', null);
+select pg_temp.pol('bazaar_books', 'bazaar_books: author uploads', 'insert', 'authenticated', null,
+  'author_id = auth.uid() and price_usd = 1 and author_share_pct = 70 and lend_price_smp = 12500');
+select pg_temp.pol('bazaar_books', 'bazaar_books: admins edit', 'update', 'authenticated', 'public.is_admin()', 'public.is_admin()');
+grant select on public.bazaar_books to anon, authenticated;
+grant insert, update on public.bazaar_books to authenticated;
+revoke insert, update, delete on public.bazaar_books from anon;
+
+-- Bazaar reading sessions: your own
+alter table public.bazaar_read_sessions enable row level security;
+select pg_temp.pol('bazaar_read_sessions', 'bazaar_read_sessions: own', 'all', 'authenticated',
+  'user_id = auth.uid() or public.is_admin()', 'user_id = auth.uid()');
+revoke all on public.bazaar_read_sessions from anon;
+grant select, insert, update on public.bazaar_read_sessions to authenticated;
+
+-- Reading-check answers: only inside your own reading session
+alter table public.challenge_attempts enable row level security;
+select pg_temp.pol('challenge_attempts', 'challenge_attempts: own session', 'all', 'authenticated',
+  'exists (select 1 from public.reading_sessions s where s.id = session_id and s.user_id = auth.uid())',
+  'exists (select 1 from public.reading_sessions s where s.id = session_id and s.user_id = auth.uid())');
+revoke all on public.challenge_attempts from anon;
+grant select, insert on public.challenge_attempts to authenticated;
+
+-- Manga subscriptions: you see your own; created by subscribe-manga, removed by delete_title
+alter table public.manga_subscriptions enable row level security;
+select pg_temp.pol('manga_subscriptions', 'manga_subscriptions: mine', 'select', 'authenticated', 'user_id = auth.uid()', null);
+revoke all on public.manga_subscriptions from anon;
+revoke insert, update, delete on public.manga_subscriptions from authenticated;
+grant select on public.manga_subscriptions to authenticated;
+
+-- Stored wallets: nobody reads keys directly (get_my_wallet_key is the only
+-- way, owner-only); you can save or replace your OWN wallet.
+alter table public.user_wallets enable row level security;
+select pg_temp.pol('user_wallets', 'user_wallets: read rows', 'select', 'anon, authenticated', 'true', null);
+select pg_temp.pol('user_wallets', 'user_wallets: save mine', 'insert', 'authenticated', null, 'user_id = auth.uid()');
+select pg_temp.pol('user_wallets', 'user_wallets: replace mine', 'update', 'authenticated', 'user_id = auth.uid()', 'user_id = auth.uid()');
+revoke all on public.user_wallets from anon, authenticated;
+grant select (id, user_id, address, created_at) on public.user_wallets to anon, authenticated;
+grant insert (user_id, address, private_key), update (address, private_key) on public.user_wallets to authenticated;
+
 -- ── server-only (reads as today, writes only via edge functions) ──────────
 -- Money/trust tables were made write-protected by the money lock; enabling
 -- row security here with read-only rules finishes them.
@@ -234,7 +337,7 @@ declare t text;
 begin
   foreach t in array array[
     'chapter_payments', 'ad_based_unlocks', 'user_badges', 'writer_subscriptions',
-    'writer_access_log', 'gifs', 'challenge_attempts', 'settings', 'badges',
+    'writer_access_log', 'settings', 'badges',
     'wallet_balances', 'wallet_events', 'amethyst_balances', 'unlocked_story_chapters',
     'unlocked_manga_chapters', 'user_payments', 'benefactor_early_access', 'novel_interactions'
   ] loop
@@ -244,5 +347,29 @@ begin
     execute format('revoke insert, update, delete, truncate on public.%I from anon, authenticated', t);
   end loop;
 end $$;
+
+-- ── functions the app calls that touch now-private tables ─────────────────
+-- They run with the caller's rights today; once readers sign in as
+-- themselves they'd hit the row rules. Run them with owner rights instead
+-- (all are read-only aggregates or a tightly scoped counter).
+do $$
+declare f text;
+begin
+  foreach f in array array[
+    'public.increment_novel_view(uuid, uuid)',     -- view counter (novels + novel_interactions)
+    'public.get_leaderboard_data(text)',           -- aggregates everyone's reading
+    'public.get_user_reading_time(uuid)',          -- reading-time totals
+    'public.kaiji_leaderboard_data()'
+  ] loop
+    if to_regprocedure(f) is not null then
+      execute format('alter function %s security definer', f);
+      execute format('alter function %s set search_path = public', f);
+    end if;
+  end loop;
+end $$;
+
+-- The 1-argument increment_novel_view(uuid) was a buggy duplicate (it bumped
+-- the novel whose id equals the USER id). Nothing calls it.
+drop function if exists public.increment_novel_view(uuid);
 
 commit;

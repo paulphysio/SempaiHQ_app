@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { getUserDetails } from '../utils/userManagement';
 import { fetchSolBalance } from '../utils/solana';
 import { callSignedEdgeFunction } from '../utils/walletSignature';
@@ -126,7 +126,7 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
         throw new Error('Wallet not connected. Please connect your wallet first.');
       }
 
-      const edgeUrl = `https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/airdrop-function`;
+      const edgeUrl = `${FUNCTIONS_URL}/airdrop-function`;
 
       // Call with wallet signature authentication
       const response = await callSignedEdgeFunction(

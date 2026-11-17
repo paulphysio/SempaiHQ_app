@@ -22,6 +22,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { supabase } from '../services/supabaseClient';
+import { readerAction } from '../services/readerActions';
 import { notifyReaders, getTitleReaderIds, getCreatorReaderIds } from '../services/notify';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import ConnectButton from '../components/ConnectButton';
@@ -417,17 +418,10 @@ const MangaDashboardScreen = () => {
       const coverRef = parseStorageRef(activeManga.cover_image);
       if (coverRef) storageRefs.push(coverRef);
 
-      // Delete rows children-first
-      await supabase.from('manga_comments').delete().eq('manga_id', mangaId);
-      if (chapterIds.length) {
-        await supabase.from('manga_pages').delete().in('chapter_id', chapterIds);
-      }
-      await supabase.from('manga_chapters').delete().eq('manga_id', mangaId);
-      await supabase.from('manga_subscriptions').delete().eq('manga_id', mangaId);
-      await supabase.from('unlocked_manga_chapters').delete().eq('manga_id', mangaId);
-      await supabase.from('user_payments').delete().eq('manga_id', mangaId);
-      const { error } = await supabase.from('manga').delete().eq('id', mangaId);
-      if (error) throw error;
+      // The server deletes the title and everything attached to it (it checks
+      // you are the creator — readers' rows can't be removed from the phone).
+      const res = await readerAction('delete_title', { kind: 'manga', id: mangaId });
+      if (!res.ok) throw new Error(res.error);
 
       // Best-effort storage cleanup (orphaned files are harmless but tidy)
       for (const ref of storageRefs) {

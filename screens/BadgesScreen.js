@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext, useMemo, useRef, useCallback } from 'react';
 import { View, Text, FlatList, ScrollView, Pressable, Image, ActivityIndicator, Modal, SafeAreaView, TextInput } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../context/ThemeContext';
@@ -21,7 +21,7 @@ import { toast } from '../components/Toast';
 const connection = new Connection(RPC_URL, 'confirmed');
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
 const TREASURY_WALLET = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD');
-const EDGE_FUNCTION_URL = 'https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/benefactor-payment';
+const EDGE_FUNCTION_URL = `${FUNCTIONS_URL}/benefactor-payment`;
 
 const CURRENCIES = [
   { key: 'USDC', icon: 'dollar-sign', decimals: 2 },

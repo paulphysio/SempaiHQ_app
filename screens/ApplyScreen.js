@@ -6,6 +6,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced'; // 
 import Popup from '../components/Popup';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import { readerAction } from '../services/readerActions';
 
 const ApplyScreen = () => {
   const { isDark, colors } = useTheme();
@@ -37,25 +38,26 @@ const ApplyScreen = () => {
       console.log('[ApplyScreen] Wallet ready. Syncing profile for public key:', publicKeyStr);
 
       try {
+        // Your account comes from your Google sign-in (the role is granted to
+        // that account on the server), not from the wallet alone.
+        const { data: { session } } = await supabase.auth.getSession();
+        const authId = session?.user?.id;
+        if (!authId) {
+          setError('Please sign in with Google to apply as a creator.');
+          return;
+        }
         let { data: user, error: fetchError } = await supabase
           .from('users')
           .select('id, email, name')
-          .eq('wallet_address', publicKeyStr)
-          .single();
-
-        if (fetchError && fetchError.code === 'PGRST116') {
-          console.log('[ApplyScreen] No profile found. Creating new user.');
-          const { data: newUser, error: insertError } = await supabase
+          .eq('id', authId)
+          .maybeSingle();
+        if (fetchError) throw fetchError;
+        if (!user) {
+          ({ data: user } = await supabase
             .from('users')
-            .insert({ wallet_address: publicKeyStr })
             .select('id, email, name')
-            .single();
-
-          if (insertError) throw insertError;
-          user = newUser;
-          console.log('[ApplyScreen] New user created:', user);
-        } else if (fetchError) {
-          throw fetchError;
+            .eq('wallet_address', publicKeyStr)
+            .maybeSingle());
         }
 
         if (user) {
@@ -98,38 +100,17 @@ const ApplyScreen = () => {
     }
 
     try {
-      // 1. Grant the role to the user
-      const roleUpdate = {};
-      if (role === 'writer') {
-        roleUpdate.isWriter = true;
-      } else if (role === 'artist') {
-        roleUpdate.isArtist = true;
+      // The server records the application and grants the role.
+      const res = await readerAction('apply_creator', { role, name, email, reason, submissionLink });
+      if (!res.ok) throw new Error(res.error);
+
+      if (res.approved) {
+        setSuccess(`Application approved! You are now a ${role}.`);
+        toast.success(`Your application has been approved! You have been granted the ${role} role.`);
+      } else {
+        setSuccess('Application sent! An admin will review it soon.');
+        toast.success('Application sent — we’ll let you know once it’s reviewed.');
       }
-
-      const { error: updateError } = await supabase
-        .from('users')
-        .update(roleUpdate)
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      // 2. Log the application as approved
-      const { error: insertError } = await supabase.from('creator_applications').insert([
-        {
-          user_id: userId,
-          name,
-          email,
-          role,
-          reason,
-          submission_link: submissionLink || null,
-          application_status: 'approved',
-        },
-      ]);
-
-      if (insertError) throw insertError;
-
-      setSuccess(`Application approved! You are now a ${role}.`);
-      toast.success(`Your application has been approved! You have been granted the ${role} role.`);
       setReason('');
       setSubmissionLink('');
     } catch (err) {

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { supabase } from '../services/supabaseClient';
+import { supabase, SUPABASE_URL } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { formatNumber } from '../utils/formatNumber';
 import {
@@ -673,7 +673,7 @@ const MangaChapterScreen = () => {
       const accessToken = sessionData?.session?.access_token;
       if (!accessToken || !mangaId) return false;
 
-      const supabaseUrl = 'https://xqeimsncmnqsiowftdmz.supabase.co';
+      const supabaseUrl = SUPABASE_URL;
       const response = await fetch(`${supabaseUrl}/functions/v1/claim-pioneer-badge`, {
         method: 'POST',
         headers: {

@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { readerAction } from '../services/readerActions';
 import { getReadingProgressMap } from '../services/readingProgress';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -202,7 +202,7 @@ const MangaPageScreen = () => {
         throw new Error(`Insufficient off-chain balance: ${offChainBalance.toLocaleString()} SMP available, need ${amount.toLocaleString()} SMP.`);
       }
 
-      const edgeUrl = 'https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/withdraw-smp';
+      const edgeUrl = `${FUNCTIONS_URL}/withdraw-smp`;
       const privateKey = secretKey;
       if (!privateKey) throw new Error('Wallet private key not available. Please reconnect your wallet.');
 

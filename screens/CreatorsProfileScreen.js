@@ -19,7 +19,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
 import { FontAwesome5 } from '@expo/vector-icons';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
@@ -649,7 +649,7 @@ const CreatorsProfileScreen = () => {
 
       const planType = selectedBadge.type || 'blue';
 
-      const response = await safeFetch('https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/benefactor-payment', {
+      const response = await safeFetch(`${FUNCTIONS_URL}/benefactor-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

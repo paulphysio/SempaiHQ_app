@@ -187,7 +187,7 @@ async function verifyChapterPayment(opts: {
   } else {
     console.warn("[unlock-chapter] No live price for", currency, "- amount floor skipped");
   }
-  return received;
+  return { received, decimals };
 }
 
 serve(async (req) => {
@@ -266,7 +266,15 @@ serve(async (req) => {
     if (!authorData?.wallet_address) throw new Error("Author wallet not found");
 
     // Calculate payment amount (very light)
-    const usdAmount = 0.025;
+    // Real price $0.025. Accounts listed in settings.test_pricing (comma-
+    // separated emails or account ids) pay the $0.0025 test price instead.
+    let usdAmount = 0.025;
+    try {
+      const { data: tp } = await supabaseAdmin.from("settings").select("value").eq("key", "test_pricing").maybeSingle();
+      const list = String(tp?.value || "").toLowerCase().split(",").map((s: string) => s.trim()).filter(Boolean);
+      const me = [String(userData.id).toLowerCase(), String(jwtBody.email || "").toLowerCase()];
+      if (list.some((x: string) => me.includes(x))) usdAmount = 0.0025;
+    } catch { /* real price */ }
     let paymentAmount = 0;
     let paymentMint = null;
 
@@ -303,7 +311,7 @@ serve(async (req) => {
     }
 
     // Prove the payment happened on-chain before unlocking anything.
-    await verifyChapterPayment({
+    const verified = await verifyChapterPayment({
       signature,
       payer: walletAddress,
       authorWallet: authorData.wallet_address,
@@ -467,12 +475,12 @@ serve(async (req) => {
 
     console.log(`[unlock-chapter] Success - Chapter ${chapterId} unlocked for user ${userData.id}`);
 
-    const decimals = currency === "SOL" ? 9 : 6;
     await logFeed({
       event_type: "chapter_unlock",
       direction: "in",
       asset: currency,
-      amount: paymentAmount / 10 ** decimals,
+      // the amount actually received on-chain (writer + platform)
+      amount: verified.received / 10 ** verified.decimals,
       usd_value: usdAmount,
       wallet: walletAddress,
       counterparty: authorData.wallet_address,

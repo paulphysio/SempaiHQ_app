@@ -7,7 +7,7 @@ import Tts from 'react-native-tts';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as Network from 'expo-network';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL, chapterUsdCost } from '../services/supabaseClient';
 import { getNovelForOffline, isErrorNetworkError } from '../services/offlineCache';
 import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -144,7 +144,7 @@ const AD_VIDEO_URI = require('../assets/ad_video.mp4');
 // USD cost of unlocking a single chapter. Centralized here so the displayed
 // SMP cost (SMP_READ_COST) and the amount actually charged on-chain
 // (processChapterPayment) can never drift apart.
-const CHAPTER_READ_USD_COST = 0.0025; // matches the server (supabase/functions/unlock-chapter)
+const CHAPTER_READ_USD_COST = 0.025; // matches the server (supabase/functions/unlock-chapter)
 
 // ---------------------------------------------------------------------------
 // Payment errors readers can act on
@@ -210,7 +210,7 @@ const friendlyPaymentError = (err, currency = 'SMP', sent = false, signature = n
 // Kept on the phone and retried, and they count as "paid" so nobody is
 // charged twice for the same chapter.
 const PENDING_UNLOCKS_KEY = 'pending_chapter_unlocks';
-const UNLOCK_FUNCTION_URL = 'https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1/unlock-chapter';
+const UNLOCK_FUNCTION_URL = `${FUNCTIONS_URL}/unlock-chapter`;
 
 const readPendingUnlocks = async () => {
   try {
@@ -643,8 +643,8 @@ const ChapterScreen = () => {
       console.warn('[SMP_READ_COST] Invalid SMP price, using default value');
       return 2500000000; // Fallback (no live price): 0.025 USD at the 0.00000001 USD fallback rate, in 6-decimal base units
     }
-    const costInSmp = Math.ceil((CHAPTER_READ_USD_COST / smpPrice) * 10 ** SMP_DECIMALS);
-    if (__DEV__) console.log('[SMP_READ_COST] Calculated SMP cost for $' + CHAPTER_READ_USD_COST + ':', costInSmp, 'SMP price:', smpPrice);
+    const costInSmp = Math.ceil((chapterUsdCost() / smpPrice) * 10 ** SMP_DECIMALS);
+    if (__DEV__) console.log('[SMP_READ_COST] Calculated SMP cost for $' + chapterUsdCost() + ':', costInSmp, 'SMP price:', smpPrice);
     return costInSmp;
   }, [smpPrice]);
 
@@ -2115,7 +2115,7 @@ const ChapterScreen = () => {
         }
 
         // Calculate payment amount
-        const usdAmount = CHAPTER_READ_USD_COST;
+        const usdAmount = chapterUsdCost(); // $0.025, or $0.0025 for test-pricing accounts
         let paymentAmount = 0;
         let paymentMint = null;
 

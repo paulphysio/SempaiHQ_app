@@ -3,7 +3,13 @@
  * Validates that URLs are from allowed domains before making fetch requests
  */
 
+// The test project (staging builds) is allowed too.
+const STAGING_HOST = (() => {
+  try { return new URL(process.env.EXPO_PUBLIC_STAGING_SUPABASE_URL || '').hostname; } catch { return ''; }
+})();
+
 const ALLOWED_DOMAINS = [
+  ...(STAGING_HOST ? [STAGING_HOST] : []),
   'xqeimsncmnqsiowftdmz.supabase.co',
   'sempaihq.com',
   'api.sempaihq.com',

@@ -147,6 +147,15 @@ async function rpc(method: string, params: unknown[]) {
 
 async function usdPrice(currency: string): Promise<number | null> {
   if (currency === "USDC") return 1;
+  if (currency === "SMP") {
+    // SMP isn't tradable on Jupiter — same price the app charges with.
+    try {
+      const r = await fetch("https://www.sempaihq.com/api/smp-fallback-price", { signal: AbortSignal.timeout(4000) });
+      const perUsd = Number((await r.json())?.fallbackPrice);
+      return Number.isFinite(perUsd) && perUsd > 0 ? 1 / perUsd : null;
+    } catch { return null; }
+  }
+  if (!MINTS[currency]) return null;
   try {
     const mint = MINTS[currency];
     const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${mint}`, { signal: AbortSignal.timeout(4000) });
@@ -450,12 +459,17 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
     if (!signers.some((s: string) => myWallets.has(s))) throw new Refuse("Not your transaction", 403);
 
     const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : null);
+    // Dollar value from a live price for the token — never the app's own figure
+    // (it used to treat every non-SOL token as $1, so 5 SKR showed as $5).
+    const asset = clip(p.asset || "", 16).toUpperCase();
+    const amount = num(p.amount);
+    const price = amount != null ? await usdPrice(asset) : null;
     await admin.from("money_events").insert({
       event_type: clip(p.event_type || "transfer", 40),
       direction: ["in", "out"].includes(p.direction) ? p.direction : "out",
-      asset: clip(p.asset || "", 16),
-      amount: num(p.amount),
-      usd_value: num(p.usd_value),
+      asset,
+      amount,
+      usd_value: price != null && amount != null ? amount * price : null,
       wallet: signers.find((s: string) => myWallets.has(s)),
       counterparty: p.counterparty ? clip(p.counterparty, 64) : null,
       user_id: user.id,
@@ -465,6 +479,51 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
       meta: (p.meta && typeof p.meta === "object") ? p.meta : null,
     });
     return { logged: true };
+  },
+
+  // Become a writer/artist. Today applications are approved instantly (as the
+  // app always did); set AUTO_APPROVE_CREATORS=false in the function's secrets
+  // to make them wait for an admin instead.
+  async apply_creator({ user }, p) {
+    const role = p.role === "artist" ? "artist" : p.role === "writer" ? "writer" : null;
+    if (!role) throw new Refuse("Choose writer or artist");
+    const reason = clip(p.reason, 2000).trim();
+    if (!reason) throw new Refuse("A reason for applying is required");
+    const auto = (Deno.env.get("AUTO_APPROVE_CREATORS") ?? "true") !== "false";
+
+    const { error: appErr } = await admin.from("creator_applications").insert({
+      user_id: user.id, name: clip(p.name, 120), email: clip(p.email, 200), role, reason,
+      submission_link: p.submissionLink ? clip(p.submissionLink, 500) : null,
+      application_status: auto ? "approved" : "pending",
+    });
+    if (appErr) throw new Error(appErr.message);
+    if (auto) {
+      const { error } = await admin.from("users")
+        .update(role === "writer" ? { isWriter: true } : { isArtist: true }).eq("id", user.id);
+      if (error) throw new Error(error.message);
+    }
+    return { approved: auto, role };
+  },
+
+  // Delete one of YOUR titles and everything attached to it (other readers'
+  // comments, unlocks, purchase records) — which a creator can't do directly.
+  async delete_title({ user, isAdmin }, p) {
+    if (p.kind !== "manga") throw new Refuse("Only manga titles are deleted this way");
+    const { data: m } = await admin.from("manga").select("id, user_id").eq("id", p.id).maybeSingle();
+    if (!m) throw new Refuse("Title not found");
+    if (m.user_id !== user.id && !isAdmin) throw new Refuse("Only the creator can delete this title", 403);
+
+    const { data: chapters } = await admin.from("manga_chapters").select("id").eq("manga_id", m.id);
+    const chapterIds = (chapters || []).map((c: any) => c.id);
+    await admin.from("manga_comments").delete().eq("manga_id", m.id);
+    if (chapterIds.length) await admin.from("manga_pages").delete().in("chapter_id", chapterIds);
+    await admin.from("manga_chapters").delete().eq("manga_id", m.id);
+    await admin.from("manga_subscriptions").delete().eq("manga_id", m.id);
+    await admin.from("unlocked_manga_chapters").delete().eq("manga_id", m.id);
+    await admin.from("user_payments").delete().eq("manga_id", m.id);
+    const { error } = await admin.from("manga").delete().eq("id", m.id);
+    if (error) throw new Error(error.message);
+    return { deleted: true };
   },
 
   async reward_timer_reset() {

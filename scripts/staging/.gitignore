@@ -1,0 +1,4 @@
+# structure dumps and logs from copy-schema.ps1
+out/
+# test-project keys
+.env.staging.local

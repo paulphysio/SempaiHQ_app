@@ -432,13 +432,21 @@ export const EmbeddedWalletProvider = ({ children }) => {
       if (userError || !userData) throw new Error('User not found. Please ensure your account is registered.');
       if (!userData.wallet_address) throw new Error('No wallet address associated with this user. Please create a new wallet.');
 
-      const { data: walletData, error: walletError } = await supabase
-        .from('user_wallets')
-        .select('address, private_key')
-        .eq('user_id', userData.id)
-        .eq('address', userData.wallet_address)
-        .single();
-      if (walletError || !walletData) throw new Error('No wallet found for this user. Please create a new wallet or contact support.');
+      // Owner-only route first (works once the app signs in as the reader);
+      // the direct read is the fallback while the app still uses its own key.
+      let walletData = null;
+      const { data: ownKeys } = await supabase.rpc('get_my_wallet_key', { p_address: userData.wallet_address });
+      if (Array.isArray(ownKeys) && ownKeys.length) walletData = ownKeys[0];
+      if (!walletData) {
+        const { data: row } = await supabase
+          .from('user_wallets')
+          .select('address, private_key')
+          .eq('user_id', userData.id)
+          .eq('address', userData.wallet_address)
+          .maybeSingle();
+        walletData = row || null;
+      }
+      if (!walletData) throw new Error('No wallet found for this user. Please create a new wallet or contact support.');
       if (typeof walletData.address !== 'string' || typeof walletData.private_key !== 'string') {
         throw new Error('Invalid wallet data format in database.');
       }

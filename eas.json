@@ -29,6 +29,20 @@
         "EXPO_PUBLIC_SOLANA_NETWORK": "https://devnet.helius-rpc.com"
       }
     },
+    "staging": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "credentialsSource": "remote"
+      },
+      "channel": "staging",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://www.sempaihq.com/api/",
+        "EXPO_PUBLIC_SOLANA_NETWORK": "https://mainnet.helius-rpc.com",
+        "EXPO_PUBLIC_STAGING_SUPABASE_URL": "FILL_IN_TEST_PROJECT_URL",
+        "EXPO_PUBLIC_STAGING_SUPABASE_ANON_KEY": "FILL_IN_TEST_PROJECT_ANON_KEY"
+      }
+    },
     "production": {
       "distribution": "store",
       "autoIncrement": true,

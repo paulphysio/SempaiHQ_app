@@ -5,10 +5,10 @@ import {
   createTransferInstruction,
 } from '@solana/spl-token';
 import { RPC_URL, USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SMP_DECIMALS } from '../constants';
-import { supabase } from '../services/supabaseClient';
+import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { safeFetch } from './urlValidation';
 
-export const BAZAAR_FUNCTIONS_BASE = 'https://xqeimsncmnqsiowftdmz.supabase.co/functions/v1';
+export const BAZAAR_FUNCTIONS_BASE = FUNCTIONS_URL;
 export const BAZAAR_HQ_WALLET = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD');
 export const BAZAAR_BOOK_PRICE_USD = 1.0;
 export const BAZAAR_AUTHOR_SHARE_PCT = 70;
