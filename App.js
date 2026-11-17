@@ -32,6 +32,7 @@ import GlobalSidebar from './components/GlobalSidebar';
 import { ToastHost, toast } from './components/Toast';
 import OfflineBanner from './components/OfflineBanner';
 import { withScreenBoundary } from './components/ScreenBoundary';
+import WalletSecurityGate from './components/wallet/WalletSecurityGate';
 
 // Every screen gets its own crash guard (see components/ScreenBoundary).
 const GuardedHome = withScreenBoundary(HomeScreen, 'Home');
@@ -183,6 +184,7 @@ const MainApp = () => {
                 <NavigationProvider>
                   <ErrorBoundary>
                     <AppContent setIsStatusBarHidden={setIsStatusBarHidden} />
+                    <WalletSecurityGate />
                   </ErrorBoundary>
                 </NavigationProvider>
               </EmbeddedWalletProvider>

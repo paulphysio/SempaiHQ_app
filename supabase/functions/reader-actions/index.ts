@@ -16,6 +16,8 @@
 //   reward_timer_reset   restart the weekly reward countdown when it's due
 // ════════════════════════════════════════════════════════════════════════
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
+import nacl from "https://esm.sh/tweetnacl@1.0.3";
+import bs58 from "https://esm.sh/bs58@5.0.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
@@ -524,6 +526,63 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
     const { error } = await admin.from("manga").delete().eq("id", m.id);
     if (error) throw new Error(error.message);
     return { deleted: true };
+  },
+
+  // Switch this account to a NEW wallet whose key is locked with the user's
+  // own password (vault v2). Used for brand-new wallets and for moving off an
+  // old (server-encrypted, now considered stolen) wallet. The phone proves it
+  // holds the new wallet by signing; the account's history follows the wallet.
+  async wallet_secure({ user, myWallets }, p) {
+    const address = String(p.address || "");
+    const vault = String(p.vault || "");
+    const ts = Number(p.ts);
+    if (!vault.startsWith("v2:") || vault.length > 20000) throw new Refuse("Invalid wallet backup");
+    if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 10 * 60 * 1000) throw new Refuse("This request expired — please try again");
+    let ok = false;
+    try {
+      const msg = new TextEncoder().encode(`SempaiHQ: secure wallet ${address} for ${user.id} at ${ts}`);
+      ok = nacl.sign.detached.verify(msg, bs58.decode(String(p.signature || "")), bs58.decode(address));
+    } catch { ok = false; }
+    if (!ok) throw new Refuse("Couldn't verify the new wallet");
+
+    // Not someone else's wallet
+    const { data: taken } = await admin.from("users").select("id").eq("wallet_address", address).neq("id", user.id).limit(1);
+    if (taken?.length) throw new Refuse("That wallet belongs to another account");
+
+    const oldAddress = user.wallet_address && user.wallet_address !== address ? user.wallet_address : null;
+
+    // The new locked backup replaces the old one (one stored wallet per account).
+    const { error: wErr } = await admin.from("user_wallets")
+      .upsert({ user_id: user.id, address, private_key: vault }, { onConflict: "user_id" });
+    if (wErr) throw new Error(wErr.message);
+    const { error: uErr } = await admin.from("users").update({ wallet_address: address }).eq("id", user.id);
+    if (uErr) throw new Error(uErr.message);
+
+    // History follows the wallet (unlocks, purchases, subscriptions, saves, chats…)
+    const moved: Record<string, number> = {};
+    if (oldAddress && myWallets.has(oldAddress)) {
+      const refs: [string, string][] = [
+        ["chapter_payments", "wallet_address"], ["writer_subscriptions", "benefactor_wallet"],
+        ["benefactor_early_access", "benefactor_wallet"], ["players", "wallet_address"],
+        ["private_messages", "sender_wallet"], ["private_messages", "recipient_wallet"],
+        ["notifications", "recipient_wallet_address"], ["notifications", "sender_wallet_address"],
+        ["messages", "wallet_address"], ["messages", "recipient_wallet_address"],
+        ["wallet_balances", "wallet_address"], ["user_payments", "user_wallet"],
+        ["bazaar_purchases", "buyer_wallet"], ["bazaar_read_sessions", "wallet_address"],
+        ["novel_interactions", "wallet_address"], ["amethyst_balances", "wallet_address"],
+      ];
+      for (const [table, col] of refs) {
+        try {
+          const { data, error } = await admin.from(table).update({ [col]: address }).eq(col, oldAddress).select(col);
+          if (!error) moved[`${table}.${col}`] = data?.length || 0;
+        } catch { /* table/column may not exist — skip */ }
+      }
+    }
+    await logEvent({
+      destination_user_id: user.id, event_type: "wallet_secured", amount_change: 0, source_currency: "SOL",
+      event_details: `wallet_secured:${oldAddress || "new"}->${address}`.slice(0, 255), wallet_address: address,
+    });
+    return { secured: true, address, oldAddress, moved };
   },
 
   async reward_timer_reset() {

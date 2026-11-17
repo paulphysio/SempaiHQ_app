@@ -186,7 +186,16 @@ serve(async (req)=>{
         return json({ error: "Please sign in with Google to unlock your wallet" }, 401);
       }
       result = await decrypt(data, KEYPAIR_ENCRYPTION_SECRET);
-      const address = addressOfSecret(result);
+      // Old format: the plaintext IS the key. New format (v2): the plaintext is
+      // a vault locked with the user's own password — the server can't open
+      // it; ownership is checked against the address it records.
+      let address = addressOfSecret(result);
+      if (!address) {
+        try {
+          const vault = JSON.parse(result);
+          if (vault?.v === 2 && typeof vault.address === "string") address = vault.address;
+        } catch { /* not a vault */ }
+      }
       const owned = await walletsOf(userId);
       if (!address || !owned.has(address)) {
         console.warn("[wallet-encryption] Refused decrypt: key is not the caller's wallet", { userId });

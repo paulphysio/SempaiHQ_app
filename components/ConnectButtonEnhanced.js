@@ -17,6 +17,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { confirmWalletChange } from '../services/kaijiGuard'; // KAIJI: blocks wallet changes in a tourney, warns during a match
 import { useTheme } from '../context/ThemeContext';
 import { toast } from './Toast';
+import { DeviceEventEmitter } from 'react-native';
+import {
+  isV2, sealVault, openVaultWithPassword, lockForServer, unlockFromServer,
+  walletFromRecoveryWords, signWalletProof, addressOf, MIN_PASSWORD_LENGTH,
+} from '../services/walletVault';
+import { readerAction } from '../services/readerActions';
+
+// Opens the "Secure my wallet" flow (components/wallet/SecureWalletFlow).
+export const SECURE_WALLET_EVENT = 'sempai:secure-wallet';
+export const openSecureWalletFlow = (mode = 'create') => DeviceEventEmitter.emit(SECURE_WALLET_EVENT, { mode });
 
 export const EmbeddedWalletContext = createContext();
 
@@ -184,6 +194,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
       console.log('[disconnectWallet] Disconnecting wallet');
       // Gracefully handle keys that may not exist yet
       await secureStoreWrapper.deleteItemAsync('walletData');
+      await secureStoreWrapper.deleteItemAsync('walletSecretV2');
       await secureStoreWrapper.deleteItemAsync('useBiometrics');
       try { await AsyncStorage.removeItem('walletAddress'); } catch (_) {}
       setWallet(null);
@@ -230,6 +241,31 @@ export const EmbeddedWalletProvider = ({ children }) => {
         } catch (parseError) {
           console.error('[restoreWallet] Failed to parse wallet data:', parseError.message);
           throw new Error('Invalid wallet data format');
+        }
+
+        // New wallets (v2): the key is kept in this phone's secure storage —
+        // no server needed to open it.
+        if (walletData?.v === 2) {
+          const secretB58 = walletData.secret;
+          if (!secretB58) { console.log('[restoreWallet] v2 wallet key missing on this phone'); return; }
+          const bytes = bs58.decode(secretB58);
+          const kp = solanaWeb3.Keypair.fromSecretKey(bytes);
+          if (kp.publicKey.toString() !== walletData.publicKey) throw new Error('Stored wallet does not match');
+          if (user && !user.isGuest) {
+            const { data: me } = await findMyUserRow(user.id, user.email);
+            if (me?.wallet_address && me.wallet_address !== walletData.publicKey) {
+              console.log('[restoreWallet] Account uses a different wallet now, clearing this one');
+              await disconnectWallet();
+              return;
+            }
+          }
+          setWallet({ publicKey: kp.publicKey });
+          setSecretKey(bytes);
+          setTransactionPassword(walletData.storedPassword || null);
+          setIsWalletConnected(true);
+          setWalletType(WALLET_TYPES.EMBEDDED);
+          console.log('[restoreWallet] Secure wallet restored:', walletData.publicKey);
+          return;
         }
 
         const { publicKey, encryptedPrivateKey, storedPassword } = walletData;
@@ -295,9 +331,86 @@ export const EmbeddedWalletProvider = ({ children }) => {
     restoreWallet();
   }, [user, authLoading]); // intentionally omitting disconnectWallet to avoid loop
 
-  // ─── Create ─────────────────────────────────────────────────────────────────
+  // ─── Secure wallet (v2) ──────────────────────────────────────────────────────
+  // The key is locked on this phone with the user's wallet password before it
+  // is backed up (services/walletVault). This phone keeps it in secure storage.
 
-  const createEmbeddedWallet = useCallback(async (password) => {
+  /** Keep a verified wallet on this phone and make it the active wallet. */
+  const adoptVerifiedWallet = useCallback(async (secretKeyBytes, password) => {
+    const kp = solanaWeb3.Keypair.fromSecretKey(secretKeyBytes);
+    const address = kp.publicKey.toString();
+    const hashedPassword = password
+      ? await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password)
+      : null;
+    await secureStoreWrapper.setItemAsync(
+      'walletData',
+      JSON.stringify({ v: 2, publicKey: address, secret: bs58.encode(secretKeyBytes), storedPassword: hashedPassword }),
+      useBiometrics,
+    );
+    await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
+    await AsyncStorage.setItem('walletAddress', address);
+    await AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
+    setWallet({ publicKey: kp.publicKey });
+    setSecretKey(secretKeyBytes);
+    setTransactionPassword(hashedPassword);
+    setIsWalletConnected(true);
+    setWalletType(WALLET_TYPES.EMBEDDED);
+    return address;
+  }, [useBiometrics]);
+
+  /**
+   * Lock a wallet with the user's password, back it up (server can't open it),
+   * switch the account to it (history follows) and use it on this phone.
+   */
+  const secureNewWallet = useCallback(async ({ secretKey: sk, password }) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) throw new Error('Please sign in with Google first.');
+    const vault = await sealVault({ secretKey: sk, password });
+    const stored = await lockForServer(vault);
+    const ts = Date.now();
+    const res = await readerAction('wallet_secure', {
+      address: addressOf(sk),
+      vault: stored,
+      ts,
+      signature: signWalletProof(sk, session.user.id, ts),
+    });
+    if (!res.ok) throw new Error(res.error || 'Couldn’t save your secure wallet. Please try again.');
+    await adoptVerifiedWallet(sk, password);
+    return res; // { address, oldAddress, moved }
+  }, [adoptVerifiedWallet]);
+
+  /** Forgot the password, or a new phone: 12 words → same wallet, new password. */
+  const restoreWithRecoveryWords = useCallback(async (words, newPassword) => {
+    const { secretKey: sk, address } = await walletFromRecoveryWords(words);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) throw new Error('Please sign in with Google first.');
+    const { data: me } = await findMyUserRow(session.user.id, session.user.email);
+    if (me?.wallet_address && me.wallet_address !== address) {
+      throw new Error('These recovery words belong to a different wallet than the one on your account.');
+    }
+    await secureNewWallet({ secretKey: sk, password: newPassword });
+    return { address };
+  }, [secureNewWallet]);
+
+  /** The account's OLD-format wallet key (this phone first, else the old server copy). */
+  const loadLegacyWalletKey = useCallback(async () => {
+    if (secretKey && wallet?.publicKey) return { secretKey, address: wallet.publicKey.toString() };
+    const { data: rows } = await supabase.rpc('get_my_wallet_key', {});
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row?.private_key || isV2(row.private_key)) return null;
+    const b58 = await invokeEncryptionFunction('decrypt', row.private_key);
+    return { secretKey: bs58.decode(b58), address: row.address };
+  }, [secretKey, wallet]);
+
+  // ─── Create ─────────────────────────────────────────────────────────────────
+  // New wallets are made in the guided flow (password → 12 words → confirm).
+  const createEmbeddedWallet = useCallback(async () => {
+    openSecureWalletFlow('create');
+    return null;
+  }, []);
+
+  // Old server-encrypted creation, kept only for reference — no longer used.
+  const createEmbeddedWalletLegacy = useCallback(async (password) => {
     // Try to get current session
     let authUser, authError;
     try {
@@ -451,6 +564,17 @@ export const EmbeddedWalletProvider = ({ children }) => {
         throw new Error('Invalid wallet data format in database.');
       }
 
+      // New format: the server returns the locked vault; only the wallet
+      // password (on this phone) opens it.
+      if (isV2(walletData.private_key)) {
+        const vaultJson = await unlockFromServer(walletData.private_key);
+        const { secretKey: sk, address } = await openVaultWithPassword(vaultJson, password);
+        if (address !== walletData.address) throw new Error('Wallet check failed. Please contact support.');
+        await adoptVerifiedWallet(sk, password);
+        console.log('[retrieveEmbeddedWallet] Secure wallet opened:', address);
+        return { publicKey: address };
+      }
+
       const privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.private_key);
       const privateKeyBytes  = bs58.decode(privateKeyBase58);
       if (privateKeyBytes.length !== 64) {
@@ -492,105 +616,44 @@ export const EmbeddedWalletProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, useBiometrics, disconnectWallet]);
+  }, [user, useBiometrics, disconnectWallet, adoptVerifiedWallet]);
 
   // ─── Import wallet ───────────────────────────────────────────────────────────
 
   const importWalletFromPrivateKey = useCallback(async (privateKeyInput, password) => {
-    if (!password || typeof password !== 'string' || password.length < 8) {
-      throw new Error('Password must be a string and at least 8 characters long');
+    if (!password || typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+      throw new Error(`Your wallet password needs at least ${MIN_PASSWORD_LENGTH} characters.`);
     }
     if (!privateKeyInput || typeof privateKeyInput !== 'string') {
       throw new Error('Private key is required');
     }
-
     try {
       setIsLoading(true);
-      console.log('[importWalletFromPrivateKey] Importing wallet');
-
-      try { await disconnectWallet(); } catch (_) {}
-
-      // Validate private key
       let privateKeyBytes;
       try {
         privateKeyBytes = bs58.decode(privateKeyInput.trim());
-      } catch (decodeError) {
+      } catch {
         throw new Error('Invalid private key format. Please enter a valid Base58 private key.');
       }
-
       if (privateKeyBytes.length !== 64) {
         throw new Error(`Invalid private key length: expected 64 bytes, got ${privateKeyBytes.length}`);
       }
+      // Throws if the 64 bytes are not a genuine keypair
+      solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
 
-      const keypair = solanaWeb3.Keypair.fromSecretKey(privateKeyBytes);
-      const publicKey = keypair.publicKey;
-      const publicKeyStr = publicKey.toString();
-      const privateKeyBase58 = bs58.encode(privateKeyBytes);
+      try { await disconnectWallet(); } catch (_) {}
 
-      const hashedPassword = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, password);
-
-      // Use edge function for encryption
-      const encryptedPrivateKey = await invokeEncryptionFunction('encrypt', privateKeyBase58);
-
-      // Only perform database operations if user is authenticated
-      if (user && !user.isGuest) {
-        try {
-          const { data: authUser, error: authError } = await supabase.auth.getUser();
-          if (authError || !authUser.user || authUser.user.id !== user.id) {
-            console.log('[importWalletFromPrivateKey] Skipping database linking - user not authenticated');
-          } else {
-            const { data: existingWallet } = await supabase
-              .from('user_wallets')
-              .select('id, user_id')
-              .eq('address', publicKeyStr)
-              .maybeSingle();
-
-            if (!existingWallet) {
-              const { error: walletError } = await supabase
-                .from('user_wallets')
-                .insert({ user_id: user.id, address: publicKeyStr, private_key: encryptedPrivateKey });
-              if (walletError) {
-                console.log('[importWalletFromPrivateKey] Database insert failed (non-fatal):', walletError.message);
-              } else {
-                const { error: userUpdateError } = await supabase
-                  .from('users')
-                  .update({ wallet_address: publicKeyStr })
-                  .eq('id', user.id);
-                if (userUpdateError) {
-                  console.log('[importWalletFromPrivateKey] User update failed (non-fatal):', userUpdateError.message);
-                } else {
-                  console.log('[importWalletFromPrivateKey] Wallet linked to account:', publicKeyStr);
-                }
-              }
-            } else {
-              console.log('[importWalletFromPrivateKey] Wallet already exists in database:', publicKeyStr);
-            }
-          }
-        } catch (dbError) {
-          console.log('[importWalletFromPrivateKey] Database linking skipped (non-fatal):', dbError.message);
-        }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        // Signed in: lock it with the password and make it the account's wallet.
+        await secureNewWallet({ secretKey: privateKeyBytes, password });
+      } else {
+        // Guest: keep it on this phone only.
+        await adoptVerifiedWallet(privateKeyBytes, password);
       }
-
-      // Store wallet locally
-      const encryptedPrivateKeyForStore = await invokeEncryptionFunction('encrypt', privateKeyBase58);
-      const walletData = {
-        publicKey: publicKeyStr,
-        encryptedPrivateKey: encryptedPrivateKeyForStore,
-        storedPassword: hashedPassword,
-      };
-
-      await secureStoreWrapper.setItemAsync('walletData', JSON.stringify(walletData), useBiometrics);
-      await secureStoreWrapper.setItemAsync('useBiometrics', useBiometrics ? 'true' : 'false', false);
-      await AsyncStorage.setItem('walletAddress', publicKeyStr);
-      await AsyncStorage.setItem('preferredWalletType', WALLET_TYPES.EMBEDDED);
-
-      setWallet({ publicKey });
-      setSecretKey(privateKeyBytes);
-      setTransactionPassword(hashedPassword);
-      setIsWalletConnected(true);
-      setWalletType(WALLET_TYPES.EMBEDDED);
-      console.log('[importWalletFromPrivateKey] Wallet imported and connected:', publicKeyStr);
-      return { publicKey: publicKeyStr, privateKey: privateKeyBase58 };
+      const address = addressOf(privateKeyBytes);
+      console.log('[importWalletFromPrivateKey] Wallet imported:', address);
+      return { publicKey: address };
     } catch (err) {
       console.error('[importWalletFromPrivateKey] Error:', err.message);
       setError(`Failed to import wallet: ${err.message}`);
@@ -598,7 +661,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [user, useBiometrics, disconnectWallet]);
+  }, [user, useBiometrics, disconnectWallet, secureNewWallet, adoptVerifiedWallet]);
 
   // ─── Password verification ───────────────────────────────────────────────────
 
@@ -797,6 +860,10 @@ export const EmbeddedWalletProvider = ({ children }) => {
         retrieveEmbeddedWallet,
         importWalletFromPrivateKey,
         disconnectWallet,
+        adoptVerifiedWallet,
+        secureNewWallet,
+        restoreWithRecoveryWords,
+        loadLegacyWalletKey,
         signAndSendTransaction,
         signTransactionOnly,
         isLoading,
@@ -1319,8 +1386,8 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
 
 
   const handleImportWallet = async () => {
-    if (!password || password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
+    if (!password || password.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert('Error', `Your wallet password needs at least ${MIN_PASSWORD_LENGTH} characters`);
       return;
     }
     if (!confirmPassword || password !== confirmPassword) {
@@ -1368,7 +1435,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
               <Text style={styles.modalSubtitle}>Select how you want to manage your crypto assets</Text>
             </View>
 
-            <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('create')} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.walletOption} onPress={async () => { if (!(await confirmWalletChange())) return; onClose(); openSecureWalletFlow('create'); }} activeOpacity={0.7}>
               <LinearGradient colors={['rgba(243, 99, 22, 0.1)', 'rgba(243, 99, 22, 0.05)']} style={styles.walletOptionGradient}>
                 <View style={styles.walletOptionHeader}>
                   <View style={styles.walletIconContainer}>
@@ -1376,7 +1443,7 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
                   </View>
                   <View style={styles.walletOptionTextContainer}>
                     <Text style={styles.walletOptionTitle}>Create New Wallet</Text>
-                    <Text style={styles.walletOptionDescription}>Generate a new secure wallet with password protection</Text>
+                    <Text style={styles.walletOptionDescription}>Locked with your password, backed up by 12 recovery words — only you can open it</Text>
                   </View>
                   <MaterialCommunityIcons name="chevron-right" size={20} color={colors.accent} />
                 </View>
@@ -1436,11 +1503,11 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
             </View>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Password</Text>
-              <TextInput style={styles.input} placeholder="Min 8 characters" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" />
+              <TextInput style={styles.input} placeholder={`Min ${MIN_PASSWORD_LENGTH} characters`} secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
             </View>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Confirm Password</Text>
-              <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" />
+              <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
             </View>
             <TouchableOpacity style={styles.actionButton} onPress={handleCreateWallet} disabled={loading} activeOpacity={0.8}>
               <LinearGradient colors={[colors.accent, colors.accentDeep]} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
@@ -1467,12 +1534,15 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
             </View>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Password</Text>
-              <TextInput style={styles.input} placeholder="Enter your wallet password" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" />
+              <TextInput style={styles.input} placeholder="Enter your wallet password" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" autoComplete="password" textContentType="password" importantForAutofill="yes" />
             </View>
             <TouchableOpacity style={styles.actionButton} onPress={handleRetrieveWallet} disabled={loading} activeOpacity={0.8}>
               <LinearGradient colors={['#4CAF50', '#66BB6A']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Restore Wallet</Text>}
               </LinearGradient>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { onClose(); openSecureWalletFlow('restore'); }} style={{ alignItems: 'center', paddingVertical: 14 }} activeOpacity={0.7}>
+              <Text style={[styles.modalSubtitle, { color: '#4CAF50', fontWeight: '700' }]}>Forgot your password? Use your 12 recovery words</Text>
             </TouchableOpacity>
           </>
         )}
