@@ -1,9 +1,17 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
+
+// Who is calling — VERIFIED by Supabase Auth (an unverified token can be forged).
+async function verifiedClaims(token: string | undefined): Promise<{ sub?: string; email?: string }> {
+  if (!token) return {};
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return {};
+  return { sub: data.user.id, email: data.user.email ?? undefined };
+}
 
 serve(async (req) => {
   try {
@@ -12,7 +20,7 @@ serve(async (req) => {
     const jwt = req.headers.get("authorization")?.replace(/^Bearer /, "");
     if (!jwt) throw new Error("Authorization header missing");
 
-    const jwtBody = JSON.parse(new TextDecoder().decode(atob(jwt.split(".")[1])));
+    const jwtBody = await verifiedClaims(jwt);
     if (typeof jwtBody?.email !== "string") throw new Error("JWT missing email");
 
     const { method } = req;

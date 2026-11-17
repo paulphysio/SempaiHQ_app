@@ -5,7 +5,7 @@
 // this function with the signature. We re-verify the payment landed at the
 // right wallets before writing manga_subscriptions. Self-contained: paste whole file.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import {
   Connection,
   PublicKey,
@@ -23,7 +23,7 @@ const PLANS: Record<string, { usd: number; days: number }> = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 function throwOnError({ data, error }: { data: any; error: any }) {

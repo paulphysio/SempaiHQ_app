@@ -330,3 +330,79 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+
+# Edge functions check callers themselves (verified sign-in, wallet signatures,
+# on-chain payment checks, or server-only). The gateway JWT check is off because
+# the new publishable/secret API keys are not JWTs.
+
+[functions.airdrop-function]
+verify_jwt = false
+
+[functions.amethyst-management]
+verify_jwt = false
+
+[functions.benefactor-payment]
+verify_jwt = false
+
+[functions.claim-pioneer-badge]
+verify_jwt = false
+
+[functions.get-bazaar-book-url]
+verify_jwt = false
+
+[functions.kaiji]
+verify_jwt = false
+
+[functions.kaito-leaderboard-rewards]
+verify_jwt = false
+
+[functions.manga-chapter-pages]
+verify_jwt = false
+
+[functions.purchase-bazaar-book]
+verify_jwt = false
+
+[functions.reader-actions]
+verify_jwt = false
+
+[functions.recalculate-leaderboard]
+verify_jwt = false
+
+[functions.record-manga-payment]
+verify_jwt = false
+
+[functions.request-bazaar-refund]
+verify_jwt = false
+
+[functions.resolve-bazaar-refund]
+verify_jwt = false
+
+[functions.retrieve-wallet]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.subscribe-manga]
+verify_jwt = false
+
+[functions.subscribe-manga-devnet]
+verify_jwt = false
+
+[functions.unlock-chapter]
+verify_jwt = false
+
+[functions.unlock-manga-chapter]
+verify_jwt = false
+
+[functions.wallet-encryption]
+verify_jwt = false
+
+[functions.weekly-points-reset]
+verify_jwt = false
+
+[functions.weekly-rewards]
+verify_jwt = false
+
+[functions.withdraw-smp]
+verify_jwt = false

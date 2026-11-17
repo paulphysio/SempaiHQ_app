@@ -5,7 +5,7 @@
 // user_payments + unlocked_manga_chapters with the service role.
 // Self-contained: paste whole file into Supabase Edge Functions.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import {
   Connection,
   PublicKey,
@@ -19,7 +19,7 @@ const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const SMP_MINT = "SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 function throwOnError({ data, error }: { data: any; error: any }) {

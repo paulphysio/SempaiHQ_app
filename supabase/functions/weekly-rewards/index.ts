@@ -1,14 +1,14 @@
 // Follow this setup guide to integrate the Deno runtime with your Supabase project:
 // https://supabase.com/docs/guides/functions/deno-runtime
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 // Constants
 const REWARD_AMOUNT = 2000000; // 2 million SMP tokens to distribute
 
 // Initialize Supabase clients
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseServiceRoleKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 
 // Validate environment variables
 if (!supabaseUrl) {

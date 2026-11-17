@@ -1,6 +1,6 @@
 // Import serve from a stable Deno version
 import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import bs58 from "https://esm.sh/bs58@5.0.0";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
 
@@ -13,7 +13,7 @@ import nacl from "https://esm.sh/tweetnacl@1.0.3";
  *    address must be one of the caller's wallets.
  */
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SERVICE_KEY = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) ?? "";
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 const json = (body: unknown, status = 200) =>
@@ -157,22 +157,23 @@ serve(async (req)=>{
     if (action === "encrypt") {
       result = await encrypt(data, KEYPAIR_ENCRYPTION_SECRET);
     } else if (action === "decrypt") {
+      // ONLY a signed-in person, and ONLY for their own wallet. The server key
+      // is NOT accepted any more: it ships inside the Android app, and
+      // accepting it let anyone with the APK decrypt every stored wallet.
       const token = bearer(req);
-      const service = await isServiceCaller(token);
-      let userId: string | null = null;
-      if (!service) {
-        const { data: auth } = await admin.auth.getUser(token);
-        userId = auth?.user?.id ?? null;
-        if (!userId) return json({ error: "Sign in to unlock your wallet" }, 401);
+      if (await isServiceCaller(token)) {
+        console.warn("[wallet-encryption] Refused decrypt with the server key");
+        return json({ error: "Sign in to unlock your wallet" }, 401);
       }
+      const { data: auth } = await admin.auth.getUser(token);
+      const userId = auth?.user?.id ?? null;
+      if (!userId) return json({ error: "Sign in to unlock your wallet" }, 401);
       result = await decrypt(data, KEYPAIR_ENCRYPTION_SECRET);
-      if (!service) {
-        const address = addressOfSecret(result);
-        const owned = await walletsOf(userId as string);
-        if (!address || !owned.has(address)) {
-          console.warn("[wallet-encryption] Refused decrypt: key is not the caller's wallet", { userId });
-          return json({ error: "This wallet does not belong to your account" }, 403);
-        }
+      const address = addressOfSecret(result);
+      const owned = await walletsOf(userId);
+      if (!address || !owned.has(address)) {
+        console.warn("[wallet-encryption] Refused decrypt: key is not the caller's wallet", { userId });
+        return json({ error: "This wallet does not belong to your account" }, 403);
       }
     } else {
       return new Response(JSON.stringify({

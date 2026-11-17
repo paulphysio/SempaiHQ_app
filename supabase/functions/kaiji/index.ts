@@ -93,7 +93,7 @@ function cfg() {
 
 let _db: any = null;
 const db = () =>
-  (_db ??= createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  (_db ??= createClient(Deno.env.get('SUPABASE_URL')!, (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"))!, {
     auth: { persistSession: false },
   }));
 

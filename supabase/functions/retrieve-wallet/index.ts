@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.106.1'
 
 serve(async (req) => {
   try {
@@ -17,7 +17,7 @@ serve(async (req) => {
     // Create Supabase client with service role to access user_wallets
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) ?? ''
     )
 
     // Verify the JWT and get the user ID

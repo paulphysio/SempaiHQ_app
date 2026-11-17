@@ -5,7 +5,7 @@ import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, RPC_URL } from '../constants';
 import { useTheme } from '../context/ThemeContext';
 
-const TREASURY_WALLET = 'HSxUYwGM3NFzDmeEJ6o4bhyn8knmQmq7PLUZ6nZs4F58';
+const TREASURY_WALLET = '71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD';
 
 const TreasuryBalance = () => {
   const { isDark, colors } = useTheme();

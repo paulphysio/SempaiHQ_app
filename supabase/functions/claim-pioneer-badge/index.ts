@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { decodeBase64 } from "jsr:@std/encoding/base64";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
+
+// Who is calling — VERIFIED by Supabase Auth (an unverified token can be forged).
+async function verifiedClaims(token: string | undefined): Promise<{ sub?: string; email?: string }> {
+  if (!token) return {};
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return {};
+  return { sub: data.user.id, email: data.user.email ?? undefined };
+}
 
 // Grants the Pioneer badge when the caller has just made their first-ever
 // unlock/payment to a creator. Called by the app after a successful manga
@@ -16,7 +24,7 @@ serve(async (req) => {
       return Response.json({ error: "Authorization header missing" }, { status: 403 });
     }
 
-    const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(jwt.split(".")[1])));
+    const jwtBody = await verifiedClaims(jwt);
     if (typeof jwtBody?.email !== "string") {
       return Response.json({ error: "JWT missing email" }, { status: 400 });
     }

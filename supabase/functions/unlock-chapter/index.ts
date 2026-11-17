@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { decodeBase64 } from "jsr:@std/encoding/base64";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 // Constants
 const SMP_MINT_ADDRESS = "SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor";
@@ -8,8 +8,16 @@ const USDC_MINT_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const SKR_MINT_ADDRESS = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
+
+// Who is calling — VERIFIED by Supabase Auth (an unverified token can be forged).
+async function verifiedClaims(token: string | undefined): Promise<{ sub?: string; email?: string }> {
+  if (!token) return {};
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return {};
+  return { sub: data.user.id, email: data.user.email ?? undefined };
+}
 
 function throwOnError({ data, error }: any) {
   if (error) {
@@ -198,9 +206,7 @@ serve(async (req) => {
     if (!jwt) throw new Error("Authorization header missing");
 
     // The gateway has verified this JWT's signature; read who it is.
-    const part = jwt.split(".")[1] || "";
-    const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(
-      part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="))));
+    const jwtBody = await verifiedClaims(jwt);
     if (typeof jwtBody?.sub !== "string" && typeof jwtBody?.email !== "string") {
       throw new Error("Please sign in to unlock chapters");
     }

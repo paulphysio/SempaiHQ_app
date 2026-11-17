@@ -1,11 +1,16 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseServiceRoleKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 serve(async (req: Request) => {
+  // Server only (the hourly job recalculates in the database directly).
+  const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!supabaseServiceRoleKey || token !== supabaseServiceRoleKey) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+  }
   try {
     console.log("[recalculate-leaderboard] Starting leaderboard recalculation");
 

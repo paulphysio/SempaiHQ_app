@@ -15,10 +15,10 @@
 //   benefactor_activate  verify a writer-subscription payment on-chain, activate
 //   reward_timer_reset   restart the weekly reward countdown when it's due
 // ════════════════════════════════════════════════════════════════════════
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const SERVICE_KEY = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 const RPC_ENDPOINT = Deno.env.get("RPC_URL") || Deno.env.get("SOLANA_RPC_URL") ||

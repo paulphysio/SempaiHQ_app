@@ -16,7 +16,7 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
 } from "https://esm.sh/@solana/spl-token@0.4.8";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import bs58 from "https://esm.sh/bs58@4.0.1";
 
 // Constants
@@ -28,8 +28,16 @@ const SQUADS_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZz
 const TREASURY_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
+
+// Who is calling — VERIFIED by Supabase Auth (an unverified token can be forged).
+async function verifiedClaims(token: string | undefined): Promise<{ sub?: string; email?: string }> {
+  if (!token) return {};
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data?.user) return {};
+  return { sub: data.user.id, email: data.user.email ?? undefined };
+}
 
 function throwOnError({ data, error }: { data: any; error: any }) {
   if (error) {
@@ -203,7 +211,7 @@ serve(async (req) => {
       });
     }
 
-    const jwtBody = JSON.parse(new TextDecoder().decode(decodeBase64(jwt.split(".")[1])));
+    const jwtBody = await verifiedClaims(jwt);
     if (typeof jwtBody?.email != "string") {
       return new Response(JSON.stringify({ error: "authorization header missing email" }), { status: 400 });
     }

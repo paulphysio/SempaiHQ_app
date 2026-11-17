@@ -10,7 +10,7 @@
 //  - No money_events feed logging (keeps the DAO feed clean of test data)
 //  - Still writes real manga_subscriptions rows — delete test rows after.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import { Connection, PublicKey } from "https://esm.sh/@solana/web3.js@1";
 
 const RPC_URL = "https://api.devnet.solana.com";
@@ -24,7 +24,7 @@ const PLANS: Record<string, { usd: number; days: number }> = {
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-const supabaseAdminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const supabaseAdminKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
 const supabaseAdmin = createClient(supabaseUrl, supabaseAdminKey);
 
 function throwOnError({ data, error }: { data: any; error: any }) {

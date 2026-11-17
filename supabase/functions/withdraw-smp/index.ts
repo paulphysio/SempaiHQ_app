@@ -7,13 +7,13 @@ import {
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID
 } from "https://esm.sh/@solana/spl-token@0.4.8";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import bs58 from "https://esm.sh/bs58@5.0.0";
 import * as nacl from "https://esm.sh/tweetnacl@1.0.3";
 
 // --- CONFIG & VALIDATION ---
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_SERVICE_ROLE_KEY = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
 const RPC_URL = Deno.env.get("RPC_URL");
 const SMP_MINT_ADDRESS_STR = Deno.env.get("SMP_MINT_ADDRESS");
 const SMP_DECIMALS = 6;

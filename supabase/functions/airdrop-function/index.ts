@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, ComputeBudgetProgram } from "npm:@solana/web3.js@1.95.3";
 import { createAssociatedTokenAccountInstruction, createTransferInstruction, getAssociatedTokenAddressSync, getAccount, getMint } from "npm:@solana/spl-token@0.4.8";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import * as nacl from "npm:tweetnacl@1.0.3";
 import bs58 from "npm:bs58@5.0.0";
 
@@ -14,7 +14,7 @@ const RPC_URL = HELIUS_API_KEY
 const connection = new Connection(RPC_URL, "confirmed");
 const AIRDROP_WALLET_KEYPAIR = Deno.env.get("AIRDROP_WALLET_KEYPAIR");
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "https://xqeimsncmnqsiowftdmz.supabase.co";
-const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const supabaseServiceRoleKey = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
 const KEYPAIR_ENCRYPTION_SECRET = Deno.env.get("KEYPAIR_ENCRYPTION_SECRET");
 const AIRDROP_SMP_AMOUNT = BigInt(1_000_000 * 1_000_000);
 const MINIMUM_SOL_BALANCE = BigInt(0.001 * 1_000_000_000);
