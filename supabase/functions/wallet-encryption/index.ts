@@ -168,6 +168,23 @@ serve(async (req)=>{
       const { data: auth } = await admin.auth.getUser(token);
       const userId = auth?.user?.id ?? null;
       if (!userId) return json({ error: "Sign in to unlock your wallet" }, 401);
+      // Only sessions from a real Google sign-in (app: id_token, website:
+      // oauth). Someone holding the old server key can create email-link or
+      // password sessions for any user — those must never unlock a wallet.
+      // (The token was verified by getUser above, so its claims are genuine.)
+      try {
+        const part = token.split(".")[1] || "";
+        const claims = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")
+          .padEnd(Math.ceil(part.length / 4) * 4, "=")));
+        const methods = (Array.isArray(claims?.amr) ? claims.amr : [])
+          .map((a: any) => String(a?.method || a || "").toLowerCase());
+        if (!methods.some((m: string) => m === "oauth" || m === "id_token")) {
+          console.warn("[wallet-encryption] Refused decrypt: not a Google sign-in", { userId, methods });
+          return json({ error: "Please sign in with Google to unlock your wallet" }, 401);
+        }
+      } catch {
+        return json({ error: "Please sign in with Google to unlock your wallet" }, 401);
+      }
       result = await decrypt(data, KEYPAIR_ENCRYPTION_SECRET);
       const address = addressOfSecret(result);
       const owned = await walletsOf(userId);
