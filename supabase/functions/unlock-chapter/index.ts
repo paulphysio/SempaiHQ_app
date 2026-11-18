@@ -186,8 +186,9 @@ async function verifyChapterPayment(opts: {
   // Amount floor from a live price; skipped (but logged) if no price is available.
   const price = currency === "USDC" ? 1 : await usdPrice(currency === "SOL" ? SOL_MINT : mint!);
   if (price) {
-    // Self-payment: only the platform's half (30% + 20%) leaves the wallet.
-    const share = authorWallet === payer ? 0.5 : 1;
+    // Split is 70% writer / 30% treasury. Self-payment (a writer reading their
+    // own paid chapter): only the treasury's 30% leaves the wallet.
+    const share = authorWallet === payer ? 0.3 : 1;
     const expectedRaw = (usdAmount / price) * 10 ** decimals * share;
     if (received < expectedRaw * MIN_PAID_FRACTION) {
       throw new Error("Payment amount is too low for this chapter");

@@ -14,7 +14,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, createTransferInstruction, createBurnInstruction } from '@solana/spl-token';
+import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, createTransferInstruction } from '@solana/spl-token';
 import {
   RPC_URL,
   FALLBACK_RPC_URL,
@@ -135,8 +135,6 @@ const createWriterAta = async (walletAddress, publicKey, signAndSendTransaction)
 
 const SQUADS_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 const TREASURY_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
-const FOUNDER_FUND_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
-const SEMPAI_HQ_WALLET = new PublicKey("71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj2ebXBsgfZzD");
 
 // Ad video configuration - use local asset
 const AD_VIDEO_URI = require('../assets/ad_video.mp4');
@@ -354,99 +352,64 @@ async function createBenefactorPaymentTransaction({ paymentMint, paymentAmount, 
   return tx;
 }
 
-async function createPaymentTransactionClient({ paymentMint, paymentAmount, userPublicKey, authorPublicKey, smpMintAddress }) {
-  const [creatorAmount, sempaiHqAmount, founderFundAmount] = splitAmountWithResidual(paymentAmount, [50, 30, 20]);
+// Chapter payment: the reader pays exactly the price shown —
+// 70% to the writer, 30% to the SempaiHQ treasury. Nothing is burned.
+const WRITER_SHARE_PCT = 70;
+const TREASURY_SHARE_PCT = 30;
+
+async function createPaymentTransactionClient({ paymentMint, paymentAmount, userPublicKey, authorPublicKey }) {
+  const [writerAmount, treasuryAmount] = splitAmountWithResidual(paymentAmount, [WRITER_SHARE_PCT, TREASURY_SHARE_PCT]);
   const instructions = [];
 
   if (!paymentMint) {
     instructions.push(
-      SystemProgram.transfer({
-        fromPubkey: userPublicKey,
-        toPubkey: authorPublicKey,
-        lamports: creatorAmount,
-      }),
-      SystemProgram.transfer({
-        fromPubkey: userPublicKey,
-        toPubkey: SEMPAI_HQ_WALLET,
-        lamports: sempaiHqAmount,
-      }),
-      SystemProgram.transfer({
-        fromPubkey: userPublicKey,
-        toPubkey: FOUNDER_FUND_WALLET,
-        lamports: founderFundAmount,
-      })
+      SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: authorPublicKey, lamports: writerAmount }),
+      SystemProgram.transfer({ fromPubkey: userPublicKey, toPubkey: TREASURY_WALLET, lamports: treasuryAmount }),
     );
   } else {
     const userAta = getAssociatedTokenAddressSync(paymentMint, userPublicKey);
-    const creatorAta = getAssociatedTokenAddressSync(paymentMint, authorPublicKey);
-    const sempaiHqAta = getAssociatedTokenAddressSync(paymentMint, SEMPAI_HQ_WALLET, true);
-    const founderFundAta = getAssociatedTokenAddressSync(paymentMint, FOUNDER_FUND_WALLET, true);
+    const writerAta = getAssociatedTokenAddressSync(paymentMint, authorPublicKey);
+    const treasuryAta = getAssociatedTokenAddressSync(paymentMint, TREASURY_WALLET, true);
 
-    // Check user ATA first - if it doesn't exist, we can't proceed
     const userAtaInfo = await connection.getAccountInfo(userAta);
     if (!userAtaInfo) {
       throw new Error('You do not have an SMP token account. Please get some SMP tokens first.');
     }
 
-    const [creatorAtaInfo, sempaiHqAtaInfo, founderFundAtaInfo] = await connection.getMultipleAccountsInfo([
-      creatorAta,
-      sempaiHqAta,
-      founderFundAta,
-    ]);
+    const [writerAtaInfo, treasuryAtaInfo] = await connection.getMultipleAccountsInfo([writerAta, treasuryAta]);
 
+    // Create any missing token accounts (the reader pays the small rent).
+    // The treasury account comes first; if the wallet can't also afford the
+    // writer's account, the writer's share goes to the treasury for now.
     const userBalance = await connection.getBalance(userPublicKey);
-    const ataRentExemption = Math.ceil(0.00203928 * 1e9); // lamports per ATA
+    const ataRentExemption = Math.ceil(0.00203928 * 1e9); // lamports per token account
     const TX_FEE_LAMPORTS = 5000;
-
-    // Budget ALL missing ATAs up front. The founder fund ATA is the reroute
-    // sink, so it gets creation priority when the wallet can't afford them all.
-    const ataSpecs = [
-      { key: 'ff', ata: founderFundAta, owner: FOUNDER_FUND_WALLET, exists: !!founderFundAtaInfo },
-      { key: 'creator', ata: creatorAta, owner: authorPublicKey, exists: !!creatorAtaInfo },
-      { key: 'hq', ata: sempaiHqAta, owner: SEMPAI_HQ_WALLET, exists: !!sempaiHqAtaInfo },
-    ];
-    const creatable = new Set();
     let ataBudget = userBalance - TX_FEE_LAMPORTS;
-    for (const spec of ataSpecs) {
-      if (spec.exists) continue;
-      if (ataBudget >= ataRentExemption) {
-        creatable.add(spec.key);
-        instructions.push(
-          createAssociatedTokenAccountInstruction(
-            userPublicKey,
-            spec.ata,
-            spec.owner,
-            paymentMint
-          )
-        );
-        ataBudget -= ataRentExemption;
-      }
-    }
 
-    const ffReady = ataSpecs[0].exists || creatable.has('ff');
-    if (!ffReady) {
+    let treasuryReady = !!treasuryAtaInfo;
+    if (!treasuryReady && ataBudget >= ataRentExemption) {
+      instructions.push(createAssociatedTokenAccountInstruction(userPublicKey, treasuryAta, TREASURY_WALLET, paymentMint));
+      ataBudget -= ataRentExemption;
+      treasuryReady = true;
+    }
+    if (!treasuryReady) {
       throw new Error('Insufficient SOL to create required token accounts. Please add SOL to your wallet.');
     }
-    const creatorReady = ataSpecs[1].exists || creatable.has('creator');
-    const hqReady = ataSpecs[2].exists || creatable.has('hq');
 
-    let reroutedToFounderFund = 0;
-    if (creatorReady) {
-      instructions.push(createTransferInstruction(userAta, creatorAta, userPublicKey, creatorAmount));
-    } else {
-      reroutedToFounderFund += creatorAmount;
-    }
-    if (hqReady) {
-      instructions.push(createTransferInstruction(userAta, sempaiHqAta, userPublicKey, sempaiHqAmount));
-    } else {
-      reroutedToFounderFund += sempaiHqAmount;
+    let writerReady = !!writerAtaInfo;
+    if (!writerReady && ataBudget >= ataRentExemption) {
+      instructions.push(createAssociatedTokenAccountInstruction(userPublicKey, writerAta, authorPublicKey, paymentMint));
+      ataBudget -= ataRentExemption;
+      writerReady = true;
     }
 
-    const totalFounderFundAmount = founderFundAmount + reroutedToFounderFund;
-    instructions.push(createTransferInstruction(userAta, founderFundAta, userPublicKey, totalFounderFundAmount));
-
-    if (smpMintAddress && paymentMint.equals(smpMintAddress)) {
-      instructions.push(createBurnInstruction(userAta, paymentMint, userPublicKey, founderFundAmount));
+    if (writerReady) {
+      instructions.push(
+        createTransferInstruction(userAta, writerAta, userPublicKey, writerAmount),
+        createTransferInstruction(userAta, treasuryAta, userPublicKey, treasuryAmount),
+      );
+    } else {
+      instructions.push(createTransferInstruction(userAta, treasuryAta, userPublicKey, writerAmount + treasuryAmount));
     }
   }
 
