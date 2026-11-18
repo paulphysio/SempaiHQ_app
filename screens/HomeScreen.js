@@ -54,7 +54,8 @@ const EXPLORE = [
 /* ───────────────────────────── pieces ───────────────────────────── */
 
 /** Spotlight page: blurred art, sharp cover on the right, copy + CTA on the left. */
-const SpotlightCard = React.memo(({ item, onOpen, styles, colors, isDark }) => (
+const SpotlightCard = React.memo(({ item, onOpen, onEdit, styles, colors, isDark }) => (
+  <View>
   <Pressable
     onPress={() => onOpen(item)}
     style={({ pressed }) => [styles.spot, pressed && { transform: [{ scale: 0.985 }] }]}
@@ -110,6 +111,19 @@ const SpotlightCard = React.memo(({ item, onOpen, styles, colors, isDark }) => (
       </View>
     </View>
   </Pressable>
+  {onEdit && item.kind === 'novel' ? (
+    <Pressable
+      onPress={() => onEdit(item)}
+      hitSlop={10}
+      style={({ pressed }) => [styles.spotEdit, pressed && { opacity: 0.7 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Edit ${item.title}`}
+    >
+      <FontAwesome5 name="pen" size={10} color={colors.accent} solid />
+      <Text style={styles.spotEditText}>Edit</Text>
+    </Pressable>
+  ) : null}
+  </View>
 ));
 SpotlightCard.displayName = 'SpotlightCard';
 
@@ -198,6 +212,7 @@ const Home = () => {
 
   const [novels, setNovels] = useState([]);
   const [manga, setManga] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [novelsLoading, setNovelsLoading] = useState(true);
   const [mangaLoading, setMangaLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -507,6 +522,22 @@ const Home = () => {
     }
   }, [firstLoad, contentFade]);
 
+  /* ── admins get an Edit button on spotlight novels ── */
+  useEffect(() => {
+    let cancelled = false;
+    const uid = session?.user?.id;
+    if (!uid) { setIsAdmin(false); return; }
+    supabase.from('users').select('"isSuperuser"').eq('id', uid).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setIsAdmin(!!data?.isSuperuser); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+  const editSpotlight = useCallback(
+    (item) => navigation.navigate('NovelDashboard', { editNovelId: item.id }),
+    [navigation]
+  );
+
   /* ── navigation ── */
   const openItem = useCallback(
     (item) => navigation.navigate(item.kind === 'manga' ? 'MangaDetail' : 'NovelDetail', { id: item.id }),
@@ -616,7 +647,7 @@ const Home = () => {
               data={spotlight}
               keyExtractor={(item) => `${item.kind}-${item.id}`}
               renderItem={({ item }) => (
-                <SpotlightCard item={item} onOpen={openItem} styles={styles} colors={colors} isDark={isDark} />
+                <SpotlightCard item={item} onOpen={openItem} onEdit={isAdmin ? editSpotlight : null} styles={styles} colors={colors} isDark={isDark} />
               )}
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -753,6 +784,21 @@ const makeStyles = (c, isDark) =>
       borderColor: c.borderStrong,
     },
     spotBg: { ...StyleSheet.absoluteFillObject, transform: [{ scale: 1.2 }] },
+    spotEdit: {
+      position: 'absolute',
+      top: space.md,
+      right: space.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 7,
+      borderRadius: 999,
+      backgroundColor: c.bgCardAlt,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+    },
+    spotEditText: { fontSize: 12, fontWeight: '800', color: c.textPrimary },
     spotBody: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', padding: space.lg, gap: space.md },
     spotText: { flex: 1 },
     eyebrow: {

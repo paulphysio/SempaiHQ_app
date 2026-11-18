@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { View, Text, Pressable, Platform, ScrollView, Image, KeyboardAvoidingView, StyleSheet, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import {
   NestableScrollContainer,
@@ -101,6 +101,9 @@ const parseISOToSelections = (isoDate) => {
 
 const NovelDashboardScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const editNovelId = route?.params?.editNovelId || null;
+  const openedFromLink = useRef(null);
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const { isDark, colors } = useTheme();
@@ -236,6 +239,15 @@ const NovelDashboardScreen = () => {
       if (isSuperuser) fetchWriters();
     }
   }, [currentUserId, isWriter, isSuperuser]);
+
+  // Opened from Home (admin 'Edit' on a spotlight novel): open it in the editor.
+  useEffect(() => {
+    if (!editNovelId || !novelsLoaded || openedFromLink.current === editNovelId) return;
+    const target = novelsList.find((n) => n.id === editNovelId);
+    if (!target) return;
+    openedFromLink.current = editNovelId;
+    openManuscript(target);
+  }, [editNovelId, novelsLoaded, novelsList]);
 
   const handleImageChange = async () => {
     try {
