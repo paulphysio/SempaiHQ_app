@@ -144,7 +144,7 @@ const AD_VIDEO_URI = require('../assets/ad_video.mp4');
 // USD cost of unlocking a single chapter. Centralized here so the displayed
 // SMP cost (SMP_READ_COST) and the amount actually charged on-chain
 // (processChapterPayment) can never drift apart.
-const CHAPTER_READ_USD_COST = 0.025; // matches the server (supabase/functions/unlock-chapter)
+const CHAPTER_READ_USD_COST = 0.0025; // matches the server (supabase/functions/unlock-chapter)
 
 // ---------------------------------------------------------------------------
 // Payment errors readers can act on
