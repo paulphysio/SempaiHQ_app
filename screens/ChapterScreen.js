@@ -35,6 +35,7 @@ import { formatNumber } from '../utils/formatNumber';
 import { useTheme } from '../context/ThemeContext';
 import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
 import pioneerBadge from '../assets/badges/pioneer.webp';
+import { useChapterReadPoints } from '../services/readingPoints';
 import { useReadingTimer, formatReadingTime } from '../hooks/useReadingTimer';
 import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
 import { toast } from '../components/Toast';
@@ -499,6 +500,8 @@ const ChapterScreen = () => {
   // Only track reading time once the chapter is actually unlocked —
   // a locked/paywalled chapter must not accumulate reading sessions.
   const { isTracking, getCurrentDuration } = useReadingTimer(isLocked ? null : userId, novelId, chapterId);
+  // Reading points (100 the first time each chapter is read) — server decides.
+  useChapterReadPoints({ contentType: 'novel', contentId: novelId, chapterKey: chapterId, enabled: !isLocked && !!novel && isOnline !== false });
   const embersData = useRef([]);
   const embersInitialized = useRef(false);
 

@@ -55,6 +55,7 @@ import {
 import { radius, space, glow, useMangaTheme } from '../theme/theme';
 import { getStyles as getChapterStyles } from '../styles/MangaChapterStyles';
 import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
+import { useChapterReadPoints } from '../services/readingPoints';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -277,6 +278,8 @@ const MangaChapterScreen = () => {
   const [showPioneerModal, setShowPioneerModal] = useState(false);
   const [pioneerPayload, setPioneerPayload] = useState(null);
   const [currentCreatorId, setCurrentCreatorId] = useState(null);
+  // Reading points + the manga's read count (once per reader) — server decides.
+  useChapterReadPoints({ contentType: 'manga', contentId: mangaId, chapterKey: chapterId, enabled: !isLocked && !loading && !error });
   const [showAtaFundingModal, setShowAtaFundingModal] = useState(false);
   const [writerHasAta, setWriterHasAta] = useState(true);
   const [ataFundingCost, setAtaFundingCost] = useState(0);

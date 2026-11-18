@@ -30,6 +30,7 @@ const LeaderboardScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [timeFrame, setTimeFrame] = useState('week');
+  const [myPoints, setMyPoints] = useState(null); // { weekly, monthly, all_time, weekly_rank }
   const [showShareModal, setShowShareModal] = useState(false);
   const [selectedReader, setSelectedReader] = useState(null);
 
@@ -99,7 +100,7 @@ const LeaderboardScreen = () => {
   const shareToX = () => {
     if (!selectedReader) return;
 
-    const username = selectedReader.email ? selectedReader.email.split('@')[0] : 'Anonymous';
+    const username = getDisplayName(selectedReader);
     const shareUrl = 'https://sempaihq.com/leaderboard';
     const shareText = `🏆 I'm ranked #${selectedReader.rank} on the Sempai HQ Leaderboard with ${selectedReader.effectivePoints.toLocaleString()} points! Check out the full Top 50 leaderboard:`;
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
@@ -110,19 +111,33 @@ const LeaderboardScreen = () => {
     setShowShareModal(false);
   };
 
-  const getInitial = (reader) => {
-    return reader.email ? reader.email.charAt(0).toUpperCase() : '?';
+  // Names come from profiles (emails are private).
+  const getDisplayName = (reader) => {
+    const name = String(reader.name || '').trim();
+    if (name) return name.length > 18 ? `${name.slice(0, 18)}…` : name;
+    const w = String(reader.walletAddress || '');
+    return w ? `${w.slice(0, 4)}…${w.slice(-4)}` : 'Reader';
   };
 
-  const getDisplayName = (reader) => {
-    if (!reader.email) return 'Anonymous';
-    const handle = reader.email.split('@')[0];
-    return handle.length > 16 ? `${handle.slice(0, 16)}…` : handle;
-  };
+  const getInitial = (reader) => getDisplayName(reader).charAt(0).toUpperCase() || '?';
 
   useEffect(() => {
     fetchLeaderboard();
   }, [timeFrame]);
+
+  // Your own points: this week / this month / all time (signed-in readers)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+        const { data, error: e } = await supabase.rpc('get_my_points');
+        if (!e && alive) setMyPoints(Array.isArray(data) ? data[0] : data);
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, [refreshing]);
 
   if (loading) {
     return <ScreenSkeleton variant="list" label="Loading leaderboard" />;
@@ -199,6 +214,30 @@ const LeaderboardScreen = () => {
         }
         showsVerticalScrollIndicator={false}
       >
+        {myPoints ? (
+          <View style={styles.myPointsCard} accessibilityRole="summary">
+            <View style={styles.myPointsHead}>
+              <Text style={styles.myPointsTitle}>Your points</Text>
+              {Number(myPoints.weekly) > 0 ? (
+                <Text style={styles.myPointsRank}>#{Number(myPoints.weekly_rank).toLocaleString()} this week</Text>
+              ) : null}
+            </View>
+            <View style={styles.myPointsRow}>
+              {[
+                ['This week', myPoints.weekly],
+                ['This month', myPoints.monthly],
+                ['All time', myPoints.all_time],
+              ].map(([label, value]) => (
+                <View key={label} style={styles.myPointsCell}>
+                  <Text style={styles.myPointsValue}>{Number(value || 0).toLocaleString()}</Text>
+                  <Text style={styles.myPointsLabel}>{label}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={styles.myPointsHint}>Read a new chapter (novel or manga) for +100. Weeks start Monday (UTC); points never reset.</Text>
+          </View>
+        ) : null}
+
         {readers.length === 0 ? (
           <View style={styles.noResults}>
             <View style={styles.noResultsIconWrap}>
@@ -298,7 +337,7 @@ const LeaderboardScreen = () => {
 
                   <View style={styles.statsCell}>
                     <Text style={styles.effectivePoints}>{reader.effectivePoints.toLocaleString()}</Text>
-                    <Text style={styles.subStat}>{reader.weeklyPoints.toLocaleString()} wk · {reader.totalPointsRead.toLocaleString()} ch</Text>
+                    <Text style={styles.subStat}>{reader.totalPointsRead.toLocaleString()} chapters read</Text>
                   </View>
 
                   <TouchableOpacity
@@ -354,7 +393,7 @@ const LeaderboardScreen = () => {
                 </View>
                 <Text style={styles.shareCardRank}>Rank #{selectedReader?.rank}</Text>
                 <Text style={styles.shareCardUsername}>
-                  {selectedReader?.email ? selectedReader.email.split('@')[0] : 'Anonymous'}
+                  {selectedReader ? getDisplayName(selectedReader) : ''}
                 </Text>
                 <Text style={styles.shareCardPoints}>
                   {selectedReader?.effectivePoints?.toLocaleString() || 0} points
@@ -535,6 +574,22 @@ export const getLeaderboardStyles = (c) => StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
+  myPointsCard: {
+    backgroundColor: c.bgCardAlt,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: c.borderStrong || 'rgba(255,255,255,0.08)',
+    padding: 16,
+    marginBottom: 20,
+  },
+  myPointsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  myPointsTitle: { fontSize: 15, fontWeight: '800', color: c.textPrimary },
+  myPointsRank: { fontSize: 12, fontWeight: '800', color: c.accent },
+  myPointsRow: { flexDirection: 'row', gap: 10 },
+  myPointsCell: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12, backgroundColor: c.bg },
+  myPointsValue: { fontSize: 18, fontWeight: '900', color: c.gold || c.accent },
+  myPointsLabel: { fontSize: 11, fontWeight: '700', color: c.textSecondary, marginTop: 2 },
+  myPointsHint: { fontSize: 11, lineHeight: 16, color: c.textSecondary, marginTop: 12 },
 
   noResults: {
     alignItems: 'center',
