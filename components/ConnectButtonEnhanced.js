@@ -65,7 +65,7 @@ const secureStoreWrapper = {
         throw new Error(`Value for ${key} must be a string, got ${typeof value}`);
       }
       if (Platform.OS === 'web') {
-        localStorage.setItem(key, value);
+        await SecureStore.setItemAsync(key, value); // web: wallet secrets → this tab only
       } else if (useBiometrics) {
         try {
           await SecureStore.setItemAsync(key, value, {
@@ -89,7 +89,7 @@ const secureStoreWrapper = {
   getItemAsync: async (key, useBiometrics = false) => {
     try {
       if (Platform.OS === 'web') {
-        const value = localStorage.getItem(key);
+        const value = await SecureStore.getItemAsync(key);
         console.log(`[secureStoreWrapper] Got ${key}: ${value ? 'exists' : 'null'}`);
         return value;
       } else if (useBiometrics) {
@@ -120,7 +120,7 @@ const secureStoreWrapper = {
   deleteItemAsync: async (key) => {
     try {
       if (Platform.OS === 'web') {
-        localStorage.removeItem(key);
+        await SecureStore.deleteItemAsync(key);
       } else {
         await SecureStore.deleteItemAsync(key);
       }

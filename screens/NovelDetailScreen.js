@@ -7,8 +7,7 @@ import {
   Animated,
   StyleSheet,
   RefreshControl,
-  Alert,
-} from 'react-native';
+  Alert, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useOnline } from '../hooks/useOnline';
@@ -406,7 +405,7 @@ const NovelDetailScreen = () => {
           disabled: readTarget === null,
           onPress: () => readTarget !== null && openChapter(readTarget),
         }}
-        secondary={{
+        secondary={Platform.OS === 'web' ? undefined : {
           icon: savingOffline ? 'spinner' : isSavedOffline ? 'check-circle' : 'arrow-circle-down',
           label: savingOffline ? 'Saving…' : isSavedOffline ? 'Downloaded' : 'Save offline',
           accessibilityLabel: isSavedOffline ? 'Downloaded. Tap to remove from downloads' : 'Save for offline reading',

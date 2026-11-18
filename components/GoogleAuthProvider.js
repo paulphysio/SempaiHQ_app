@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { supabase } from '../services/supabaseClient';
 import Constants from 'expo-constants';
@@ -161,6 +161,25 @@ export const GoogleAuthProvider = ({ children }) => {
   const handleGoogleSignIn = async () => {
     if (isSigningIn) {
       console.log('Google Sign-In already in progress, please wait...');
+      return;
+    }
+
+    // Web: Google's normal browser sign-in (redirect). The session comes back
+    // in the URL and onAuthStateChange picks it up.
+    if (Platform.OS === 'web') {
+      try {
+        isSigningIn = true;
+        const here = window.location.origin + window.location.pathname;
+        const { error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: here, queryParams: { prompt: 'select_account' } },
+        });
+        if (oauthError) throw oauthError;
+      } catch (err) {
+        isSigningIn = false;
+        logError(err, 'Google Sign In (web)');
+        setError(`Google Sign-In failed: ${err.message}`);
+      }
       return;
     }
 

@@ -29,6 +29,10 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import GlobalNavbar from './components/GlobalNavbar';
 import GlobalBottomNav from './components/GlobalBottomNav';
 import GlobalSidebar from './components/GlobalSidebar';
+
+// Web: page addresses (old website links keep working). Phones don't use this.
+const WEB_LINKS = Platform.OS === 'web' ? require('./web/linking') : null;
+const WEB_DEEP_LINK_AT_START = !!(WEB_LINKS && WEB_LINKS.hasDeepLink());
 import { ToastHost, toast } from './components/Toast';
 import OfflineBanner from './components/OfflineBanner';
 import { withScreenBoundary } from './components/ScreenBoundary';
@@ -198,7 +202,7 @@ const MainApp = () => {
 };
 
 const AppContent = ({ setIsStatusBarHidden }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, skipSignIn } = useAuth();
   const { isDark, colors } = useTheme();
   // null = not decided yet (still reading the first-launch flag)
   const [showWelcome, setShowWelcome] = useState(null);
@@ -223,7 +227,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   useEffect(() => {
     let alive = true;
     AsyncStorage.getItem('hasSeenWelcome')
-      .then((seen) => { if (alive) setShowWelcome(seen !== 'true'); })
+      .then((seen) => { if (alive) setShowWelcome(seen !== 'true' && !WEB_DEEP_LINK_AT_START); })
       .catch(() => { if (alive) setShowWelcome(false); });
     return () => { alive = false; };
   }, []);
@@ -253,6 +257,27 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   }, []);
 
   const ready = fontsLoaded && authBooted && showWelcome !== null;
+
+  // Web: someone opening a shared link (e.g. /novel/123) goes straight to it as
+  // a guest — no intro, no sign-in wall. Signing in stays one tap away.
+  const [pendingWebPath, setPendingWebPath] = useState(() =>
+    WEB_DEEP_LINK_AT_START ? WEB_LINKS.initialWebPath : null);
+  useEffect(() => {
+    if (!WEB_LINKS || !pendingWebPath || !authBooted || user) return;
+    setShowWelcome(false);
+    AsyncStorage.setItem('hasSeenWelcome', 'true').catch(() => {});
+    skipSignIn?.();
+  }, [pendingWebPath, authBooted, user, skipSignIn]);
+  useEffect(() => {
+    if (!WEB_LINKS || !pendingWebPath || !user || showWelcome) return;
+    const t = setTimeout(() => {
+      if (!navigationRef.isReady()) return;
+      const state = WEB_LINKS.stateForPath(pendingWebPath);
+      if (state) navigationRef.resetRoot(state);
+      setPendingWebPath(null);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [pendingWebPath, user, showWelcome, navigationRef]);
   useEffect(() => {
     if (ready) global.__SEMPAI_APP_READY = true;
   }, [ready]);
@@ -311,7 +336,8 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   //    sign-in too (it used to run only at launch, so signing in later meant
   //    never receiving pushes), and again if the device token rotates.
   useEffect(() => {
-    if (!user || user.isGuest) return undefined;
+    // Web: no push yet (would also pop a browser permission prompt on open).
+    if (Platform.OS === 'web' || !user || user.isGuest) return undefined;
     let alive = true;
     const register = async () => {
       try {
@@ -422,7 +448,14 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   const showBottomNav = inApp && !IMMERSIVE_ROUTES.has(currentRoute);
 
   return (
-    <NavigationContainer ref={navigationRef} theme={navTheme} onReady={syncRoute} onStateChange={syncRoute}>
+    <NavigationContainer
+      ref={navigationRef}
+      theme={navTheme}
+      onReady={syncRoute}
+      onStateChange={syncRoute}
+      linking={WEB_LINKS ? WEB_LINKS.linking : undefined}
+      documentTitle={{ formatter: (options, route) => (route?.name && route.name !== 'Home' ? `${options?.title || route.name} · SempaiHQ` : 'SempaiHQ — Read, earn, own') }}
+    >
       <View style={[shellStyles.root, { backgroundColor: colors.bg }]}>
         {showNavbar && <GlobalNavbar />}
         <Stack.Navigator screenOptions={screenOptions}>

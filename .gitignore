@@ -118,4 +118,4 @@ google-services.json
 /calculate_smp_price.js
 /calculate_smp_price_fixed.js
 /components/GoogleSignInTest.js
-/supabase/functions/weekly-rewards/test.js
+/supabase/functions/weekly-rewards/test.js.web-build/

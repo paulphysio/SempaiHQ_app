@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { reportRequestFailed, reportRequestOk, setReachabilityProbe } from '../hooks/useOnline';
 
 /*
@@ -113,7 +114,10 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Prevent Supabase from handling redirects
+    // Web: Google sign-in returns to the page with a one-time code (PKCE)
+    // that supabase-js exchanges for the session. Phones sign in natively.
+    detectSessionInUrl: Platform.OS === 'web',
+    flowType: Platform.OS === 'web' ? 'pkce' : 'implicit',
   },
   global: { fetch: offlineAwareFetch },
 });

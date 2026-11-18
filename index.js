@@ -1,5 +1,9 @@
 import './polyfills';
 import { registerRootComponent } from 'expo';
+import { Platform } from 'react-native';
+
+// Web: phone-width column on wide screens (must run before any screen loads).
+if (Platform.OS === 'web') require('./web/setupWeb');
 
 // Release builds: drop verbose logging. The app has hundreds of console.log
 // calls (many serialising whole query results); on a real device every one

@@ -1,6 +1,10 @@
 // @ts-check
 
 import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
+
+// Browsers have no app file storage: offline downloads are Android-only.
+const IS_WEB = Platform.OS === 'web';
 
 const FALLBACK_IMAGE = 'https://placehold.co/300x400/png?text=No+Image';
 const SMP_DIRECTORY = 'smp-novels';
@@ -53,6 +57,7 @@ async function ensureSmpDirectory() {
  * @param {string} userId - User ID (not used for encryption anymore)
  */
 export async function saveNovelForOffline(novel, unlockedChapters, userId) {
+  if (IS_WEB) throw new Error('Offline downloads are available in the Android app.');
   try {
     await ensureSmpDirectory();
 
@@ -194,6 +199,7 @@ export async function saveNovelForOffline(novel, unlockedChapters, userId) {
  * @returns {Promise<Object|null>} - Object with { novel, chapters } or null
  */
 export async function getNovelForOffline(novelId, userId) {
+  if (IS_WEB) return null;
   // Declared outside try: the catch block deletes this file when it's corrupt.
   const filePath = getSmpDirectory() + novelId + '.smp';
   try {
@@ -262,6 +268,7 @@ export async function getNovelForOffline(novelId, userId) {
  * @returns {Promise<boolean>} - True if saved
  */
 export async function isNovelSavedOffline(novelId) {
+  if (IS_WEB) return false;
   try {
     const filePath = getSmpDirectory() + novelId + '.smp';
     const fileInfo = await FileSystem.getInfoAsync(filePath);
@@ -278,6 +285,7 @@ export async function isNovelSavedOffline(novelId) {
  * @returns {Promise<Array>} - Array of novel objects
  */
 export async function getCachedNovelsOffline(userId) {
+  if (IS_WEB) return [];
   try {
     await ensureSmpDirectory();
     const dir = getSmpDirectory();
@@ -312,6 +320,7 @@ export async function getCachedNovelsOffline(userId) {
  * @param {string} novelId - Novel ID
  */
 export async function deleteNovelForOffline(novelId) {
+  if (IS_WEB) return;
   try {
     const filePath = getSmpDirectory() + novelId + '.smp';
     const imagePath = getSmpDirectory() + novelId + '.jpg';
@@ -330,6 +339,7 @@ export async function deleteNovelForOffline(novelId) {
  * Clear old cache directory (migration cleanup)
  */
 export async function clearOldCache() {
+  if (IS_WEB) return;
   try {
     const oldCacheDir = FileSystem.cacheDirectory + 'offline-cache/';
     const dirInfo = await FileSystem.getInfoAsync(oldCacheDir);
@@ -347,6 +357,7 @@ export async function clearOldCache() {
  * Clear all .smp files (for migration when user ID changes or encryption removed)
  */
 export async function clearAllSmpFiles() {
+  if (IS_WEB) return;
   try {
     const smpDir = getSmpDirectory();
     const dirInfo = await FileSystem.getInfoAsync(smpDir);
@@ -364,6 +375,7 @@ export async function clearAllSmpFiles() {
  * Clear corrupted files (when JSON parse fails)
  */
 export async function clearCorruptedFiles() {
+  if (IS_WEB) return;
   try {
     await ensureSmpDirectory();
     const dir = getSmpDirectory();

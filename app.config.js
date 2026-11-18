@@ -24,7 +24,9 @@ export default ({ config }) => ({
       backgroundColor: '#ffffff',
     },
   },
-  web: { favicon: './assets/favicon.png' },
+  web: { favicon: './assets/favicon.png', name: 'SempaiHQ', shortName: 'SempaiHQ', themeColor: '#0B0B14', backgroundColor: '#0B0B14', description: 'Read novels and manga from independent creators — and earn SMP.' },
+  // Web build for sempaihq.com: files are served from /web-app (set by scripts/build-web.sh).
+  ...(process.env.SEMPAI_WEB_BASE ? { experiments: { ...(config.experiments || {}), baseUrl: process.env.SEMPAI_WEB_BASE } } : {}),
   owner: 'physionerdy',
   plugins: [
     'expo-router',
