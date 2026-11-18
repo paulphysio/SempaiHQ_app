@@ -504,7 +504,8 @@ serve(async (req) => {
     return Response.json(
       { error: error.message || "Internal server error" },
       {
-        status: /not found on solana yet/i.test(error.message || "") ? 503 // temporary: retry later
+        status: /authorization header missing/i.test(error.message || "") ? 401 // not signed in — not a server fault
+          : /not found on solana yet/i.test(error.message || "") ? 503 // temporary: retry later
           : /not found|requires|already used|too low|didn't pay|not made by this wallet|failed on-chain|too old|invalid currency|sign in/i
               .test(error.message || "") ? 400 // permanent: retrying won't help
           : 500,
