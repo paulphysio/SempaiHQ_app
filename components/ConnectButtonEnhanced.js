@@ -58,6 +58,22 @@ const findMyUserRow = async (authId, email, columns = 'id, wallet_address') => {
   return { data: data || null, error: null };
 };
 
+/**
+ * The wallet's private key (base58) from this phone's stored walletData.
+ *  · secure wallets (v2): the key is kept on the phone in secure storage
+ *    (it was unlocked with the user's password when they set it up)
+ *  · old wallets: an encrypted copy that the server decrypts for the owner
+ */
+const privateKeyFromWalletData = async (walletData) => {
+  if (walletData?.v === 2 && typeof walletData.secret === 'string' && walletData.secret) {
+    return walletData.secret;
+  }
+  if (walletData?.encryptedPrivateKey) {
+    return invokeEncryptionFunction('decrypt', walletData.encryptedPrivateKey);
+  }
+  throw new Error('Private key unavailable');
+};
+
 const secureStoreWrapper = {
   setItemAsync: async (key, value, useBiometrics = false) => {
     try {
@@ -708,11 +724,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', biometricsEnabled);
         if (!walletDataStr) throw new Error('Wallet data unavailable');
 
-        const walletData = JSON.parse(walletDataStr);
-        if (!walletData.encryptedPrivateKey) throw new Error('Private key unavailable');
-
-        // Use edge function for decryption
-        privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.encryptedPrivateKey);
+        privateKeyBase58 = await privateKeyFromWalletData(JSON.parse(walletDataStr));
       } catch (err) {
         console.error('[signAndSendTransaction] Error retrieving/decrypting wallet data:', err);
         throw new Error('Failed to retrieve or decrypt wallet data: ' + err.message);
@@ -808,11 +820,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', biometricsEnabled);
         if (!walletDataStr) throw new Error('Wallet data unavailable');
 
-        const walletData = JSON.parse(walletDataStr);
-        if (!walletData.encryptedPrivateKey) throw new Error('Private key unavailable');
-
-        // Use edge function for decryption
-        privateKeyBase58 = await invokeEncryptionFunction('decrypt', walletData.encryptedPrivateKey);
+        privateKeyBase58 = await privateKeyFromWalletData(JSON.parse(walletDataStr));
       } catch (err) {
         console.error('[signTransactionOnly] Error retrieving/decrypting wallet data:', err);
         throw new Error('Failed to retrieve or decrypt wallet data: ' + err.message);
