@@ -34,7 +34,7 @@ import { CardStyleInterpolators } from '@react-navigation/stack';
 import { formatNumber } from '../utils/formatNumber';
 import { useTheme } from '../context/ThemeContext';
 import { getChapterScreenStyles } from '../styles/ChapterScreenStyles';
-import pioneerBadge from '../assets/Pioneer.png';
+import pioneerBadge from '../assets/badges/pioneer.webp';
 import { useReadingTimer, formatReadingTime } from '../hooks/useReadingTimer';
 import { saveReadingProgress, getContentReadingProgress } from '../services/readingProgress';
 import { toast } from '../components/Toast';

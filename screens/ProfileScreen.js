@@ -20,7 +20,8 @@ import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import AutopaySettings from '../components/AutopaySettings';
-import pioneerBadgeImg from '../assets/Pioneer.png';
+import pioneerBadgeImg from '../assets/badges/pioneer.webp';
+import seekerBadgeImg from '../assets/badges/seeker.webp';
 import { getUserReadingTime, formatReadingTime } from '../hooks/useReadingTimer';
 import { getProfileMangaStyles, getProfilePalette, INK } from '../styles/ProfileStyles';
 import {
@@ -110,6 +111,7 @@ const ProfileScreen = () => {
   const [isBenefactor, setIsBenefactor] = useState(false);
   const [benefactorLevel, setBenefactorLevel] = useState(null);
   const [isPioneer, setIsPioneer] = useState(false);
+  const [isSeeker, setIsSeeker] = useState(false);
   const [userBadges, setUserBadges] = useState([]);
   const [readingStats, setReadingStats] = useState(EMPTY_STATS);
   const [avatarFailed, setAvatarFailed] = useState(false);
@@ -182,6 +184,7 @@ const ProfileScreen = () => {
         setIsBenefactor(!!user.is_benefactor);
         setBenefactorLevel(user.benefactor_level || null);
         setIsPioneer(normalised.some((b) => b.type === 'pioneer'));
+        setIsSeeker(normalised.some((b) => b.type === 'seeker'));
         setUserBadges(normalised);
         setIsOwnProfile(!!activeWalletAddress && activeWalletAddress === user.wallet_address);
         setReadingStats(readingRes ? { ...EMPTY_STATS, ...readingRes } : EMPTY_STATS);
@@ -377,6 +380,7 @@ const ProfileScreen = () => {
             <ShineSweep color={palette.textOnAccent} reduceMotion={reduceMotion} />
           </View>
           {isPioneer ? <Image source={pioneerBadgeImg} style={styles.nameBadge} accessibilityLabel="Pioneer badge" /> : null}
+          {isSeeker ? <Image source={seekerBadgeImg} style={styles.nameBadge} accessibilityLabel="Seeker badge" /> : null}
           {benefactorImg ? <Image source={benefactorImg} style={styles.nameBadge} accessibilityLabel="Benefactor badge" /> : null}
         </View>
 
@@ -452,8 +456,8 @@ const ProfileScreen = () => {
             {userBadges.map((b, i) => (
               <StaggerIn key={b.id || i} index={i} base={500} step={70} from={14} reduceMotion={reduceMotion} style={styles.badgeCell}>
                 <View style={[styles.badgeFrame, { transform: [{ rotate: i % 2 ? '4deg' : '-4deg' }] }]}>
-                  {b.type === 'pioneer' ? (
-                    <Image source={pioneerBadgeImg} style={styles.badgeImg} />
+                  {b.type === 'pioneer' || b.type === 'seeker' ? (
+                    <Image source={b.type === 'seeker' ? seekerBadgeImg : pioneerBadgeImg} style={styles.badgeImg} />
                   ) : b.image_url ? (
                     <Image source={{ uri: b.image_url }} style={styles.badgeImg} />
                   ) : (

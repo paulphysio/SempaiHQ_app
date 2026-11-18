@@ -45,7 +45,9 @@ const getBadgeImage = (badge) => {
     case 'iron':
       return require('../assets/plan-image/Black.png');
     case 'pioneer':
-      return require('../assets/Pioneer.png');
+      return require('../assets/badges/pioneer.webp');
+    case 'seeker':
+      return require('../assets/badges/seeker.webp');
     default:
       return require('../assets/plan-image/Blue.png');
   }

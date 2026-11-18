@@ -24,12 +24,14 @@ import { safeFetch } from '../utils/urlValidation';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { getProfileStyles, getProfileMangaStyles, getProfilePalette, INK } from '../styles/ProfileStyles';
-import pioneerBadgeImg from '../assets/Pioneer.png';
+import pioneerBadgeImg from '../assets/badges/pioneer.webp';
+import seekerBadgeImg from '../assets/badges/seeker.webp';
 import { getUserReadingTime, formatReadingTime } from '../hooks/useReadingTimer';
 import { logMoneyEvent } from '../services/moneyFeed';
 import { getReaderRank, buildTwitterUrl, buildWebsiteUrl } from './ProfileScreen';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
-import { getAssociatedTokenAddressSync, createTransferInstruction } from '@solana/spl-token';
+import { getAssociatedTokenAddressSync, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction } from '@solana/spl-token';
+import { readerAction } from '../services/readerActions';
 import {
   USDC_MINT_ADDRESS,
   SKR_MINT_ADDRESS,
@@ -91,6 +93,7 @@ const CreatorsProfileScreen = () => {
   const [isBenefactor, setIsBenefactor] = useState(false);
   const [benefactorLevel, setBenefactorLevel] = useState(null);
   const [isPioneer, setIsPioneer] = useState(false);
+  const [isSeeker, setIsSeeker] = useState(false);
   const [avatarFailed, setAvatarFailed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showBadgePurchaseModal, setShowBadgePurchaseModal] = useState(false);
@@ -106,6 +109,7 @@ const CreatorsProfileScreen = () => {
   const [tipAmount, setTipAmount] = useState('');
   const [tipCurrency, setTipCurrency] = useState('SOL');
   const [tipSending, setTipSending] = useState(false);
+  const [seekerEarned, setSeekerEarned] = useState(false);
   const [canMessageCreator, setCanMessageCreator] = useState(null); // null = checking
 
   const reqRef = useRef(0);
@@ -249,6 +253,7 @@ const CreatorsProfileScreen = () => {
       setIsBenefactor(!!user.is_benefactor);
       setBenefactorLevel(user.benefactor_level || null);
       setIsPioneer(normalised.some((b) => b.type === 'pioneer'));
+        setIsSeeker(normalised.some((b) => b.type === 'seeker'));
       setUserBadges(normalised);
       setReadingStats(readingRes ? { ...EMPTY_STATS, ...readingRes } : EMPTY_STATS);
       setIsOwnProfile(!!activeWalletAddress && activeWalletAddress === user.wallet_address);
@@ -385,7 +390,7 @@ const CreatorsProfileScreen = () => {
     }
   };
 
-  const handleTip = () => {
+  const handleTip = async () => {
     const amount = parseFloat(tipAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error('Invalid amount — Enter a tip amount greater than 0.');
@@ -404,9 +409,20 @@ const CreatorsProfileScreen = () => {
       return;
     }
 
+    // Seeker: a creator without an SKR account gets one opened by this tip.
+    let opensSkrAccount = false;
+    if (tipCurrency === 'SKR') {
+      try {
+        const ata = getAssociatedTokenAddressSync(new PublicKey(SKR_MINT_ADDRESS), new PublicKey(creatorData.wallet_address), true);
+        opensSkrAccount = !(await connection.getAccountInfo(ata));
+      } catch { /* checked again when sending */ }
+    }
+    const who = creatorData?.name || 'this creator';
     Alert.alert(
-      'Confirm tip',
-      `Send ${amount} ${tipCurrency} to ${creatorData?.name || 'this creator'}?\n\nThis will prompt your wallet to sign the transaction.`,
+      opensSkrAccount ? 'Open their SKR account' : 'Confirm tip',
+      opensSkrAccount
+        ? `${who} doesn't have an SKR account yet. Your tip of ${amount} SKR will open one for them (about 0.002 SOL network fee), and you'll earn the Seeker badge.`
+        : `Send ${amount} ${tipCurrency} to ${who}?\n\nThis will prompt your wallet to sign the transaction.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Yes, send tip', onPress: () => { void sendTip(amount); } },
@@ -422,6 +438,7 @@ const CreatorsProfileScreen = () => {
       const creatorPublicKey = new PublicKey(creatorWallet);
       const instructions = [];
       let baseUnits;
+      let openedSkrAccount = false;
 
       if (tipCurrency === 'SOL') {
         baseUnits = Math.floor(amount * 1e9);
@@ -446,6 +463,18 @@ const CreatorsProfileScreen = () => {
         const tokenBalance = Number(ataInfo.data.readBigUInt64LE(64));
         if (tokenBalance < baseUnits) {
           throw new Error(`Insufficient ${tipCurrency}. You have ${(tokenBalance / 10 ** decimals).toFixed(2)}.`);
+        }
+        // Creators who've never held this token have no account for it yet:
+        // the tip opens it (the tipper pays the small rent).
+        const creatorAtaInfo = await connection.getAccountInfo(creatorAta);
+        if (!creatorAtaInfo) {
+          const ATA_RENT_LAMPORTS = 2039280;
+          const solBalance = await connection.getBalance(activePublicKey);
+          if (solBalance < ATA_RENT_LAMPORTS + 10000) {
+            throw new Error(`${creatorData?.name || 'This creator'} needs a ${tipCurrency} account first — add about 0.003 SOL to your wallet to open it with your tip.`);
+          }
+          instructions.push(createAssociatedTokenAccountIdempotentInstruction(activePublicKey, creatorAta, creatorPublicKey, mint));
+          if (tipCurrency === 'SKR') openedSkrAccount = true;
         }
         instructions.push(createTransferInstruction(userAta, creatorAta, activePublicKey, baseUnits));
       }
@@ -503,6 +532,18 @@ const CreatorsProfileScreen = () => {
         });
       } catch (recordErr) {
         console.warn('[CreatorsProfileScreen] tip record failed:', recordErr?.message);
+      }
+
+      // Seeker badge: the server checks on-chain that this tip opened the
+      // creator's SKR account, then awards it (retry once — the RPC may lag).
+      if (openedSkrAccount) {
+        let res = await readerAction('seeker_badge', { signature, creatorWallet });
+        if (!res.ok && /not found/i.test(res.error || '')) {
+          await new Promise((r) => setTimeout(r, 2500));
+          res = await readerAction('seeker_badge', { signature, creatorWallet });
+        }
+        if (res.ok && res.granted) setSeekerEarned(true);
+        else if (!res.ok) console.warn('[CreatorsProfileScreen] seeker badge:', res.error);
       }
 
       toast.info(`Tip sent — ${`Thank you for supporting ${creatorData?.name || 'the creator'}!`}`);
@@ -769,6 +810,7 @@ const CreatorsProfileScreen = () => {
             <ShineSweep color={palette.textOnAccent} reduceMotion={reduceMotion} />
           </View>
           {isPioneer ? <Image source={pioneerBadgeImg} style={styles.nameBadge} accessibilityLabel="Pioneer badge" /> : null}
+          {isSeeker ? <Image source={seekerBadgeImg} style={styles.nameBadge} accessibilityLabel="Seeker badge" /> : null}
           {benefactorImg ? <Image source={benefactorImg} style={styles.nameBadge} accessibilityLabel="Benefactor badge" /> : null}
         </View>
 
@@ -889,8 +931,8 @@ const CreatorsProfileScreen = () => {
             {userBadges.map((b, i) => (
               <StaggerIn key={b.id || i} index={i} base={500} step={70} from={14} reduceMotion={reduceMotion} style={styles.badgeCell}>
                 <View style={[styles.badgeFrame, { transform: [{ rotate: i % 2 ? '4deg' : '-4deg' }] }]}>
-                  {b.type === 'pioneer' ? (
-                    <Image source={pioneerBadgeImg} style={styles.badgeImg} />
+                  {b.type === 'pioneer' || b.type === 'seeker' ? (
+                    <Image source={b.type === 'seeker' ? seekerBadgeImg : pioneerBadgeImg} style={styles.badgeImg} />
                   ) : b.image_url ? (
                     <Image source={{ uri: b.image_url }} style={styles.badgeImg} />
                   ) : (
@@ -1250,6 +1292,24 @@ const CreatorsProfileScreen = () => {
               )}
             </TouchableOpacity>
           </View>
+        </View>
+      </Modal>
+
+      {/* Seeker badge earned */}
+      <Modal isVisible={seekerEarned} onBackdropPress={() => setSeekerEarned(false)} onBackButtonPress={() => setSeekerEarned(false)}>
+        <View style={{ backgroundColor: isDark ? '#14141F' : '#FFFFFF', borderRadius: 20, padding: 24, alignItems: 'center' }}>
+          <Image source={seekerBadgeImg} style={{ width: 72, height: 72, marginBottom: 14 }} accessibilityLabel="Seeker badge" />
+          <Text style={{ fontSize: 20, fontWeight: '900', color: isDark ? '#FFFFFF' : '#14141F', textAlign: 'center' }}>Seeker badge earned</Text>
+          <Text style={{ fontSize: 14, lineHeight: 20, color: isDark ? '#B8B8C8' : '#55556A', textAlign: 'center', marginTop: 8 }}>
+            {`You opened ${creatorData?.name || 'this creator'}'s SKR account with your tip. Thanks for helping creators get paid in SKR!`}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setSeekerEarned(false)}
+            accessibilityRole="button"
+            style={{ marginTop: 18, backgroundColor: '#F36316', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 999 }}
+          >
+            <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Nice!</Text>
+          </TouchableOpacity>
         </View>
       </Modal>
 

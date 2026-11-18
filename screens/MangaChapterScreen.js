@@ -47,7 +47,7 @@ import {
 import bs58 from 'bs58';
 import MangaCommentSection from '../components/MangaCommentSection';
 import { useTheme } from '../context/ThemeContext';
-import pioneerBadge from '../assets/Pioneer.png';
+import pioneerBadge from '../assets/badges/pioneer.webp';
 import {
   Screen, Tap, IconButton, GradientButton, GhostButton, Input, Field, Panel, Sheet, Toast,
   Skeleton, EmptyState, Divider, SectionHeader,
@@ -1861,7 +1861,7 @@ const MangaChapterScreen = () => {
         tall
       >
         <View style={{ alignItems: 'center', marginBottom: space.lg }}>
-          <Image source={pioneerBadge} style={{ width: 120, height: 48, resizeMode: 'contain' }} />
+          <Image source={pioneerBadge} style={{ width: 72, height: 72, resizeMode: 'contain' }} />
           <Text style={[type.h2, { marginTop: space.md, color: colors.gold }]}>You're a Pioneer!</Text>
           <Text style={[type.body, { marginTop: space.sm, textAlign: 'center' }]}>
             You're the first reader to support this writer. As a thank you, you can claim a special Pioneer badge for your profile.

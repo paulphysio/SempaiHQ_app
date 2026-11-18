@@ -443,6 +443,72 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
   },
 
   // Public money feed (DAO Governance): swaps, sends, tips made from the app.
+  // Seeker badge: the caller's tip OPENED a writer/artist's SKR account
+  // (it didn't exist before) and paid SKR into it. Everything is checked
+  // on-chain — the app's word is never enough.
+  async seeker_badge({ user, myWallets }, p) {
+    const sig = String(p.signature || "");
+    const creatorWallet = String(p.creatorWallet || "");
+    if (!sig || !creatorWallet) throw new Refuse("Missing transaction");
+    if (myWallets.has(creatorWallet)) throw new Refuse("You can't open your own account");
+
+    let tx: any = null;
+    for (let i = 0; i < 4 && !tx; i++) {
+      tx = await rpc("getTransaction", [sig, { encoding: "jsonParsed", commitment: "confirmed", maxSupportedTransactionVersion: 0 }]).catch(() => null);
+      if (!tx) await new Promise((r) => setTimeout(r, 1500));
+    }
+    if (!tx) throw new Refuse("Transaction not found yet", 503);
+    if (tx.meta?.err) throw new Refuse("Transaction failed on-chain");
+    if (tx.blockTime && Date.now() / 1000 - tx.blockTime > 24 * 3600) throw new Refuse("Transaction is too old");
+
+    const keys = (tx.transaction?.message?.accountKeys || []);
+    const keyList: string[] = keys.map((k: any) => (typeof k === "string" ? k : k.pubkey));
+    const signers: string[] = keys.filter((k: any) => typeof k !== "string" && k.signer).map((k: any) => k.pubkey);
+    if (!signers.some((s) => myWallets.has(s))) throw new Refuse("Not your transaction", 403);
+
+    // The receiver must be a writer or artist
+    const { data: creator } = await admin.from("users").select("id, \"isWriter\", \"isArtist\"")
+      .eq("wallet_address", creatorWallet).limit(1).maybeSingle();
+    if (!creator || !(creator.isWriter || creator.isArtist)) throw new Refuse("That wallet isn't a writer or artist");
+
+    // Find "open SKR account for creatorWallet, paid by the caller"
+    const all = [
+      ...(tx.transaction?.message?.instructions || []),
+      ...((tx.meta?.innerInstructions || []).flatMap((x: any) => x.instructions || [])),
+    ];
+    const open = all.find((ix: any) =>
+      ix?.program === "spl-associated-token-account" &&
+      (ix?.parsed?.type === "create" || ix?.parsed?.type === "createIdempotent") &&
+      ix.parsed.info?.wallet === creatorWallet &&
+      ix.parsed.info?.mint === MINTS.SKR &&
+      myWallets.has(ix.parsed.info?.source));
+    if (!open) throw new Refuse("This tip didn't open an SKR account");
+    const ata = open.parsed.info.account;
+    const idx = keyList.indexOf(ata);
+    // It must be NEW: no lamports before this transaction
+    if (idx < 0 || (tx.meta?.preBalances?.[idx] ?? 1) !== 0) throw new Refuse("That SKR account already existed");
+    const post = (tx.meta?.postTokenBalances || []).find((b: any) => b.accountIndex === idx && b.mint === MINTS.SKR);
+    if (!post || !(Number(post.uiTokenAmount?.amount || 0) > 0)) throw new Refuse("No SKR reached the new account");
+
+    // Badge definition (created once) + grant (once per person)
+    let { data: badge } = await admin.from("badges").select("id").eq("type", "seeker").limit(1).maybeSingle();
+    if (!badge) {
+      const { data: made, error } = await admin.from("badges").insert({
+        name: "Seeker", description: "Opened a creator's SKR account with a tip", type: "seeker", price: 0,
+      }).select("id").single();
+      if (error) throw new Error(error.message);
+      badge = made;
+    }
+    const { data: owned } = await admin.from("user_badges").select("id")
+      .eq("user_id", user.id).eq("badge_id", badge!.id).maybeSingle();
+    if (owned) return { granted: false, already: true };
+    const { error: gErr } = await admin.from("user_badges").insert({
+      user_id: user.id, badge_id: badge!.id, acquired_at: new Date().toISOString(),
+    });
+    if (gErr) throw new Error(gErr.message);
+    return { granted: true };
+  },
+
   // Only logged for a real transaction signed by one of the caller's wallets.
   async money_event({ user, myWallets }, p) {
     const sig = String(p.tx_sig || "");
