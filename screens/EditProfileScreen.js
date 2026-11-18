@@ -509,7 +509,7 @@ const EditProfileScreen = () => {
       try {
         const { data: user, error: userError } = await supabase
           .from('users')
-          .select('id, email, name, x_account, x_verified_at, image, isWriter, isArtist, isSuperuser, referred_by, has_updated_profile, weekly_points')
+          .select('id, name, x_account, x_verified_at, image, isWriter, isArtist, isSuperuser, referred_by, has_updated_profile, weekly_points')
           .eq('wallet_address', walletAddress.toString())
           .single();
 
@@ -522,7 +522,7 @@ const EditProfileScreen = () => {
         }
 
         setUserId(user.id);
-        setEmail(user.email || '');
+        setEmail(session?.user?.email || '');
         setName(user.name || '');
         setXAccount(user.x_account || '');
         setImageUrl(user.image || '');

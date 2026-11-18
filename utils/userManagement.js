@@ -15,7 +15,6 @@ export const fetchUsers = async (options = {}) => {
         created_at,
         updated_at,
         name,
-        email,
         has_updated_profile,
         weekly_points,
         referral_code,
@@ -100,7 +99,6 @@ export const getUserDetails = async (userId) => {
       .select(`
         id,
         wallet_address,
-        email,
         name
       `)
       .eq('id', userId)

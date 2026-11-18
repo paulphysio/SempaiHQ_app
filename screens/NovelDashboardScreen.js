@@ -215,10 +215,7 @@ const NovelDashboardScreen = () => {
     if (!isSuperuser) return;
 
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, email, isWriter')
-        .eq('isWriter', true);
+      const { data, error } = await supabase.rpc('admin_list_users', { p_role: 'writer', p_limit: 1000 });
 
       if (error) throw new Error(error.message);
       setWriters(data || []);

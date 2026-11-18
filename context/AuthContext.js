@@ -124,7 +124,7 @@ export const AuthProvider = ({ children }) => {
       console.log('[syncUserWithDatabase] Syncing user:', userData.id);
       const { data: existingUser, error: userError } = await supabase
         .from('users')
-        .select('id, email, name')
+        .select('id, name')
         .eq('id', userData.id)
         .single();
 

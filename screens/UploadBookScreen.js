@@ -86,7 +86,7 @@ const UploadBookScreen = () => {
       try {
         const { data } = await supabase
           .from('users')
-          .select('id, name, wallet_address, email')
+          .select('id, name, wallet_address')
           .eq('wallet_address', activePublicKey.toString())
           .maybeSingle();
         setUser(data || null);
@@ -179,10 +179,8 @@ const UploadBookScreen = () => {
       toast.error('Sign in required — Publishing needs an active Google sign-in session. Please sign out and sign back in with the Google account linked to your profile, then try again.');
       return;
     }
-    const sessionEmail = (session.user?.email || '').toLowerCase();
-    const profileEmail = (user.email || '').toLowerCase();
-    if (profileEmail && sessionEmail && sessionEmail !== profileEmail) {
-      toast.info(`Wrong Google account — ${`You're signed in as ${session.user?.email}, but this profile belongs to ${user.email}. Sign out and sign in with the matching Google account.`}`);
+    if (user.id && session.user?.id && user.id !== session.user.id) {
+      toast.info(`Wrong Google account — you're signed in as ${session.user?.email}, but this wallet belongs to a different account. Sign out and sign in with the Google account linked to this wallet.`);
       return;
     }
 

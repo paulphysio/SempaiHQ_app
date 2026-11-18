@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
 
 
   // ── Caller check: only the server (cron / service key) may pay out ──
-  const token = (req.headers.get("Authorization") || "").replace(/^Bearers+/i, "").trim();
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (!(await isServiceCaller(token))) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,

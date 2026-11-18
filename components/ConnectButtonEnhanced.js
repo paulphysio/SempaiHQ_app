@@ -49,11 +49,13 @@ const findMyUserRow = async (authId, email, columns = 'id, wallet_address') => {
     if (data) return { data, error: null };
   }
   if (!email) return { data: null, error: null };
-  const { data, error } = await supabase.from('users').select(columns).eq('email', email).limit(2);
+  // Emails are private, so the match happens on the server against the
+  // signed-in account's own email (returns nothing if it's ambiguous).
+  const { data: legacyId, error: rpcError } = await supabase.rpc('my_user_id_by_email');
+  if (rpcError || !legacyId) return { data: null, error: null };
+  const { data, error } = await supabase.from('users').select(columns).eq('id', legacyId).maybeSingle();
   if (error) return { data: null, error };
-  // Two rows sharing an email is ambiguous — refuse rather than guess.
-  if (!data || data.length !== 1) return { data: null, error: null };
-  return { data: data[0], error: null };
+  return { data: data || null, error: null };
 };
 
 const secureStoreWrapper = {

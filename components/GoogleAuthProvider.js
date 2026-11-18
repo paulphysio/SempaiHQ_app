@@ -183,17 +183,6 @@ export const GoogleAuthProvider = ({ children }) => {
 
       setLoading(true);
 
-      const email = userInfo.user.email;
-      const { data: existingUser, error: userCheckError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .single();
-
-      if (userCheckError && userCheckError.code !== 'PGRST116') {
-        throw userCheckError;
-      }
-
       const { data, error: signInError } = await supabase.auth.signInWithIdToken({
         provider: 'google',
         token: idToken,

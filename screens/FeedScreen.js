@@ -73,7 +73,7 @@ const FeedScreen = () => {
       try {
         const { data: posts } = await supabase
           .from('feed_posts')
-          .select('*, users(*)')
+          .select('*, users(id, name, image, wallet_address)')
           .order('created_at', { ascending: false })
           .limit(20);
         setPosts(posts || []);
@@ -198,7 +198,7 @@ const FeedScreen = () => {
     try {
       const { data } = await supabase
         .from('feed_comments')
-        .select('*, users(*)')
+        .select('*, users(id, name, image, wallet_address)')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
       

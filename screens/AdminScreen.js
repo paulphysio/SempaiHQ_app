@@ -163,11 +163,8 @@ const AdminScreen = () => {
   }, []);
 
   const loadUsers = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, name, email, wallet_address, isWriter, isArtist, "isSuperuser", weekly_points')
-      .order('name', { ascending: true })
-      .limit(200);
+    // Emails are private: this server function only answers admins.
+    const { data, error } = await supabase.rpc('admin_list_users', { p_limit: 200 });
     if (error) throw error;
     setUsers(data || []);
   }, []);

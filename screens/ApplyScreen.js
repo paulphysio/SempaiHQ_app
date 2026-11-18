@@ -48,14 +48,14 @@ const ApplyScreen = () => {
         }
         let { data: user, error: fetchError } = await supabase
           .from('users')
-          .select('id, email, name')
+          .select('id, name')
           .eq('id', authId)
           .maybeSingle();
         if (fetchError) throw fetchError;
         if (!user) {
           ({ data: user } = await supabase
             .from('users')
-            .select('id, email, name')
+            .select('id, name')
             .eq('wallet_address', publicKeyStr)
             .maybeSingle());
         }
@@ -63,7 +63,7 @@ const ApplyScreen = () => {
         if (user) {
           console.log('[ApplyScreen] Profile synced successfully:', user);
           setUserId(user.id);
-          setEmail(user.email || '');
+          setEmail(session?.user?.email || '');
           setName(user.name || '');
         } else {
           console.warn('[ApplyScreen] User profile is null after sync.');
