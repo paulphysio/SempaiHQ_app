@@ -9,21 +9,7 @@ export const fetchUsers = async (options = {}) => {
   try {
     let query = supabase
       .from('users')
-      .select(`
-        id,
-        wallet_address,
-        created_at,
-        updated_at,
-        name,
-        has_updated_profile,
-        weekly_points,
-        referral_code,
-        x_account,
-        discord,
-        website,
-        bio,
-        image_url
-      `);
+      .select('id, wallet_address, name, has_updated_profile, weekly_points, referral_code, x_account, image');
 
     // Add filters if provided
     if (options.hasWallet) {

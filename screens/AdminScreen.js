@@ -51,6 +51,8 @@ const AdminScreen = () => {
   const [rewards, setRewards] = useState([]);
   const [refunds, setRefunds] = useState([]);
   const [actionBusy, setActionBusy] = useState(null);
+  const [spotlightList, setSpotlightList] = useState([]);
+  const [spotlightBusy, setSpotlightBusy] = useState(false);
 
   // management tabs
   const [contentKind, setContentKind] = useState('novel'); // 'novel' | 'manga'
@@ -173,7 +175,7 @@ const AdminScreen = () => {
     const table = kind === 'novel' ? 'novels' : 'manga';
     const select = kind === 'novel'
       ? 'id, title, image, summary, user_id, is_visible, featured, spotlight_rank, viewers_count, status'
-      : 'id, title, cover_image, description, user_id, is_visible, spotlight_rank, viewers_count';
+      : 'id, title, cover_image, summary, user_id, is_visible, featured, spotlight_rank, viewers_count, status';
     const { data, error } = await supabase
       .from(table)
       .select(select)
@@ -300,11 +302,10 @@ const AdminScreen = () => {
   };
 
   const toggleContentFeatured = async (item) => {
-    if (item._kind !== 'novel') return;
     const next = !item.featured;
     setActionBusy(item.id);
     try {
-      const { error } = await supabase.from('novels').update({ featured: next }).eq('id', item.id);
+      const { error } = await supabase.from(item._kind === 'novel' ? 'novels' : 'manga').update({ featured: next }).eq('id', item.id);
       if (error) throw error;
       setContent((prev) => prev.map((c) => (c.id === item.id ? { ...c, featured: next } : c)));
     } catch (e) {
@@ -314,35 +315,92 @@ const AdminScreen = () => {
     }
   };
 
-  // Spotlight: admins pick what's in the Home spotlight. Order = order added.
-  const toggleSpotlight = async (item) => {
-    const table = item._kind === 'novel' ? 'novels' : 'manga';
-    setActionBusy(item.id);
-    try {
-      let next = null;
-      if (item.spotlight_rank == null) {
-        const [{ data: n }, { data: m }] = await Promise.all([
-          supabase.from('novels').select('spotlight_rank').not('spotlight_rank', 'is', null),
-          supabase.from('manga').select('spotlight_rank').not('spotlight_rank', 'is', null),
-        ]);
-        const used = [...(n || []), ...(m || [])].map((r) => Number(r.spotlight_rank) || 0);
-        if (used.length >= 5) {
-          toast.info('The spotlight shows up to 5 titles. Remove one first.');
-          return;
-        }
-        next = (used.length ? Math.max(...used) : 0) + 1;
-      }
-      const { data, error } = await supabase.from(table).update({ spotlight_rank: next }).eq('id', item.id).select('spotlight_rank');
-      if (error) throw error;
-      if (!data?.length || (data[0].spotlight_rank ?? null) !== next) throw new Error('Only admins can change the spotlight');
-      setContent((prev) => prev.map((c) => (c.id === item.id ? { ...c, spotlight_rank: next } : c)));
-      toast.success(next == null ? 'Removed from the spotlight' : `Added to the spotlight (#${next})`);
-    } catch (e) {
-      toast.error(e?.message || 'Update failed');
-    } finally {
-      setActionBusy(null);
+  // ── Spotlight: admins pick up to 5 novels/manga for Home, in their order ──
+  const SPOTLIGHT_MAX = 5;
+
+  const loadSpotlight = useCallback(async () => {
+    const [{ data: n, error: ne }, { data: m, error: me }] = await Promise.all([
+      supabase.from('novels').select('id, title, is_visible, spotlight_rank').not('spotlight_rank', 'is', null),
+      supabase.from('manga').select('id, title, is_visible, spotlight_rank').not('spotlight_rank', 'is', null),
+    ]);
+    if (ne || me) throw ne || me;
+    const list = [
+      ...(n || []).map((r) => ({ ...r, kind: 'novel' })),
+      ...(m || []).map((r) => ({ ...r, kind: 'manga' })),
+    ].sort((a, b) => a.spotlight_rank - b.spotlight_rank);
+    setSpotlightList(list);
+    return list;
+  }, []);
+
+  // Set one title's position (null = remove). Checks the change really stuck,
+  // because the database quietly ignores spotlight changes from non-admins.
+  const setSpotlightRank = async (kind, id, rank) => {
+    const { data, error } = await supabase.from(kind === 'novel' ? 'novels' : 'manga')
+      .update({ spotlight_rank: rank }).eq('id', id).select('spotlight_rank');
+    if (error) throw error;
+    if (!data?.length || (data[0].spotlight_rank ?? null) !== rank) {
+      throw new Error('Only admins can change the spotlight');
     }
   };
+
+  // Save positions 1..n for this list, then refresh what's on screen.
+  const saveSpotlightOrder = async (list) => {
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].spotlight_rank !== i + 1) await setSpotlightRank(list[i].kind, list[i].id, i + 1);
+    }
+    const fresh = await loadSpotlight();
+    const rankOf = new Map(fresh.map((p) => [`${p.kind}:${p.id}`, p.spotlight_rank]));
+    setContent((prev) => prev.map((c) => ({ ...c, spotlight_rank: rankOf.get(`${c._kind}:${c.id}`) ?? null })));
+  };
+
+  const runSpotlight = async (fn, doneMessage) => {
+    setSpotlightBusy(true);
+    try {
+      await fn();
+      if (doneMessage) toast.success(doneMessage);
+    } catch (e) {
+      toast.error(e?.message || 'Couldn’t update the spotlight');
+      loadSpotlight().catch(() => {});
+    } finally {
+      setSpotlightBusy(false);
+    }
+  };
+
+  const moveSpotlight = (index, delta) => runSpotlight(async () => {
+    const list = [...spotlightList];
+    const j = index + delta;
+    if (j < 0 || j >= list.length) return;
+    [list[index], list[j]] = [list[j], list[index]];
+    setSpotlightList(list); // feels instant; saved right after
+    await saveSpotlightOrder(list);
+  });
+
+  const removeSpotlight = (p) => runSpotlight(async () => {
+    await setSpotlightRank(p.kind, p.id, null);
+    await saveSpotlightOrder(spotlightList.filter((x) => !(x.kind === p.kind && x.id === p.id)));
+  }, 'Removed from the spotlight');
+
+  const toggleSpotlight = (item) => {
+    const inList = spotlightList.find((p) => p.kind === item._kind && p.id === item.id);
+    if (inList || item.spotlight_rank != null) {
+      return removeSpotlight(inList || { kind: item._kind, id: item.id });
+    }
+    if (spotlightList.length >= SPOTLIGHT_MAX) {
+      toast.info(`The spotlight holds ${SPOTLIGHT_MAX} titles. Remove one first.`);
+      return;
+    }
+    const position = spotlightList.length + 1;
+    return runSpotlight(async () => {
+      await setSpotlightRank(item._kind, item.id, position);
+      await saveSpotlightOrder([...spotlightList, { kind: item._kind, id: item.id, spotlight_rank: position }]);
+    }, `Added to the spotlight (#${position})`);
+  };
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'content') {
+      loadSpotlight().catch((e) => console.error('[AdminScreen] spotlight load:', e?.message));
+    }
+  }, [isAdmin, activeTab, refreshing, loadSpotlight]);
 
   const setBazaarStatus = async (book, status) => {
     setActionBusy(book.id);
@@ -401,9 +459,9 @@ const AdminScreen = () => {
       } else if (type === 'novel' || type === 'manga') {
         const patch = {
           title: data.title?.trim(),
-          [type === 'novel' ? 'summary' : 'description']: data.description?.trim() || null,
+          summary: data.description?.trim() || null,
           is_visible: !!data.is_visible,
-          ...(type === 'novel' ? { featured: !!data.featured } : {}),
+          featured: !!data.featured,
         };
         const { error } = await supabase.from(type === 'novel' ? 'novels' : 'manga').update(patch).eq('id', data.id);
         if (error) throw error;
@@ -851,6 +909,46 @@ const AdminScreen = () => {
 
             {activeTab === 'content' && (
               <>
+                <Text style={st.sectionTitle}>Spotlight order ({spotlightList.length}/5)</Text>
+                <View style={st.card}>
+                  {spotlightList.length === 0 ? (
+                    <Text style={st.cardSub}>
+                      Nothing picked — Home chooses automatically. Tap “Spotlight” on any novel or manga below to add it.
+                    </Text>
+                  ) : (
+                    spotlightList.map((p, i) => (
+                      <View
+                        key={`${p.kind}-${p.id}`}
+                        style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10,
+                          borderTopWidth: i ? StyleSheet.hairlineWidth : 0, borderTopColor: colors.border }}
+                      >
+                        <Text style={{ width: 26, fontSize: 16, fontWeight: '900', color: colors.accent }}>#{i + 1}</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={st.cardTitle} numberOfLines={1}>{p.title || 'Untitled'}</Text>
+                          <Text style={st.cardMeta}>{p.kind === 'novel' ? 'NOVEL' : 'MANGA'}{p.is_visible === false ? ' · HIDDEN (won’t show)' : ''}</Text>
+                        </View>
+                        {[
+                          { icon: 'arrow-up', label: `Move ${p.title} up`, on: () => moveSpotlight(i, -1), off: i === 0 },
+                          { icon: 'arrow-down', label: `Move ${p.title} down`, on: () => moveSpotlight(i, 1), off: i === spotlightList.length - 1 },
+                          { icon: 'times', label: `Remove ${p.title} from the spotlight`, on: () => removeSpotlight(p) },
+                        ].map((b) => (
+                          <TouchableOpacity
+                            key={b.icon}
+                            onPress={b.on}
+                            disabled={!!b.off || spotlightBusy}
+                            hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel={b.label}
+                            style={[st.btn, { paddingHorizontal: 10 }, (b.off || spotlightBusy) && { opacity: 0.35 }]}
+                          >
+                            <FontAwesome5 name={b.icon} size={12} color={b.icon === 'times' ? colors.danger : colors.textSecondary} />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ))
+                  )}
+                </View>
+
                 <Text style={st.sectionTitle}>{contentKind === 'novel' ? 'Novels' : 'Manga'} ({filteredContent.length})</Text>
                 {filteredContent.length === 0 ? (
                   <View style={st.empty}>
@@ -873,7 +971,7 @@ const AdminScreen = () => {
                         <Text style={st.cardMeta}>
                           by {shortWallet(item.user_id)}
                           {item.viewers_count != null ? ` · ${Number(item.viewers_count).toLocaleString()} views` : ''}
-                          {item._kind === 'novel' && item.featured ? ' · FEATURED' : ''}
+                          {item.featured ? ' · FEATURED' : ''}
                           {item.spotlight_rank != null ? ` · SPOTLIGHT #${item.spotlight_rank}` : ''}
                         </Text>
                         <View style={st.actions}>
@@ -885,25 +983,23 @@ const AdminScreen = () => {
                             <FontAwesome5 name={item.is_visible ? 'eye-slash' : 'eye'} size={11} color={colors.textSecondary} />
                             <Text style={st.btnText}>{item.is_visible ? 'Hide' : 'Show'}</Text>
                           </TouchableOpacity>
-                          {item._kind === 'novel' && (
-                            <TouchableOpacity
-                              style={[st.btn, busy && { opacity: 0.5 }]}
-                              disabled={busy}
-                              onPress={() => toggleContentFeatured(item)}
-                            >
-                              <FontAwesome5 name="star" size={11} color={item.featured ? colors.gold : colors.textSecondary} />
-                              <Text style={st.btnText}>{item.featured ? 'Unfeature' : 'Feature'}</Text>
-                            </TouchableOpacity>
-                          )}
                           <TouchableOpacity
                             style={[st.btn, busy && { opacity: 0.5 }]}
                             disabled={busy}
+                            onPress={() => toggleContentFeatured(item)}
+                          >
+                            <FontAwesome5 name="star" size={11} color={item.featured ? colors.gold : colors.textSecondary} />
+                            <Text style={st.btnText}>{item.featured ? 'Unfeature' : 'Feature'}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[st.btn, busy && { opacity: 0.5 }]}
+                            disabled={busy || spotlightBusy}
                             onPress={() => toggleSpotlight(item)}
                           >
                             <FontAwesome5 name="fire" size={11} color={item.spotlight_rank != null ? colors.accent : colors.textSecondary} />
                             <Text style={st.btnText}>{item.spotlight_rank != null ? 'Unspotlight' : 'Spotlight'}</Text>
                           </TouchableOpacity>
-                          <TouchableOpacity style={st.btn} onPress={() => openEditor(item._kind, { ...item, description: item.summary || item.description || '' })}>
+                          <TouchableOpacity style={st.btn} onPress={() => openEditor(item._kind, { ...item, description: item.summary || '' })}>
                             <FontAwesome5 name="edit" size={11} color={colors.textSecondary} />
                             <Text style={st.btnText}>Edit</Text>
                           </TouchableOpacity>
@@ -1151,10 +1247,10 @@ const AdminScreen = () => {
                 {(editTarget.type === 'novel' || editTarget.type === 'manga') && (
                   <>
                     {renderEditField('Title', editTarget.data.title, (v) => setEditTarget((t) => ({ ...t, data: { ...t.data, title: v } })))}
-                    {renderEditField(editTarget.type === 'novel' ? 'Summary' : 'Description', editTarget.data.description, (v) => setEditTarget((t) => ({ ...t, data: { ...t.data, description: v } })), { multiline: true })}
+                    {renderEditField('Summary', editTarget.data.description, (v) => setEditTarget((t) => ({ ...t, data: { ...t.data, description: v } })), { multiline: true })}
                     <Text style={st.fieldLabel}>Visibility</Text>
                     {renderToggleChips(
-                      [{ key: 'is_visible', label: 'VISIBLE' }, ...(editTarget.type === 'novel' ? [{ key: 'featured', label: 'FEATURED' }] : [])],
+                      [{ key: 'is_visible', label: 'VISIBLE' }, { key: 'featured', label: 'FEATURED' }],
                       editTarget.data,
                       (key, val) => setEditTarget((t) => ({ ...t, data: { ...t.data, [key]: val } }))
                     )}

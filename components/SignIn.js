@@ -67,15 +67,16 @@ const SignIn = ({ onSkip }) => {
 
   const handleSuccessfulSignIn = useCallback(async () => {
     try {
-      const { data: userHistory } = await supabase
+      // Offer the welcome token claim until it's been claimed (the server
+      // records the claim in user_activity when it pays out).
+      const { data: activity, error } = await supabase
         .from('user_activity')
-        .select('first_login')
+        .select('has_claimed_airdrop')
         .eq('user_id', user?.id)
-        .single();
+        .maybeSingle();
 
-      if (!userHistory?.first_login) {
+      if (!error && !activity?.has_claimed_airdrop) {
         setShowTokenModal(true);
-        await supabase.from('user_activity').upsert({ user_id: user.id, first_login: new Date().toISOString() });
       } else {
         navigation.replace('Home');
       }
