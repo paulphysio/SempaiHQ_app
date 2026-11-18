@@ -213,6 +213,7 @@ const Home = () => {
   const [novels, setNovels] = useState([]);
   const [manga, setManga] = useState([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [spotlightPicks, setSpotlightPicks] = useState([]);
   const [novelsLoading, setNovelsLoading] = useState(true);
   const [mangaLoading, setMangaLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -502,15 +503,16 @@ const Home = () => {
       })),
     [manga]
   );
-  // Interleave the top novels and manga for the spotlight.
+  // Admin picks first; if none are set, interleave the top novels and manga.
   const spotlight = useMemo(() => {
+    if (spotlightPicks.length) return spotlightPicks;
     const out = [];
     for (let i = 0; i < 3; i++) {
       if (novelCards[i]) out.push(novelCards[i]);
       if (mangaCards[i] && out.length < 5) out.push(mangaCards[i]);
     }
     return out.slice(0, 5);
-  }, [novelCards, mangaCards]);
+  }, [spotlightPicks, novelCards, mangaCards]);
 
   const offline = isOnline === false;
   const firstLoad = (novelsLoading || mangaLoading) && novels.length === 0 && manga.length === 0;
@@ -521,6 +523,47 @@ const Home = () => {
       Animated.timing(contentFade, { toValue: 1, duration: 320, useNativeDriver: true }).start();
     }
   }, [firstLoad, contentFade]);
+
+  /* ── spotlight picks (chosen by admins; cached for offline) ── */
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        if (isOnline === false) {
+          const cached = await cacheValue('home:spotlight', []);
+          if (alive) setSpotlightPicks(cached);
+          return;
+        }
+        const [{ data: n, error: ne }, { data: m, error: me }] = await Promise.all([
+          supabase.from('novels')
+            .select('id, title, image, summary, tags, viewers_count, status, spotlight_rank, writer:users (name)')
+            .eq('is_visible', true).not('spotlight_rank', 'is', null),
+          supabase.from('manga')
+            .select('id, title, cover_image, summary, tags, viewers_count, status, spotlight_rank, users:user_id (name)')
+            .eq('is_visible', true).not('spotlight_rank', 'is', null),
+        ]);
+        if (ne || me) throw ne || me;
+        const picks = [
+          ...(n || []).map((x) => ({
+            id: x.id, kind: 'novel', title: x.title, image: x.image, summary: x.summary,
+            author: x.writer?.name, status: x.status, views: x.viewers_count,
+            isAdult: !!x.tags?.includes?.('Adult(18+)'), rank: x.spotlight_rank,
+          })),
+          ...(m || []).map((x) => ({
+            id: x.id, kind: 'manga', title: x.title, image: x.cover_image, summary: x.summary,
+            author: x.users?.name, status: x.status, views: x.viewers_count,
+            isAdult: !!x.tags?.includes?.('Adult(18+)'), rank: x.spotlight_rank,
+          })),
+        ].sort((a, b) => a.rank - b.rank).slice(0, 5);
+        if (alive) setSpotlightPicks(picks);
+        cacheSet('home:spotlight', picks);
+      } catch {
+        const cached = await cacheValue('home:spotlight', []).catch(() => []);
+        if (alive) setSpotlightPicks(cached || []);
+      }
+    })();
+    return () => { alive = false; };
+  }, [isOnline, refreshKey]);
 
   /* ── admins get an Edit button on spotlight novels ── */
   useEffect(() => {

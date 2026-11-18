@@ -172,8 +172,8 @@ const AdminScreen = () => {
   const loadContent = useCallback(async (kind) => {
     const table = kind === 'novel' ? 'novels' : 'manga';
     const select = kind === 'novel'
-      ? 'id, title, image, summary, user_id, is_visible, featured, viewers_count, status'
-      : 'id, title, cover_image, description, user_id, is_visible, viewers_count';
+      ? 'id, title, image, summary, user_id, is_visible, featured, spotlight_rank, viewers_count, status'
+      : 'id, title, cover_image, description, user_id, is_visible, spotlight_rank, viewers_count';
     const { data, error } = await supabase
       .from(table)
       .select(select)
@@ -307,6 +307,36 @@ const AdminScreen = () => {
       const { error } = await supabase.from('novels').update({ featured: next }).eq('id', item.id);
       if (error) throw error;
       setContent((prev) => prev.map((c) => (c.id === item.id ? { ...c, featured: next } : c)));
+    } catch (e) {
+      toast.error(e?.message || 'Update failed');
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  // Spotlight: admins pick what's in the Home spotlight. Order = order added.
+  const toggleSpotlight = async (item) => {
+    const table = item._kind === 'novel' ? 'novels' : 'manga';
+    setActionBusy(item.id);
+    try {
+      let next = null;
+      if (item.spotlight_rank == null) {
+        const [{ data: n }, { data: m }] = await Promise.all([
+          supabase.from('novels').select('spotlight_rank').not('spotlight_rank', 'is', null),
+          supabase.from('manga').select('spotlight_rank').not('spotlight_rank', 'is', null),
+        ]);
+        const used = [...(n || []), ...(m || [])].map((r) => Number(r.spotlight_rank) || 0);
+        if (used.length >= 5) {
+          toast.info('The spotlight shows up to 5 titles. Remove one first.');
+          return;
+        }
+        next = (used.length ? Math.max(...used) : 0) + 1;
+      }
+      const { data, error } = await supabase.from(table).update({ spotlight_rank: next }).eq('id', item.id).select('spotlight_rank');
+      if (error) throw error;
+      if (!data?.length || (data[0].spotlight_rank ?? null) !== next) throw new Error('Only admins can change the spotlight');
+      setContent((prev) => prev.map((c) => (c.id === item.id ? { ...c, spotlight_rank: next } : c)));
+      toast.success(next == null ? 'Removed from the spotlight' : `Added to the spotlight (#${next})`);
     } catch (e) {
       toast.error(e?.message || 'Update failed');
     } finally {
@@ -844,6 +874,7 @@ const AdminScreen = () => {
                           by {shortWallet(item.user_id)}
                           {item.viewers_count != null ? ` · ${Number(item.viewers_count).toLocaleString()} views` : ''}
                           {item._kind === 'novel' && item.featured ? ' · FEATURED' : ''}
+                          {item.spotlight_rank != null ? ` · SPOTLIGHT #${item.spotlight_rank}` : ''}
                         </Text>
                         <View style={st.actions}>
                           <TouchableOpacity
@@ -864,6 +895,14 @@ const AdminScreen = () => {
                               <Text style={st.btnText}>{item.featured ? 'Unfeature' : 'Feature'}</Text>
                             </TouchableOpacity>
                           )}
+                          <TouchableOpacity
+                            style={[st.btn, busy && { opacity: 0.5 }]}
+                            disabled={busy}
+                            onPress={() => toggleSpotlight(item)}
+                          >
+                            <FontAwesome5 name="fire" size={11} color={item.spotlight_rank != null ? colors.accent : colors.textSecondary} />
+                            <Text style={st.btnText}>{item.spotlight_rank != null ? 'Unspotlight' : 'Spotlight'}</Text>
+                          </TouchableOpacity>
                           <TouchableOpacity style={st.btn} onPress={() => openEditor(item._kind, { ...item, description: item.summary || item.description || '' })}>
                             <FontAwesome5 name="edit" size={11} color={colors.textSecondary} />
                             <Text style={st.btnText}>Edit</Text>
