@@ -1,15 +1,15 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from "https://esm.sh/@solana/web3.js@1.95.3";
+// (Deno.serve is built in)
+import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from "npm:@solana/web3.js@1.95.3";
 import {
   getAssociatedTokenAddress,
   createTransferInstruction,
   getAccount,
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID
-} from "https://esm.sh/@solana/spl-token@0.4.8";
+} from "npm:@solana/spl-token@0.4.8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
-import bs58 from "https://esm.sh/bs58@5.0.0";
-import * as nacl from "https://esm.sh/tweetnacl@1.0.3";
+import bs58 from "npm:bs58@5.0.0";
+import * as nacl from "npm:tweetnacl@1.0.3";
 
 // --- CONFIG & VALIDATION ---
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -92,7 +92,7 @@ function validateAmount(amount: unknown): number {
   return Math.round(amount * 1_000_000) / 1_000_000;
 }
 
-serve(async (req: Request) => {
+Deno.serve(async (req: Request) => {
   try {
     if (req.method !== "POST") {
       return new Response(
