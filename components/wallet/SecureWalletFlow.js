@@ -91,21 +91,28 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
 
   const quizOk = quiz.length === 3 && quiz.every((q) => answers[q.index] === q.answer);
 
+  // The wallet maths is heavy and runs on the JS thread; give the screen a
+  // moment to draw the progress before each heavy step so it never looks frozen.
+  const paint = () => new Promise((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 60))));
+  const say = async (text) => { setProgress(text); await paint(); };
+
   async function run() {
     if (busy.current) return;
     busy.current = true;
-    setError(''); setStep('working');
+    setError(''); setProgress('Getting started…'); setStep('working');
     try {
+      await paint();
       if (mode === 'restore') {
-        setProgress('Checking your recovery words…');
+        await say('Checking your recovery words…');
         await wallet.restoreWithRecoveryWords(typedWords, password);
         setSummary({ address: null, restored: true });
       } else {
-        setProgress('Creating your new wallet…');
+        await say('Creating your new wallet…');
         const { secretKey, address } = await walletFromRecoveryWords(words);
         let move = null;
         if (mode === 'upgrade') {
-          setProgress('Unlocking your old wallet…');
+          await say('Unlocking your old wallet…');
           const legacy = await wallet.loadLegacyWalletKey();
           if (legacy?.secretKey) {
             const from = Keypair.fromSecretKey(legacy.secretKey);
@@ -115,7 +122,7 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
             }
           }
         }
-        setProgress('Locking it with your password… (this takes a few seconds)');
+        await say('Locking it with your password… (this takes a few seconds)');
         await wallet.secureNewWallet({ secretKey, password });
         setSummary({ address, move });
       }

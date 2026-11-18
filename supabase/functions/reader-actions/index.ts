@@ -69,7 +69,7 @@ async function caller(req: Request) {
 
   const { data: wallets } = await admin.from("user_wallets").select("address").eq("user_id", row.id);
   const myWallets = new Set(uniq([row.wallet_address, ...(wallets || []).map((w: any) => w.address)]));
-  return { user: row, myWallets, isAdmin: !!row.isSuperuser };
+  return { user: row, authId: authUser.id, myWallets, isAdmin: !!row.isSuperuser };
 }
 
 // ─── helpers ───────────────────────────────────────────────────────────────
@@ -532,16 +532,22 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
   // own password (vault v2). Used for brand-new wallets and for moving off an
   // old (server-encrypted, now considered stolen) wallet. The phone proves it
   // holds the new wallet by signing; the account's history follows the wallet.
-  async wallet_secure({ user, myWallets }, p) {
+  async wallet_secure({ user, authId, myWallets }, p) {
     const address = String(p.address || "");
     const vault = String(p.vault || "");
     const ts = Number(p.ts);
     if (!vault.startsWith("v2:") || vault.length > 20000) throw new Refuse("Invalid wallet backup");
     if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > 10 * 60 * 1000) throw new Refuse("This request expired — please try again");
+    // The phone signs with the Google sign-in id; older accounts have a
+    // different users-row id. Accept either of THIS caller's own ids.
     let ok = false;
     try {
-      const msg = new TextEncoder().encode(`SempaiHQ: secure wallet ${address} for ${user.id} at ${ts}`);
-      ok = nacl.sign.detached.verify(msg, bs58.decode(String(p.signature || "")), bs58.decode(address));
+      const sig = bs58.decode(String(p.signature || ""));
+      const pub = bs58.decode(address);
+      for (const id of uniq([authId, user.id])) {
+        const msg = new TextEncoder().encode(`SempaiHQ: secure wallet ${address} for ${id} at ${ts}`);
+        if (nacl.sign.detached.verify(msg, sig, pub)) { ok = true; break; }
+      }
     } catch { ok = false; }
     if (!ok) throw new Refuse("Couldn't verify the new wallet");
 

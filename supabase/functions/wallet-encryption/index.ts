@@ -59,9 +59,18 @@ const addressOfSecret = (plain: string): string | null => {
   }
 };
 
-const walletsOf = async (userId: string): Promise<Set<string>> => {
+const walletsOf = async (userId: string, email?: string | null): Promise<Set<string>> => {
   const owned = new Set<string>();
-  const { data: rows } = await admin.from("user_wallets").select("address").eq("user_id", userId);
+  const ids = [userId];
+  // Older accounts: the users row predates Google sign-in and has a different
+  // id. Same rule as reader-actions: only when no row has the sign-in id and
+  // exactly one row has this sign-in email.
+  const { data: own } = await admin.from("users").select("id").eq("id", userId).maybeSingle();
+  if (!own && email) {
+    const { data: byEmail } = await admin.from("users").select("id").eq("email", email).limit(2);
+    if (byEmail?.length === 1 && byEmail[0].id !== userId) ids.push(byEmail[0].id);
+  }
+  const { data: rows } = await admin.from("user_wallets").select("address").in("user_id", ids);
   (rows || []).forEach((r: any) => r?.address && owned.add(String(r.address)));
   return owned;
 };
@@ -196,7 +205,7 @@ serve(async (req)=>{
           if (vault?.v === 2 && typeof vault.address === "string") address = vault.address;
         } catch { /* not a vault */ }
       }
-      const owned = await walletsOf(userId);
+      const owned = await walletsOf(userId, auth?.user?.email);
       if (!address || !owned.has(address)) {
         console.warn("[wallet-encryption] Refused decrypt: key is not the caller's wallet", { userId });
         return json({ error: "This wallet does not belong to your account" }, 403);
