@@ -180,8 +180,13 @@ const UploadBookScreen = () => {
       return;
     }
     if (user.id && session.user?.id && user.id !== session.user.id) {
-      toast.info(`Wrong Google account — you're signed in as ${session.user?.email}, but this wallet belongs to a different account. Sign out and sign in with the Google account linked to this wallet.`);
-      return;
+      // Older accounts have a profile id that predates Google sign-in; the
+      // server confirms it's theirs by their own sign-in email.
+      const { data: legacyId } = await supabase.rpc('my_user_id_by_email');
+      if (legacyId !== user.id) {
+        toast.info(`Wrong Google account — you're signed in as ${session.user?.email}, but this wallet belongs to a different account. Sign out and sign in with the Google account linked to this wallet.`);
+        return;
+      }
     }
 
     setUploading(true);
