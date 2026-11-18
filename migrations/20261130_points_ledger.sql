@@ -82,7 +82,7 @@ begin
     where id = p_user;
   end if;
   return n > 0;
-end $;
+end $$;
 revoke all on function public.award_points(uuid, integer, text, text) from public, anon, authenticated;
 
 -- Every existing award (unlock-chapter, reader-actions, record-manga-payment …)
