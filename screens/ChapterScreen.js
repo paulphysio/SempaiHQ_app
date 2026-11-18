@@ -14,7 +14,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { Connection, PublicKey, Transaction, SystemProgram } from '@solana/web3.js';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as SecureStore from 'expo-secure-store';
-import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, createTransferInstruction } from '@solana/spl-token';
+import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, getAssociatedTokenAddressSync, createTransferInstruction, createBurnInstruction } from '@solana/spl-token';
 import {
   RPC_URL,
   FALLBACK_RPC_URL,
@@ -352,13 +352,19 @@ async function createBenefactorPaymentTransaction({ paymentMint, paymentAmount, 
   return tx;
 }
 
-// Chapter payment: the reader pays exactly the price shown —
-// 70% to the writer, 30% to the SempaiHQ treasury. Nothing is burned.
+// Chapter payment: the reader pays exactly the price shown, split
+// 70% to the writer, 20% to the SempaiHQ treasury and 10% burned.
+// Only SMP can be burned — when paying in SOL / USDC / SKR that 10% goes to
+// the treasury instead.
 const WRITER_SHARE_PCT = 70;
-const TREASURY_SHARE_PCT = 30;
+const TREASURY_SHARE_PCT = 20;
+const BURN_SHARE_PCT = 10;
 
 async function createPaymentTransactionClient({ paymentMint, paymentAmount, userPublicKey, authorPublicKey }) {
-  const [writerAmount, treasuryAmount] = splitAmountWithResidual(paymentAmount, [WRITER_SHARE_PCT, TREASURY_SHARE_PCT]);
+  const [writerAmount, treasuryBase, burnShare] = splitAmountWithResidual(paymentAmount, [WRITER_SHARE_PCT, TREASURY_SHARE_PCT, BURN_SHARE_PCT]);
+  const isSmp = !!paymentMint && paymentMint.toString() === SMP_MINT_ADDRESS;
+  const burnAmount = isSmp ? burnShare : 0;
+  const treasuryAmount = isSmp ? treasuryBase : treasuryBase + burnShare;
   const instructions = [];
 
   if (!paymentMint) {
@@ -410,6 +416,11 @@ async function createPaymentTransactionClient({ paymentMint, paymentAmount, user
       );
     } else {
       instructions.push(createTransferInstruction(userAta, treasuryAta, userPublicKey, writerAmount + treasuryAmount));
+    }
+
+    // The 10% burn comes out of the price (never on top of it).
+    if (burnAmount > 0) {
+      instructions.push(createBurnInstruction(userAta, paymentMint, userPublicKey, burnAmount));
     }
   }
 
