@@ -80,7 +80,7 @@ const SpotlightCard = React.memo(({ item, onOpen, onEdit, styles, colors, isDark
       <View style={styles.spotText}>
         <View style={styles.eyebrow}>
           <FontAwesome5 name="fire" size={9} color={colors.accent} solid />
-          <Text style={styles.eyebrowText}>SPOTLIGHT · {item.kind === 'novel' ? 'NOVEL' : 'MANGA'}</Text>
+          <Text style={styles.eyebrowText}>SPOTLIGHT · {item.kind === 'novel' ? 'NOVEL' : 'MEDIA'}</Text>
         </View>
         <Text style={styles.spotTitle} numberOfLines={2}>{item.title}</Text>
         {item.author ? <Text style={styles.spotAuthor} numberOfLines={1}>by {item.author}</Text> : null}
@@ -727,7 +727,7 @@ const Home = () => {
           />
           <ActionButton
             icon="images"
-            label="Browse manga"
+            label="Browse media"
             onPress={() => navigation.navigate('MangaPage')}
             styles={kit}
             colors={colors}
@@ -770,7 +770,7 @@ const Home = () => {
         {/* featured manga */}
         {mangaCards.length ? (
           <>
-            <SectionHeader title="Featured manga" action="See all" onAction={() => navigation.navigate('MangaPage')} styles={styles} colors={colors} />
+            <SectionHeader title="Featured media" action="See all" onAction={() => navigation.navigate('MangaPage')} styles={styles} colors={colors} />
             <FlatList
               data={mangaCards}
               keyExtractor={(item) => `m-${item.id}`}
