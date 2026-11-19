@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseAdmin = createClient(
@@ -37,7 +38,7 @@ async function authenticate(req: Request) {
   return { user };
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     console.log("[request-bazaar-refund] Request received");
 
@@ -112,4 +113,4 @@ serve(async (req) => {
     console.error("[request-bazaar-refund] Error:", error.message);
     return json({ error: error.message || "Internal server error" }, 500);
   }
-});
+}));

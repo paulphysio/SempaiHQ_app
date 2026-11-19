@@ -1,5 +1,6 @@
 // (Deno.serve is built in)
 import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from "npm:@solana/web3.js@1.95.3";
+import { withCors } from "../_shared/cors.ts";
 import {
   getAssociatedTokenAddress,
   createTransferInstruction,
@@ -92,7 +93,7 @@ function validateAmount(amount: unknown): number {
   return Math.round(amount * 1_000_000) / 1_000_000;
 }
 
-Deno.serve(async (req: Request) => {
+Deno.serve(withCors(async (req: Request) => {
   try {
     if (req.method !== "POST") {
       return new Response(
@@ -399,4 +400,4 @@ Deno.serve(async (req: Request) => {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-});
+}));

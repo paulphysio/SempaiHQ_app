@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { decodeBase64 } from "jsr:@std/encoding/base64";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
@@ -202,7 +203,7 @@ async function verifyChapterPayment(opts: {
   return { received, decimals };
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     console.log("[unlock-chapter] Request received");
 
@@ -516,5 +517,4 @@ serve(async (req) => {
       }
     );
   }
-});
-
+}));

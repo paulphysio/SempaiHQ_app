@@ -5,6 +5,7 @@
 // user_payments + unlocked_manga_chapters with the service role.
 // Self-contained: paste whole file into Supabase Edge Functions.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import {
   Connection,
@@ -105,7 +106,7 @@ async function merchantReceived(signature: string, mint: string | null): Promise
   return received;
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     const body = await req.json();
     const { signature, chapterId, mangaId, currency, paymentType, walletAddress, amountUsd } = body as {
@@ -271,4 +272,4 @@ serve(async (req) => {
     console.error("[record-manga-payment] Unexpected error:", error);
     return new Response(JSON.stringify({ error: error?.message || "Internal error" }), { status: 500 });
   }
-});
+}));

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { decodeBase64 } from "jsr:@std/encoding/base64";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
@@ -17,7 +18,7 @@ async function verifiedClaims(token: string | undefined): Promise<{ sub?: string
 // Grants the Pioneer badge when the caller has just made their first-ever
 // unlock/payment to a creator. Called by the app after a successful manga
 // chapter unlock; user_badges/badges are service-role-only tables.
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     const jwt = req.headers.get("authorization")?.replace(/^Bearer /, "");
     if (!jwt) {
@@ -137,4 +138,4 @@ serve(async (req) => {
       { status: 500 }
     );
   }
-});
+}));

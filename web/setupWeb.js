@@ -35,6 +35,15 @@ if (typeof document !== 'undefined') {
         box-shadow: 0 0 0 1px rgba(255,255,255,0.06), 0 30px 80px rgba(0,0,0,0.55);
         overflow: hidden;
       }
+      /* Pop-ups (React Native Modal → a full-window layer on the web) live in
+         the same centred column as the app, so they line up exactly as on a
+         phone instead of drifting across the wide screen. */
+      [aria-modal="true"] {
+        left: 50% !important;
+        right: auto !important;
+        width: ${WEB_APP_MAX_WIDTH}px !important;
+        margin-left: -${WEB_APP_MAX_WIDTH / 2}px !important;
+      }
     }
   `;
   const style = document.createElement('style');

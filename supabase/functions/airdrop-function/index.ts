@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { withCors } from "../_shared/cors.ts";
 import { Connection, Keypair, PublicKey, Transaction, sendAndConfirmTransaction, ComputeBudgetProgram } from "npm:@solana/web3.js@1.95.3";
 import { createAssociatedTokenAccountInstruction, createTransferInstruction, getAssociatedTokenAddressSync, getAccount, getMint } from "npm:@solana/spl-token@0.4.8";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
@@ -242,7 +243,7 @@ async function checkAtaExists(mint, owner) {
 }
 
 // Main Handler
-Deno.serve(async (req) => {
+Deno.serve(withCors(async (req) => {
   try {
     if (req.method !== "POST") {
       return new Response(JSON.stringify({
@@ -477,4 +478,4 @@ Deno.serve(async (req) => {
       }
     });
   }
-});
+}));

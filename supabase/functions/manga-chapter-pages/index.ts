@@ -4,6 +4,7 @@
 // chapter unlock, or recorded payment). Non-premium chapters are free.
 // Self-contained: paste whole file into Supabase Edge Functions.
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { decodeBase64 } from "jsr:@std/encoding/base64";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
@@ -115,7 +116,7 @@ async function hasAccess(userId: string | null, mangaId: string, chapterId: stri
   return false;
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ error: "POST only" }), { status: 405 });
@@ -188,4 +189,4 @@ serve(async (req) => {
     console.error("[manga-chapter-pages] Unexpected error:", error);
     return new Response(JSON.stringify({ error: error?.message || "Internal error" }), { status: 500 });
   }
-});
+}));

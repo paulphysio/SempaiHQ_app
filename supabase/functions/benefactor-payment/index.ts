@@ -1,5 +1,6 @@
 // @ts-nocheck - Deno edge function with Deno-specific imports
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -58,7 +59,7 @@ async function verifyPayment({ signature, payer, mint, minRaw }: {
   if (received < minRaw) throw new Error("Insufficient payment amount");
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     console.log("[benefactor-payment] Request received");
 
@@ -298,4 +299,4 @@ serve(async (req) => {
       { status: error.message.includes("not found") || error.message.includes("requires") ? 400 : 500 }
     );
   }
-});
+}));

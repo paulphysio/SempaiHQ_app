@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -13,7 +14,7 @@ async function verifiedClaims(token: string | undefined): Promise<{ sub?: string
   return { sub: data.user.id, email: data.user.email ?? undefined };
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     console.log("[amethyst-management] Request received");
 
@@ -171,4 +172,4 @@ serve(async (req) => {
       { status: error.message.includes("not found") || error.message.includes("requires") ? 400 : 500 }
     );
   }
-});
+}));

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 
 const supabaseAdmin = createClient(
@@ -223,7 +224,7 @@ async function getSolPriceUsd(): Promise<number | null> {
   return solCache?.price ?? null;
 }
 
-serve(async (req) => {
+serve(withCors(async (req) => {
   try {
     const auth = await authenticate(req);
     if (auth.error) return auth.error;
@@ -350,4 +351,4 @@ serve(async (req) => {
     console.error("[purchase-bazaar-book] Error:", error?.message);
     return json({ error: error?.message || "Internal server error" }, 500);
   }
-});
+}));

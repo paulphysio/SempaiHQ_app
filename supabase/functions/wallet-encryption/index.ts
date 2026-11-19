@@ -1,5 +1,6 @@
 // Import serve from a stable Deno version
 import { serve } from "https://deno.land/std@0.200.0/http/server.ts";
+import { withCors } from "../_shared/cors.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import bs58 from "https://esm.sh/bs58@5.0.0";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
@@ -133,7 +134,7 @@ async function decrypt(data, secret) {
     throw new Error(`Decryption failed: ${err.message}`);
   }
 }
-serve(async (req)=>{
+serve(withCors(async (req)=>{
   try {
     const KEYPAIR_ENCRYPTION_SECRET = Deno.env.get("KEYPAIR_ENCRYPTION_SECRET");
     if (!KEYPAIR_ENCRYPTION_SECRET) {
@@ -243,4 +244,4 @@ serve(async (req)=>{
       }
     });
   }
-});
+}));
