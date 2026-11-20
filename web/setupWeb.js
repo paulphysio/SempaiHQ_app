@@ -21,6 +21,11 @@ if (typeof document !== 'undefined') {
   const css = `
     html, body { height: 100%; margin: 0; background: #07070d; }
     body { overscroll-behavior-y: none; }
+    /* Off-screen parts (the closed side menu waits past the right edge) must
+       not widen the page: otherwise phones can zoom out, see them, and
+       pop-ups get centred on the wider page instead of the screen. */
+    html, body { overflow-x: hidden; max-width: 100vw; }
+    #root { overflow: hidden; position: relative; }
     @media (min-width: ${WEB_APP_MAX_WIDTH + 1}px) {
       body {
         background:

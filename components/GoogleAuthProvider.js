@@ -140,7 +140,7 @@ export const GoogleAuthProvider = ({ children }) => {
       // Trigger animations
       modalScale.value = withSpring(1, { damping: 10, stiffness: 120 });
       modalOpacity.value = withTiming(1, { duration: 400, easing: Easing.out(Easing.exp) });
-      backdropOpacity.value = withTiming(0.88, { duration: 500 });
+      backdropOpacity.value = withTiming(1, { duration: 400 });
       buttonGlow.value = withTiming(1, { 
         duration: 1000, 
         easing: Easing.inOut(Easing.sin),
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0)', // Animated backdrop
+    backgroundColor: 'rgba(5, 5, 10, 0.72)', // dims the app behind; fades in with the pop-up
   },
   modalContent: {
     backgroundColor: 'rgba(12, 12, 18, 0.98)',
