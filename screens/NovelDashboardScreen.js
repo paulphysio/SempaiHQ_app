@@ -7,6 +7,8 @@ import {
   NestableDraggableFlatList,
 } from 'react-native-draggable-flatlist';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import * as Network from 'expo-network';
 import { LinearGradient } from 'expo-linear-gradient';
 import ChapterEditor from '../components/editor/ChapterEditor';
@@ -27,6 +29,17 @@ import {
   Page, PageHeader, SectionHeader, Card, ChipRow, Field, TextField, StatTile, Segmented, Toggle, GUTTER, PAGE_BOTTOM,
 } from '../components/page/PageKit';
 import { coverSource, radius, space } from '../theme/tokens';
+
+// The actual image bytes for upload. (Passing the picker's {uri, name, type}
+// object made storage save that object as text instead of the picture.)
+async function readImageBytes(uri) {
+  if (Platform.OS === 'web') return (await fetch(uri)).arrayBuffer();
+  const b64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
 
 
 // Predefined tag options
@@ -269,10 +282,17 @@ const NovelDashboardScreen = () => {
         return;
       }
       if (response.assets && response.assets[0]) {
+        // Covers are shown at phone size: 1080px JPEG keeps them sharp but
+        // light (originals were 1–4 MB and loaded slowly for readers).
+        const small = await ImageManipulator.manipulateAsync(
+          response.assets[0].uri,
+          [{ resize: { width: 1080 } }],
+          { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG }
+        );
         const file = {
-          uri: response.assets[0].uri,
-          name: response.assets[0].fileName || `image-${Date.now()}.jpg`,
-          type: response.assets[0].type || 'image/jpeg',
+          uri: small.uri,
+          name: `cover-${Date.now()}.jpg`,
+          type: 'image/jpeg',
         };
         setNovelImage(file);
         setNovelImageUrl(file.uri);
@@ -526,15 +546,10 @@ const NovelDashboardScreen = () => {
         const fileName = `${currentUserId}/${Date.now()}-${novelImage.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('covers')
-          .upload(
-            fileName,
-            {
-              uri: novelImage.uri,
-              name: novelImage.name,
-              type: novelImage.type,
-            },
-            { upsert: true }
-          );
+          .upload(fileName, await readImageBytes(novelImage.uri), {
+            contentType: 'image/jpeg',
+            upsert: true,
+          });
         if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
         imageUrl = supabase.storage.from('covers').getPublicUrl(fileName).data.publicUrl;
       }

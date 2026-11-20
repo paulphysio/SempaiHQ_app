@@ -241,22 +241,12 @@ const MangaPageScreen = () => {
     try {
       const { data: mangaData, error: mangaError } = await supabase
         .from('manga')
-        .select('id, title, cover_image, summary, tags, status, user_id, users:user_id (name)')
+        .select('id, title, cover_image, summary, tags, status, user_id, viewers_count, users:user_id (name)')
         .eq('is_visible', true);
       if (mangaError) throw new Error(`Failed to fetch manga: ${mangaError.message}`);
 
-      const { data: interactionsData, error: interactionsError } = await supabase
-        .from('manga_interactions')
-        .select('manga_id, user_id');
-      if (interactionsError) throw new Error(`Failed to fetch interactions: ${interactionsError.message}`);
-
-      const viewerCounts = interactionsData.reduce((acc, { manga_id, user_id }) => {
-        if (!acc[manga_id]) acc[manga_id] = new Set();
-        acc[manga_id].add(user_id);
-        return acc;
-      }, {});
-
-      const list = mangaData.map((m) => ({ ...m, uniqueViewers: viewerCounts[m.id] ? viewerCounts[m.id].size : 0 }));
+      // Read counts are kept on each series by the server (once per reader).
+      const list = (mangaData || []).map((m) => ({ ...m, uniqueViewers: m.viewers_count || 0 }));
       setMangaList(list);
       cacheSet('lib:manga', list);
     } catch (error) {
