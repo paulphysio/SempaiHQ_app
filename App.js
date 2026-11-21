@@ -43,7 +43,9 @@ const GuardedHome = withScreenBoundary(HomeScreen, 'Home');
 const GuardedSignIn = withScreenBoundary(SignIn, 'SignIn');
 
 // Full-screen experiences: no floating tab bar over the content.
-const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader']);
+const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader', 'BazaarReader']);
+// Book readers bring their own slim bar; the app header would eat reading space.
+const NO_NAVBAR_ROUTES = new Set(['Kaiji', 'Chapter', 'Reader', 'BazaarReader']);
 
 // Keep the native splash up until fonts + auth are ready, instead of flashing
 // a blank screen while the app boots.
@@ -96,6 +98,7 @@ const LAZY_SCREENS = [
   ['Reader', () => require('./screens/ReaderScreen').default],
   ['Bazaar', () => require('./screens/BazaarScreen').default],
   ['BazaarBook', () => require('./screens/BazaarBookScreen').default],
+  ['BazaarReader', () => require('./screens/BazaarReaderScreen').default],
   ['UploadBook', () => require('./screens/UploadBookScreen').default],
   ['BazaarDashboard', () => require('./screens/BazaarDashboardScreen').default],
 ];
@@ -339,6 +342,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
     // Web: no push yet (would also pop a browser permission prompt on open).
     if (Platform.OS === 'web' || !user || user.isGuest) return undefined;
     let alive = true;
+    let waitSub = null;
     const register = async () => {
       try {
         let { status } = await Notifications.getPermissionsAsync();
@@ -349,10 +353,20 @@ const AppContent = ({ setIsStatusBarHidden }) => {
         const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
         if (!token || !alive) return;
 
+        // Saving needs a live sign-in. On launch the session may still be
+        // refreshing — then save as soon as Supabase reports it signed in.
+        const save = async (session) => {
+          const { error } = await supabase.from('users').update({ push_token: token }).eq('id', session.user.id);
+          if (error) console.warn('[App] saving push token:', error.message);
+        };
         const { data: { session } } = await supabase.auth.getSession();
-        const id = session?.user?.id || user.id;
-        const { error } = await supabase.from('users').update({ push_token: token }).eq('id', id);
-        if (error) console.warn('[App] saving push token:', error.message);
+        if (session?.user) return save(session);
+        const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+          if (!alive || !s?.user || (event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED')) return;
+          sub?.subscription?.unsubscribe();
+          save(s);
+        });
+        waitSub = sub;
       } catch (e) {
         console.warn('[App] push registration:', e?.message || e);
       }
@@ -361,6 +375,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
     const tokenSub = Notifications.addPushTokenListener(() => register());
     return () => {
       alive = false;
+      waitSub?.subscription?.unsubscribe();
       tokenSub.remove();
     };
   }, [user?.id]);
@@ -443,7 +458,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   // Global chrome belongs to the signed-in app only — not the intro or sign-in.
   const inApp = !showWelcome && !!user;
   // The chapter reader has its own bar; the app header would just eat reading space.
-  const showNavbar = inApp && currentRoute !== 'Kaiji' && currentRoute !== 'Chapter';
+  const showNavbar = inApp && !NO_NAVBAR_ROUTES.has(currentRoute);
   // Readers are immersive: the tab bar would sit over the page being read.
   const showBottomNav = inApp && !IMMERSIVE_ROUTES.has(currentRoute);
 

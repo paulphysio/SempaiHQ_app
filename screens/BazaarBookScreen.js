@@ -3,13 +3,9 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Mod
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
-import Pdf from 'react-native-pdf';
 import { PublicKey } from '@solana/web3.js';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import EPUBReader from '../components/EPUBReader';
-import { createBazaarReadTracker } from '../services/bazaarReadTracker';
 import { useBazaarTheme } from '../styles/BazaarStyles';
 import {
   BAZAAR_LEND_PRICE_SMP,
@@ -18,8 +14,8 @@ import {
   callBazaarFunction,
   createBazaarLendTransaction,
   createBazaarPaymentTransaction,
+  fetchBazaarCopies,
   fetchSolPriceUsd,
-  getBookFileUrl,
   recordPurchase,
 } from '../utils/bazaar';
 import { toast } from '../components/Toast';
@@ -68,16 +64,12 @@ const BazaarBookScreen = () => {
   const [pendingRecord, setPendingRecord] = useState(null);
   const [retrying, setRetrying] = useState(false);
 
-  const [reading, setReading] = useState(false);
-  const [localFile, setLocalFile] = useState(null); // { uri, name, type }
-  const [downloading, setDownloading] = useState(false);
+  // Limited edition: { max, taken, left } (null until known)
+  const [copies, setCopies] = useState(null);
 
   const [refundModal, setRefundModal] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refundSending, setRefundSending] = useState(false);
-
-  // PDF/EPUB read tracking for refund review (pages visited + seconds spent).
-  const readTrackerRef = useRef(null);
 
   const loadBook = useCallback(async (showLoader = true) => {
     try {
@@ -92,6 +84,7 @@ const BazaarBookScreen = () => {
       if (bookError) throw bookError;
       if (!bookData) throw new Error('Book not found');
       setBook(bookData);
+      fetchBazaarCopies([bookData.id]).then((c) => setCopies(c[bookData.id] || null));
 
       const { data: authorData } = await supabase
         .from('users')
@@ -188,6 +181,14 @@ const BazaarBookScreen = () => {
     }
 
     setPaying(true);
+    // Limited edition: check a copy is still free right before any money moves.
+    const fresh = (await fetchBazaarCopies([book.id]))[book.id];
+    if (fresh) setCopies(fresh);
+    if (fresh && fresh.left <= 0) {
+      setPaying(false);
+      toast.info(`Sold out — all ${fresh.max} copies of this book are taken.`);
+      return;
+    }
     let signature = null;
     const payCurrency = accessType === 'lend' ? 'SMP' : currency;
     try {
@@ -248,44 +249,19 @@ const BazaarBookScreen = () => {
     setRetrying(false);
   };
 
-  const handleRead = async () => {
+  // Reading happens on its own full-screen page (no app bars over the book).
+  const handleRead = () => {
     if (!book) return;
-    setDownloading(true);
-    try {
-      // Private bucket: ask the server for a short-lived signed URL, then cache locally.
-      const url = await getBookFileUrl(book.id);
-      const ext = book.file_type === 'pdf' ? 'pdf' : 'epub';
-      const localUri = `${FileSystem.cacheDirectory}bazaar-${book.id}-${Date.now()}.${ext}`;
-      const dl = await FileSystem.downloadAsync(url, localUri);
-      if (dl.status !== 200) throw new Error('Download failed. Check your connection.');
-      setLocalFile({ uri: dl.uri, name: book.file_name || `${book.title}.${ext}`, type: book.file_type });
-      readTrackerRef.current?.close();
-      readTrackerRef.current = createBazaarReadTracker({
-        purchaseId: purchase?.id || null,
-        bookId: book.id,
-        userId: user?.id || null,
-        walletAddress: activePublicKey?.toString() || null,
-        fileType: book.file_type,
-      });
-      setReading(true);
-    } catch (err) {
-      console.error('[BazaarBook] open error:', err.message);
-      toast.error(err.message || 'Failed to open the book.');
-    } finally {
-      setDownloading(false);
-    }
+    navigation.navigate('BazaarReader', {
+      bookId: book.id,
+      title: book.title,
+      fileType: book.file_type === 'pdf' ? 'pdf' : 'epub',
+      fileName: book.file_name || null,
+      purchaseId: purchase?.id || null,
+      userId: user?.id || null,
+      walletAddress: activePublicKey?.toString() || null,
+    });
   };
-
-  const closeReader = () => {
-    readTrackerRef.current?.close();
-    readTrackerRef.current = null;
-    if (localFile?.uri) FileSystem.deleteAsync(localFile.uri, { idempotent: true }).catch(() => {});
-    setReading(false);
-    setLocalFile(null);
-  };
-
-  // Safety net: flush the tracker if the screen unmounts while reading.
-  useEffect(() => () => readTrackerRef.current?.close(), []);
 
   const handleRefund = async () => {
     if (!purchase) return;
@@ -310,40 +286,6 @@ const BazaarBookScreen = () => {
     }
   };
 
-  // ---------- Reader mode ----------
-  if (reading && book && localFile) {
-    // Pad the reader so its bottom controls clear the floating GlobalBottomNav.
-    if (localFile.type === 'epub') {
-      return (
-        <View style={{ flex: 1, paddingBottom: bottomNavClearance }}>
-          <EPUBReader
-            file={localFile}
-            onBack={closeReader}
-            onProgress={({ index, total }) => readTrackerRef.current?.recordPage(index + 1, total)}
-          />
-        </View>
-      );
-    }
-    return (
-      <View style={{ flex: 1, backgroundColor: BAZAAR_COLORS.bg, paddingBottom: bottomNavClearance }}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={closeReader}>
-            <Ionicons name="arrow-back" size={24} color={BAZAAR_COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{book.title}</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <Pdf
-          source={{ uri: localFile.uri }}
-          style={{ flex: 1, backgroundColor: '#fff' }}
-          trustAllCerts={false}
-          onLoadComplete={(numPages) => readTrackerRef.current?.recordPage(1, numPages)}
-          onPageChanged={(page) => readTrackerRef.current?.recordPage(page)}
-        />
-      </View>
-    );
-  }
-
   if (loading && !book) {
     return <ScreenSkeleton variant="detail" label="Loading book" />;
   }
@@ -363,11 +305,9 @@ const BazaarBookScreen = () => {
   }
 
   const fileType = String(book.file_type || '').toUpperCase();
-  const readAction = {
-    icon: downloading ? 'spinner' : 'book-open',
-    label: downloading ? 'Opening…' : 'Read book',
-    onPress: downloading ? undefined : handleRead,
-  };
+  const soldOut = !!copies && copies.left <= 0;
+  const copiesLabel = copies ? (soldOut ? 'Sold out' : `${copies.left} of ${copies.max} left`) : null;
+  const readAction = { icon: 'book-open', label: 'Read book', onPress: handleRead };
   let primary;
   let secondary;
   if (isAuthor) {
@@ -378,6 +318,8 @@ const BazaarBookScreen = () => {
     if (purchase?.status === 'completed') {
       secondary = { icon: 'undo', label: 'Request refund', onPress: () => setRefundModal(true) };
     }
+  } else if (soldOut && (book.sale_enabled || book.lending_enabled)) {
+    primary = { icon: 'ban', label: `Sold out · all ${copies.max} copies taken`, disabled: true };
   } else if (book.sale_enabled) {
     primary = {
       icon: paying ? 'spinner' : 'lock-open',
@@ -419,6 +361,7 @@ const BazaarBookScreen = () => {
             fileType ? { label: fileType, icon: 'file-alt' } : null,
             book.sale_enabled ? { label: '$' + priceUsd.toFixed(2), icon: 'tag', color: colors.accent } : null,
             book.lending_enabled ? { label: 'Lend ' + formatCount(lendPrice), icon: 'key', color: colors.gold } : null,
+            copiesLabel ? { label: copiesLabel, icon: soldOut ? 'ban' : 'layer-group', color: soldOut ? colors.danger : colors.textSecondary } : null,
           ]}
           primary={primary}
           secondary={secondary}
@@ -466,7 +409,8 @@ const BazaarBookScreen = () => {
                 {book.sale_enabled ? (
                   <>
                     <Text style={cardNote}>
-                      One-time payment. {sharePct}% goes directly to the author; the rest supports the platform.
+                      Limited edition{copies ? ` — only ${copies.max} copies, ${soldOut ? 'all taken' : `${copies.left} left`}` : ''}.
+                      {' '}One-time payment. {sharePct}% goes directly to the author; the rest supports the platform.
                     </Text>
                     <View style={currencyRow}>
                       {['USDC', 'SOL'].map((c) => {

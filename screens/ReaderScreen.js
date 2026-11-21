@@ -131,9 +131,9 @@ export default function ReaderScreen({ navigation }) {
 
   const renderReader = () => {
     if (fileType === 'pdf') {
-      return <PDFReader file={file} onBack={handleBack} />;
+      return <PDFReader file={file} title={file.name} onBack={handleBack} />;
     } else if (fileType === 'epub') {
-      return <EPUBReader file={file} onBack={handleBack} />;
+      return <EPUBReader file={file} title={file.name} onBack={handleBack} />;
     }
     return null;
   };
@@ -143,8 +143,11 @@ export default function ReaderScreen({ navigation }) {
   // and bottom controls aren't covered by it.
   const bottomNavClearance = Math.max(insets.bottom, 8) + 12 + 68 + 8;
 
+  // An open book gets the whole screen (the reader has its own bar).
+  if (file && !error) return renderReader();
+
   return (
-    <View style={[styles.container, { paddingBottom: bottomNavClearance }]}>
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 12) }]}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
           <Ionicons name="arrow-back" size={24} color={styles.headerTitle.color} />
@@ -170,7 +173,6 @@ export default function ReaderScreen({ navigation }) {
       )}
 
       {!file && !error && renderFilePicker()}
-      {file && !error && renderReader()}
     </View>
   );
 }

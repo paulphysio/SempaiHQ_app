@@ -9,7 +9,7 @@ import * as FileSystem from 'expo-file-system';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useBazaarTheme } from '../styles/BazaarStyles';
-import { BAZAAR_AUTHOR_SHARE_PCT, BAZAAR_BOOK_PRICE_USD, BAZAAR_LEND_PRICE_SMP } from '../utils/bazaar';
+import { BAZAAR_AUTHOR_SHARE_PCT, BAZAAR_LEND_PRICE_SMP, BAZAAR_TIERS } from '../utils/bazaar';
 import { toast } from '../components/Toast';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
@@ -75,6 +75,7 @@ const UploadBookScreen = () => {
   const [bookFile, setBookFile] = useState(null); // { uri, name, size, type }
   const [ownRights, setOwnRights] = useState(false);
   const [allowLending, setAllowLending] = useState(true);
+  const [tier, setTier] = useState(BAZAAR_TIERS[0]); // { price, copies }
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -230,7 +231,8 @@ const UploadBookScreen = () => {
         file_name: bookFile.name,
         file_type: bookFile.type,
         file_size: bookFile.size,
-        price_usd: BAZAAR_BOOK_PRICE_USD,
+        price_usd: tier.price,
+        max_copies: tier.copies,
         author_share_pct: BAZAAR_AUTHOR_SHARE_PCT,
         ownership_confirmed: ownRights,
         sale_enabled: ownRights,
@@ -351,21 +353,60 @@ const UploadBookScreen = () => {
         <View style={{ backgroundColor: BAZAAR_COLORS.bgCard, borderRadius: 14, borderWidth: 1, borderColor: BAZAAR_COLORS.border, padding: 16, marginTop: 20 }}>
           <Text style={styles.payTitle}>How the Bazaar works</Text>
           <Text style={styles.splitNote}>
-            <Text style={{ color: BAZAAR_COLORS.accent, fontWeight: '700' }}>Sell</Text> — if you own the book, it can sell for ${BAZAAR_BOOK_PRICE_USD.toFixed(2)}.
-            You receive {BAZAAR_AUTHOR_SHARE_PCT}% of every sale directly to your wallet.{"\n\n"}
+            <Text style={{ color: BAZAAR_COLORS.accent, fontWeight: '700' }}>Sell</Text> — if you own the book, sell a limited edition
+            for $1 (100 copies) or $3 (50 copies). You receive {BAZAAR_AUTHOR_SHARE_PCT}% of every sale directly to your wallet.{"\n\n"}
             <Text style={{ color: BAZAAR_COLORS.gold, fontWeight: '700' }}>Lend</Text> — anyone can offer a book for borrowing at a flat {BAZAAR_LEND_PRICE_SMP.toLocaleString()} SMP.
             The full amount goes to the platform; you earn nothing from lends.{"\n\n"}
             If you don't own the book, only lending is allowed.
           </Text>
         </View>
 
+        <Text style={[styles.label, { marginTop: 20 }]}>Edition</Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {BAZAAR_TIERS.map((t) => {
+            const on = tier.price === t.price;
+            return (
+              <TouchableOpacity
+                key={t.price}
+                onPress={() => setTier(t)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={`$${t.price} edition, only ${t.copies} copies`}
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  borderWidth: on ? 2 : 1,
+                  borderColor: on ? BAZAAR_COLORS.accent : BAZAAR_COLORS.border,
+                  backgroundColor: on ? 'rgba(243, 99, 22, 0.12)' : BAZAAR_COLORS.bgCard,
+                  paddingVertical: 14,
+                  paddingHorizontal: 12,
+                  alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 24, fontWeight: '800', color: on ? BAZAAR_COLORS.accent : BAZAAR_COLORS.textPrimary }}>
+                  ${t.price}
+                </Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: BAZAAR_COLORS.textPrimary, marginTop: 4 }}>
+                  Only {t.copies} copies
+                </Text>
+                <Text style={{ fontSize: 12, color: BAZAAR_COLORS.textMuted, marginTop: 2, textAlign: 'center' }}>
+                  You earn ${(t.price * BAZAAR_AUTHOR_SHARE_PCT / 100).toFixed(2)} a sale · up to ${(t.price * t.copies * BAZAAR_AUTHOR_SHARE_PCT / 100).toFixed(0)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={[styles.splitNote, { marginTop: 8 }]}>
+          When every copy is taken (bought or borrowed), the book shows as sold out. A refunded copy goes back on the shelf.
+        </Text>
+
         <TouchableOpacity style={styles.checkboxRow} onPress={() => setOwnRights(!ownRights)}>
           <View style={[styles.checkbox, ownRights && styles.checkboxChecked]}>
             {ownRights && <Ionicons name="checkmark" size={14} color="#fff" />}
           </View>
           <Text style={styles.checkboxLabel}>
-            I own or control the rights to this book — enable selling it for ${BAZAAR_BOOK_PRICE_USD.toFixed(2)}
-            ({BAZAAR_AUTHOR_SHARE_PCT}% to me).
+            I own or control the rights to this book — sell it for ${tier.price} (only {tier.copies} copies,
+            {' '}{BAZAAR_AUTHOR_SHARE_PCT}% to me).
           </Text>
         </TouchableOpacity>
 

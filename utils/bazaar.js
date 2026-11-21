@@ -13,6 +13,32 @@ export const BAZAAR_HQ_WALLET = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj
 export const BAZAAR_BOOK_PRICE_USD = 1.0;
 export const BAZAAR_AUTHOR_SHARE_PCT = 70;
 export const BAZAAR_LEND_PRICE_SMP = 12500;
+
+// Limited editions: the author picks one when uploading. The server enforces
+// the same pairs (migrations/20261201_bazaar_editions.sql).
+export const BAZAAR_TIERS = [
+  { price: 1, copies: 100 },
+  { price: 3, copies: 50 },
+];
+export const copiesForPrice = (price) => (Number(price) === 3 ? 50 : 100);
+
+// Copies left for some books: { [bookId]: { max, taken, left } }.
+// Returns {} if the server can't say (the page then just hides the count).
+export async function fetchBazaarCopies(bookIds) {
+  const ids = (bookIds || []).filter(Boolean);
+  if (!ids.length) return {};
+  try {
+    const { data, error } = await supabase.rpc('bazaar_copies', { p_book_ids: ids });
+    if (error) return {};
+    const out = {};
+    (data || []).forEach((r) => {
+      out[r.book_id] = { max: r.max_copies || copiesForPrice(1), taken: r.taken || 0, left: r.left_count ?? 0 };
+    });
+    return out;
+  } catch {
+    return {};
+  }
+}
 export const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export const MEMO_PROGRAM_ID = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 

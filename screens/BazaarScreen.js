@@ -8,6 +8,7 @@ import { EmptyState } from '../components/ui';
 import GelOrb from '../components/nav/GelOrb';
 import { useTheme } from '../context/ThemeContext';
 import { formatCount } from '../components/detail/DetailKit';
+import { fetchBazaarCopies } from '../utils/bazaar';
 import { Page, PageHeader, SearchField, ChipRow, SectionHeader, PosterGrid } from '../components/page/PageKit';
 
 const FILTERS = [
@@ -21,6 +22,7 @@ const BazaarScreen = () => {
   const navigation = useNavigation();
   const { colors } = useTheme();
   const [books, setBooks] = useState([]);
+  const [copies, setCopies] = useState({}); // { [bookId]: { max, taken, left } }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
@@ -36,6 +38,7 @@ const BazaarScreen = () => {
       if (error) throw error;
       setBooks(data || []);
       cacheSet('lib:bazaar', data || []);
+      fetchBazaarCopies((data || []).map((b) => b.id)).then(setCopies);
     } catch (err) {
       // Offline / flaky connection: show the last shelf we had.
       const cached = await cacheValue('lib:bazaar');
@@ -65,20 +68,25 @@ const BazaarScreen = () => {
         if (filters.includes('epub') && type !== 'epub') return false;
         return true;
       })
-      .map((b) => ({
+      .map((b) => {
+        const c = copies[b.id];
+        const soldOut = !!c && c.left <= 0;
+        const edition = c ? (soldOut ? 'Sold out' : `${c.left} left`) : null;
+        return {
         id: b.id,
         kind: 'book',
         title: b.title,
         image: b.cover_url,
         author: b.author_name,
-        badge: b.file_type ? { label: String(b.file_type).toUpperCase() } : undefined,
+        badge: soldOut ? { label: 'SOLD OUT' } : b.file_type ? { label: String(b.file_type).toUpperCase() } : undefined,
         meta: b.sale_enabled
-          ? `$${Number(b.price_usd).toFixed(2)} · ${b.author_name || 'Unknown author'}`
+          ? ['$' + Number(b.price_usd).toFixed(0), edition, b.author_name || 'Unknown author'].filter(Boolean).join(' · ')
           : b.lending_enabled
-          ? `Lend · ${formatCount(b.lend_price_smp)} SMP`
+          ? [`Lend · ${formatCount(b.lend_price_smp)} SMP`, edition].filter(Boolean).join(' · ')
           : b.author_name || 'Unknown author',
-      }));
-  }, [books, query, filters]);
+        };
+      });
+  }, [books, copies, query, filters]);
 
   const openBook = useCallback((item) => navigation.navigate('BazaarBook', { bookId: item.id }), [navigation]);
   const filtering = !!(query || filters.length);

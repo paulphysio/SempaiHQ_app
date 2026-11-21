@@ -1,516 +1,356 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Text, Modal, FlatList } from 'react-native';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { View, StyleSheet, ActivityIndicator, Pressable, Text, Modal, FlatList, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import { getReaderStyles } from '../styles/ReaderStyles';
 import { useTheme } from '../context/ThemeContext';
+import ReaderShell, { TextSizePanel } from './reader/ReaderShell';
 
+/*
+ * EPUB reader: the whole book scrolls top to bottom like a web page (no page
+ * flipping), comfortable 16px text by default, text size the reader can
+ * change (remembered), contents list, and full screen.
+ */
 const JSZIP_CDN = 'https://cdn.jsdelivr.net/npm/jszip@3.1.5/dist/jszip.min.js';
 const EPUBJS_CDN = 'https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js';
 const CHUNK_SIZE = 512 * 1024; // base64 chars per injected chunk
+const SIZE_KEY = 'reader:epubTextSize';
+const MIN_SIZE = 12;
+const MAX_SIZE = 24;
+const DEFAULT_SIZE = 16;
 
-const buildWebViewHtml = (isDark) => `
-<!DOCTYPE html>
+const buildHtml = (p) => `<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <script src="${JSZIP_CDN}"></script>
-  <script src="${EPUBJS_CDN}"></script>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #0B0B14;
-      overflow: hidden;
-    }
-    #viewer {
-      width: 100%;
-      height: 100%;
-    }
-    #viewer iframe {
-      background-color: #0B0B14 !important;
-    }
-    #status {
-      position: absolute;
-      top: 50%;
-      left: 0;
-      right: 0;
-      text-align: center;
-      color: ${isDark ? '#8A8AA3' : '#64748B'};
-      font-family: sans-serif;
-      font-size: 14px;
-      transform: translateY(-50%);
-      pointer-events: none;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script src="${JSZIP_CDN}"></script>
+<script src="${EPUBJS_CDN}"></script>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: ${p.bg}; overflow: hidden; }
+  #viewer { width: 100%; height: 100%; }
+  #viewer .epub-container { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  #viewer iframe { background: ${p.bg} !important; }
+  #status { position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%); text-align: center;
+            color: ${p.muted}; font: 14px sans-serif; pointer-events: none; }
+</style>
 </head>
 <body>
-  <div id="viewer"></div>
-  <div id="status">Loading book...</div>
-  <script>
-    var book = null;
-    var rendition = null;
-    var tocFlat = [];
-    var currentIndex = -1;
-    var __chunks = [];
-
-    function post(msg) {
-      try {
-        window.ReactNativeWebView.postMessage(JSON.stringify(msg));
-      } catch (e) {}
+<div id="viewer"></div>
+<div id="status">Opening book…</div>
+<script>
+  var book = null, rendition = null, toc = [], current = -1, chunks = [], ready = false;
+  function post(m) { try { window.ReactNativeWebView.postMessage(JSON.stringify(m)); } catch (e) {} }
+  window.addChunk = function (s) { chunks.push(s); };
+  function bytesFrom(b64) {
+    var out = new Uint8Array(Math.floor(b64.length * 3 / 4) + 3), o = 0;
+    for (var i = 0; i < b64.length; i += 0x8000) {
+      var bin = atob(b64.substr(i, 0x8000));
+      for (var j = 0; j < bin.length; j++) out[o++] = bin.charCodeAt(j);
     }
-
-    window.addChunk = function (s) {
-      __chunks.push(s);
-    };
-
-    function b64ToBytes(b64) {
-      var len = b64.length;
-      var out = new Uint8Array(Math.floor(len * 3 / 4) + 3);
-      var o = 0;
-      for (var i = 0; i < len; i += 0x8000) {
-        var bin = atob(b64.substr(i, 0x8000));
-        for (var j = 0; j < bin.length; j++) {
-          out[o++] = bin.charCodeAt(j);
-        }
-      }
-      return out.subarray(0, o);
+    return out.subarray(0, o);
+  }
+  function flatten(items, depth, out) {
+    (items || []).forEach(function (it) {
+      out.push({ label: (it.label || 'Untitled').trim(), href: it.href, depth: depth });
+      if (it.subitems && it.subitems.length) flatten(it.subitems, depth + 1, out);
+    });
+    return out;
+  }
+  function indexOf(href) {
+    if (!href) return -1;
+    var clean = href.split('#')[0], best = -1;
+    for (var i = 0; i < toc.length; i++) {
+      var h = (toc[i].href || '').split('#')[0];
+      if (h === clean || clean.endsWith('/' + h) || h.endsWith('/' + clean)) { best = i; break; }
     }
-
-    function flattenToc(items, depth, out) {
-      (items || []).forEach(function (item) {
-        out.push({ label: item.label || 'Untitled', href: item.href, depth: depth });
-        if (item.subitems && item.subitems.length) {
-          flattenToc(item.subitems, depth + 1, out);
-        }
-      });
-      return out;
-    }
-
-    function findChapterIndex(href) {
-      if (!href) return -1;
-      var clean = href.split('#')[0];
-      for (var i = 0; i < tocFlat.length; i++) {
-        var h = (tocFlat[i].href || '').split('#')[0];
-        if (h === clean) return i;
-      }
-      return -1;
-    }
-
-    function applyTheme() {
-      rendition.themes.register('sempai', {
-        'body': {
-          'color': '${isDark ? '#E8E6F0' : '#1E293B'}',
-          'background': '${isDark ? '#0B0B14' : '#FFFFFF'}',
-          'padding': '0 16px',
-          'font-family': 'serif',
-          'line-height': '1.7'
-        },
-        'p': { 'margin': '0 0 0.9em 0' },
-        'h1, h2, h3, h4': { 'color': '${isDark ? '#F36316' : '#3B82F6'}', 'font-family': 'sans-serif' },
-        'a': { 'color': '${isDark ? '#FF8C42' : '#2563EB'}', 'text-decoration': 'none' }
-      });
-      rendition.themes.select('sempai');
-    }
-
-    window.finishLoad = function () {
-      try {
-        if (typeof JSZip === 'undefined') {
-          post({ type: 'error', message: 'JSZip failed to load. Check your connection and retry.' });
-          return;
-        }
-        if (typeof ePub !== 'function') {
-          post({ type: 'error', message: 'EPUB engine failed to load. Check your connection and retry.' });
-          return;
-        }
-        var joined = __chunks.join('');
-        __chunks = null;
-        var bytes = b64ToBytes(joined);
-        post({ type: 'progress', message: 'Opening book...' });
-
-        book = ePub(bytes.buffer);
-        rendition = book.renderTo('viewer', {
-          width: '100%',
-          height: '100%',
-          flow: 'paginated',
-          spread: 'none'
-        });
-
-        rendition.on('relocated', function (loc) {
-          var idx = findChapterIndex(loc && loc.start && loc.start.href ? loc.start.href : (loc && loc.href));
-          if (idx >= 0 && idx !== currentIndex) {
-            currentIndex = idx;
-            post({ type: 'chapter', index: idx });
-          }
-        });
-
-        book.ready.then(function () {
-          applyTheme();
-          return book.locations.generate(1024);
-        }).then(function () {
-          tocFlat = flattenToc(book.navigation && book.navigation.toc, 0, []);
-          if (tocFlat.length === 0) {
-            // Fallback: build chapter list from spine
-            var spineItems = [];
-            book.spine.each(function (item) {
-              spineItems.push({ label: item.label || item.idref || ('Section ' + spineItems.length), href: item.href });
-            });
-            tocFlat = spineItems;
-          }
-          post({ type: 'toc', chapters: tocFlat.map(function (c) { return { label: c.label, depth: c.depth || 0 }; }) });
-          return rendition.display(tocFlat.length ? tocFlat[0].href : undefined);
-        }).then(function () {
-          var status = document.getElementById('status');
-          if (status) status.style.display = 'none';
-          post({ type: 'ready' });
-        }).catch(function (err) {
-          post({ type: 'error', message: 'Failed to render book: ' + (err && err.message ? err.message : err) });
-        });
-      } catch (e) {
-        post({ type: 'error', message: 'Failed to load EPUB: ' + (e && e.message ? e.message : e) });
-      }
-    };
-
-    window.displayChapter = function (i) {
-      try {
-        if (rendition && tocFlat[i]) {
-          rendition.display(tocFlat[i].href);
-        }
-      } catch (e) {}
-    };
-
-    // Detect epub.js CDN load failure
-    window.addEventListener('error', function (e) {
-      var m = e && e.message ? String(e.message).toLowerCase() : '';
-      if (m.indexOf('epub') !== -1 || m.indexOf('jszip') !== -1) {
-        post({ type: 'error', message: 'Could not load EPUB engine. Check your connection and retry.' });
-      }
-    }, true);
-  </script>
-</body>
-</html>
-`;
-
-const EPUBReader = ({ file, onBack, onProgress }) => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getReaderStyles(isDark), [isDark]);
-  const epubStyles = useMemo(() => getEpubLocalStyles(colors), [isDark]);
-  const [fileLoading, setFileLoading] = useState(true);
-  const [bookLoading, setBookLoading] = useState(false);
-  const [statusText, setStatusText] = useState('Reading file...');
-  const [chapters, setChapters] = useState([]);
-  const [currentChapter, setCurrentChapter] = useState(0);
-  const [tocOpen, setTocOpen] = useState(false);
-  const [error, setError] = useState(null);
-  const webViewRef = useRef(null);
-  const fileB64Ref = useRef(null);
-  const webViewReadyRef = useRef(false);
-  const injectionStartedRef = useRef(false);
-
-  useEffect(() => {
-    loadEPUB();
-    return () => {
-      injectionStartedRef.current = false;
-    };
-  }, [file]);
-
-  const loadEPUB = async () => {
-    try {
-      setFileLoading(true);
-      setError(null);
-      setStatusText('Reading file...');
-
-      const fileContent = await FileSystem.readAsStringAsync(file.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      fileB64Ref.current = fileContent;
-      setFileLoading(false);
-      // If the WebView finished loading before the file read, kick off injection now
-      if (webViewReadyRef.current) {
-        startInjection();
-      }
-    } catch (err) {
-      console.error('Error loading EPUB:', err);
-      setError('Failed to read EPUB file. Please try a different file.');
-      setFileLoading(false);
-    }
+    return best;
+  }
+  window.setTextSize = function (px) {
+    if (!rendition) return;
+    rendition.themes.fontSize(px + 'px');
   };
-
-  const startInjection = () => {
-    if (injectionStartedRef.current || !fileB64Ref.current) return;
-    injectionStartedRef.current = true;
-    setBookLoading(true);
-
-    const b64 = fileB64Ref.current;
-    fileB64Ref.current = null; // free memory
-
-    // Reset any previous book state in the page
-    webViewRef.current?.injectJavaScript('window.__chunks = []; true;');
-
-    let i = 0;
-    const injectNext = () => {
-      if (i >= b64.length) {
-        webViewRef.current?.injectJavaScript('window.finishLoad(); true;');
+  function theme(px) {
+    rendition.themes.default({
+      'html, body': { 'background': '${p.bg} !important', 'color': '${p.text} !important' },
+      'body': { 'padding': '0 20px !important', 'margin': '0 !important',
+                'font-family': 'Georgia, "Times New Roman", serif !important',
+                'line-height': '1.65 !important', 'word-wrap': 'break-word' },
+      // Publishers often set huge sizes; keep body text at the chosen size.
+      'p, li, blockquote, dd, dt, td, span, div': { 'font-size': '1em !important', 'line-height': '1.65 !important' },
+      'p': { 'margin': '0 0 0.85em 0 !important' },
+      'h1': { 'font-size': '1.45em !important' }, 'h2': { 'font-size': '1.3em !important' },
+      'h3, h4, h5, h6': { 'font-size': '1.12em !important' },
+      'h1, h2, h3, h4, h5, h6': { 'color': '${p.accent} !important', 'font-family': 'sans-serif !important', 'line-height': '1.3 !important', 'margin': '1.2em 0 0.6em !important' },
+      'a': { 'color': '${p.accent} !important', 'text-decoration': 'none !important' },
+      'img, svg, image': { 'max-width': '100% !important', 'height': 'auto !important' },
+      '*': { 'background-color': 'transparent !important' }
+    });
+    window.setTextSize(px);
+  }
+  window.finishLoad = function (px) {
+    try {
+      if (typeof JSZip === 'undefined' || typeof ePub !== 'function') {
+        post({ type: 'error', message: 'The book engine did not load. Check your connection and try again.' });
         return;
       }
-      const chunk = b64.substring(i, i + CHUNK_SIZE);
-      i += CHUNK_SIZE;
-      webViewRef.current?.injectJavaScript(
-        'window.addChunk(' + JSON.stringify(chunk) + '); true;'
-      );
-      // Let the WebView breathe between chunks
-      setTimeout(injectNext, 0);
-    };
-    injectNext();
-  };
-
-  const handleWebViewLoad = () => {
-    webViewReadyRef.current = true;
-    startInjection();
-  };
-
-  const handlePreviousChapter = () => {
-    if (currentChapter > 0) {
-      const next = currentChapter - 1;
-      setCurrentChapter(next);
-      onProgress?.({ index: next, total: chapters.length });
-      webViewRef.current?.injectJavaScript(
-        'window.displayChapter(' + next + '); true;'
-      );
+      var data = bytesFrom(chunks.join('')); chunks = null;
+      book = ePub(data.buffer);
+      rendition = book.renderTo('viewer', { width: '100%', height: '100%', flow: 'scrolled', manager: 'continuous', spread: 'none' });
+      theme(px);
+      rendition.on('relocated', function (loc) {
+        var href = loc && loc.start && loc.start.href;
+        var i = indexOf(href);
+        if (i >= 0) current = i;
+        var pct = null;
+        try {
+          if (book.locations && book.locations.length() && loc.start.cfi) pct = book.locations.percentageFromCfi(loc.start.cfi);
+        } catch (e) {}
+        post({ type: 'loc', index: current, pct: pct });
+      });
+      book.ready.then(function () {
+        toc = flatten(book.navigation && book.navigation.toc, 0, []);
+        if (!toc.length) {
+          book.spine.each(function (it) { toc.push({ label: it.label || ('Section ' + (toc.length + 1)), href: it.href, depth: 0 }); });
+        }
+        post({ type: 'toc', chapters: toc.map(function (c) { return { label: c.label, depth: c.depth || 0 }; }) });
+        return rendition.display();
+      }).then(function () {
+        var st = document.getElementById('status'); if (st) st.style.display = 'none';
+        ready = true;
+        post({ type: 'ready' });
+        // Percent read needs a pass over the whole book; do it after the first page shows.
+        return book.locations.generate(1600).then(function () { post({ type: 'locationsReady' }); });
+      }).catch(function (err) {
+        post({ type: 'error', message: 'This book could not be opened: ' + (err && err.message ? err.message : err) });
+      });
+    } catch (e) {
+      post({ type: 'error', message: 'This book could not be opened: ' + (e && e.message ? e.message : e) });
     }
   };
-
-  const handleNextChapter = () => {
-    if (currentChapter < chapters.length - 1) {
-      const next = currentChapter + 1;
-      setCurrentChapter(next);
-      onProgress?.({ index: next, total: chapters.length });
-      webViewRef.current?.injectJavaScript(
-        'window.displayChapter(' + next + '); true;'
-      );
+  window.goTo = function (i) { try { if (rendition && toc[i]) rendition.display(toc[i].href); } catch (e) {} };
+  window.addEventListener('error', function (e) {
+    var m = e && e.message ? String(e.message).toLowerCase() : '';
+    if (!ready && (m.indexOf('epub') !== -1 || m.indexOf('jszip') !== -1)) {
+      post({ type: 'error', message: 'The book engine did not load. Check your connection and try again.' });
     }
-  };
+  }, true);
+</script>
+</body>
+</html>`;
 
-  const handleSelectChapter = (index) => {
-    setTocOpen(false);
-    setCurrentChapter(index);
-    onProgress?.({ index, total: chapters.length });
-    webViewRef.current?.injectJavaScript(
-      'window.displayChapter(' + index + '); true;'
-    );
-  };
+// base64 of the book file (phones read it from disk; the web fetches it).
+async function readBase64(file) {
+  if (file.base64) return file.base64;
+  if (Platform.OS === 'web') {
+    const buf = new Uint8Array(await (await fetch(file.uri)).arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode.apply(null, buf.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  return FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
+}
 
-  const handleWebViewMessage = (event) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'toc') {
-        const tocChapters = data.chapters || [];
-        setChapters(tocChapters);
-        onProgress?.({ index: currentChapter, total: tocChapters.length });
-      } else if (data.type === 'chapter') {
-        setCurrentChapter(data.index);
-        onProgress?.({ index: data.index, total: chapters.length });
-      } else if (data.type === 'ready') {
-        setBookLoading(false);
-        setStatusText('');
-      } else if (data.type === 'progress') {
-        setStatusText(data.message || 'Loading...');
-      } else if (data.type === 'error') {
-        setError(data.message || 'Failed to load EPUB.');
-        setBookLoading(false);
+const EPUBReader = ({ file, title, onBack, onProgress }) => {
+  const { isDark, colors } = useTheme();
+  const palette = useMemo(() => ({
+    bg: colors.bg,
+    text: isDark ? '#E6E4EE' : '#1F2430',
+    muted: colors.textMuted,
+    accent: colors.accent,
+  }), [isDark, colors]);
+  const html = useMemo(() => buildHtml(palette), [palette]);
+
+  const [phase, setPhase] = useState('reading'); // reading → opening → ready | error
+  const [error, setError] = useState(null);
+  const [chapters, setChapters] = useState([]);
+  const [current, setCurrent] = useState(0);
+  const [pct, setPct] = useState(null);
+  const [tocOpen, setTocOpen] = useState(false);
+  const [sizeOpen, setSizeOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [textSize, setTextSize] = useState(DEFAULT_SIZE);
+
+  const webRef = useRef(null);
+  const b64Ref = useRef(null);
+  const pageLoadedRef = useRef(false);
+  const startedRef = useRef(false);
+  const sizeRef = useRef(DEFAULT_SIZE);
+  const chaptersRef = useRef([]);
+
+  // remembered text size
+  useEffect(() => {
+    AsyncStorage.getItem(SIZE_KEY).then((v) => {
+      const n = Number(v);
+      if (n >= MIN_SIZE && n <= MAX_SIZE) { sizeRef.current = n; setTextSize(n); }
+    }).catch(() => {});
+  }, []);
+
+  const start = useCallback(() => {
+    if (startedRef.current || !b64Ref.current || !pageLoadedRef.current) return;
+    startedRef.current = true;
+    setPhase('opening');
+    const b64 = b64Ref.current;
+    b64Ref.current = null;
+    let i = 0;
+    const next = () => {
+      if (i >= b64.length) {
+        webRef.current?.injectJavaScript(`window.finishLoad(${sizeRef.current}); true;`);
+        return;
       }
-    } catch (err) {
-      // Ignore non-JSON messages
+      webRef.current?.injectJavaScript(`window.addChunk(${JSON.stringify(b64.substring(i, i + CHUNK_SIZE))}); true;`);
+      i += CHUNK_SIZE;
+      setTimeout(next, 0);
+    };
+    next();
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    startedRef.current = false;
+    setPhase('reading');
+    setError(null);
+    readBase64(file)
+      .then((b64) => { if (alive) { b64Ref.current = b64; start(); } })
+      .catch(() => { if (alive) { setError('This book file could not be read. Try opening it again.'); setPhase('error'); } });
+    return () => { alive = false; };
+  }, [file, start]);
+
+  const changeSize = (n) => {
+    const v = Math.max(MIN_SIZE, Math.min(MAX_SIZE, n));
+    sizeRef.current = v;
+    setTextSize(v);
+    AsyncStorage.setItem(SIZE_KEY, String(v)).catch(() => {});
+    webRef.current?.injectJavaScript(`window.setTextSize(${v}); true;`);
+  };
+
+  const goTo = (i) => {
+    setTocOpen(false);
+    setCurrent(i);
+    onProgress?.({ index: i, total: chaptersRef.current.length });
+    webRef.current?.injectJavaScript(`window.goTo(${i}); true;`);
+  };
+
+  const onMessage = (event) => {
+    let d;
+    try { d = JSON.parse(event.nativeEvent.data); } catch { return; }
+    if (d.type === 'toc') {
+      chaptersRef.current = d.chapters || [];
+      setChapters(chaptersRef.current);
+    } else if (d.type === 'loc') {
+      if (d.index >= 0) {
+        setCurrent(d.index);
+        onProgress?.({ index: d.index, total: chaptersRef.current.length });
+      }
+      if (typeof d.pct === 'number') setPct(d.pct);
+    } else if (d.type === 'ready') {
+      setPhase('ready');
+    } else if (d.type === 'error') {
+      setError(d.message || 'This book could not be opened.');
+      setPhase('error');
     }
   };
 
-  if (error) {
-    return (
-      <View style={styles.errorContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={styles.errorText.color} />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.pickButton} onPress={onBack}>
-          <Text style={styles.pickButtonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (fileLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={styles.filePickerIcon.color} />
-        <Text style={styles.loadingText}>{statusText}</Text>
-      </View>
-    );
-  }
+  const chapterLabel = chapters[current]?.label;
+  const subtitle = phase !== 'ready'
+    ? 'Opening…'
+    : [chapterLabel, pct != null ? `${Math.round(pct * 100)}%` : null].filter(Boolean).join(' · ');
 
   return (
-    <View style={styles.readerContainer}>
-      <View style={styles.fileInfo}>
-        <Text style={styles.fileName} numberOfLines={1}>
-          {file.name}
-        </Text>
-        <View style={styles.fileTypeBadge}>
-          <Text style={styles.fileTypeText}>EPUB</Text>
+    <ReaderShell
+      title={title || file?.name || 'Book'}
+      subtitle={subtitle}
+      progress={pct}
+      onBack={onBack}
+      fullscreen={fullscreen}
+      onToggleFullscreen={() => { setSizeOpen(false); setFullscreen((f) => !f); }}
+      tools={[
+        { icon: 'text-outline', label: 'Text size', onPress: () => setSizeOpen((o) => !o), active: sizeOpen },
+        ...(chapters.length > 1 ? [{ icon: 'list-outline', label: 'Contents', onPress: () => setTocOpen(true) }] : []),
+      ]}
+      panel={sizeOpen ? <TextSizePanel size={textSize} min={MIN_SIZE} max={MAX_SIZE} onChange={changeSize} /> : null}
+    >
+      {phase === 'error' ? (
+        <View style={[st.center, { backgroundColor: colors.bg }]}>
+          <Ionicons name="alert-circle-outline" size={44} color={colors.danger} />
+          <Text style={[st.msg, { color: colors.textSecondary }]}>{error}</Text>
+          <Pressable onPress={onBack} style={[st.btn, { backgroundColor: colors.accent }]} accessibilityRole="button">
+            <Text style={st.btnText}>Go back</Text>
+          </Pressable>
         </View>
-      </View>
-
-      <WebView
-        ref={webViewRef}
-        source={{ html: buildWebViewHtml(isDark) }}
-        style={styles.epubContainer}
-        onMessage={handleWebViewMessage}
-        onLoadEnd={handleWebViewLoad}
-        javaScriptEnabled
-        domStorageEnabled
-        startInLoadingState
-        scalesPageToFit
-        originWhitelist={['*']}
-      />
-
-      {bookLoading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color={styles.filePickerIcon.color} />
-          <Text style={styles.loadingText}>{statusText}</Text>
-        </View>
-      )}
-
-      {chapters.length > 0 && !bookLoading && (
+      ) : (
         <>
-          <View style={styles.pageIndicator}>
-            <TouchableOpacity onPress={() => setTocOpen(true)}>
-              <Text style={styles.pageIndicatorText} numberOfLines={1}>
-                {chapters[currentChapter]?.label || 'Chapter'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.navigationControls}>
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={handlePreviousChapter}
-              disabled={currentChapter <= 0}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={currentChapter <= 0 ? styles.filePickerText.color : styles.filePickerIcon.color}
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={() => setTocOpen(true)}
-            >
-              <Ionicons name="list-outline" size={22} color={styles.filePickerIcon.color} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.navButton}
-              onPress={handleNextChapter}
-              disabled={currentChapter >= chapters.length - 1}
-            >
-              <Ionicons
-                name="chevron-forward"
-                size={24}
-                color={currentChapter >= chapters.length - 1 ? styles.filePickerText.color : styles.filePickerIcon.color}
-              />
-            </TouchableOpacity>
-          </View>
+          <WebView
+            ref={webRef}
+            source={{ html }}
+            style={{ flex: 1, backgroundColor: colors.bg }}
+            onMessage={onMessage}
+            onLoadEnd={() => { pageLoadedRef.current = true; start(); }}
+            javaScriptEnabled
+            domStorageEnabled
+            originWhitelist={['*']}
+            showsVerticalScrollIndicator={false}
+            setBuiltInZoomControls={false}
+          />
+          {phase !== 'ready' ? (
+            <View style={[st.cover, { backgroundColor: colors.bg }]}>
+              <ActivityIndicator size="large" color={colors.accent} />
+              <Text style={[st.msg, { color: colors.textMuted }]}>{phase === 'reading' ? 'Getting your book…' : 'Opening book…'}</Text>
+            </View>
+          ) : null}
         </>
       )}
 
-      <Modal
-        visible={tocOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setTocOpen(false)}
-      >
-        <View style={epubStyles.modalOverlay}>
-          <View style={epubStyles.modalContent}>
-            <View style={epubStyles.modalHeader}>
-              <Text style={epubStyles.modalTitle}>Contents</Text>
-              <TouchableOpacity onPress={() => setTocOpen(false)}>
-                <Ionicons name="close" size={24} color="#E8E6F0" />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={chapters}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item, index }) => (
-                <TouchableOpacity
-                  style={[epubStyles.tocItem, index === currentChapter && epubStyles.tocItemActive]}
-                  onPress={() => handleSelectChapter(index)}
+      <Modal visible={tocOpen} transparent animationType="slide" onRequestClose={() => setTocOpen(false)}>
+        <Pressable style={st.scrim} onPress={() => setTocOpen(false)} accessibilityLabel="Close contents" />
+        <View style={[st.sheet, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
+          <View style={[st.sheetHead, { borderBottomColor: colors.border }]}>
+            <Text style={[st.sheetTitle, { color: colors.textPrimary }]}>Contents</Text>
+            <Pressable onPress={() => setTocOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close contents">
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          <FlatList
+            data={chapters}
+            keyExtractor={(_, i) => String(i)}
+            initialScrollIndex={chapters.length && current > 3 ? current - 3 : undefined}
+            getItemLayout={(_, i) => ({ length: 48, offset: 48 * i, index: i })}
+            renderItem={({ item, index }) => {
+              const on = index === current;
+              return (
+                <Pressable
+                  onPress={() => goTo(index)}
+                  style={[st.row, on && { backgroundColor: colors.accentSoft }]}
+                  accessibilityRole="button"
                 >
                   <Text
-                    style={[
-                      epubStyles.tocItemText,
-                      (item.depth || 0) > 0 && { paddingLeft: 16 + (item.depth || 0) * 12 },
-                      index === currentChapter && epubStyles.tocItemTextActive,
-                    ]}
-                    numberOfLines={2}
+                    numberOfLines={1}
+                    style={{ paddingLeft: (item.depth || 0) * 14, fontSize: 14, color: on ? colors.accent : colors.textSecondary, fontWeight: on ? '700' : '400' }}
                   >
                     {item.label}
                   </Text>
-                </TouchableOpacity>
-              )}
-            />
-          </View>
+                </Pressable>
+              );
+            }}
+          />
         </View>
       </Modal>
-    </View>
+    </ReaderShell>
   );
 };
 
-const getEpubLocalStyles = (c) => StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#16162A',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    maxHeight: '70%',
-    paddingBottom: 24,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#2A2A45',
-  },
-  modalTitle: {
-    color: c.textPrimary,
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  tocItem: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#2A2A45',
-  },
-  tocItemActive: {
-    backgroundColor: 'rgba(243, 99, 22,0.12)',
-  },
-  tocItemText: {
-    color: c.textSecondary,
-    fontSize: 15,
-  },
-  tocItemTextActive: {
-    color: c.accent,
-    fontWeight: '600',
-  },
+const st = StyleSheet.create({
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
+  cover: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  msg: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  btn: { paddingHorizontal: 22, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  btnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheet: { maxHeight: '70%', borderTopLeftRadius: 18, borderTopRightRadius: 18, borderWidth: StyleSheet.hairlineWidth, paddingBottom: 18 },
+  sheetHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
+  sheetTitle: { fontSize: 16, fontWeight: '700' },
+  row: { height: 48, justifyContent: 'center', paddingHorizontal: 18 },
 });
 
 export default EPUBReader;
