@@ -7,6 +7,17 @@
 -- ════════════════════════════════════════════════════════════════════════
 begin;
 
+-- The caller's own account ids (sign-in id + an older profile id matched by
+-- their own email). Same as 20261128 — repeated here so this file stands alone.
+create or replace function public.my_account_ids() returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select auth.uid() where auth.uid() is not null
+  union
+  select public.my_user_id_by_email() where public.my_user_id_by_email() is not null
+$$;
+revoke all on function public.my_account_ids() from public;
+grant execute on function public.my_account_ids() to anon, authenticated;
+
 alter table public.bazaar_books add column if not exists max_copies integer;
 -- Older app versions and the website upload without it: they only sell $1,
 -- so the default is the $1 edition.
