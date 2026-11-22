@@ -17,7 +17,7 @@ import {
   useWindowDimensions,
   ScrollView,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Orientation from 'react-native-orientation-locker';
 import { Audio } from 'expo-av';
@@ -33,6 +33,7 @@ import {
   submitPick as submitOnlinePick,
   cancelWaiting,
   getMatchState,
+  getChallenge,
   watchMatch,
   clearSession,
 } from '../services/kaijiApi';
@@ -93,6 +94,8 @@ const ERRORS = {
   deposit_tx_not_found: 'The deposit is not visible on-chain yet. Check the menu for your match in a moment.',
   deposit_amount_mismatch: 'The deposit amount did not match your wager.',
   deposit_memo_missing: 'The deposit was missing its Kaiji tag.',
+  challenge_taken: 'Someone was faster — that challenge is already taken. Your wager was refunded to your wallet.',
+  challenge_not_found: 'That challenge no longer exists.',
   'Password entry cancelled': 'Cancelled.',
 };
 const friendlyError = (m) => ERRORS[m] ?? m;
@@ -586,7 +589,9 @@ const KaijiScreen = () => {
 
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState('modes'); // modes | setup | wager | queue | play | leaderboard
+  const [view, setView] = useState('modes'); // modes | setup | wager | queue | play | leaderboard | challenge
+  const route = useRoute();
+  const [challenge, setChallenge] = useState(null); // { id, open, wager, decimals, expiresAt, challenger, record } being looked at
   const [level, setLevel] = useState('easy');
   const [opp, setOpp] = useState(NAMES[0]);
   const [g, setG] = useState(newGame());
@@ -1008,7 +1013,7 @@ const KaijiScreen = () => {
 
   // clock for the pick timer and the waiting countdown
   useEffect(() => {
-    const ticking = view === 'queue' || (mode === 'online' && view === 'play' && g.phase === 'pick');
+    const ticking = view === 'queue' || view === 'challenge' || (mode === 'online' && view === 'play' && g.phase === 'pick');
     if (!ticking) return undefined;
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
@@ -1155,19 +1160,49 @@ const KaijiScreen = () => {
     [stopWatching, enterPlay]
   );
 
-  const startOnline = useCallback(async () => {
+  // opts: {} quick match · { challenge: true } open a challenge · { challengeId, wagerUnits } accept one
+  const startOnline = useCallback(async (opts = {}) => {
     if (joining) return;
     if (!isWalletConnected || !wallet || !signTransactionOnly) return connectPrompt();
     setJoining(true);
     try {
-      const { match, side } = await depositAndJoin({ wallet, signTransactionOnly, wagerTokens });
+      const { match, side } = await depositAndJoin({ wallet, signTransactionOnly, wagerTokens, ...opts });
       attachMatch({ match, side, rounds: [] });
+      if (opts.challenge && match.challenge) toast.success('Challenge sent — Kaiji players are being notified.');
     } catch (e) {
+      if (e.message === 'challenge_taken') {
+        setBalTick((t) => t + 1);
+        setChallenge((c) => (c ? { ...c, open: false } : c));
+      }
       toast.error(`Could not join — ${friendlyError(e.message)}`);
     } finally {
       setJoining(false);
     }
   }, [joining, isWalletConnected, wallet, signTransactionOnly, wagerTokens, attachMatch]);
+
+  // Opened from a challenge notification: show who is challenging, then let them accept.
+  const incomingChallenge = route.params?.challengeId;
+  useEffect(() => {
+    if (!incomingChallenge) return;
+    navigation.setParams({ challengeId: undefined });
+    if (viewRef.current === 'play' || viewRef.current === 'queue') {
+      toast.info('Finish your current match first — then accept challenges.');
+      return;
+    }
+    setChallenge({ id: incomingChallenge, loading: true });
+    setView('challenge');
+    getChallenge(incomingChallenge)
+      .then((c) => alive.current && setChallenge(c))
+      .catch((e) => alive.current && setChallenge({ id: incomingChallenge, open: false, error: friendlyError(e.message) }));
+  }, [incomingChallenge]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const acceptChallenge = useCallback(() => {
+    const c = challenge;
+    if (!c?.open) return;
+    if (!cfg) return toast.error('Kaiji is offline — Could not reach the Kaiji server. Try again in a moment.');
+    if (!cfg.allowed) return toast.error('Not enabled yet — Normal Mode is limited to test wallets right now.');
+    startOnline({ challengeId: c.id, wagerUnits: c.wager });
+  }, [challenge, cfg, startOnline]);
 
   const cancelQueue = useCallback(async () => {
     const m = netRef.current.match;
@@ -1488,13 +1523,22 @@ const KaijiScreen = () => {
             <LockButton
               label={joining ? 'WAITING FOR WALLET…' : 'DEPOSIT & FIND OPPONENT'}
               enabled={!joining && afford}
-              onPress={startOnline}
+              onPress={() => startOnline()}
               rm={rm}
             />
+            <Pressable
+              style={[styles.challengeBtn, (!afford || joining) && { opacity: 0.45 }]}
+              onPress={() => (!joining && afford ? startOnline({ challenge: true }) : null)}
+              accessibilityRole="button"
+              accessibilityLabel={`Challenge everyone for ${wagerTokens} SKR`}
+            >
+              <Text style={styles.challengeBtnText}>⚔️  CHALLENGE EVERYONE</Text>
+            </Pressable>
             {!afford && <Text style={styles.warn}>Not enough balance for this wager.</Text>}
             <Text style={styles.note}>
-              Your wager is held by the Kaiji escrow wallet and paid out when the match ends. If nobody joins within{' '}
-              {cfg?.waitingSeconds ?? 45} seconds it is refunded automatically.
+              Your wager is held by the Kaiji escrow wallet and paid out when the match ends. Quick match: refunded if nobody joins within{' '}
+              {cfg?.waitingSeconds ?? 45}s. Challenge: Kaiji players get a notification with your wager and record — first to accept plays; refunded after{' '}
+              {Math.round((cfg?.challengeSeconds ?? 180) / 60)} min.
             </Text>
           </View>
         </View>
@@ -1505,8 +1549,11 @@ const KaijiScreen = () => {
   // ----- waiting for an opponent -----
   if (view === 'queue') {
     const m = net?.match;
+    const isChallenge = !!m?.challenge;
     const waitMs = (cfg?.waitingSeconds ?? 45) * 1000;
-    const secs = m ? Math.max(0, Math.ceil((new Date(m.created_at).getTime() + waitMs - now) / 1000)) : 0;
+    const endsAt = isChallenge && m?.expires_at ? new Date(m.expires_at).getTime() : m ? new Date(m.created_at).getTime() + waitMs : 0;
+    const secs = m ? Math.max(0, Math.ceil((endsAt - now) / 1000)) : 0;
+    const clock = secs >= 60 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : `${secs}s`;
     const dec = cfg?.decimals ?? 6;
     return (
       <View style={[styles.root, pad, styles.centered]}>
@@ -1514,13 +1561,84 @@ const KaijiScreen = () => {
         <SpeedLines w={W} h={H} />
         <Embers w={W} h={H} rm={rm} />
         <PulseCard w={Math.min(110, H * 0.28)} rm={rm} />
-        <Text style={styles.queueTitle}>Waiting for an opponent…</Text>
+        <Text style={styles.queueTitle}>{isChallenge ? 'Challenge sent ⚔️' : 'Waiting for an opponent…'}</Text>
         <Text style={styles.queueSub}>
-          Wager {m ? Math.round((Number(m.wager) / 10 ** dec) * 100) / 100 : wagerTokens} SKR · refund in {secs}s if nobody joins
+          {isChallenge ? 'Kaiji players were notified — the first to accept plays you. ' : ''}
+          Wager {m ? Math.round((Number(m.wager) / 10 ** dec) * 100) / 100 : wagerTokens} SKR · refund in {clock} if nobody joins
         </Text>
         <Pressable style={styles.ghost} onPress={cancelQueue} accessibilityRole="button">
           <Text style={styles.ghostText}>Cancel and refund</Text>
         </Pressable>
+      </View>
+    );
+  }
+
+  // ----- someone challenged you (opened from the notification) -----
+  if (view === 'challenge') {
+    const c = challenge || {};
+    const dec = c.decimals ?? cfg?.decimals ?? 6;
+    const wagerT = c.wager ? Math.round((Number(c.wager) / 10 ** dec) * 100) / 100 : null;
+    const feeRate = cfg ? cfg.feeBps / 10000 : 0.1;
+    const secs = c.expiresAt ? Math.max(0, Math.ceil((new Date(c.expiresAt).getTime() - now) / 1000)) : null;
+    const clock = secs == null ? '' : secs >= 60 ? `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}` : `${secs}s`;
+    const open = !!c.open && (secs == null || secs > 0);
+    const afford = skrBalance === null || wagerT == null || wagerT <= skrBalance;
+    const rec = c.record || { wins: 0, losses: 0, draws: 0 };
+    const played = rec.wins + rec.losses + rec.draws;
+    return (
+      <View style={[styles.root, pad]}>
+        <StatusBar hidden />
+        <SpeedLines w={W} h={H} />
+        <Embers w={W} h={H} rm={rm} />
+        <Header title="Challenge" onBack={() => { setChallenge(null); setView('modes'); }} right={balancePill} />
+        {c.loading ? (
+          <View style={[styles.centered, { flex: 1 }]}><ActivityIndicator color={COLORS.flame} /></View>
+        ) : (
+          <View style={styles.wagerRow}>
+            <View style={styles.wagerLeft}>
+              <Text style={styles.sectionLabel}>{open ? 'YOU HAVE BEEN CHALLENGED' : 'CHALLENGE CLOSED'}</Text>
+              <Text style={styles.challenger} numberOfLines={1}>{c.challenger?.name || 'A Kaiji player'}</Text>
+              <Text style={styles.record}>
+                {played ? `${rec.wins}W · ${rec.losses}L${rec.draws ? ` · ${rec.draws}D` : ''}` : 'No matches played yet'}
+              </Text>
+              {wagerT != null ? (
+                <View style={styles.pay}>
+                  <Text style={styles.payLabel}>Wager (each)</Text>
+                  <Text style={styles.payVal}>{wagerT} SKR</Text>
+                  <Text style={styles.payLabel}>You win</Text>
+                  <Text style={[styles.payVal, { color: COLORS.flame }]}>{Math.round(wagerT * 2 * (1 - feeRate) * 100) / 100} SKR</Text>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.wagerRight}>
+              {open ? (
+                <>
+                  <LockButton
+                    label={joining ? 'WAITING FOR WALLET…' : `ACCEPT · DEPOSIT ${wagerT} SKR`}
+                    enabled={!joining && afford}
+                    onPress={acceptChallenge}
+                    rm={rm}
+                  />
+                  {!afford && <Text style={styles.warn}>Not enough SKR for this wager.</Text>}
+                  <Text style={styles.note}>
+                    First to accept plays — {clock} left. If someone beats you to it, your deposit comes straight back.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.queueSub, { textAlign: 'center' }]}>
+                    {c.error || (c.status === 'active' || c.status === 'settling' || c.status === 'settled'
+                      ? 'Someone was faster — this challenge was already accepted.'
+                      : 'This challenge has expired.')}
+                  </Text>
+                  <Pressable style={styles.ghost} onPress={() => { setChallenge(null); setView('wager'); }} accessibilityRole="button">
+                    <Text style={styles.ghostText}>Issue your own challenge</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -1809,6 +1927,10 @@ export const getKaijiStyles = (c) => StyleSheet.create({
   warn: { color: COLORS.bad, fontWeight: '700' },
   note: { color: COLORS.dim, fontSize: 12, textAlign: 'center', maxWidth: 300 },
   queueTitle: { fontFamily: FONT, color: COLORS.bone, fontSize: 28, marginTop: 18 },
+  challengeBtn: { borderWidth: 1.5, borderColor: COLORS.flame, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center' },
+  challengeBtnText: { color: COLORS.flame, fontWeight: '800', letterSpacing: 1.2, fontSize: 14 },
+  challenger: { fontFamily: FONT, color: COLORS.bone, fontSize: 30 },
+  record: { color: COLORS.flame, fontSize: 16, fontWeight: '800', marginTop: 4, marginBottom: 10, letterSpacing: 1 },
   queueSub: { color: COLORS.dim, fontSize: 14, marginTop: 6, marginBottom: 8 },
   row: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   sidePanel: { alignItems: 'center', justifyContent: 'center' },

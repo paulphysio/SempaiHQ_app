@@ -22,6 +22,7 @@ const SESSION_KEY = 'kaiji_session_v1'; // { secret, matchId, signature?, wager?
 const FINAL_JOIN_ERRORS = [
   'deposit_refunded', 'deposit_already_used', 'already_in_match', 'not_allowed', 'wager_out_of_range',
   'deposit_memo_missing', 'deposit_amount_mismatch', 'deposit_tx_failed', 'deposit_tx_too_old', 'deposit_no_single_depositor',
+  'challenge_taken',
 ];
 
 async function call(action, payload = {}) {
@@ -76,11 +77,13 @@ export const fromBaseUnits = (units, decimals) => Number(units) / 10 ** decimals
  * Kaiji cluster ourselves (signAndSendTransaction always uses the app-wide RPC_URL), then ask the server to
  * verify it and find an opponent. Resolves to { match, side }; status stays 'waiting' until someone joins.
  */
-export async function depositAndJoin({ wallet, signTransactionOnly, wagerTokens }) {
+// challenge: open a challenge (others are notified). challengeId: accept that challenge.
+export async function depositAndJoin({ wallet, signTransactionOnly, wagerTokens, wagerUnits = null, challenge = false, challengeId = null }) {
   const owner = new PublicKey(wallet.publicKey);
   const cfg = await getKaijiConfig(owner.toBase58());
   if (!cfg.allowed) throw new Error('not_allowed');
-  const amount = toBaseUnits(wagerTokens, cfg.decimals);
+  const amount = wagerUnits != null ? BigInt(wagerUnits) : toBaseUnits(wagerTokens, cfg.decimals);
+  const intent = challengeId ? { challengeId } : challenge ? { challenge: true } : {};
   if (amount < BigInt(cfg.minWager) || amount > BigInt(cfg.maxWager)) throw new Error('wager_out_of_range');
 
   const secret = newSecret();
@@ -109,11 +112,11 @@ export async function depositAndJoin({ wallet, signTransactionOnly, wagerTokens 
     maxRetries: 3,
   });
   // remember the signature right away: if the app dies now, resumeMatch() finishes the join on the next start
-  await saveSession({ secret, matchId: null, signature, wager: amount.toString(), at: Date.now() });
+  await saveSession({ secret, matchId: null, signature, wager: amount.toString(), ...intent, at: Date.now() });
   await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
 
   try {
-    const { match, side } = await call('join', { signature, wager: amount.toString(), secret });
+    const { match, side } = await call('join', { signature, wager: amount.toString(), secret, ...intent });
     await saveSession({ secret, matchId: match.id, at: Date.now() });
     return { match, side };
   } catch (e) {
@@ -132,7 +135,8 @@ export async function resumeMatch() {
   // repeat: the server returns the same match for the same signature and secret.
   if (s.signature && !s.matchId) {
     try {
-      const { match } = await call('join', { signature: s.signature, wager: s.wager, secret: s.secret });
+      const intent = s.challengeId ? { challengeId: s.challengeId } : s.challenge ? { challenge: true } : {};
+      const { match } = await call('join', { signature: s.signature, wager: s.wager, secret: s.secret, ...intent });
       s.matchId = match.id;
       await saveSession({ secret: s.secret, matchId: match.id, at: Date.now() });
     } catch (e) {
@@ -153,6 +157,9 @@ export async function resumeMatch() {
     return null;
   }
 }
+
+/** Public details of a challenge for the accept screen. */
+export const getChallenge = (challengeId) => call('challenge', { challengeId });
 
 export const getMatchState = async (matchId) => call('state', { secret: await secretOrThrow(), matchId });
 export const submitPick = async (matchId, card) => (await call('pick', { secret: await secretOrThrow(), matchId, card })).match; // 'R' | 'P' | 'S'

@@ -44,6 +44,7 @@ const RULES = {
   startHand: { R: 4, P: 4, S: 4 },
   pickSeconds: Number(envFirst('PICK_SECONDS') ?? '35'),
   waitingSeconds: Number(envFirst('WAIT_SECONDS') ?? '45'),
+  challengeSeconds: Number(envFirst('CHALLENGE_SECONDS') ?? '180'), // an open challenge waits this long, then refunds
   maxIdleRounds: 2, // two rounds in a row where nobody picks voids the match
   feeBps: 1000, // 10%
   feeSolShareBps: Number(envFirst('SOL_FEE_SHARE_BPS') ?? '2500'), // 25% of the fee, converted to SOL in batches
@@ -763,7 +764,119 @@ async function refundDeposit(wallet: string, wager: bigint, signature: string) {
   }
 }
 
-async function joinMatch(signature: string, wagerStr: string, secret: unknown) {
+// ------------------------------------------------------------------------------------- challenges
+// A challenge is a waiting match that other players are invited to accept. The notification shows the
+// wager and the challenger's record; the first accepter plays (kaiji_take_challenge locks the row).
+
+/** Settled results for one wallet: wins / losses / draws. */
+async function recordOf(wallet: string) {
+  const { data } = await db()
+    .from('kaiji_matches')
+    .select('wallet_a, wallet_b, winner, outcome')
+    .eq('status', 'settled')
+    .in('outcome', ['win', 'draw'])
+    .or(`wallet_a.eq.${wallet},wallet_b.eq.${wallet}`)
+    .limit(5000);
+  let wins = 0, losses = 0, draws = 0;
+  for (const m of data ?? []) {
+    if (m.outcome === 'draw') { draws++; continue; }
+    const mine = m.wallet_a === wallet ? 'a' : 'b';
+    if (m.winner === mine) wins++; else losses++;
+  }
+  return { wins, losses, draws };
+}
+
+/** The account behind a wallet (main wallet or a linked one). */
+async function userByWallet(wallet: string) {
+  const { data: u } = await db().from('users').select('id, name, image').eq('wallet_address', wallet).limit(1);
+  if (u?.length) return u[0];
+  const { data: link } = await db().from('user_wallets').select('user_id').eq('address', wallet).limit(1);
+  if (!link?.length) return null;
+  const { data: u2 } = await db().from('users').select('id, name, image').eq('id', link[0].user_id).limit(1);
+  return u2?.[0] ?? null;
+}
+
+const shortWallet = (w: string) => `${w.slice(0, 4)}…${w.slice(-4)}`;
+const tokens = (units: bigint | string | number) => {
+  const v = Number(units) / 10 ** cfg().decimals;
+  return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/\.?0+$/, '');
+};
+
+/** Push the challenge to recent Kaiji players (best effort; never blocks the game). */
+async function notifyChallenge(m: any) {
+  try {
+    const since = iso(-60 * 24 * 3600 * 1000); // played in the last 60 days
+    const { data: rows } = await db().from('kaiji_matches').select('wallet_a, wallet_b').gte('created_at', since).limit(5000);
+    const wallets = [...new Set((rows ?? []).flatMap((r: any) => [r.wallet_a, r.wallet_b]).filter(Boolean))]
+      .filter((w) => w !== m.wallet_a);
+    if (!wallets.length) return;
+
+    const ids = new Set<string>();
+    for (let i = 0; i < wallets.length; i += 200) {
+      const chunk = wallets.slice(i, i + 200);
+      const { data: us } = await db().from('users').select('id').in('wallet_address', chunk);
+      (us ?? []).forEach((u: any) => ids.add(u.id));
+      const { data: links } = await db().from('user_wallets').select('user_id').in('address', chunk);
+      (links ?? []).forEach((l: any) => ids.add(l.user_id));
+    }
+    const me = await userByWallet(m.wallet_a);
+    if (me) ids.delete(me.id);
+    if (!ids.size) return;
+
+    const rec = await recordOf(m.wallet_a);
+    const who = me?.name && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(me.name) ? me.name : shortWallet(m.wallet_a);
+    const mins = Math.round(RULES.challengeSeconds / 60);
+    const title = `⚔️ Kaiji challenge · ${tokens(m.wager)} SKR`;
+    const body = `${who} (${rec.wins}W–${rec.losses}L) wants a match. First to accept plays — ${mins} min.`;
+    const userIds = [...ids];
+    const base = Deno.env.get('SUPABASE_URL')!;
+    const key = (Deno.env.get('SB_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!;
+    for (let i = 0; i < userIds.length; i += 500) {
+      await fetch(`${base}/functions/v1/send-push-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+        body: JSON.stringify({
+          userIds: userIds.slice(i, i + 500),
+          title,
+          body,
+          data: { type: 'kaiji_challenge', challengeId: m.id },
+        }),
+      }).catch((e) => console.warn('[kaiji challenge push]', errMsg(e)));
+    }
+    console.log(`[kaiji] challenge ${m.id} sent to ${userIds.length} players`);
+  } catch (e) {
+    console.warn('[kaiji notifyChallenge]', errMsg(e));
+  }
+}
+
+/** What the accept screen shows. Public: no secrets, nobody's tokens. */
+async function challengeInfo(id: string) {
+  const { data: m } = await db().from('kaiji_matches').select('*').eq('id', id).maybeSingle();
+  if (!m || !m.challenge) throw new Error('challenge_not_found');
+  const open = m.status === 'waiting' && (!m.expires_at || new Date(m.expires_at).getTime() > Date.now());
+  const me = await userByWallet(m.wallet_a);
+  return {
+    id: m.id,
+    open,
+    status: m.status,
+    wager: String(m.wager),
+    decimals: cfg().decimals,
+    expiresAt: m.expires_at,
+    challenger: {
+      wallet: m.wallet_a,
+      name: me?.name && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(me.name) ? me.name : shortWallet(m.wallet_a),
+      image: me?.image ?? null,
+    },
+    record: await recordOf(m.wallet_a),
+  };
+}
+
+async function joinMatch(
+  signature: string,
+  wagerStr: string,
+  secret: unknown,
+  opts: { challenge?: boolean; challengeId?: string } = {},
+) {
   const sec = validSecret(secret);
   const hash = await sha256Hex(sec);
   let wager: bigint;
@@ -816,14 +929,47 @@ async function joinMatch(signature: string, wagerStr: string, secret: unknown) {
   if (c.allowedWallets.length && !c.allowedWallets.includes(wallet)) return reject('not_allowed');
   if (await openMatchByWallet(wallet)) return reject('already_in_match');
 
-  const { data, error } = await db().rpc('kaiji_join_or_create', {
-    p_wallet: wallet,
-    p_token: hash,
-    p_wager: wager.toString(),
-    p_mint: c.mintAddress,
-    p_deadline: iso(RULES.pickSeconds * 1000),
-  });
-  if (error || !data) return reject(error?.message ?? 'join_failed');
+  let data: any;
+  if (opts.challengeId) {
+    // Accepting one specific challenge: first come, first served. Too late → full refund.
+    const r = await db().rpc('kaiji_take_challenge', {
+      p_match: opts.challengeId,
+      p_wallet: wallet,
+      p_token: hash,
+      p_wager: wager.toString(),
+      p_mint: c.mintAddress,
+      p_deadline: iso(RULES.pickSeconds * 1000),
+    });
+    if (r.error) return reject(r.error.message);
+    if (!r.data || !r.data.id) return reject('challenge_taken');
+    data = r.data;
+  } else {
+    const r = await db().rpc('kaiji_join_or_create', {
+      p_wallet: wallet,
+      p_token: hash,
+      p_wager: wager.toString(),
+      p_mint: c.mintAddress,
+      p_deadline: iso(RULES.pickSeconds * 1000),
+    });
+    if (r.error || !r.data) return reject(r.error?.message ?? 'join_failed');
+    data = r.data;
+    // Opening a challenge: if nobody was already waiting at this wager, invite everyone.
+    if (opts.challenge && data.status === 'waiting' && data.wallet_a === wallet) {
+      const { data: marked } = await db()
+        .from('kaiji_matches')
+        .update({ challenge: true, expires_at: iso(RULES.challengeSeconds * 1000), updated_at: iso() })
+        .eq('id', data.id)
+        .eq('status', 'waiting')
+        .select()
+        .maybeSingle();
+      if (marked) {
+        data = marked;
+        const rt = (globalThis as any).EdgeRuntime;
+        if (rt?.waitUntil) rt.waitUntil(notifyChallenge(marked));
+        else notifyChallenge(marked);
+      }
+    }
+  }
   for (let i = 0; i < 3; i++) {
     const { error: linkErr } = await db().from('kaiji_deposits').update({ match_id: data.id }).eq('sig', signature);
     if (!linkErr) break;
@@ -897,8 +1043,18 @@ async function sweep() {
     .from('kaiji_matches')
     .select('id')
     .eq('status', 'waiting')
+    .eq('challenge', false)
     .lt('created_at', iso(-RULES.waitingSeconds * 1000));
   for (const r of waiting ?? []) if (await cancelWaiting(r.id)) stats.expired++;
+
+  // open challenges that nobody accepted in time → refund
+  const { data: lapsed } = await db()
+    .from('kaiji_matches')
+    .select('id')
+    .eq('status', 'waiting')
+    .eq('challenge', true)
+    .lt('expires_at', iso());
+  for (const r of lapsed ?? []) if (await cancelWaiting(r.id)) stats.expired++;
 
   const { data: active } = await db().from('kaiji_matches').select('*').eq('status', 'active').lt('round_deadline', iso());
   for (const m of active ?? []) {
@@ -996,6 +1152,7 @@ Deno.serve(async (req: Request) => {
           winsNeeded: RULES.winsNeeded,
           pickSeconds: RULES.pickSeconds,
           waitingSeconds: RULES.waitingSeconds,
+          challengeSeconds: RULES.challengeSeconds,
           restricted: c.allowedWallets.length > 0,
           allowed: c.allowedWallets.length === 0 || c.allowedWallets.includes(wallet),
         };
@@ -1005,7 +1162,13 @@ Deno.serve(async (req: Request) => {
         result = await health();
         break;
       case 'join':
-        result = await joinMatch(String(body.signature ?? ''), String(body.wager ?? ''), body.secret);
+        result = await joinMatch(String(body.signature ?? ''), String(body.wager ?? ''), body.secret, {
+          challenge: body.challenge === true,
+          challengeId: typeof body.challengeId === 'string' && /^[0-9a-f-]{36}$/i.test(body.challengeId) ? body.challengeId : undefined,
+        });
+        break;
+      case 'challenge':
+        result = await challengeInfo(String(body.challengeId ?? ''));
         break;
       case 'pick':
         result = { match: await submitPick(body.secret, String(body.matchId ?? ''), body.card) };

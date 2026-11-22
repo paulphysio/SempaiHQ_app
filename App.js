@@ -389,7 +389,8 @@ const AppContent = ({ setIsStatusBarHidden }) => {
       const go = () => {
         if (!navigationRef.isReady()) return false;
         try {
-          if (data.mangaId) navigationRef.navigate('MangaDetail', { id: data.mangaId });
+          if (data.type === 'kaiji_challenge' && data.challengeId) navigationRef.navigate('Kaiji', { challengeId: data.challengeId });
+          else if (data.mangaId) navigationRef.navigate('MangaDetail', { id: data.mangaId });
           else if (data.novelId) navigationRef.navigate('NovelDetail', { id: data.novelId });
           else return true;
           return true;
