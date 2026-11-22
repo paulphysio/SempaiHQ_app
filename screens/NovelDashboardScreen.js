@@ -12,7 +12,9 @@ import * as FileSystem from 'expo-file-system';
 import * as Network from 'expo-network';
 import { LinearGradient } from 'expo-linear-gradient';
 import ChapterEditor from '../components/editor/ChapterEditor';
-import { draftKey, loadDraft, clearDraft, timeSince } from '../services/drafts';
+import { draftKey, loadDraft, clearDraft, listDrafts, timeSince } from '../services/drafts';
+import { cacheSet, cacheValue } from '../services/localCache';
+import { useOnline } from '../hooks/useOnline';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../services/supabaseClient';
@@ -184,9 +186,22 @@ const NovelDashboardScreen = () => {
     return true;
   };
 
+  // Offline: the studio still opens from what this phone remembers (who you
+  // are + your manuscripts), so writing never waits for a connection.
+  const [offline, setOffline] = useState(false);
+  const [deviceDrafts, setDeviceDrafts] = useState([]);
+  const online = useOnline();
+  const accessCacheKey = activePublicKey ? `studio:access:${activePublicKey.toString()}` : null;
+
   const handleCreatorAccess = async () => {
     if (!isWalletConnected || !activePublicKey) return;
-    setAccess('checking');
+    setAccess((a) => (a === 'granted' ? a : 'checking'));
+    const grant = (d) => {
+      setCurrentUserId(d.id);
+      setIsWriter(!!d.isWriter);
+      setIsSuperuser(!!d.isSuperuser);
+      setAccess('granted');
+    };
     try {
       const walletAddress = activePublicKey.toString();
       const { data, error } = await supabase
@@ -199,11 +214,16 @@ const NovelDashboardScreen = () => {
         setAccess('denied');
         return;
       }
-      setCurrentUserId(data.id);
-      setIsWriter(!!data.isWriter);
-      setIsSuperuser(!!data.isSuperuser);
-      setAccess('granted');
+      cacheSet(accessCacheKey, { id: data.id, isWriter: !!data.isWriter, isSuperuser: !!data.isSuperuser });
+      setOffline(false);
+      grant(data);
     } catch (err) {
+      const remembered = accessCacheKey ? await cacheValue(accessCacheKey) : null;
+      if (remembered?.id) {
+        setOffline(true);
+        grant(remembered);
+        return;
+      }
       console.error('Error in creator access:', err.message);
       setAccess('error');
     }
@@ -211,7 +231,7 @@ const NovelDashboardScreen = () => {
 
   const fetchNovels = async () => {
     if (!currentUserId) return;
-
+    const listKey = `studio:novels:${currentUserId}:${isSuperuser ? 'all' : 'mine'}`;
     try {
       let query = supabase.from('novels').select('*, viewers_count, tags');
       if (!isSuperuser) query = query.eq('user_id', currentUserId);
@@ -219,12 +239,67 @@ const NovelDashboardScreen = () => {
       const { data, error } = await query;
       if (error) throw new Error(error.message);
       setNovelsList(data || []);
+      cacheSet(listKey, data || []);
+      setOffline(false);
     } catch (err) {
-      console.error('Error fetching novels:', err.message);
-      toast.error(`Failed to fetch novels: ${err.message}`);
+      const remembered = await cacheValue(listKey);
+      if (remembered) {
+        setNovelsList(remembered);
+        setOffline(true);
+      } else {
+        console.error('Error fetching novels:', err.message);
+        toast.error("Couldn't load your manuscripts — you can still write; drafts save on this phone.");
+      }
     } finally {
       setNovelsLoaded(true);
     }
+  };
+
+  const refreshDeviceDrafts = () => listDrafts().then(setDeviceDrafts);
+  useEffect(() => { if (!editorOpen) refreshDeviceDrafts(); }, [editorOpen, novelsLoaded]);
+
+  // Back online: refresh quietly.
+  useEffect(() => {
+    if (online === true && offline) {
+      handleCreatorAccess();
+      fetchNovels();
+    }
+  }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pick up a draft saved on this phone: open its manuscript + chapter, then the editor.
+  const resumeDeviceDraft = (d) => {
+    if (d.novelId === 'new') {
+      resetForm();
+    } else {
+      const novel = novelsList.find((n) => n.id === d.novelId);
+      if (!novel) {
+        toast.info("That draft's manuscript isn't on this phone yet — connect once to load it.");
+        return;
+      }
+      handleEditNovel(novel);
+      // Set the chapter from the manuscript itself (same update batch, so it
+      // wins over the reset inside handleEditNovel).
+      const titles = Array.isArray(novel.chaptertitles) ? novel.chaptertitles : [];
+      const contents = Array.isArray(novel.chaptercontents) ? novel.chaptercontents : [];
+      const idx = d.chapterIndex;
+      if (idx !== null && idx >= 0 && idx < titles.length) {
+        const adv = (Array.isArray(novel.advance_chapters) ? novel.advance_chapters : []).find((c) => c.index === idx) || {};
+        setNewChapterTitle(titles[idx] || '');
+        setNewChapterContent(contents[idx] || '');
+        setNewChapterIsAdvance(!!adv.is_advance);
+        setChapterReleaseDate(parseISOToSelections(adv.free_release_date || null));
+        setEditChapterIndex(idx);
+      } else {
+        // A new chapter (or one that's since been removed): bring the words along.
+        setEditChapterIndex(null);
+        if (idx !== null) {
+          setNewChapterTitle(d.title || '');
+          setNewChapterContent(d.content || '');
+        }
+      }
+    }
+    // Open once the draft key points at this chapter; the editor restores the draft.
+    setTimeout(() => { setEditorOpen(true); scrollToEditor(); }, 80);
   };
 
   const fetchWriters = async () => {
@@ -976,6 +1051,49 @@ const NovelDashboardScreen = () => {
             <StatTile icon="eye" label="Total views" value={formatCount(stats.views)} tone={colors.info} />
             <StatTile icon="layer-group" label="Chapters" value={stats.chapters} tone={colors.gold} />
           </View>
+
+          {offline ? (
+            <Card tint style={{ marginTop: space.md, borderColor: `${colors.gold}66`, borderWidth: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <FontAwesome5 name="wifi" size={14} color={colors.gold} />
+                <Text style={[ss.cardTitle, { marginBottom: 0, flex: 1 }]}>You're offline — keep writing</Text>
+              </View>
+              <Text style={[ss.note, { marginTop: 6 }]}>
+                Everything you write is saved on this phone as you type. Publish when you're back online — the studio refreshes by itself.
+              </Text>
+            </Card>
+          ) : null}
+
+          {/* drafts saved on this phone */}
+          {deviceDrafts.length ? (
+            <>
+              <SectionHeader title="Drafts on this phone" count={deviceDrafts.length} />
+              {deviceDrafts.slice(0, 6).map((d) => {
+                const novel = d.novelId === 'new' ? null : novelsList.find((n) => n.id === d.novelId);
+                const where = d.novelId === 'new'
+                  ? 'New manuscript'
+                  : `${novel?.title || 'Manuscript'} · ${d.chapterIndex === null ? 'new chapter' : `chapter ${d.chapterIndex + 1}`}`;
+                return (
+                  <Pressable
+                    key={d.key}
+                    onPress={() => resumeDeviceDraft(d)}
+                    style={({ pressed }) => [ss.draftBanner, { marginTop: space.sm, borderColor: `${colors.gold}88`, backgroundColor: `rgba(${colors.goldRgb},${pressed ? 0.2 : 0.1})` }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Continue draft ${d.title || 'untitled'}, ${where}`}
+                  >
+                    <FontAwesome5 name="pen-fancy" size={13} color={colors.gold} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[ss.rowTitle, { fontSize: 14 }]} numberOfLines={1}>{d.title || 'Untitled chapter'}</Text>
+                      <Text style={ss.rowSub} numberOfLines={1}>
+                        {where} · {wordCount(d.content).toLocaleString()} words · {timeSince(d.updatedAt)}
+                      </Text>
+                    </View>
+                    <FontAwesome5 name="chevron-right" size={11} color={colors.gold} />
+                  </Pressable>
+                );
+              })}
+            </>
+          ) : null}
 
           {/* manuscripts */}
           <SectionHeader title={isSuperuser ? 'All manuscripts' : 'Your manuscripts'} count={novelsList.length} />

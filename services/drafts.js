@@ -64,6 +64,43 @@ export const clearDraft = async (key) => {
   }
 };
 
+/**
+ * Every draft on this device, newest first:
+ * [{ key, novelId ('new' for a new manuscript), chapterIndex (number | null), title, content, updatedAt }]
+ */
+export const listDrafts = async () => {
+  try {
+    const keys = await readIndex();
+    if (!keys.length) return [];
+    const pairs = await AsyncStorage.multiGet(keys.map((k) => PREFIX + k));
+    const out = [];
+    pairs.forEach(([fullKey, raw]) => {
+      if (!raw) return;
+      try {
+        const d = JSON.parse(raw);
+        if (!d || (!d.title && !d.content)) return;
+        const key = fullKey.slice(PREFIX.length);
+        const m = key.match(/^novel:(.+):ch:(.+)$/);
+        if (!m) return;
+        out.push({
+          key,
+          novelId: m[1],
+          chapterIndex: m[2] === 'new' ? null : Number(m[2]),
+          title: d.title || '',
+          content: d.content || '',
+          updatedAt: d.updatedAt || 0,
+        });
+      } catch {
+        /* skip a damaged entry */
+      }
+    });
+    return out.sort((a, b) => b.updatedAt - a.updatedAt);
+  } catch (e) {
+    console.warn('[drafts] list failed:', e?.message || e);
+    return [];
+  }
+};
+
 /** Writer preferences (text size, word goal) — also offline. */
 const PREFS = 'sempai_writer_prefs';
 export const loadWriterPrefs = async () => {
