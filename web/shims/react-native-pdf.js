@@ -2,8 +2,11 @@
 import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
 import { View } from 'react-native';
 
-const Pdf = forwardRef(({ source, style, onLoadComplete }, ref) => {
-  const uri = source?.uri || '';
+// `page` opens the browser viewer at that page (#page=N). The browser doesn't
+// report page turns back, so web readers don't save PDF positions.
+const Pdf = forwardRef(({ source, style, onLoadComplete, page }, ref) => {
+  const base = source?.uri || '';
+  const uri = base && page > 1 ? `${base.split('#')[0]}#page=${page}` : base;
   useImperativeHandle(ref, () => ({ setPage: () => {} }), []);
   useEffect(() => { if (uri && onLoadComplete) onLoadComplete(1, uri); }, [uri]); // eslint-disable-line react-hooks/exhaustive-deps
   return (

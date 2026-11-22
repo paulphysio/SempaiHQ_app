@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshControl } from 'react-native';
+import { RefreshControl, ScrollView, Pressable, View, Text, Image, StyleSheet } from 'react-native';
+import { getBooksInProgress, myId, positionLabel } from '../services/bookProgress';
+import { coverSource } from '../theme/tokens';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { cacheSet, cacheValue } from '../services/localCache';
@@ -9,7 +11,7 @@ import GelOrb from '../components/nav/GelOrb';
 import { useTheme } from '../context/ThemeContext';
 import { formatCount } from '../components/detail/DetailKit';
 import { fetchBazaarCopies } from '../utils/bazaar';
-import { Page, PageHeader, SearchField, ChipRow, SectionHeader, PosterGrid } from '../components/page/PageKit';
+import { Page, PageHeader, SearchField, ChipRow, SectionHeader, PosterGrid, GUTTER } from '../components/page/PageKit';
 
 const FILTERS = [
   { value: 'sale', label: 'For sale' },
@@ -27,6 +29,29 @@ const BazaarScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState([]);
+  const [reading, setReading] = useState([]); // books in progress: [{ book, pos }]
+
+  // "Continue reading" — refreshed whenever you come back to the shelf.
+  const loadReading = useCallback(async () => {
+    try {
+      const me = await myId();
+      setReading(me ? await getBooksInProgress(me, 10) : []);
+    } catch {
+      /* the row just stays hidden */
+    }
+  }, []);
+  useEffect(() => {
+    loadReading();
+    return navigation.addListener('focus', loadReading);
+  }, [navigation, loadReading]);
+
+  const openReading = (x) =>
+    navigation.navigate('BazaarReader', {
+      bookId: x.book.id,
+      title: x.book.title,
+      fileType: x.book.file_type === 'pdf' ? 'pdf' : 'epub',
+      fileName: x.book.file_name || null,
+    });
 
   const loadBooks = useCallback(async () => {
     try {
@@ -124,6 +149,35 @@ const BazaarScreen = () => {
       <SearchField value={query} onChangeText={setQuery} placeholder="Search title or author" />
       <ChipRow options={FILTERS} selected={filters} onToggle={toggle} onClear={() => setFilters([])} />
 
+      {reading.length && !filtering ? (
+        <>
+          <SectionHeader title="Continue reading" count={reading.length} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={st.rail} style={st.bleed}>
+            {reading.map((x) => {
+              const pct = Math.max(0, Math.min(100, x.pos.pct));
+              return (
+                <Pressable
+                  key={x.book.id}
+                  onPress={() => openReading(x)}
+                  style={({ pressed }) => [st.card, { backgroundColor: colors.bgCard, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Continue ${x.book.title}, ${positionLabel(x.pos)}`}
+                >
+                  <Image source={coverSource(x.book.cover_url)} style={st.cover} resizeMode="cover" />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[st.title, { color: colors.textPrimary }]} numberOfLines={2}>{x.book.title}</Text>
+                    <Text style={[st.meta, { color: colors.textMuted }]} numberOfLines={1}>{positionLabel(x.pos)}</Text>
+                    <View style={[st.track, { backgroundColor: colors.border }]}>
+                      <View style={[st.fill, { width: `${pct}%`, backgroundColor: colors.accent }]} />
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </>
+      ) : null}
+
       <SectionHeader title={filtering ? 'Results' : 'New arrivals'} count={cards.length} />
       {cards.length ? (
         <PosterGrid items={cards} onOpen={openBook} />
@@ -146,5 +200,16 @@ const BazaarScreen = () => {
     </Page>
   );
 };
+
+const st = StyleSheet.create({
+  bleed: { marginHorizontal: -GUTTER },
+  rail: { paddingHorizontal: GUTTER, gap: 10, paddingBottom: 4 },
+  card: { width: 250, flexDirection: 'row', gap: 12, padding: 10, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center' },
+  cover: { width: 52, height: 76, borderRadius: 8 },
+  title: { fontSize: 14, fontWeight: '700' },
+  meta: { fontSize: 12, marginTop: 3 },
+  track: { height: 4, borderRadius: 2, marginTop: 8, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 2 },
+});
 
 export default BazaarScreen;

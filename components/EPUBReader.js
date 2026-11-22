@@ -89,7 +89,7 @@ const buildHtml = (p) => `<!DOCTYPE html>
     });
     window.setTextSize(px);
   }
-  window.finishLoad = function (px) {
+  window.finishLoad = function (px, startAt) {
     try {
       if (typeof JSZip === 'undefined' || typeof ePub !== 'function') {
         post({ type: 'error', message: 'The book engine did not load. Check your connection and try again.' });
@@ -107,7 +107,7 @@ const buildHtml = (p) => `<!DOCTYPE html>
         try {
           if (book.locations && book.locations.length() && loc.start.cfi) pct = book.locations.percentageFromCfi(loc.start.cfi);
         } catch (e) {}
-        post({ type: 'loc', index: current, pct: pct });
+        post({ type: 'loc', index: current, pct: pct, cfi: (loc && loc.start && loc.start.cfi) || null });
       });
       book.ready.then(function () {
         toc = flatten(book.navigation && book.navigation.toc, 0, []);
@@ -115,6 +115,8 @@ const buildHtml = (p) => `<!DOCTYPE html>
           book.spine.each(function (it) { toc.push({ label: it.label || ('Section ' + (toc.length + 1)), href: it.href, depth: 0 }); });
         }
         post({ type: 'toc', chapters: toc.map(function (c) { return { label: c.label, depth: c.depth || 0 }; }) });
+        // Reopen where the reader stopped; if that spot can't be found, start at the top.
+        if (startAt) return rendition.display(startAt).catch(function () { return rendition.display(); });
         return rendition.display();
       }).then(function () {
         var st = document.getElementById('status'); if (st) st.style.display = 'none';
@@ -152,7 +154,11 @@ async function readBase64(file) {
   return FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 });
 }
 
-const EPUBReader = ({ file, title, onBack, onProgress }) => {
+/*
+ * startAt: a saved spot (CFI) to reopen at.
+ * onProgress({ index, total, cfi, pct }) — chapter index, exact spot, 0..1 of the book.
+ */
+const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
   const { isDark, colors } = useTheme();
   const palette = useMemo(() => ({
     bg: colors.bg,
@@ -178,6 +184,8 @@ const EPUBReader = ({ file, title, onBack, onProgress }) => {
   const startedRef = useRef(false);
   const sizeRef = useRef(DEFAULT_SIZE);
   const chaptersRef = useRef([]);
+  const startRef = useRef(startAt);
+  const pctRef = useRef(null);
 
   // remembered text size
   useEffect(() => {
@@ -196,7 +204,7 @@ const EPUBReader = ({ file, title, onBack, onProgress }) => {
     let i = 0;
     const next = () => {
       if (i >= b64.length) {
-        webRef.current?.injectJavaScript(`window.finishLoad(${sizeRef.current}); true;`);
+        webRef.current?.injectJavaScript(`window.finishLoad(${sizeRef.current}, ${JSON.stringify(startRef.current || null)}); true;`);
         return;
       }
       webRef.current?.injectJavaScript(`window.addChunk(${JSON.stringify(b64.substring(i, i + CHUNK_SIZE))}); true;`);
@@ -228,7 +236,7 @@ const EPUBReader = ({ file, title, onBack, onProgress }) => {
   const goTo = (i) => {
     setTocOpen(false);
     setCurrent(i);
-    onProgress?.({ index: i, total: chaptersRef.current.length });
+    // the reader reports the new spot (with its exact location) once it lands
     webRef.current?.injectJavaScript(`window.goTo(${i}); true;`);
   };
 
@@ -239,11 +247,14 @@ const EPUBReader = ({ file, title, onBack, onProgress }) => {
       chaptersRef.current = d.chapters || [];
       setChapters(chaptersRef.current);
     } else if (d.type === 'loc') {
-      if (d.index >= 0) {
-        setCurrent(d.index);
-        onProgress?.({ index: d.index, total: chaptersRef.current.length });
-      }
-      if (typeof d.pct === 'number') setPct(d.pct);
+      if (d.index >= 0) setCurrent(d.index);
+      if (typeof d.pct === 'number') { setPct(d.pct); pctRef.current = d.pct; }
+      onProgress?.({
+        index: d.index >= 0 ? d.index : 0,
+        total: chaptersRef.current.length,
+        cfi: d.cfi || null,
+        pct: typeof d.pct === 'number' ? d.pct : pctRef.current,
+      });
     } else if (d.type === 'ready') {
       setPhase('ready');
     } else if (d.type === 'error') {

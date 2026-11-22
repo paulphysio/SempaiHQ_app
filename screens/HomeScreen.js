@@ -130,7 +130,9 @@ SpotlightCard.displayName = 'SpotlightCard';
 const ContinueCard = React.memo(({ item, onOpen, styles, colors }) => {
   const pct = Math.max(0, Math.min(100, Number(item.scroll_pct) || 0));
   const chapter =
-    item.kind === 'manga'
+    item.kind === 'book'
+      ? (String(item.chapter_key).startsWith('page:') ? `Page ${item.chapter_number ?? '—'}` : `Ch. ${item.chapter_number ?? '—'}`)
+      : item.kind === 'manga'
       ? `Ch. ${item.chapter_number ?? '—'}`
       : `Ch. ${Number.isNaN(parseInt(item.chapter_key, 10)) ? '—' : parseInt(item.chapter_key, 10) + 1}`;
   return (
@@ -430,18 +432,24 @@ const Home = () => {
       const rows = await getAllReadingProgress(userId);
       const novelRows = rows.filter((r) => r.content_type === 'novel');
       const mangaRows = rows.filter((r) => r.content_type === 'manga');
-      const [novelRes, mangaRes] = await Promise.all([
+      const bookRows = rows.filter((r) => r.content_type === 'bazaar');
+      const [novelRes, mangaRes, bookRes] = await Promise.all([
         novelRows.length ? supabase.from('novels').select('id, title, image').in('id', novelRows.map((r) => r.content_id)) : { data: [] },
         mangaRows.length ? supabase.from('manga').select('id, title, cover_image').in('id', mangaRows.map((r) => r.content_id)) : { data: [] },
+        bookRows.length ? supabase.from('bazaar_books').select('id, title, cover_url, file_type, file_name').in('id', bookRows.map((r) => r.content_id)) : { data: [] },
       ]);
       const nMap = Object.fromEntries((novelRes.data || []).map((n) => [n.id, n]));
       const mMap = Object.fromEntries((mangaRes.data || []).map((m) => [m.id, m]));
+      const bMap = Object.fromEntries((bookRes.data || []).map((b) => [b.id, b]));
       const items = [];
       rows.forEach((row) => {
         if (row.content_type === 'novel' && nMap[row.content_id]) {
           items.push({ ...row, kind: 'novel', title: nMap[row.content_id].title, image: nMap[row.content_id].image });
         } else if (row.content_type === 'manga' && mMap[row.content_id]) {
           items.push({ ...row, kind: 'manga', title: mMap[row.content_id].title, image: mMap[row.content_id].cover_image });
+        } else if (row.content_type === 'bazaar' && bMap[row.content_id] && Number(row.scroll_pct) < 99.5) {
+          const b = bMap[row.content_id];
+          items.push({ ...row, kind: 'book', title: b.title, image: b.cover_url, fileType: b.file_type, fileName: b.file_name });
         }
       });
       if (isMounted.current) setContinueItems(items.slice(0, 10));
@@ -588,7 +596,14 @@ const Home = () => {
   );
   const openContinue = useCallback(
     (item) =>
-      item.kind === 'novel'
+      item.kind === 'book'
+        ? navigation.navigate('BazaarReader', {
+            bookId: item.content_id,
+            title: item.title,
+            fileType: item.fileType === 'pdf' ? 'pdf' : 'epub',
+            fileName: item.fileName || null,
+          })
+        : item.kind === 'novel'
         ? navigation.navigate('Chapter', { novelId: item.content_id, chapterId: item.chapter_key })
         : navigation.navigate('MangaChapter', { mangaId: item.content_id, chapterId: item.chapter_key }),
     [navigation]

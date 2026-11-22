@@ -19,6 +19,7 @@ import {
   recordPurchase,
 } from '../utils/bazaar';
 import { toast } from '../components/Toast';
+import { myId, getBookPosition, positionLabel } from '../services/bookProgress';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 import { EmptyState } from '../components/ui';
 import { useTheme } from '../context/ThemeContext';
@@ -66,6 +67,17 @@ const BazaarBookScreen = () => {
 
   // Limited edition: { max, taken, left } (null until known)
   const [copies, setCopies] = useState(null);
+
+  // Where you stopped in this book (refreshed when you come back from reading).
+  const [readPos, setReadPos] = useState(null);
+  useEffect(() => {
+    const load = async () => {
+      const me = await myId();
+      setReadPos(me ? await getBookPosition(me, bookId).catch(() => null) : null);
+    };
+    load();
+    return navigation.addListener('focus', load);
+  }, [navigation, bookId]);
 
   const [refundModal, setRefundModal] = useState(false);
   const [refundReason, setRefundReason] = useState('');
@@ -307,7 +319,12 @@ const BazaarBookScreen = () => {
   const fileType = String(book.file_type || '').toUpperCase();
   const soldOut = !!copies && copies.left <= 0;
   const copiesLabel = copies ? (soldOut ? 'Sold out' : `${copies.left} of ${copies.max} left`) : null;
-  const readAction = { icon: 'book-open', label: 'Read book', onPress: handleRead };
+  const resumable = readPos && readPos.pct > 0.5 && readPos.pct < 99.5;
+  const readAction = {
+    icon: 'book-open',
+    label: resumable ? `Continue · ${positionLabel(readPos)}` : 'Read book',
+    onPress: handleRead,
+  };
   let primary;
   let secondary;
   if (isAuthor) {

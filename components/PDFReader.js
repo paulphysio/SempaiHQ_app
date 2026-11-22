@@ -10,9 +10,10 @@ import ReaderShell from './reader/ReaderShell';
  * (pinch to zoom in on a page). Page counter, jump to start, full screen.
  * On the web the browser's own PDF viewer does the scrolling.
  */
-const PDFReader = ({ file, title, onBack, onProgress }) => {
+// startPage: reopen at this page. onProgress({ page, total }).
+const PDFReader = ({ file, title, onBack, onProgress, startPage = 1 }) => {
   const { colors, isDark } = useTheme();
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(startPage || 1);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,6 +46,7 @@ const PDFReader = ({ file, title, onBack, onProgress }) => {
           <Pdf
             ref={pdfRef}
             source={{ uri: file.uri, cache: true }}
+            page={startPage || 1}
             style={{ flex: 1, backgroundColor: isDark ? '#1A1B24' : '#E9E6D8' }}
             fitPolicy={0} // fit page width
             spacing={8}
@@ -57,7 +59,7 @@ const PDFReader = ({ file, title, onBack, onProgress }) => {
             onLoadComplete={(n) => {
               setTotal(n || 0);
               setLoading(false);
-              onProgress?.({ page: 1, total: n || 0 });
+              onProgress?.({ page: Math.min(startPage || 1, n || 1), total: n || 0 });
             }}
             onPageChanged={(p, n) => {
               setPage(p);
