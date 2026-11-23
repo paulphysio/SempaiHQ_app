@@ -14,6 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { getHavenStyles } from '../styles/HavenStyles';
 import { useTheme } from '../context/ThemeContext';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass } from '../components/gel/GelKit';
 
 const { width } = Dimensions.get('window');
 
@@ -58,24 +60,24 @@ const KeepItSimpleScreen = () => {
   }
 
   return (
-    <LinearGradient
-      colors={['#0d1b2a', '#1b263b']}
-      style={styles.page}
-    >
+    <View style={[styles.page, { backgroundColor: colors.bg }]}>
       {/* Main Content */}
       <ScrollView
         contentContainerStyle={styles.main}
         showsVerticalScrollIndicator={false}
       >
         {/* How to Use Section */}
-        <View style={styles.howTo}>
-          <Text style={styles.howToTitle}>How to Use sempaihq.com</Text>
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <View pointerEvents="none"><GelOrb icon="compass" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>How SempaiHQ works</Text>
+        </View>
+        <GelGlass radius={26} glow={false} padding={16} style={{ marginBottom: 18 }}>
           {[
-            'Visit the Dapp in the browser. (Jupiter or Phantom)',
-            'Create your account/login by connecting seamlessly.',
-            'Create and edit your profile in Profile tab.',
-            'Read stories, comment and reply for points against a weekly rewards distribution.',
-            'Hold 💎 $Amethyst to get a points multiplier each week, as well as vote and mint NFTs.',
+            'Sign in with Google — on the app or at sempaihq.com.',
+            'Create your wallet: locked with your password, backed up by 12 recovery words.',
+            'Read novels and manga. Every new chapter you read earns 100 points.',
+            'Unlock premium chapters with SMP, tip creators, and collect badges.',
+            'Climb the weekly leaderboard — top readers share the rewards.',
           ].map((step, index) => (
             <View key={index} style={styles.howToListItem}>
               <View style={styles.howToListNumber}>
@@ -84,7 +86,7 @@ const KeepItSimpleScreen = () => {
               <Text style={styles.howToListText}>{step}</Text>
             </View>
           ))}
-        </View>
+        </GelGlass>
 
         {/* Hero */}
         <View style={styles.hero}>
@@ -95,7 +97,7 @@ const KeepItSimpleScreen = () => {
         </View>
 
         {/* Content */}
-        <View style={styles.content}>
+        <GelGlass radius={26} glow={false} padding={18}>
           <Text style={styles.contentText}>
             We've all heard of anime by now. I mean, it’s 2025! Manga too, if you lean far into that. But that's not exactly what this is about.
           </Text>
@@ -146,14 +148,10 @@ const KeepItSimpleScreen = () => {
           <Text style={styles.contentText}>
             <Text style={styles.highlight}>It takes just one match to start a forest fire. You know that, right?</Text>
           </Text>
-        </View>
+        </GelGlass>
       </ScrollView>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 Sempai HQ. All rights reserved.</Text>
-      </View>
-    </LinearGradient>
+    </View>
   );
 };
 

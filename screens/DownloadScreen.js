@@ -4,6 +4,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { getDownloadStyles } from '../styles/DownloadStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import { GelButton } from '../components/gel/GelKit';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -112,13 +113,7 @@ const DownloadScreen = () => {
                       </Text>
                     )}
                   </View>
-                  <TouchableOpacity
-                    style={styles.downloadButton}
-                    onPress={() => handleDownload(apk.download_url)}
-                  >
-                    <FontAwesome5 name="download" size={18} color="#FFF" />
-                    <Text style={styles.downloadButtonText}>Download APK</Text>
-                  </TouchableOpacity>
+                  <GelButton label="Download" icon="download" small onPress={() => handleDownload(apk.download_url)} />
                 </View>
               </View>
             ))}

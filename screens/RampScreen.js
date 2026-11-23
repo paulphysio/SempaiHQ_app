@@ -15,6 +15,9 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import GelOrb from '../components/nav/GelOrb';
+import { GelButton } from '../components/gel/GelKit';
+import { GelPageHeader } from '../components/gel/GelGate';
 
 const RampScreen = () => {
   const { isDark, colors } = useTheme();
@@ -85,22 +88,13 @@ const RampScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-left" size={20} color={colors.accent} />
-        </TouchableOpacity>
-        <View style={styles.headerTitle}>
-          <Icon name="credit-card" size={24} color={colors.accent} />
-          <Text style={styles.headerText}>Ramp - Buy Crypto</Text>
-        </View>
-        <View style={styles.placeholder} />
-      </View>
+      <GelPageHeader title="Buy crypto" subtitle="SOL, USDC and more with a card" />
 
       <ScrollView style={styles.content}>
         {/* Title Section */}
-        <View style={styles.titleSection}>
-          <Text style={styles.title}>Buy Crypto with Ramp</Text>
+        <View style={[styles.titleSection, { alignItems: 'center' }]}>
+          <View pointerEvents="none" style={{ marginBottom: 10 }}><GelOrb icon="credit-card" size={58} lit breathe={false} /></View>
+          <Text style={[styles.title, { textAlign: 'center' }]}>Buy crypto</Text>
           <Text style={styles.subtitle}>
             Purchase SOL, USDC, SMP, and other tokens easily with your preferred payment method
           </Text>
@@ -150,14 +144,7 @@ const RampScreen = () => {
                   </View>
                 ))}
               </View>
-              <TouchableOpacity
-                style={styles.buyButton}
-                onPress={() => handleBuyCrypto(provider.id)}
-              >
-                <Text style={styles.buyButtonText}>
-                  Open MoonPay Widget
-                </Text>
-              </TouchableOpacity>
+              <GelButton label={`Buy with ${provider.name}`} icon="credit-card" onPress={() => handleBuyCrypto(provider.id)} style={{ marginTop: 14 }} />
             </TouchableOpacity>
           ))}
         </View>
