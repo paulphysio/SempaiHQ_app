@@ -26,6 +26,7 @@ import { useTheme } from '../context/ThemeContext';
 import { DetailHero, ActionButton, makeDetailStyles, formatCount } from '../components/detail/DetailKit';
 import { Card } from '../components/page/PageKit';
 import { space } from '../theme/tokens';
+import { GelModal, GelInput } from '../components/gel/GelKit';
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -465,35 +466,21 @@ const BazaarBookScreen = () => {
         </DetailHero>
       </ScrollView>
 
-      <Modal visible={refundModal} transparent animationType="fade" onRequestClose={() => setRefundModal(false)}>
-        <KeyboardAvoidingView
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={[styles.payCard, { margin: 0 }]}>
-            <Text style={styles.payTitle}>Request a refund</Text>
-            <Text style={styles.splitNote}>Tell us why you'd like a refund. Requests are reviewed manually.</Text>
-            <TextInput
-              style={[styles.input, { height: 90, textAlignVertical: 'top' }]}
-              placeholder="Reason (optional)"
-              placeholderTextColor={BAZAAR_COLORS.textMuted}
-              multiline
-              value={refundReason}
-              onChangeText={setRefundReason}
-            />
-            <TouchableOpacity
-              style={[styles.primaryButton, refundSending && { opacity: 0.6 }]}
-              onPress={handleRefund}
-              disabled={refundSending}
-            >
-              {refundSending ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Submit Request</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => setRefundModal(false)}>
-              <Text style={styles.secondaryButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <GelModal
+        visible={refundModal}
+        onClose={() => !refundSending && setRefundModal(false)}
+        dismissable={!refundSending}
+        variant="sheet"
+        icon="undo"
+        title="Request a refund"
+        subtitle="Tell us why. Refunds are reviewed by a person."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', disabled: refundSending, onPress: () => setRefundModal(false) },
+          { label: 'Send request', icon: 'paper-plane', loading: refundSending, onPress: handleRefund },
+        ]}
+      >
+        <GelInput multiline placeholder="Reason (optional)" value={refundReason} onChangeText={setRefundReason} />
+      </GelModal>
     </View>
   );
 };

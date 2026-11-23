@@ -17,7 +17,7 @@ import { Connection, PublicKey, SystemProgram, Transaction, VersionedTransaction
 import { createTransferInstruction, getAssociatedTokenAddressSync, unpackAccount, getAccount, getOrCreateAssociatedTokenAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import Modal from 'react-native-modal';
+import { GelModal, GelInput } from '../components/gel/GelKit';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 import { getSwapStyles } from '../styles/SwapStyles';
@@ -332,38 +332,21 @@ const NexusScreen = () => {
         </Animated.View>
       )}
 
-      {/* Password Modal */}
-      <Modal isVisible={showPasswordModal} onBackdropPress={() => setShowPasswordModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={() => setShowPasswordModal(false)}
-          >
-            <Text style={styles.closeButtonText}>X</Text>
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Enter Wallet Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            placeholderTextColor="#999"
-          />
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handlePasswordSubmit}
-          >
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => setShowPasswordModal(false)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+      {/* Password */}
+      <GelModal
+        visible={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        variant="sheet"
+        icon="lock"
+        title="Confirm it's you"
+        subtitle="Enter your wallet password to continue."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setShowPasswordModal(false) },
+          { label: 'Confirm', icon: 'check', disabled: !password, onPress: handlePasswordSubmit },
+        ]}
+      >
+        <GelInput label="Password" placeholder="Your wallet password" secureTextEntry value={password} onChangeText={setPassword} autoFocus onSubmitEditing={handlePasswordSubmit} />
+      </GelModal>
 
       {/* Main Content */}
       <View style={styles.main}>

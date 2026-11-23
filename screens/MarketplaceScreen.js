@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Modal, ActivityIndicator, Image, SafeAreaView, RefreshControl, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Image, SafeAreaView, RefreshControl, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -8,6 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getMarketplaceStyles } from '../styles/MarketplaceStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import { GelModal, GelInput, GelInset, GelRow } from '../components/gel/GelKit';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -207,114 +208,38 @@ const MarketplaceScreen = () => {
   };
 
   const renderDetailModal = () => (
-    <Modal
-      visible={showDetailModal}
-      animationType="fade"
-      transparent
-      onRequestClose={() => setShowDetailModal(false)}
+    <GelModal
+      visible={showDetailModal && !!selectedItem}
+      onClose={() => setShowDetailModal(false)}
+      title={selectedItem?.nft_name}
+      actions={selectedItem ? [{ label: 'Buy', icon: 'shopping-cart', onPress: () => handlePurchase(selectedItem) }] : []}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={() => setShowDetailModal(false)}
-          >
-            <FontAwesome5 name="times" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {selectedItem && (
-            <>
-              {selectedItem.nft_image_url ? (
-                <Image source={{ uri: selectedItem.nft_image_url }} style={styles.modalImage} />
-              ) : (
-                <View style={styles.modalPlaceholderImage}>
-                  <FontAwesome5 name="image" size={60} color="#CCCCCC" />
-                </View>
-              )}
-
-              <Text style={styles.modalTitle}>{selectedItem.nft_name}</Text>
-              
-              <View style={styles.modalInfo}>
-                <View style={styles.infoRow}>
-                  <FontAwesome5 name="tag" size={16} color="#4A90E2" />
-                  <Text style={styles.infoLabel}>Rarity:</Text>
-                  <Text style={styles.infoValue}>
-                    {selectedItem.rarity.charAt(0).toUpperCase() + selectedItem.rarity.slice(1)}
-                  </Text>
-                </View>
-                
-                <View style={styles.infoRow}>
-                  <FontAwesome5 name="gem" size={16} color={colors.accent} />
-                  <Text style={styles.infoLabel}>Price:</Text>
-                  <Text style={styles.infoValue}>{selectedItem.price_smp?.toLocaleString()} SMP</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <FontAwesome5 name="user" size={16} color="#9B59B6" />
-                  <Text style={styles.infoLabel}>Seller:</Text>
-                  <Text style={styles.infoValue}>{selectedItem.users?.name || 'Anonymous'}</Text>
-                </View>
-              </View>
-
-              <TouchableOpacity 
-                style={styles.purchaseButton}
-                onPress={() => handlePurchase(selectedItem)}
-              >
-                <FontAwesome5 name="shopping-cart" size={16} color="#FFFFFF" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>Purchase</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
+      {selectedItem ? (
+        <>
+          {selectedItem.nft_image_url ? (
+            <Image source={{ uri: selectedItem.nft_image_url }} style={[styles.modalImage, { marginTop: 14, borderRadius: 18 }]} />
+          ) : null}
+          <GelInset>
+            <GelRow label="Rarity" value={selectedItem.rarity.charAt(0).toUpperCase() + selectedItem.rarity.slice(1)} />
+            <GelRow label="Price" value={`${selectedItem.price_smp?.toLocaleString()} SMP`} strong />
+            <GelRow label="Seller" value={selectedItem.users?.name || 'Anonymous'} />
+          </GelInset>
+        </>
+      ) : null}
+    </GelModal>
   );
 
   const renderListModal = () => (
-    <Modal
-      visible={showListModal}
-      animationType="fade"
-      transparent
-      onRequestClose={() => setShowListModal(false)}
+    <GelModal
+      visible={showListModal && !!selectedItem}
+      onClose={() => setShowListModal(false)}
+      icon="tag"
+      title="List for sale"
+      subtitle={selectedItem?.nft_name}
+      actions={[{ label: 'List item', icon: 'tag', disabled: !listingPrice, onPress: handleListItem }]}
     >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={() => setShowListModal(false)}
-          >
-            <FontAwesome5 name="times" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {selectedItem && (
-            <>
-              <Text style={styles.modalTitle}>List for Sale</Text>
-              <Text style={styles.modalSubtitle}>{selectedItem.nft_name}</Text>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Price (SMP)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter price"
-                  placeholderTextColor="#888"
-                  value={listingPrice}
-                  onChangeText={setListingPrice}
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <TouchableOpacity 
-                style={styles.listButton}
-                onPress={handleListItem}
-              >
-                <FontAwesome5 name="tag" size={16} color="#FFFFFF" style={styles.buttonIcon} />
-                <Text style={styles.buttonText}>List Item</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
+      <GelInput label="Price (SMP)" placeholder="e.g. 50000" value={listingPrice} onChangeText={setListingPrice} keyboardType="numeric" />
+    </GelModal>
   );
 
   if (!isWalletConnected) {

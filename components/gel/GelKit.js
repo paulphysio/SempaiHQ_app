@@ -94,6 +94,49 @@ export function GelInset({ children, style }) {
   );
 }
 
+/** Pick-one pills (e.g. USDC · SOL · SKR). options: ['A','B'] or [{ value, label }] */
+export function GelChips({ options, value, onChange, disabled, style }) {
+  const { isDark, colors } = useTheme();
+  return (
+    <View style={[{ flexDirection: 'row', gap: 8, marginTop: 14 }, style]}>
+      {options.map((o) => {
+        const v = typeof o === 'string' ? o : o.value;
+        const label = typeof o === 'string' ? o : o.label;
+        const on = v === value;
+        return (
+          <Pressable
+            key={v}
+            onPress={() => { if (!disabled) { haptics.tap(); onChange?.(v); } }}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: on, disabled: !!disabled }}
+            style={{
+              flex: 1,
+              height: 42,
+              borderRadius: 21,
+              overflow: 'hidden',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: on ? 'rgba(255,255,255,0.35)' : isDark ? 'rgba(255,255,255,0.10)' : `rgba(${colors.accentRgb},0.18)`,
+              backgroundColor: on ? colors.accent : isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.9)',
+              opacity: disabled ? 0.5 : 1,
+            }}
+          >
+            {on ? (
+              <LinearGradient
+                pointerEvents="none"
+                colors={['rgba(255,255,255,0.40)', 'rgba(255,255,255,0)']}
+                style={{ position: 'absolute', top: 1, left: 10, right: 10, height: 18, borderRadius: 18 }}
+              />
+            ) : null}
+            <Text style={{ color: on ? '#FFFFFF' : colors.textSecondary, fontWeight: '800', fontSize: 14 }}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /** A label · value row for GelInset. */
 export function GelRow({ label, value, strong }) {
   const { colors } = useTheme();

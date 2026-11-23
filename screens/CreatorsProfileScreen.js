@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useCallback, useMemo, useRef } 
 import { View, Text, Image, TouchableOpacity, ScrollView, Linking, ActivityIndicator, Animated, Easing, TextInput, RefreshControl, Clipboard, Share } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Modal from 'react-native-modal';
+import { GelModal, GelInput, GelChips } from '../components/gel/GelKit';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { safeFetch } from '../utils/urlValidation';
@@ -1144,223 +1144,104 @@ const CreatorsProfileScreen = () => {
         ))}
       </ScrollView>
 
-      {/* Badge Purchase Modal */}
-      <Modal
-        isVisible={showBadgePurchaseModal}
-        onBackdropPress={() => setShowBadgePurchaseModal(false)}
-        onBackButtonPress={() => setShowBadgePurchaseModal(false)}
+      {/* buy this creator's badge */}
+      <GelModal
+        visible={showBadgePurchaseModal}
+        onClose={() => setShowBadgePurchaseModal(false)}
+        variant="sheet"
+        icon="medal"
+        title="Support with a badge"
+        subtitle={`Back ${creatorData?.name || 'this creator'} and wear their badge.`}
+        actions={writerBadges.length && selectedBadge
+          ? [{ label: `Buy for $${selectedBadge.price || 0}`, icon: 'medal', loading: isProcessingBadgePurchase, onPress: handleBadgePurchase }]
+          : writerBadges.length
+          ? []
+          : [{ label: 'Browse all badges', icon: 'th-large', onPress: () => { setShowBadgePurchaseModal(false); navigation.navigate('Badges'); } }]}
       >
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <TouchableOpacity
-              style={themedStyles.closeButton}
-              onPress={() => setShowBadgePurchaseModal(false)}
-            >
-              <FontAwesome5 name="times" size={20} color="#fff" />
-            </TouchableOpacity>
-            <Text style={themedStyles.modalTitle}>Purchase Badge</Text>
-            <Text style={themedStyles.modalMessage}>
-              Support {creatorData?.name || 'this creator'} by purchasing their badge.
-            </Text>
-
-            {writerBadges.length > 0 ? (
-              <>
-                <ScrollView style={themedStyles.badgeOptions}>
-                  {writerBadges.map((badge) => (
-                    <TouchableOpacity
-                      key={badge.id}
-                      style={[themedStyles.badgeOption, selectedBadge?.id === badge.id && themedStyles.badgeOptionSelected]}
-                      onPress={() => setSelectedBadge(badge)}
-                    >
-                      <Image
-                        source={getBadgeImage(badge)}
-                        style={themedStyles.badgeOptionImage}
-                      />
-                      <View style={themedStyles.badgeOptionInfo}>
-                        <Text style={themedStyles.badgeOptionName}>{badge.name}</Text>
-                        <Text style={themedStyles.badgeOptionDescription}>{badge.description}</Text>
-                        <Text style={themedStyles.badgeOptionPrice}>${badge.price || 0}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-
-                {selectedBadge && (
-                  <>
-                    <View style={themedStyles.currencySelector}>
-                      <TouchableOpacity
-                        style={[themedStyles.currencyOption, selectedCurrency === 'USDC' && themedStyles.currencyOptionSelected]}
-                        onPress={() => setSelectedCurrency('USDC')}
-                      >
-                        <Text style={[themedStyles.currencyOptionText, selectedCurrency === 'USDC' && themedStyles.currencyOptionTextSelected]}>USDC</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[themedStyles.currencyOption, selectedCurrency === 'SOL' && themedStyles.currencyOptionSelected]}
-                        onPress={() => setSelectedCurrency('SOL')}
-                      >
-                        <Text style={[themedStyles.currencyOptionText, selectedCurrency === 'SOL' && themedStyles.currencyOptionTextSelected]}>SOL</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[themedStyles.currencyOption, selectedCurrency === 'SKR' && themedStyles.currencyOptionSelected]}
-                        onPress={() => setSelectedCurrency('SKR')}
-                      >
-                        <Text style={[themedStyles.currencyOptionText, selectedCurrency === 'SKR' && themedStyles.currencyOptionTextSelected]}>SKR</Text>
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity
-                      style={[themedStyles.modalButton, { backgroundColor: colors.accent, opacity: isProcessingBadgePurchase ? 0.6 : 1 }]}
-                      onPress={handleBadgePurchase}
-                      disabled={isProcessingBadgePurchase}
-                    >
-                      {isProcessingBadgePurchase ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={themedStyles.modalButtonText}>Purchase for ${selectedBadge.price || 0}</Text>
-                      )}
-                    </TouchableOpacity>
-                  </>
-                )}
-              </>
-            ) : (
-              <View style={themedStyles.noBadgesContainer}>
-                <FontAwesome5 name="information" size={32} color="#888" />
-                <Text style={themedStyles.noBadgesText}>No badges available for this writer yet.</Text>
+        {writerBadges.length > 0 ? (
+          <>
+            <ScrollView style={{ maxHeight: 320, marginTop: 10 }} showsVerticalScrollIndicator={false}>
+              {writerBadges.map((badge) => (
                 <TouchableOpacity
-                  style={[themedStyles.modalButton, { backgroundColor: colors.accent }]}
-                  onPress={() => navigation.navigate('Badges')}
+                  key={badge.id}
+                  style={[themedStyles.badgeOption, selectedBadge?.id === badge.id && themedStyles.badgeOptionSelected]}
+                  onPress={() => setSelectedBadge(badge)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: selectedBadge?.id === badge.id }}
                 >
-                  <Text style={themedStyles.modalButtonText}>Browse All Badges</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Message Modal */}
-      <Modal
-        isVisible={showMessageModal}
-        onBackdropPress={() => setShowMessageModal(false)}
-        onBackButtonPress={() => setShowMessageModal(false)}
-      >
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <TouchableOpacity
-              style={themedStyles.closeButton}
-              onPress={() => setShowMessageModal(false)}
-            >
-              <FontAwesome5 name="times" size={20} color="#fff" />
-            </TouchableOpacity>
-            <Text style={themedStyles.modalTitle}>Send Message</Text>
-            <Text style={themedStyles.modalMessage}>
-              Send a private message to {creatorData?.name || 'this creator'}.
-            </Text>
-
-            <TextInput
-              style={themedStyles.messageInput}
-              placeholder="Type your message here..."
-              placeholderTextColor="#888"
-              multiline
-              numberOfLines={4}
-              value={messageText}
-              onChangeText={setMessageText}
-            />
-
-            <TouchableOpacity
-              style={[themedStyles.modalButton, { backgroundColor: colors.accent, opacity: isSendingMessage ? 0.6 : 1 }]}
-              onPress={handleSendMessage}
-              disabled={isSendingMessage}
-            >
-              {isSendingMessage ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={themedStyles.modalButtonText}>Send Message</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Seeker badge earned */}
-      <Modal isVisible={seekerEarned} onBackdropPress={() => setSeekerEarned(false)} onBackButtonPress={() => setSeekerEarned(false)}>
-        <View style={{ backgroundColor: isDark ? '#14141F' : '#FFFFFF', borderRadius: 20, padding: 24, alignItems: 'center' }}>
-          <Image source={seekerBadgeImg} style={{ width: 72, height: 72, marginBottom: 14 }} accessibilityLabel="Seeker badge" />
-          <Text style={{ fontSize: 20, fontWeight: '900', color: isDark ? '#FFFFFF' : '#14141F', textAlign: 'center' }}>Seeker badge earned</Text>
-          <Text style={{ fontSize: 14, lineHeight: 20, color: isDark ? '#B8B8C8' : '#55556A', textAlign: 'center', marginTop: 8 }}>
-            {`You opened ${creatorData?.name || 'this creator'}'s SKR account with your tip. Thanks for helping creators get paid in SKR!`}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setSeekerEarned(false)}
-            accessibilityRole="button"
-            style={{ marginTop: 18, backgroundColor: '#F36316', paddingHorizontal: 28, paddingVertical: 12, borderRadius: 999 }}
-          >
-            <Text style={{ color: '#FFFFFF', fontWeight: '800' }}>Nice!</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      {/* Tip Jar Modal */}
-      <Modal
-        isVisible={showTipModal}
-        onBackdropPress={() => !tipSending && setShowTipModal(false)}
-        onBackButtonPress={() => !tipSending && setShowTipModal(false)}
-      >
-        <View style={themedStyles.modalOverlay}>
-          <View style={themedStyles.modalContent}>
-            <TouchableOpacity
-              style={themedStyles.closeButton}
-              onPress={() => !tipSending && setShowTipModal(false)}
-              disabled={tipSending}
-            >
-              <FontAwesome5 name="times" size={20} color="#fff" />
-            </TouchableOpacity>
-            <Text style={themedStyles.modalTitle}>Tip Jar</Text>
-            <Text style={themedStyles.modalMessage}>
-              Send a tip to {creatorData?.name || 'this creator'}. Funds go directly to their wallet.
-            </Text>
-
-            <View style={themedStyles.currencySelector}>
-              {['SOL', 'USDC', 'SKR'].map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[themedStyles.currencyOption, tipCurrency === c && themedStyles.currencyOptionSelected]}
-                  onPress={() => setTipCurrency(c)}
-                  disabled={tipSending}
-                >
-                  <Text style={[themedStyles.currencyOptionText, tipCurrency === c && themedStyles.currencyOptionTextSelected]}>{c}</Text>
+                  <Image source={getBadgeImage(badge)} style={themedStyles.badgeOptionImage} />
+                  <View style={themedStyles.badgeOptionInfo}>
+                    <Text style={themedStyles.badgeOptionName}>{badge.name}</Text>
+                    <Text style={themedStyles.badgeOptionDescription}>{badge.description}</Text>
+                    <Text style={themedStyles.badgeOptionPrice}>${badge.price || 0}</Text>
+                  </View>
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
+            {selectedBadge ? <GelChips options={['USDC', 'SOL', 'SKR']} value={selectedCurrency} onChange={setSelectedCurrency} /> : null}
+          </>
+        ) : (
+          <Text style={[themedStyles.modalMessage, { textAlign: 'center', marginTop: 14 }]}>No badges for this creator yet.</Text>
+        )}
+      </GelModal>
 
-            <TextInput
-              style={[themedStyles.messageInput, { minHeight: 48, textAlign: 'center', fontSize: 18 }]}
-              placeholder={tipCurrency === 'SOL' ? '0.05' : '5.00'}
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={tipAmount}
-              onChangeText={setTipAmount}
-              editable={!tipSending}
-            />
-            <Text style={[themedStyles.modalMessage, { textAlign: 'center', marginBottom: 12 }]}>
-              {tipCurrency} → {creatorData?.wallet_address ? `${creatorData.wallet_address.slice(0, 6)}...${creatorData.wallet_address.slice(-4)}` : 'creator wallet'}
-            </Text>
+      {/* private message */}
+      <GelModal
+        visible={showMessageModal}
+        onClose={() => setShowMessageModal(false)}
+        variant="sheet"
+        icon="envelope"
+        title={`Message ${creatorData?.name || 'this creator'}`}
+        subtitle="Only they can read it."
+        actions={[{ label: 'Send', icon: 'paper-plane', loading: isSendingMessage, disabled: !messageText.trim(), onPress: handleSendMessage }]}
+      >
+        <GelInput multiline placeholder="Write your message…" value={messageText} onChangeText={setMessageText} />
+      </GelModal>
 
-            <TouchableOpacity
-              style={[themedStyles.modalButton, { backgroundColor: palette.gold, opacity: tipSending ? 0.6 : 1 }]}
-              onPress={handleTip}
-              disabled={tipSending}
-            >
-              {tipSending ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={themedStyles.modalButtonText}>
-                  {tipAmount ? `Send ${tipAmount} ${tipCurrency}` : 'Send Tip'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
+      {/* Seeker badge earned */}
+      <GelModal
+        visible={seekerEarned}
+        onClose={() => setSeekerEarned(false)}
+        actions={[{ label: 'Nice!', icon: 'star', onPress: () => setSeekerEarned(false) }]}
+      >
+        <View style={{ alignItems: 'center' }}>
+          <Image source={seekerBadgeImg} style={{ width: 84, height: 84, marginBottom: 12 }} accessibilityLabel="Seeker badge" />
+          <Text style={[themedStyles.modalTitle, { textAlign: 'center' }]}>Seeker badge earned</Text>
+          <Text style={[themedStyles.modalMessage, { textAlign: 'center', marginTop: 8 }]}>
+            {`You opened ${creatorData?.name || 'this creator'}'s SKR account with your tip. Thanks for helping creators get paid in SKR!`}
+          </Text>
         </View>
-      </Modal>
+      </GelModal>
+
+      {/* tip jar */}
+      <GelModal
+        visible={showTipModal}
+        onClose={() => !tipSending && setShowTipModal(false)}
+        dismissable={!tipSending}
+        variant="sheet"
+        icon="hand-holding-heart"
+        tone={palette.gold}
+        title="Tip jar"
+        subtitle={`Send a tip to ${creatorData?.name || 'this creator'} — it goes straight to their wallet.`}
+        actions={[{
+          label: tipAmount ? `Send ${tipAmount} ${tipCurrency}` : 'Send tip',
+          icon: 'paper-plane',
+          loading: tipSending,
+          disabled: !tipAmount,
+          onPress: handleTip,
+        }]}
+      >
+        <GelChips options={['SOL', 'USDC', 'SKR']} value={tipCurrency} onChange={setTipCurrency} disabled={tipSending} />
+        <GelInput
+          placeholder={tipCurrency === 'SOL' ? '0.05' : '5.00'}
+          keyboardType="decimal-pad"
+          value={tipAmount}
+          onChangeText={setTipAmount}
+          editable={!tipSending}
+          hint={`${tipCurrency} → ${creatorData?.wallet_address ? `${creatorData.wallet_address.slice(0, 6)}…${creatorData.wallet_address.slice(-4)}` : 'creator wallet'}`}
+          style={{ marginTop: 12 }}
+        />
+      </GelModal>
     </View>
   );
 };

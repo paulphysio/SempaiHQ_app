@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { View, Text, Pressable, Platform, ScrollView, Image, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import Modal from 'react-native-modal';
 import {
   NestableScrollContainer,
   NestableDraggableFlatList,

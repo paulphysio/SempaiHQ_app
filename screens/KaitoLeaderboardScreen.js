@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Modal, Linking, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Linking, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import { GelModal } from '../components/gel/GelKit';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -663,27 +664,14 @@ const KaitoLeaderboardScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Share Modal */}
-      <Modal
+      {/* Share your achievement */}
+      <GelModal
         visible={showShareModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowShareModal(false)}
+        onClose={() => setShowShareModal(false)}
+        title="Share your achievement"
+        actions={[{ label: 'Share on X', icon: 'share-alt', onPress: shareToX }]}
       >
-        <TouchableOpacity
-          style={styles.shareModalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowShareModal(false)}
-        >
-          <View style={styles.shareModal} onStartShouldSetResponder={() => true}>
-            <TouchableOpacity
-              style={styles.closeModalButton}
-              onPress={() => setShowShareModal(false)}
-            >
-              <Icon name="times" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-            <Text style={styles.shareModalTitle}>Share Your Achievement</Text>
-            
+        <View style={{ marginTop: 14 }}>
             <View style={styles.shareCard}>
               <View style={styles.shareCardIcon}>
                 <Icon name="trophy" size={48} color="#FFC857" />
@@ -697,14 +685,8 @@ const KaitoLeaderboardScreen = () => {
               </Text>
               <Text style={styles.shareCardTier}>{selectedReader?.tier || 'Seed'}</Text>
             </View>
-
-            <TouchableOpacity style={styles.shareToXButton} onPress={shareToX}>
-              <Icon name="twitter" size={18} color="#ffffff" />
-              <Text style={styles.shareToXButtonText}>Share on X</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      </GelModal>
     </SafeAreaView>
   );
 };

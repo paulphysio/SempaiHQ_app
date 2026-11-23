@@ -13,6 +13,7 @@ import {
   StyleSheet,
   Animated,
   Easing,
+  Platform,
 } from 'react-native';
 import { Connection, PublicKey, Transaction, SystemProgram, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import {
@@ -23,7 +24,8 @@ import {
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import Modal from 'react-native-modal';
+import * as Clipboard from 'expo-clipboard';
+import { GelModal, GelInput, GelInset } from '../components/gel/GelKit';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, WEB_API_BASE_URL } from '../constants';
@@ -758,191 +760,144 @@ const SwapScreen = () => {
         </Animated.View>
       </ScrollView>
 
-      {/* Token Selection Modal */}
-      {(showFromModal || showToModal) && (
-        <Modal isVisible={true} onBackdropPress={() => { setShowFromModal(false); setShowToModal(false); }} useNativeDriver>
-          <View style={styles.modalContainer}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => { setShowFromModal(false); setShowToModal(false); }}>
-              <Icon name="times" size={20} color={colors.accent} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>{showFromModal ? 'Select token to pay with' : 'Select token to receive'}</Text>
-            <ScrollView style={styles.tokenList}>
-              {Object.keys(TOKEN_MINTS).map((token) => {
-                const isSelected = showFromModal ? token === coinFrom : token === coinTo;
-                const isDisabled = showFromModal ? token === coinTo : token === coinFrom;
-                return (
-                  <AnimatedPressable
-                    key={token}
-                    disabled={isDisabled}
-                    onPress={() => {
-                      if (showFromModal) setCoinFrom(token);
-                      else setCoinTo(token);
-                      setShowFromModal(false);
-                      setShowToModal(false);
-                    }}
-                    style={[styles.tokenItem, isSelected && styles.tokenItemSelected]}
-                    scaleTo={0.98}
-                  >
-                    <Image source={TOKEN_LOGOS[token]} style={styles.tokenLogo} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.tokenName}>{TOKEN_NAMES[token]}</Text>
-                      <Text style={styles.tokenSymbolMuted}>{token}</Text>
-                    </View>
-                    <PriceTag token={token} />
-                    {isSelected && <Icon name="check" size={14} color={colors.accent} style={{ marginLeft: 10 }} />}
-                  </AnimatedPressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </Modal>
-      )}
+      {/* choose a token */}
+      <GelModal
+        visible={showFromModal || showToModal}
+        onClose={() => { setShowFromModal(false); setShowToModal(false); }}
+        variant="sheet"
+        title={showFromModal ? 'Pay with' : 'Receive'}
+      >
+        <ScrollView style={{ maxHeight: 420, marginTop: 8 }} showsVerticalScrollIndicator={false}>
+          {Object.keys(TOKEN_MINTS).map((token) => {
+            const isSelected = showFromModal ? token === coinFrom : token === coinTo;
+            const isDisabled = showFromModal ? token === coinTo : token === coinFrom;
+            return (
+              <AnimatedPressable
+                key={token}
+                disabled={isDisabled}
+                onPress={() => {
+                  if (showFromModal) setCoinFrom(token);
+                  else setCoinTo(token);
+                  setShowFromModal(false);
+                  setShowToModal(false);
+                }}
+                style={[styles.tokenItem, isSelected && styles.tokenItemSelected, isDisabled && { opacity: 0.4 }]}
+                scaleTo={0.98}
+              >
+                <Image source={TOKEN_LOGOS[token]} style={styles.tokenLogo} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tokenName}>{TOKEN_NAMES[token]}</Text>
+                  <Text style={styles.tokenSymbolMuted}>{token}</Text>
+                </View>
+                <PriceTag token={token} />
+                {isSelected && <Icon name="check" size={14} color={colors.accent} style={{ marginLeft: 10 }} />}
+              </AnimatedPressable>
+            );
+          })}
+        </ScrollView>
+      </GelModal>
 
-      {/* Balance Modal */}
-      <Modal isVisible={showBalanceModal} onBackdropPress={() => setShowBalanceModal(false)} useNativeDriver>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowBalanceModal(false)}>
-            <Icon name="times" size={20} color={colors.accent} />
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Your Balances</Text>
-          <View style={styles.portfolioTotalBox}>
+      {/* balances */}
+      <GelModal visible={showBalanceModal} onClose={() => setShowBalanceModal(false)} variant="sheet" icon="coins" title="Your balances">
+        <GelInset style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
             <Text style={styles.portfolioTotalLabel}>Total value</Text>
             <Text style={styles.portfolioTotalValue}>{pricesLoading ? '—' : formatUsd(animatedPortfolioTotal)}</Text>
-            <AnimatedPressable
-              onPress={() => { spinRefresh(); checkAllBalances(); refreshPrices(); }}
-              style={styles.portfolioRefreshBtn}
-              scaleTo={0.85}
-            >
-              <Animated.View style={spinStyle}>
-                <Icon name="sync-alt" size={14} color={colors.accent} />
-              </Animated.View>
-            </AnimatedPressable>
           </View>
-          <ScrollView style={styles.tokenList}>
-            {Object.keys(TOKEN_MINTS).map((token) => {
-              const bal = allBalances[token] || 0;
-              const price = prices[token];
-              const value = price ? bal * price : null;
-              return (
-                <View key={token} style={styles.balanceItem}>
-                  <Image source={TOKEN_LOGOS[token]} style={styles.tokenLogo} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.tokenName}>{TOKEN_NAMES[token]}</Text>
-                    <Text style={styles.tokenSymbolMuted}>{price ? `${formatUsd(price)} / ${token}` : 'Price unavailable'}</Text>
-                  </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.balanceAmount}>{formatToken(bal)}</Text>
-                    <Text style={styles.balanceValueText}>{value !== null ? formatUsd(value) : '--'}</Text>
-                  </View>
+          <AnimatedPressable onPress={() => { spinRefresh(); checkAllBalances(); refreshPrices(); }} style={styles.portfolioRefreshBtn} scaleTo={0.85} accessibilityLabel="Refresh balances">
+            <Animated.View style={spinStyle}>
+              <Icon name="sync-alt" size={14} color={colors.accent} />
+            </Animated.View>
+          </AnimatedPressable>
+        </GelInset>
+        <ScrollView style={{ maxHeight: 360, marginTop: 6 }} showsVerticalScrollIndicator={false}>
+          {Object.keys(TOKEN_MINTS).map((token) => {
+            const bal = allBalances[token] || 0;
+            const price = prices[token];
+            const value = price ? bal * price : null;
+            return (
+              <View key={token} style={styles.balanceItem}>
+                <Image source={TOKEN_LOGOS[token]} style={styles.tokenLogo} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.tokenName}>{TOKEN_NAMES[token]}</Text>
+                  <Text style={styles.tokenSymbolMuted}>{price ? `${formatUsd(price)} / ${token}` : 'Price unavailable'}</Text>
                 </View>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </Modal>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={styles.balanceAmount}>{formatToken(bal)}</Text>
+                  <Text style={styles.balanceValueText}>{value !== null ? formatUsd(value) : '--'}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+      </GelModal>
 
-      {/* Send Modal */}
-      <Modal
-        isVisible={showSendModal}
-        onBackdropPress={() => { if (!loading) setShowSendModal(false); }}
-        avoidKeyboard
-        useNativeDriver
+      {/* send */}
+      <GelModal
+        visible={showSendModal}
+        onClose={() => { if (!loading) setShowSendModal(false); }}
+        dismissable={!loading}
+        variant="sheet"
+        icon="paper-plane"
+        title={`Send ${coinFrom}`}
+        actions={[{ label: 'Send', icon: 'paper-plane', loading, onPress: handleSend }]}
       >
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowSendModal(false)} disabled={loading}>
-            <Icon name="times" size={20} color={colors.accent} />
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Send {coinFrom}</Text>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Recipient Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter wallet address"
-              placeholderTextColor="#888"
-              value={sendAddress}
-              onChangeText={setSendAddress}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Amount</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter amount"
-              placeholderTextColor="#888"
-              keyboardType="decimal-pad"
-              value={sendAmount}
-              onChangeText={(text) => setSendAmount(text.replace(/[^0-9.]/g, ''))}
-            />
-            {sendAmount && priceFrom ? (
-              <Text style={styles.usdValueText}>≈ {formatUsd(parseFloat(sendAmount) * priceFrom)}</Text>
-            ) : null}
-          </View>
-          <View style={styles.tokenPanelBottomRow}>
-            <Text style={styles.balancePillText}>Available: {formatToken(balance)} {coinFrom}</Text>
-            <AnimatedPressable onPress={() => setSendAmount(formatSendAmount(maxSendableBalance))} scaleTo={0.9} disabled={loading}>
-              <Text style={styles.maxText}>MAX</Text>
-            </AnimatedPressable>
-          </View>
-          <AnimatedPressable
-            style={[styles.submitButton, loading ? styles.disabledButton : null]}
-            onPress={handleSend}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Icon name="paper-plane" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-                <Text style={styles.submitButtonText}>Send</Text>
-              </>
-            )}
+        <GelInput label="To (wallet address)" placeholder="Paste the Solana address" value={sendAddress} onChangeText={setSendAddress} autoCapitalize="none" autoCorrect={false} />
+        <GelInput
+          label="Amount"
+          placeholder="0.00"
+          keyboardType="decimal-pad"
+          value={sendAmount}
+          onChangeText={(text) => setSendAmount(text.replace(/[^0-9.]/g, ''))}
+          hint={sendAmount && priceFrom ? `≈ ${formatUsd(parseFloat(sendAmount) * priceFrom)}` : undefined}
+        />
+        <View style={[styles.tokenPanelBottomRow, { marginTop: 10, paddingHorizontal: 6 }]}>
+          <Text style={styles.balancePillText}>Available: {formatToken(balance)} {coinFrom}</Text>
+          <AnimatedPressable onPress={() => setSendAmount(formatSendAmount(maxSendableBalance))} scaleTo={0.9} disabled={loading}>
+            <Text style={styles.maxText}>MAX</Text>
           </AnimatedPressable>
         </View>
-      </Modal>
+      </GelModal>
 
-      {/* Receive Modal */}
-      <Modal isVisible={showReceiveModal} onBackdropPress={() => setShowReceiveModal(false)} useNativeDriver>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowReceiveModal(false)}>
-            <Icon name="times" size={20} color={colors.accent} />
-          </TouchableOpacity>
-          <Icon name="qrcode" size={28} color={colors.accent} style={{ alignSelf: 'center', marginBottom: 10 }} />
-          <Text style={styles.modalTitle}>Receive Crypto</Text>
-          <Text style={styles.modalMessage}>Share this address to receive crypto:</Text>
-          <View style={styles.addressContainer}>
-            <Text style={styles.addressText} selectable>{receiveAddress}</Text>
-            <TouchableOpacity onPress={() => { setSuccessMessage('Address copied to clipboard'); setTimeout(() => setSuccessMessage(''), 2000); }}>
-              <Icon name="copy" size={20} color={colors.accent} />
-            </TouchableOpacity>
-          </View>
-          <AnimatedPressable style={styles.submitButton} onPress={() => setShowReceiveModal(false)}>
-            <Text style={styles.submitButtonText}>Done</Text>
-          </AnimatedPressable>
-        </View>
-      </Modal>
+      {/* receive */}
+      <GelModal
+        visible={showReceiveModal}
+        onClose={() => setShowReceiveModal(false)}
+        icon="qrcode"
+        title="Receive crypto"
+        subtitle="Share this address to receive tokens on Solana."
+        actions={[
+          {
+            label: 'Copy address',
+            icon: 'copy',
+            variant: 'secondary',
+            onPress: async () => {
+              try { await Clipboard.setStringAsync(receiveAddress || ''); } catch {}
+              setSuccessMessage('Address copied');
+              setTimeout(() => setSuccessMessage(''), 2000);
+            },
+          },
+          { label: 'Done', onPress: () => setShowReceiveModal(false) },
+        ]}
+      >
+        <GelInset>
+          <Text style={styles.addressText} selectable>{receiveAddress}</Text>
+        </GelInset>
+      </GelModal>
 
-      {/* Ramp Suggestion Modal */}
-      <Modal isVisible={showRampSuggestion} onBackdropPress={() => setShowRampSuggestion(false)} useNativeDriver>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowRampSuggestion(false)}>
-            <Icon name="times" size={20} color={colors.accent} />
-          </TouchableOpacity>
-          <Icon name="exclamation-triangle" size={28} color={colors.accent} style={{ alignSelf: 'center', marginBottom: 10 }} />
-          <Text style={styles.modalTitle}>Insufficient Balance</Text>
-          <Text style={styles.modalMessage}>
-            You don't have enough {coinFrom} to complete this swap. Would you like to buy more crypto using Ramp?
-          </Text>
-          <AnimatedPressable style={styles.submitButton} onPress={() => { setShowRampSuggestion(false); Linking.openURL('https://ramp.network'); }}>
-            <Icon name="credit-card" size={16} color="#ffffff" style={{ marginRight: 8 }} />
-            <Text style={styles.submitButtonText}>Buy Crypto with Ramp</Text>
-          </AnimatedPressable>
-          <TouchableOpacity style={[styles.cancelButton, { marginTop: 10 }]} onPress={() => setShowRampSuggestion(false)}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+      {/* not enough balance */}
+      <GelModal
+        visible={showRampSuggestion}
+        onClose={() => setShowRampSuggestion(false)}
+        icon="exclamation-triangle"
+        tone={colors.gold}
+        title="Not enough balance"
+        subtitle={`You don't have enough ${coinFrom} for this swap. Buy some with a card through Ramp?`}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setShowRampSuggestion(false) },
+          { label: 'Buy with Ramp', icon: 'credit-card', onPress: () => { setShowRampSuggestion(false); Linking.openURL('https://ramp.network'); } },
+        ]}
+      />
 
       {/* Jupiter Swap WebView */}
       <JupiterSwapWebView
@@ -1123,10 +1078,10 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
   },
   submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   tokenList: { maxHeight: 340 },
-  tokenItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#242424' },
+  tokenItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, marginBottom: 8, backgroundColor: c.bgCard, borderWidth: 1, borderColor: c.border },
   tokenItemSelected: { borderWidth: 1, borderColor: c.accent },
   modalMessage: { color: c.textMuted, fontSize: 13, textAlign: 'center', marginBottom: 14, lineHeight: 19 },
-  balanceItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 6, backgroundColor: '#242424' },
+  balanceItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, marginBottom: 8, backgroundColor: c.bgCard, borderWidth: 1, borderColor: c.border },
   balanceAmount: { color: c.textPrimary, fontSize: 15, fontWeight: '700' },
   balanceValueText: { color: c.gold, fontSize: 12, marginTop: 2 },
   tokenLogo: { width: 34, height: 34, borderRadius: 17, marginRight: 12 },
@@ -1134,7 +1089,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
   tokenSymbolMuted: { color: c.textMuted, fontSize: 12, marginTop: 1 },
   portfolioTotalBox: { backgroundColor: '#242424', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 14 },
   portfolioTotalLabel: { color: c.textMuted, fontSize: 12 },
-  portfolioTotalValue: { color: c.textPrimary, fontSize: 26,   marginTop: 4 },
+  portfolioTotalValue: { color: c.textPrimary, fontSize: 26, fontWeight: '800', marginTop: 4 },
   portfolioRefreshBtn: { position: 'absolute', right: 12, top: 12, padding: 6 },
   addressContainer: {
     flexDirection: 'row',
@@ -1145,7 +1100,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
     marginBottom: 15,
     gap: 10,
   },
-  addressText: { color: c.textPrimary, fontSize: 12, flex: 1, fontFamily: 'monospace' },
+  addressText: { color: c.textPrimary, fontSize: 13, lineHeight: 19, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   cancelButton: { backgroundColor: '#2f2f2f', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   cancelButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

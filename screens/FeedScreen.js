@@ -17,6 +17,7 @@ import {
 } from '../services/feed';
 import { shrinkImage } from '../utils/imageUpload';
 import { useFeedColors, Avatar, Byline, MediaGrid, ActionBar, PostRow } from '../components/feed/FeedKit';
+import { GelModal } from '../components/gel/GelKit';
 import { toast } from '../components/Toast';
 
 /*
@@ -583,26 +584,22 @@ function Thread({ post, me, c, liked, reposted, onClose, onLike, onRepost, onSha
 }
 
 /* ── bottom sheet menu ─────────────────────────────────────────────────────── */
-function Sheet({ c, onClose, children }) {
-  const insets = useSafeAreaInsets();
+function Sheet({ onClose, children }) {
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={[s.scrim, { backgroundColor: c.scrim }]} onPress={onClose} accessibilityLabel="Close menu" />
-      <View style={[s.sheet, { backgroundColor: c.bg, paddingBottom: Math.max(insets.bottom, 12) + 8, borderColor: c.border }]}>
-        <View style={[s.grab, { backgroundColor: c.border }]} />
-        {children}
-        <Pressable onPress={onClose} style={[s.cancel, { borderColor: c.border }]} accessibilityRole="button">
-          <Text style={{ color: c.text, fontWeight: '700', fontSize: 16 }}>Cancel</Text>
-        </Pressable>
-      </View>
-    </Modal>
+    <GelModal visible onClose={onClose} variant="sheet" showClose={false} actions={[{ label: 'Cancel', variant: 'secondary', onPress: onClose }]}>
+      <View style={{ marginTop: 4 }}>{children}</View>
+    </GelModal>
   );
 }
 function SheetItem({ c, icon, label, onPress, danger }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.sheetItem, { backgroundColor: pressed ? c.raised : 'transparent' }]} accessibilityRole="button">
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [s.sheetItem, { borderRadius: 26, marginTop: 6, backgroundColor: pressed ? c.raised : c.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)' }]}
+      accessibilityRole="button"
+    >
       <View style={{ width: 26, alignItems: 'center' }}>{icon}</View>
-      <Text style={{ color: danger ? '#F4212E' : c.text, fontSize: 16, fontWeight: '600' }} numberOfLines={1}>{label}</Text>
+      <Text style={{ color: danger ? '#F4212E' : c.text, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
 }

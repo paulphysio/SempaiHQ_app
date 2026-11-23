@@ -18,6 +18,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../context/ThemeContext';
 import ScreenSkeleton from '../components/ScreenSkeleton';
+import { GelModal } from '../components/gel/GelKit';
 
 const LeaderboardScreen = () => {
   const { isDark, colors } = useTheme();
@@ -354,65 +355,43 @@ const LeaderboardScreen = () => {
         )}
       </ScrollView>
 
-      {/* Share Modal */}
-      <Modal
+      {/* Share your rank */}
+      <GelModal
         visible={showShareModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowShareModal(false)}
+        onClose={() => setShowShareModal(false)}
+        title="Share your rank"
+        actions={[{ label: 'Share on X', icon: 'share-alt', onPress: shareToX }]}
       >
-        <TouchableOpacity
-          style={styles.shareModalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowShareModal(false)}
-        >
-          <View style={styles.shareModalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.shareModalHeader}>
-              <Text style={styles.shareModalTitle}>Share your rank</Text>
-              <TouchableOpacity
-                style={styles.shareModalClose}
-                onPress={() => setShowShareModal(false)}
-                activeOpacity={0.7}
-              >
-                <FontAwesome5 name="times" size={16} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-
+        <View style={{ marginTop: 14 }}>
             {/* Share Card */}
-            <View style={styles.shareCard}>
-              <LinearGradient
-                colors={[colors.bgCard, colors.bg]}
-                style={styles.shareCardGradient}
-              >
-                <View style={[styles.shareCardBadge, { borderColor: getRankColor(selectedReader?.rank || 0) }]}>
-                  <FontAwesome5
-                    name={getRankIcon(selectedReader?.rank || 0)}
-                    size={26}
-                    color={getRankColor(selectedReader?.rank || 0)}
-                  />
-                </View>
-                <Text style={styles.shareCardRank}>Rank #{selectedReader?.rank}</Text>
-                <Text style={styles.shareCardUsername}>
-                  {selectedReader ? getDisplayName(selectedReader) : ''}
-                </Text>
-                <Text style={styles.shareCardPoints}>
-                  {selectedReader?.effectivePoints?.toLocaleString() || 0} points
-                </Text>
-                <View style={styles.shareCardTimeFramePill}>
-                  <Text style={styles.shareCardTimeFrame}>
-                    {timeFrame === 'week' ? 'Weekly' : timeFrame === 'month' ? 'Monthly' : 'All Time'}
+              <View style={styles.shareCard}>
+                <LinearGradient
+                  colors={[colors.bgCard, colors.bg]}
+                  style={styles.shareCardGradient}
+                >
+                  <View style={[styles.shareCardBadge, { borderColor: getRankColor(selectedReader?.rank || 0) }]}>
+                    <FontAwesome5
+                      name={getRankIcon(selectedReader?.rank || 0)}
+                      size={26}
+                      color={getRankColor(selectedReader?.rank || 0)}
+                    />
+                  </View>
+                  <Text style={styles.shareCardRank}>Rank #{selectedReader?.rank}</Text>
+                  <Text style={styles.shareCardUsername}>
+                    {selectedReader ? getDisplayName(selectedReader) : ''}
                   </Text>
-                </View>
-              </LinearGradient>
-            </View>
-
-            <TouchableOpacity style={styles.shareButtonX} onPress={shareToX} activeOpacity={0.85}>
-              <FontAwesome5 name="share-alt" size={15} color="#FFFFFF" />
-              <Text style={styles.shareButtonXText}>Share on X</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+                  <Text style={styles.shareCardPoints}>
+                    {selectedReader?.effectivePoints?.toLocaleString() || 0} points
+                  </Text>
+                  <View style={styles.shareCardTimeFramePill}>
+                    <Text style={styles.shareCardTimeFrame}>
+                      {timeFrame === 'week' ? 'Weekly' : timeFrame === 'month' ? 'Monthly' : 'All Time'}
+                    </Text>
+                  </View>
+                </LinearGradient>
+              </View>
+        </View>
+      </GelModal>
     </SafeAreaView>
   );
 };

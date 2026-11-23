@@ -10,6 +10,7 @@ import { resolveRefund } from '../utils/bazaar';
 import { toast } from '../components/Toast';
 
 import { gelAlert } from '../components/gel/GelAlert';
+import { GelModal } from '../components/gel/GelKit';
 const TABS = [
   { key: 'overview', label: 'Overview', icon: 'chart-line' },
   { key: 'applications', label: 'Applications', icon: 'user-plus' },
@@ -1207,15 +1208,20 @@ const AdminScreen = () => {
       </ScrollView>
 
       {/* ------------------------------ edit modal ------------------------------ */}
-      <Modal visible={!!editTarget} transparent animationType="slide" onRequestClose={() => setEditTarget(null)}>
-        <KeyboardAvoidingView style={st.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => !editSaving && setEditTarget(null)} />
-          <View style={st.modalCard}>
+      <GelModal
+        visible={!!editTarget}
+        onClose={() => !editSaving && setEditTarget(null)}
+        dismissable={!editSaving}
+        variant="sheet"
+        scroll
+        title={editTarget ? `Edit ${editTarget.type === 'user' ? 'user' : editTarget.type === 'novel' ? 'novel' : editTarget.type === 'manga' ? 'manga' : editTarget.type === 'bazaar' ? 'Bazaar book' : 'announcement'}` : ''}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', disabled: editSaving, onPress: () => setEditTarget(null) },
+          { label: 'Save', icon: 'save', loading: editSaving, onPress: handleEditSave },
+        ]}
+      >
             {editTarget && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={st.modalTitle}>
-                  Edit {editTarget.type === 'user' ? 'User' : editTarget.type === 'novel' ? 'Novel' : editTarget.type === 'manga' ? 'Manga' : editTarget.type === 'bazaar' ? 'Bazaar Book' : 'Announcement'}
-                </Text>
+              <View>
 
                 {editTarget.type === 'user' && (
                   <>
@@ -1268,20 +1274,9 @@ const AdminScreen = () => {
                   </>
                 )}
 
-                <View style={st.modalActions}>
-                  <TouchableOpacity style={[st.btn, { flex: 1 }]} disabled={editSaving} onPress={() => setEditTarget(null)}>
-                    <Text style={st.btnText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[st.btn, st.btnPrimary, { flex: 1 }, editSaving && { opacity: 0.5 }]} disabled={editSaving} onPress={handleEditSave}>
-                    {editSaving ? <ActivityIndicator size="small" color="#fff" /> : <FontAwesome5 name="save" size={12} color="#fff" />}
-                    <Text style={[st.btnText, st.btnTextLight]}>Save</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
+              </View>
             )}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      </GelModal>
     </SafeAreaView>
   );
 };

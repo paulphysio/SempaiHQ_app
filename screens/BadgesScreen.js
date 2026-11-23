@@ -17,6 +17,7 @@ import {
   SKR_DECIMALS,
 } from '../constants';
 import { toast } from '../components/Toast';
+import { GelModal } from '../components/gel/GelKit';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 const SOL_MINT = 'So11111111111111111111111111111111111111112';
@@ -973,15 +974,11 @@ const BadgesScreen = () => {
       {/* One sheet, two views. Keeping a single Modal avoids the iOS issue where a second
           Modal can't present while the first is still dismissing. The sheet has a fixed height
           so the ScrollView inside has room to render. */}
-      <Modal visible={sheetVisible} transparent animationType="slide" onRequestClose={handleBack}>
-        <View style={styles.overlay}>
-          <Pressable style={{ flex: 1 }} onPress={closeSheet} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            {sheetView === 'checkout' && selectedBadge ? renderCheckoutSheet() : renderWriterSheet()}
-          </View>
+      <GelModal visible={sheetVisible} onClose={closeSheet} variant="sheet" maxWidth={560} contentStyle={{ paddingHorizontal: 0, paddingTop: 18, paddingBottom: 0 }}>
+        <View style={{ height: 560, maxHeight: '100%' }}>
+          {sheetView === 'checkout' && selectedBadge ? renderCheckoutSheet() : renderWriterSheet()}
         </View>
-      </Modal>
+      </GelModal>
     </SafeAreaView>
   );
 };

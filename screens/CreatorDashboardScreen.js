@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Platform, ScrollView, ActivityIndicator, Image, KeyboardAvoidingView, StyleSheet, Dimensions, Animated } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import Modal from 'react-native-modal';
 import {
   NestableScrollContainer,
   NestableDraggableFlatList,
