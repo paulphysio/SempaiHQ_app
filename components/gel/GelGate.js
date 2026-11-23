@@ -30,7 +30,7 @@ export function GelGate({ icon = 'wallet', title, subtitle, action, onAction, ba
         <View pointerEvents="none">
           <GelOrb icon={icon} size={76} lit breathe />
         </View>
-        <Text style={[s.title, { color: colors.textPrimary }]}>{title || (guest ? 'Sign in to continue' : 'Connect your wallet')}</Text>
+        <Text style={[s.title, { color: colors.textPrimary }]}>{guest ? (title && /sign in/i.test(title) ? title : 'Sign in to continue') : (title || 'Connect your wallet')}</Text>
         {subtitle ? <Text style={[s.sub, { color: colors.textSecondary }]}>{subtitle}</Text> : null}
         <GelButton label={label} icon={guest ? 'user' : 'wallet'} onPress={open} style={{ marginTop: 22, alignSelf: 'stretch' }} />
       </View>

@@ -11,6 +11,7 @@ import {
   Dimensions,
   Alert,
   StyleSheet,
+  Pressable,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -27,6 +28,9 @@ import { useGoogleAuth } from '../components/GoogleAuthProvider';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useTheme } from '../context/ThemeContext';
 import { formatNumber } from '../utils/formatNumber';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass, GelInput, GelButton } from '../components/gel/GelKit';
+import { GelGate } from '../components/gel/GelGate';
 
 const { width, height } = Dimensions.get('window');
 
@@ -806,282 +810,113 @@ const EditProfileScreen = () => {
     address && address.length > 15 ? `${address.slice(0, 2)}**${address.slice(-2)}` : address || '';
 
   if (!walletReady && !session) {
-    return (
-      <View style={themedStyles.container}>
-        <View style={themedStyles.centerContainer}>
-          <FontAwesome5 name="wallet" size={48} color={colors.accent} style={themedStyles.promptIcon} />
-          <Text style={themedStyles.promptText}>Please sign in and connect your wallet.</Text>
-          <GoogleSignInButton />
-        </View>
-      </View>
-    );
+    return <GelGate icon="user-edit" headerTitle="Edit profile" title="Sign in to edit your profile" subtitle="Your name, photo and links show on your profile, comments and Crazy Corner." />;
   }
 
+  const notice = (text, tone) => (
+    <Text style={{ color: tone, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 12 }}>{text}</Text>
+  );
+
   return (
-    <View style={themedStyles.container}>
-      <View style={themedStyles.backgroundGradient} />
-      <View style={themedStyles.emberContainer}>
-        {emberAnims.current.map((anim, index) => (
-          <Animated.View
-            key={index}
-            style={[
-              themedStyles.ember,
-              {
-                left: `${Math.random() * 100}%`,
-                opacity: anim,
-                transform: [
-                  {
-                    translateY: anim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [height, -50],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        ))}
-      </View>
-      
-      <ScrollView style={themedStyles.scrollView} contentContainerStyle={themedStyles.scrollContent}>
-        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] }}>
-          <Text style={themedStyles.title}>EDIT PROFILE</Text>
-          <Text style={themedStyles.subtitle}>武士道 • Bushido</Text>
-          
-          <View style={themedStyles.card}>
-            <View style={themedStyles.cardTopBorder} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-            
-            <View style={themedStyles.balanceCard}>
-              <View style={themedStyles.balanceItem}>
-                <FontAwesome5 name="gem" size={20} color={colors.gold} />
-                <Text style={themedStyles.balanceText}>Amethyst: {formatNumber(balance)}</Text>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }} keyboardShouldPersistTaps="handled">
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          {/* photo + who */}
+          <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 18 }}>
+            <Pressable
+              onPress={handleImageChange}
+              disabled={!walletReady || isSaving}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              style={{ width: 104, height: 104, borderRadius: 52, borderWidth: 3, borderColor: colors.accent, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgCard }}
+            >
+              {imageUrl ? (
+                <Image source={{ uri: imageUrl }} style={{ width: '100%', height: '100%' }} />
+              ) : (
+                <FontAwesome5 name="user" size={40} color={colors.textMuted} />
+              )}
+            </Pressable>
+            <View style={{ position: 'absolute', top: 72, left: '50%', marginLeft: 22 }}>
+              <GelOrb icon="camera" size={34} lit onPress={handleImageChange} disabled={!walletReady || isSaving} label="Change photo" breathe={false} />
+            </View>
+            <Text style={{ fontFamily: 'Yoruka', fontSize: 26, color: colors.textPrimary, marginTop: 12 }}>Edit profile</Text>
+            {embeddedWallet?.publicKey ? (
+              <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 4 }}>Wallet {formatUsername(embeddedWallet.publicKey.toString())}</Text>
+            ) : null}
+          </View>
+
+          {/* amethyst */}
+          <GelGlass radius={24} glow={false} padding={14} style={{ marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+              <View style={{ alignItems: 'center' }}>
+                <FontAwesome5 name="gem" size={16} color={colors.gold} />
+                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 4 }}>{formatNumber(balance)}</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Amethyst</Text>
               </View>
-              <View style={themedStyles.balanceItem}>
-                <FontAwesome5 name="bolt" size={20} color={colors.gold} />
-                <Text style={themedStyles.balanceText}>Multiplier: {rewardAmount}</Text>
+              <View style={{ alignItems: 'center' }}>
+                <FontAwesome5 name="bolt" size={16} color={colors.gold} />
+                <Text style={{ color: colors.textPrimary, fontSize: 17, fontWeight: '800', marginTop: 4 }}>{rewardAmount}</Text>
+                <Text style={{ color: colors.textMuted, fontSize: 12 }}>Multiplier</Text>
               </View>
             </View>
+            {referralMessage ? notice(referralMessage, colors.info) : null}
+          </GelGlass>
 
-            {!session ? (
-              <View style={themedStyles.connectPrompt}>
-                <Text style={themedStyles.promptText}>Sign in to edit your profile</Text>
-                <GoogleSignInButton />
+          {!session ? (
+            <GelGlass radius={24} glow={false} padding={16} style={{ marginBottom: 14, alignItems: 'center' }}>
+              <Text style={{ color: colors.textSecondary, marginBottom: 10 }}>Sign in to save changes</Text>
+              <GoogleSignInButton />
+            </GelGlass>
+          ) : null}
+
+          {/* basics */}
+          <GelGlass radius={26} glow={false} padding={18}>
+            <GelInput label="Username" value={name} onChangeText={setName} placeholder="How people see you" editable={walletReady && !isSaving} style={{ marginTop: 0 }} />
+            <GelInput label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" editable={walletReady && !isSaving} />
+            <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginTop: 14, marginBottom: 6, marginLeft: 4 }}>X (Twitter)</Text>
+            {xAccount && twitterVerified ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6 }}>
+                <FontAwesome5 name="check-circle" size={14} color={colors.success} solid />
+                <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>@{xAccount}</Text>
+                <Text style={{ color: colors.textMuted }}>verified</Text>
               </View>
             ) : (
-              <View style={themedStyles.walletInfo}>
-                <FontAwesome5 name="wallet" size={14} color={colors.gold} />
-                <Text style={themedStyles.walletText}>{formatUsername(embeddedWallet?.publicKey?.toString() || '')}</Text>
-              </View>
-            )}
-
-            {referralMessage && (
-              <View style={[themedStyles.alert, themedStyles.alertInfo]}>
-                <Text style={themedStyles.alertText}>{referralMessage}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={themedStyles.card}>
-            <View style={themedStyles.cardTopBorder} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
-            <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-            
-            <View style={themedStyles.inputGroup}>
-              <Text style={themedStyles.inputLabel}>
-                <FontAwesome5 name="user" size={16} color={colors.accent} /> USERNAME
-              </Text>
-              <TextInput
-                style={themedStyles.input}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your username"
-                placeholderTextColor={colors.textMuted}
-                editable={walletReady && !isSaving}
-              />
-            </View>
-
-            <View style={themedStyles.inputGroup}>
-              <Text style={themedStyles.inputLabel}>
-                <FontAwesome5 name="envelope" size={16} color={colors.accent} /> EMAIL
-              </Text>
-              <TextInput
-                style={themedStyles.input}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter your email"
-                placeholderTextColor={colors.textMuted}
-                keyboardType="email-address"
-                editable={walletReady && !isSaving}
-              />
-            </View>
-
-            <View style={themedStyles.inputGroup}>
-              <Text style={themedStyles.inputLabel}>
-                <FontAwesome5 name="twitter" size={16} color={colors.accent} /> X USERNAME
-              </Text>
-              {xAccount && twitterVerified ? (
-                <Text style={[themedStyles.alertText, { color: colors.gold, textAlign: 'left' }]}>Verified: @{xAccount}</Text>
-              ) : (
-                <View style={themedStyles.inputWithButton}>
-                  <TextInput
-                    style={[themedStyles.input, { flex: 1 }]}
-                    value={twitterInput}
-                    onChangeText={setTwitterInput}
-                    placeholder="e.g., @username or https://x.com/username"
-                    placeholderTextColor={colors.textMuted}
-                    editable={walletReady && !isVerifying && !isSaving}
-                  />
-                  <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-                    <TouchableOpacity
-                      style={themedStyles.verifyButton}
-                      onPress={() => {
-                        animateButton();
-                        validateTwitterUsername();
-                      }}
-                      disabled={!walletReady || isVerifying || isSaving || !twitterInput}
-                    >
-                      {isVerifying ? (
-                        <ActivityIndicator size="small" color={colors.textPrimary} />
-                      ) : (
-                        <Text style={themedStyles.buttonText}>VERIFY</Text>
-                      )}
-                    </TouchableOpacity>
-                  </Animated.View>
-                </View>
-              )}
-            </View>
-
-            {twitterError && (
-              <View style={[themedStyles.alert, themedStyles.alertError]}>
-                <Text style={themedStyles.alertText}>{twitterError}</Text>
-              </View>
-            )}
-            {twitterVerified && xAccount && (
-              <View style={[themedStyles.alert, themedStyles.alertSuccess]}>
-                <Text style={themedStyles.alertText}>X username @{xAccount} verified!</Text>
-              </View>
-            )}
-
-            <View style={themedStyles.inputGroup}>
-              <Text style={themedStyles.inputLabel}>
-                <FontAwesome5 name="camera" size={16} color={colors.accent} /> PROFILE IMAGE
-              </Text>
-              <View style={themedStyles.imageGroup}>
-                <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-                  <TouchableOpacity
-                    style={themedStyles.imageLabel}
-                    onPress={() => {
-                      animateButton();
-                      handleImageChange();
-                    }}
-                    disabled={!walletReady || isSaving}
-                  >
-                    <FontAwesome5 name="pen" size={16} color={colors.textPrimary} />
-                    <Text style={themedStyles.buttonText}>UPLOAD</Text>
-                  </TouchableOpacity>
-                </Animated.View>
-                {imageUrl && (
-                  <Image source={{ uri: imageUrl }} style={themedStyles.previewImage} />
-                )}
-              </View>
-            </View>
-          </View>
-
-          {isCreator && (
-            <View style={themedStyles.card}>
-              <View style={themedStyles.cardTopBorder} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTL]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerTR]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBL]} />
-              <View style={[themedStyles.cardCorner, themedStyles.cardCornerBR]} />
-              
-              <View style={themedStyles.divider}>
-                <View style={themedStyles.dividerLine} />
-                <Text style={themedStyles.dividerText}>CREATOR</Text>
-                <View style={themedStyles.dividerLine} />
-              </View>
-              
-              <View style={themedStyles.inputGroup}>
-                <Text style={themedStyles.inputLabel}>
-                  <FontAwesome5 name="book" size={16} color={colors.accent} /> BIO
-                </Text>
-                <TextInput
-                  style={themedStyles.textarea}
-                  value={bio}
-                  onChangeText={setBio}
-                  placeholder="Tell us about yourself"
-                  placeholderTextColor={colors.textMuted}
-                  multiline
-                  numberOfLines={4}
-                  editable={walletReady && !isSaving}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <GelInput
+                  value={twitterInput}
+                  onChangeText={setTwitterInput}
+                  placeholder="@username"
+                  autoCapitalize="none"
+                  editable={walletReady && !isVerifying && !isSaving}
+                  style={{ flex: 1, marginTop: 0 }}
+                />
+                <GelButton
+                  label="Verify"
+                  small
+                  variant="secondary"
+                  loading={isVerifying}
+                  disabled={!walletReady || isSaving || !twitterInput}
+                  onPress={validateTwitterUsername}
                 />
               </View>
-              
-              <View style={themedStyles.inputGroup}>
-                <Text style={themedStyles.inputLabel}>
-                  <FontAwesome5 name="discord" size={16} color={colors.accent} /> DISCORD
-                </Text>
-                <TextInput
-                  style={themedStyles.input}
-                  value={discord}
-                  onChangeText={setDiscord}
-                  placeholder="e.g., user#1234"
-                  placeholderTextColor={colors.textMuted}
-                  editable={walletReady && !isSaving}
-                />
-              </View>
-              
-              <View style={themedStyles.inputGroup}>
-                <Text style={themedStyles.inputLabel}>
-                  <FontAwesome5 name="globe" size={16} color={colors.accent} /> WEBSITE
-                </Text>
-                <TextInput
-                  style={themedStyles.input}
-                  value={website}
-                  onChangeText={setWebsite}
-                  placeholder="e.g., https://yourwebsite.com"
-                  placeholderTextColor={colors.textMuted}
-                  editable={walletReady && !isSaving}
-                />
-              </View>
-            </View>
-          )}
+            )}
+            {twitterError ? notice(twitterError, colors.danger) : null}
+          </GelGlass>
 
-          {error && (
-            <View style={[themedStyles.alert, themedStyles.alertError]}>
-              <Text style={themedStyles.alertText}>{error}</Text>
-            </View>
-          )}
-          {success && (
-            <View style={[themedStyles.alert, themedStyles.alertSuccess]}>
-              <Text style={themedStyles.alertText}>{success}</Text>
-            </View>
-          )}
+          {/* creator */}
+          {isCreator ? (
+            <GelGlass radius={26} glow={false} padding={18} style={{ marginTop: 14 }}>
+              <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800', letterSpacing: 1.4, marginLeft: 4 }}>CREATOR</Text>
+              <GelInput label="Bio" value={bio} onChangeText={setBio} placeholder="Tell readers about yourself" multiline editable={walletReady && !isSaving} />
+              <GelInput label="Discord" value={discord} onChangeText={setDiscord} placeholder="user#1234" autoCapitalize="none" editable={walletReady && !isSaving} />
+              <GelInput label="Website" value={website} onChangeText={setWebsite} placeholder="https://yourwebsite.com" autoCapitalize="none" editable={walletReady && !isSaving} />
+            </GelGlass>
+          ) : null}
 
-          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
-            <TouchableOpacity style={themedStyles.submitButton}
-              onPress={() => {
-                animateButton();
-                handleSubmit();
-              }}
-              disabled={!walletReady || isSaving}
-            >
-              {isSaving ? (
-                <ActivityIndicator size="small" color={colors.textPrimary} />
-              ) : (
-                <>
-                  <FontAwesome5 name="save" size={20} color={colors.textPrimary} />
-                  <Text style={themedStyles.buttonText}>SAVE CHANGES</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </Animated.View>
+          {error ? notice(error, colors.danger) : null}
+          {success ? notice(success, colors.success) : null}
+
+          <GelButton label="Save changes" icon="save" loading={isSaving} disabled={!walletReady} onPress={handleSubmit} style={{ marginTop: 18 }} />
         </Animated.View>
       </ScrollView>
     </View>

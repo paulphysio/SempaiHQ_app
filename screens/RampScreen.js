@@ -94,7 +94,7 @@ const RampScreen = () => {
         {/* Title Section */}
         <View style={[styles.titleSection, { alignItems: 'center' }]}>
           <View pointerEvents="none" style={{ marginBottom: 10 }}><GelOrb icon="credit-card" size={58} lit breathe={false} /></View>
-          <Text style={[styles.title, { textAlign: 'center' }]}>Buy crypto</Text>
+          <Text style={[styles.title, { textAlign: 'center', color: colors.textPrimary, fontFamily: 'Yoruka' }]}>Buy crypto</Text>
           <Text style={styles.subtitle}>
             Purchase SOL, USDC, SMP, and other tokens easily with your preferred payment method
           </Text>
