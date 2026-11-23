@@ -188,3 +188,97 @@ export function watchMatch(matchId, { onState, onError, intervalMs = 1500 }) {
     clearInterval(timer);
   };
 }
+
+// ---- tournaments -------------------------------------------------------------------------------
+// The tourney secret lives in its own slot: quick-match sessions are cleared after every match, but a
+// tournament spans many matches. When one of its matches starts, the secret is also put in the match
+// session so picks and state work exactly like a normal match.
+const TOURNEY_KEY = 'kaiji_tourney_v1'; // { secret, tourneyId, signature?, size?, entry?, at }
+
+export async function loadTourneySession() {
+  try {
+    const raw = await SecureStore.getItemAsync(TOURNEY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+const saveTourneySession = (s) => SecureStore.setItemAsync(TOURNEY_KEY, JSON.stringify(s));
+export const clearTourneySession = () => SecureStore.deleteItemAsync(TOURNEY_KEY).catch(() => {});
+
+/** Open lobbies + the tourney I'm in (if any). */
+export async function getTourneys() {
+  const t = await loadTourneySession();
+  return call('tourney_list', t?.secret ? { secret: t.secret } : {});
+}
+
+export async function getTourneyState(tourneyId) {
+  const t = await loadTourneySession();
+  return call('tourney_state', { tourneyId, ...(t?.secret ? { secret: t.secret } : {}) });
+}
+
+/** Pay the entry into escrow and take a seat. Resolves to the tourney state. */
+export async function joinTourney({ wallet, signTransactionOnly, size, entry }) {
+  const owner = new PublicKey(wallet.publicKey);
+  const cfg = await getKaijiConfig(owner.toBase58());
+  if (!cfg.allowed) throw new Error('not_allowed');
+  const amount = toBaseUnits(entry, cfg.decimals);
+
+  const secret = newSecret();
+  const commitment = await sha256Hex(secret);
+  await saveTourneySession({ secret, tourneyId: null, size, entry, at: Date.now() }); // before paying
+
+  const mint = new PublicKey(cfg.mint);
+  const escrow = new PublicKey(cfg.escrow);
+  const tx = new Transaction().add(
+    createTransferInstruction(getAssociatedTokenAddressSync(mint, owner), getAssociatedTokenAddressSync(mint, escrow), owner, amount),
+    new TransactionInstruction({ keys: [], programId: MEMO_PROGRAM_ID, data: Buffer.from(`kaiji:${commitment}`, 'utf8') })
+  );
+  const connection = new Connection(cfg.rpcUrl, 'confirmed');
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = owner;
+  const signedBase64 = await signTransactionOnly(tx);
+  const signature = await connection.sendRawTransaction(Buffer.from(signedBase64, 'base64'), { skipPreflight: false, maxRetries: 3 });
+  await saveTourneySession({ secret, tourneyId: null, signature, size, entry, at: Date.now() });
+  await connection.confirmTransaction({ signature, blockhash, lastValidBlockHeight }, 'confirmed');
+
+  try {
+    const state = await call('tourney_join', { signature, size, entry, secret });
+    await saveTourneySession({ secret, tourneyId: state.tourney.id, at: Date.now() });
+    return state;
+  } catch (e) {
+    if (FINAL_JOIN_ERRORS.includes(e.message) || e.message === 'already_in_tourney' || e.message === 'in_tourney') await clearTourneySession();
+    throw e;
+  }
+}
+
+/** Finish a join that was paid but not confirmed (app closed mid-way). */
+export async function resumeTourneyJoin() {
+  const t = await loadTourneySession();
+  if (!t?.signature || t.tourneyId) return null;
+  try {
+    const state = await call('tourney_join', { signature: t.signature, size: t.size, entry: t.entry, secret: t.secret });
+    await saveTourneySession({ secret: t.secret, tourneyId: state.tourney.id, at: Date.now() });
+    return state;
+  } catch (e) {
+    if (FINAL_JOIN_ERRORS.includes(e.message) || Date.now() - (t.at || 0) > 20 * 60 * 1000) await clearTourneySession();
+    return null;
+  }
+}
+
+export async function leaveTourney(tourneyId) {
+  const t = await loadTourneySession();
+  if (!t?.secret) throw new Error('no_session');
+  const state = await call('tourney_leave', { secret: t.secret, tourneyId });
+  await clearTourneySession();
+  return state;
+}
+
+/** Use the tourney secret for this match so picks / state work like any match. */
+export async function enterTourneyMatch(matchId) {
+  const t = await loadTourneySession();
+  if (!t?.secret) throw new Error('no_session');
+  await saveSession({ secret: t.secret, matchId, at: Date.now() });
+  return call('state', { secret: t.secret, matchId });
+}

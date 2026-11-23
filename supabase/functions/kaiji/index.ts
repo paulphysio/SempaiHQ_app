@@ -596,6 +596,13 @@ async function settleMatch(matchId: string) {
   const m = Array.isArray(claimed) ? claimed[0] : claimed;
   if (!m) return;
 
+  // Tournament matches pay nothing per match: the bracket advances, the prize pool pays at the end.
+  if (m.tourney_id) {
+    await markSettled(m.id, 'tourney');
+    try { await advanceTourney(m.tourney_id); } catch (e) { console.error('[kaiji tourney advance]', errMsg(e)); }
+    return;
+  }
+
   let sent: string | null = null;
   try {
     if (m.settle_sig && (await signatureConfirmed(m.settle_sig))) {
@@ -871,6 +878,436 @@ async function challengeInfo(id: string) {
   };
 }
 
+
+// ---------------------------------------------------------------------------------------- tourneys
+// Knockout tournaments. Entries sit in the escrow; tourney matches are normal Kaiji matches with
+// mode 'tourney' and no per-match payout — when one ends, the bracket advances. Final: 10% fee, then
+// 60 / 30 / 10 to 1st / 2nd / 3rd. Not full within TOURNEY.fillMinutes → everyone is refunded.
+const TOURNEY = {
+  sizes: [6, 12, 24],
+  entries: [25, 50, 100], // SKR
+  fillMinutes: 30,
+  startBufferSeconds: 60, // time to open the app after "your match is ready"
+  prizeBps: [6000, 3000, 1000],
+  maxReplays: 2, // a drawn / no-show match is replayed this many times, then decided by a coin toss
+};
+const T_LIVE = ['open', 'running'];
+
+const tokensFor = (units: bigint) => BigInt(units);
+const entryUnits = (tokens: number) => BigInt(Math.round(tokens * 10 ** cfg().decimals));
+const nextPow2 = (n: number) => { let p = 1; while (p < n) p *= 2; return p; };
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const r = new Uint32Array(1);
+    crypto.getRandomValues(r);
+    const j = r[0] % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const coin = (seed: string) => (parseInt(seed.replace(/-/g, '').slice(-6), 16) % 2 === 0 ? 'a' : 'b');
+
+async function getTourney(id: string) {
+  const { data, error } = await db().from('kaiji_tourneys').select('*').eq('id', id).single();
+  if (error || !data) throw new Error('tourney_not_found');
+  return data;
+}
+async function tourneyPlayers(id: string) {
+  const { data } = await db().from('kaiji_tourney_players').select('*').eq('tourney_id', id).order('joined_at');
+  return data ?? [];
+}
+/** The tourney this wallet is still in (open, or running and not knocked out). */
+async function activeTourneyOf(wallet: string) {
+  const { data } = await db()
+    .from('kaiji_tourney_players')
+    .select('tourney_id, eliminated_round, left_at, kaiji_tourneys!inner(status)')
+    .eq('wallet', wallet)
+    .is('left_at', null)
+    .is('eliminated_round', null)
+    .in('kaiji_tourneys.status', T_LIVE)
+    .limit(1);
+  return data?.[0]?.tourney_id ?? null;
+}
+
+async function pushTo(wallets: string[], title: string, body: string, data: Record<string, unknown>) {
+  try {
+    const ids = new Set<string>();
+    for (const w of wallets) {
+      const u = await userByWallet(w);
+      if (u?.id) ids.add(u.id);
+    }
+    if (!ids.size) return;
+    const base = Deno.env.get('SUPABASE_URL')!;
+    const key = (Deno.env.get('SB_SECRET_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))!;
+    await fetch(`${base}/functions/v1/send-push-notification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ userIds: [...ids], title, body, data }),
+    });
+  } catch (e) {
+    console.warn('[kaiji tourney push]', errMsg(e));
+  }
+}
+
+async function createTourneyMatch(t: any, round: number, slot: number, kind: 'main' | 'third', a: string, b: string, tokens: Record<string, string>, replayOf: string | null = null) {
+  const { data, error } = await db()
+    .from('kaiji_matches')
+    .insert({
+      mode: 'tourney',
+      status: 'active',
+      wager: t.entry,
+      mint: t.mint,
+      wallet_a: a,
+      wallet_b: b,
+      token_a: tokens[a],
+      token_b: tokens[b],
+      round_deadline: iso((RULES.pickSeconds + TOURNEY.startBufferSeconds) * 1000),
+      tourney_id: t.id,
+      tourney_round: round,
+      tourney_slot: slot,
+      tourney_kind: kind,
+      replay_of: replayOf,
+    })
+    .select('id')
+    .maybeSingle();
+  if (error) {
+    if (error.code === '23505') return null; // that replay already exists
+    throw new Error(error.message);
+  }
+  return data?.id ?? null;
+}
+
+async function startTourney(id: string) {
+  const t = await getTourney(id);
+  if (t.status !== 'running' || t.round > 0) return;
+  const players = (await tourneyPlayers(id)).filter((p: any) => !p.left_at);
+  const tokens = Object.fromEntries(players.map((p: any) => [p.wallet, p.token]));
+  const order = shuffle(players.map((p: any) => p.wallet));
+  const byes = nextPow2(order.length) - order.length;
+  const r1 = { round: 1, byes: order.slice(0, byes), players: order.slice(byes) };
+  // claim the start (only one caller builds round 1)
+  const { data: claimed } = await db()
+    .from('kaiji_tourneys')
+    .update({ round: 1, rounds: [r1], updated_at: iso() })
+    .eq('id', id)
+    .eq('round', 0)
+    .select('id')
+    .maybeSingle();
+  if (!claimed) return;
+  for (let i = 0; i < r1.players.length; i += 2) {
+    await createTourneyMatch(t, 1, i / 2, 'main', r1.players[i], r1.players[i + 1], tokens);
+  }
+  const prize = Number(t.entry) * players.length / 10 ** cfg().decimals * 0.9;
+  await pushTo(order, '🏆 Your Kaiji tournament is starting!',
+    `${players.length} players · ${Math.round(prize)} SKR in prizes. Open Kaiji — your first match is ready${byes ? ' (or you have a bye)' : ''}.`,
+    { type: 'kaiji_tourney', tourneyId: id });
+}
+
+/** Winner of one bracket slot, replaying draws / no-shows; null while still being played. */
+async function slotWinner(t: any, round: number, slot: number, kind: string, tokens: Record<string, string>, pair: [string, string]) {
+  const { data: ms } = await db()
+    .from('kaiji_matches')
+    .select('id, status, outcome, winner, wallet_a, wallet_b, created_at')
+    .eq('tourney_id', t.id).eq('tourney_round', round).eq('tourney_slot', slot).eq('tourney_kind', kind)
+    .order('created_at');
+  const list = ms ?? [];
+  const last = list[list.length - 1];
+  if (!last) {
+    // the match was never created (a crash at the start of the round) — create it now
+    await createTourneyMatch(t, round, slot, kind as any, pair[0], pair[1], tokens);
+    return null;
+  }
+  if (last.status !== 'settled') return null;
+  if (last.outcome === 'win') {
+    const w = last.winner === 'a' ? last.wallet_a : last.wallet_b;
+    return { winner: w, loser: w === last.wallet_a ? last.wallet_b : last.wallet_a };
+  }
+  // draw or nobody played
+  if (list.length <= TOURNEY.maxReplays) {
+    await createTourneyMatch(t, round, slot, kind as any, last.wallet_a, last.wallet_b, tokens, last.id);
+    await pushTo([last.wallet_a, last.wallet_b], '⚔️ Rematch!', 'Your tournament match was a draw — play it again now in Kaiji.', { type: 'kaiji_tourney', tourneyId: t.id });
+    return null;
+  }
+  const side = coin(last.id);
+  const w = side === 'a' ? last.wallet_a : last.wallet_b;
+  return { winner: w, loser: w === last.wallet_a ? last.wallet_b : last.wallet_a };
+}
+
+async function advanceTourney(id: string) {
+  const t = await getTourney(id);
+  if (t.status !== 'running' || t.round < 1) return;
+  const r = t.round;
+  const cur = t.rounds[r - 1];
+  const players = await tourneyPlayers(id);
+  const tokens = Object.fromEntries(players.map((p: any) => [p.wallet, p.token]));
+  const mains = cur.players.length / 2;
+  const results: { winner: string; loser: string }[] = [];
+  for (let s = 0; s < mains; s++) {
+    const res = await slotWinner(t, r, s, 'main', tokens, [cur.players[2 * s], cur.players[2 * s + 1]]);
+    if (!res) return; // round still being played
+    results.push(res);
+  }
+  let third: { winner: string; loser: string } | null = null;
+  if (cur.final) {
+    third = await slotWinner(t, r, 0, 'third', tokens, [cur.third[0], cur.third[1]]);
+    if (!third) return;
+  }
+
+  // knock out this round's losers
+  for (const res of results) {
+    await db().from('kaiji_tourney_players').update({ eliminated_round: r }).eq('tourney_id', id).eq('wallet', res.loser).is('eliminated_round', null);
+  }
+
+  if (cur.final) {
+    const places = { 1: results[0].winner, 2: results[0].loser, 3: third!.winner };
+    const { data: done } = await db()
+      .from('kaiji_tourneys')
+      .update({ status: 'finished', places, finished_at: iso(), updated_at: iso() })
+      .eq('id', id).eq('status', 'running')
+      .select('id').maybeSingle();
+    if (!done) return;
+    for (const [place, wallet] of Object.entries(places)) {
+      await db().from('kaiji_tourney_players').update({ place: Number(place) }).eq('tourney_id', id).eq('wallet', wallet);
+    }
+    await db().from('kaiji_tourney_players').update({ eliminated_round: r }).eq('tourney_id', id).eq('wallet', third!.loser).is('eliminated_round', null);
+    await payTourney(id);
+    return;
+  }
+
+  const roster = [...(r === 1 ? cur.byes : []), ...results.map((x) => x.winner)];
+  const next: any = { round: r + 1, byes: [], players: roster };
+  if (roster.length === 2) {
+    next.final = true;
+    next.third = results.map((x) => x.loser); // semi-final losers play for 3rd
+  }
+  const { data: moved } = await db()
+    .from('kaiji_tourneys')
+    .update({ round: r + 1, rounds: [...t.rounds, next], updated_at: iso() })
+    .eq('id', id).eq('round', r)
+    .select('id').maybeSingle();
+  if (!moved) return; // another call already advanced it
+  for (let i = 0; i < roster.length; i += 2) {
+    await createTourneyMatch(t, r + 1, i / 2, 'main', roster[i], roster[i + 1], tokens);
+  }
+  if (next.final) await createTourneyMatch(t, r + 1, 0, 'third', next.third[0], next.third[1], tokens);
+  await pushTo([...roster, ...(next.third ?? [])], next.final ? '🏆 Tournament finals!' : `⚔️ Round ${r + 1} is ready`,
+    next.final ? 'The final and the match for 3rd place are ready — open Kaiji now.' : 'Your next tournament match is ready — open Kaiji now.',
+    { type: 'kaiji_tourney', tourneyId: id });
+}
+
+async function payTourney(id: string) {
+  const { data: t } = await db()
+    .from('kaiji_tourneys')
+    .update({ status: 'paying', payout_started_at: iso(), updated_at: iso() })
+    .eq('id', id)
+    .or(`status.in.(finished,pay_failed),and(status.eq.paying,payout_started_at.lt.${iso(-180_000)})`)
+    .select('*').maybeSingle();
+  if (!t) return;
+  let sent: string | null = null;
+  try {
+    if (t.payout_sig && (await signatureConfirmed(t.payout_sig))) {
+      await db().from('kaiji_tourneys').update({ status: 'paid', error: null, updated_at: iso() }).eq('id', id);
+      return;
+    }
+    const players = (await tourneyPlayers(id)).filter((p: any) => !p.left_at);
+    const pot = tokensFor(t.entry) * BigInt(players.length);
+    const fee = (pot * BigInt(RULES.feeBps)) / 10000n;
+    const prize = pot - fee;
+    const p1 = (prize * BigInt(TOURNEY.prizeBps[0])) / 10000n;
+    const p2 = (prize * BigInt(TOURNEY.prizeBps[1])) / 10000n;
+    const p3 = prize - p1 - p2;
+    const items = [
+      { wallet: t.places['1'], amount: p1 },
+      { wallet: t.places['2'], amount: p2 },
+      { wallet: t.places['3'], amount: p3 },
+      { wallet: cfg().feeWallet, amount: fee },
+    ];
+    const sig = await sendTransfers(items, async (s) => {
+      sent = s;
+      await db().from('kaiji_tourneys').update({ payout_sig: s }).eq('id', id);
+    });
+    await db().from('kaiji_tourneys').update({ status: 'paid', payout_sig: sig, error: null, updated_at: iso() }).eq('id', id);
+    for (const [i, it] of items.entries()) {
+      await logFeed({
+        event_type: i < 3 ? 'kaiji_payout' : 'kaiji_fee',
+        direction: 'out',
+        asset: 'SKR',
+        amount: Number(it.amount) / 10 ** cfg().decimals,
+        wallet: i < 3 ? it.wallet : null,
+        counterparty: i < 3 ? null : it.wallet,
+        title: i < 3 ? `Kaiji tournament — ${['1st', '2nd', '3rd'][i]} place` : 'Kaiji tournament fee',
+        detail: `tourney ${id.slice(0, 8)} · ${players.length} players`,
+        tx_sig: sig,
+        meta: { tourney_id: id, place: i < 3 ? i + 1 : null },
+      });
+    }
+    await pushTo([t.places['1'], t.places['2'], t.places['3']], '🏆 Tournament over!', 'Your prize has been sent to your wallet. GG!', { type: 'kaiji_tourney', tourneyId: id });
+  } catch (e) {
+    console.error('[kaiji tourney pay failed]', id, errMsg(e));
+    const patch: Record<string, unknown> = { status: 'pay_failed', error: errMsg(e).slice(0, 300), updated_at: iso() };
+    if (!sent) patch.payout_started_at = null;
+    await db().from('kaiji_tourneys').update(patch).eq('id', id);
+  }
+}
+
+async function refundTourneyPlayer(t: any, p: any) {
+  if (p.refund_sig) return;
+  await refundDeposit(p.wallet, tokensFor(t.entry), p.deposit_sig);
+  const { data: dep } = await db().from('kaiji_deposits').select('refund_sig, refund_error').eq('sig', p.deposit_sig).maybeSingle();
+  await db().from('kaiji_tourney_players')
+    .update({ refund_sig: dep?.refund_sig ?? null, refund_error: dep?.refund_error ?? null })
+    .eq('tourney_id', t.id).eq('wallet', p.wallet);
+}
+
+async function tourneyJoin(signature: string, size: number, entryTokens: number, secret: unknown) {
+  const sec = validSecret(secret);
+  const hash = await sha256Hex(sec);
+  if (!TOURNEY.sizes.includes(size) || !TOURNEY.entries.includes(entryTokens)) throw new Error('bad_tourney');
+  const amount = entryUnits(entryTokens);
+  const c = cfg();
+
+  const v = await verifyDeposit(signature, hash, amount);
+  if (!v.ok) {
+    if (v.reason === 'amount_mismatch' && v.wallet && v.total && v.total > 0n) {
+      const { error: e0 } = await db().from('kaiji_deposits').insert({ sig: signature, wallet: v.wallet, amount: v.total.toString() });
+      if (!e0) await refundDeposit(v.wallet, v.total, signature);
+    }
+    throw new Error('deposit_' + v.reason);
+  }
+  const wallet = v.wallet;
+
+  // same signature again (the app retrying after a crash) → same seat
+  const { data: seat } = await db().from('kaiji_tourney_players').select('tourney_id, token').eq('deposit_sig', signature).maybeSingle();
+  if (seat) {
+    if (seat.token !== hash) throw new Error('deposit_already_used');
+    return tourneyState(seat.tourney_id, hash);
+  }
+  const { error: dErr } = await db().from('kaiji_deposits').insert({ sig: signature, wallet, amount: amount.toString() });
+  if (dErr) throw new Error(dErr.code === '23505' ? 'deposit_already_used' : dErr.message);
+
+  const reject = async (code: string): Promise<never> => {
+    await refundDeposit(wallet, amount, signature);
+    throw new Error(code);
+  };
+  if (c.allowedWallets.length && !c.allowedWallets.includes(wallet)) return reject('not_allowed');
+  if (await openMatchByWallet(wallet)) return reject('already_in_match');
+  if (await activeTourneyOf(wallet)) return reject('already_in_tourney');
+
+  const { data: rows, error } = await db().rpc('kaiji_tourney_seat', {
+    p_wallet: wallet, p_token: hash, p_sig: signature, p_size: size, p_entry: amount.toString(), p_mint: c.mintAddress,
+  });
+  if (error || !rows?.length) return reject(error?.message ?? 'join_failed');
+  const { tourney_id: tid, full_now: full } = rows[0];
+
+  await logFeed({
+    event_type: 'kaiji_deposit', direction: 'in', asset: 'SKR', amount: entryTokens, wallet,
+    title: 'Kaiji tournament entry', detail: `tourney ${String(tid).slice(0, 8)} · ${size} players`, tx_sig: signature,
+    meta: { tourney_id: tid, entry: amount.toString() },
+  });
+  if (full) {
+    const rt = (globalThis as any).EdgeRuntime;
+    if (rt?.waitUntil) rt.waitUntil(startTourney(tid)); else await startTourney(tid);
+  }
+  return tourneyState(tid, hash);
+}
+
+async function tourneyLeave(secret: unknown, tourneyId: string) {
+  const hash = await sha256Hex(validSecret(secret));
+  const { data: p } = await db().from('kaiji_tourney_players').select('*').eq('tourney_id', tourneyId).eq('token', hash).maybeSingle();
+  if (!p) throw new Error('forbidden');
+  const t = await getTourney(tourneyId);
+  if (t.status !== 'open') throw new Error('tourney_started');
+  const { data: left } = await db()
+    .from('kaiji_tourney_players')
+    .update({ left_at: iso() })
+    .eq('tourney_id', tourneyId).eq('wallet', p.wallet).is('left_at', null)
+    .select('*').maybeSingle();
+  if (left) await refundTourneyPlayer(t, left);
+  return tourneyState(tourneyId, hash);
+}
+
+/** Lobby list: open tourneys with seats taken, by size and entry. */
+async function tourneyList(secret?: unknown) {
+  const { data: open } = await db()
+    .from('kaiji_tourneys')
+    .select('id, size, entry, expires_at, created_at, kaiji_tourney_players(wallet, left_at)')
+    .eq('status', 'open').gt('expires_at', iso())
+    .order('created_at');
+  const lobbies = (open ?? []).map((t: any) => ({
+    id: t.id, size: t.size, entry: String(t.entry), expiresAt: t.expires_at,
+    joined: (t.kaiji_tourney_players ?? []).filter((p: any) => !p.left_at).length,
+  }));
+  let mine = null;
+  if (secret) {
+    try {
+      const hash = await sha256Hex(validSecret(secret));
+      const { data } = await db()
+        .from('kaiji_tourney_players')
+        .select('tourney_id, kaiji_tourneys!inner(status, created_at)')
+        .eq('token', hash).is('left_at', null)
+        .order('joined_at', { ascending: false }).limit(1);
+      if (data?.[0]) mine = data[0].tourney_id;
+    } catch { /* no secret */ }
+  }
+  return { lobbies, mine, sizes: TOURNEY.sizes, entries: TOURNEY.entries, fillMinutes: TOURNEY.fillMinutes, prizeBps: TOURNEY.prizeBps, feeBps: RULES.feeBps };
+}
+
+/** Everything the tourney screen needs; with the player's hash it also says which match is theirs. */
+async function tourneyState(id: string, hash?: string) {
+  const t = await getTourney(id);
+  const players = await tourneyPlayers(id);
+  const { data: ms } = await db()
+    .from('kaiji_matches')
+    .select('id, status, outcome, winner, wallet_a, wallet_b, wins_a, wins_b, tourney_round, tourney_slot, tourney_kind, token_a, token_b, created_at')
+    .eq('tourney_id', id).order('created_at');
+  const names: Record<string, string> = {};
+  for (const p of players) {
+    const u = await userByWallet(p.wallet);
+    names[p.wallet] = u?.name && !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(u.name) ? u.name : shortWallet(p.wallet);
+  }
+  const me = hash ? players.find((p: any) => p.token === hash) : null;
+  const myMatch = hash ? (ms ?? []).find((m: any) => (m.token_a === hash || m.token_b === hash) && (m.status === 'active' || m.status === 'settling')) : null;
+  const live = players.filter((p: any) => !p.left_at);
+  const pot = tokensFor(t.entry) * BigInt(Math.max(live.length, t.status === 'open' ? t.size : live.length));
+  return {
+    tourney: {
+      id: t.id, size: t.size, entry: String(t.entry), status: t.status, round: t.round, rounds: t.rounds,
+      places: t.places, expiresAt: t.expires_at, startedAt: t.started_at, finishedAt: t.finished_at,
+      decimals: cfg().decimals, pot: pot.toString(), feeBps: RULES.feeBps, prizeBps: TOURNEY.prizeBps, payoutSig: t.payout_sig,
+    },
+    players: live.map((p: any) => ({ wallet: p.wallet, name: names[p.wallet], place: p.place, out: p.eliminated_round, refunded: !!p.refund_sig })),
+    matches: (ms ?? []).map(({ token_a: _a, token_b: _b, ...m }: any) => m),
+    me: me ? { wallet: me.wallet, place: me.place, out: me.eliminated_round, matchId: myMatch?.id ?? null, side: myMatch ? (myMatch.token_a === hash ? 'a' : 'b') : null } : null,
+  };
+}
+
+async function sweepTourneys(stats: Record<string, unknown>) {
+  // not full in time → cancel and refund everyone
+  const { data: stale } = await db().from('kaiji_tourneys').select('id').eq('status', 'open').lt('expires_at', iso());
+  for (const r of stale ?? []) {
+    const { data: t } = await db().from('kaiji_tourneys').update({ status: 'cancelled', updated_at: iso() }).eq('id', r.id).eq('status', 'open').select('*').maybeSingle();
+    if (t) stats.tourneysCancelled = ((stats.tourneysCancelled as number) || 0) + 1;
+  }
+  // refunds still owed (cancelled tourneys, or a refund that failed earlier)
+  const { data: cancelled } = await db().from('kaiji_tourneys').select('id, entry').eq('status', 'cancelled').gt('updated_at', iso(-7 * 86400 * 1000));
+  for (const t of cancelled ?? []) {
+    const { data: unpaid } = await db().from('kaiji_tourney_players').select('*').eq('tourney_id', t.id).is('refund_sig', null);
+    for (const p of unpaid ?? []) await refundTourneyPlayer(t, p);
+  }
+  const { data: leavers } = await db().from('kaiji_tourney_players').select('*').not('left_at', 'is', null).is('refund_sig', null).limit(50);
+  for (const p of leavers ?? []) {
+    const t = await getTourney(p.tourney_id);
+    await refundTourneyPlayer(t, p);
+  }
+  // rounds that finished without advancing (a crash), and payouts to retry
+  const { data: running } = await db().from('kaiji_tourneys').select('id, status').in('status', ['running', 'finished', 'pay_failed', 'paying']);
+  for (const t of running ?? []) {
+    if (t.status === 'running') await advanceTourney(t.id);
+    else await payTourney(t.id);
+  }
+}
+
 async function joinMatch(
   signature: string,
   wagerStr: string,
@@ -928,6 +1365,7 @@ async function joinMatch(
   if (wager < c.minWager || wager > c.maxWager) return reject('wager_out_of_range');
   if (c.allowedWallets.length && !c.allowedWallets.includes(wallet)) return reject('not_allowed');
   if (await openMatchByWallet(wallet)) return reject('already_in_match');
+  if (await activeTourneyOf(wallet)) return reject('in_tourney');
 
   let data: any;
   if (opts.challengeId) {
@@ -1068,6 +1506,12 @@ async function sweep() {
     stats.settled++;
   }
 
+  try {
+    await sweepTourneys(stats as any);
+  } catch (e) {
+    console.error('[kaiji tourney sweep]', errMsg(e));
+  }
+
   // Convert accumulated fee shares to SOL once enough has piled up.
   try {
     const swap = await maybeSwapFeeToSol();
@@ -1166,6 +1610,18 @@ Deno.serve(async (req: Request) => {
           challenge: body.challenge === true,
           challengeId: typeof body.challengeId === 'string' && /^[0-9a-f-]{36}$/i.test(body.challengeId) ? body.challengeId : undefined,
         });
+        break;
+      case 'tourney_list':
+        result = await tourneyList(body.secret);
+        break;
+      case 'tourney_join':
+        result = await tourneyJoin(String(body.signature ?? ''), Number(body.size), Number(body.entry), body.secret);
+        break;
+      case 'tourney_state':
+        result = await tourneyState(String(body.tourneyId ?? ''), body.secret ? await sha256Hex(validSecret(body.secret)) : undefined);
+        break;
+      case 'tourney_leave':
+        result = await tourneyLeave(body.secret, String(body.tourneyId ?? ''));
         break;
       case 'challenge':
         result = await challengeInfo(String(body.challengeId ?? ''));

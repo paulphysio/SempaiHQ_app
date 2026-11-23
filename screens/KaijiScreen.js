@@ -17,6 +17,13 @@ import {
   cancelWaiting,
   getMatchState,
   getChallenge,
+  getTourneys,
+  getTourneyState,
+  joinTourney,
+  leaveTourney,
+  enterTourneyMatch,
+  resumeTourneyJoin,
+  clearTourneySession,
   watchMatch,
   clearSession,
 } from '../services/kaijiApi';
@@ -31,7 +38,7 @@ import { gelAlert } from '../components/gel/GelAlert';
 // ---------------------------------------------------------------------------
 const ADMIN_ONLY = false; // the server-side wallet allowlist is the real gate; true also hides the screen from non-admins
 const NORMAL_MODE_ENABLED = true; // needs the deployed `kaiji` edge function
-const TOURNEY_ENABLED = false; // Tourney is not built yet
+const TOURNEY_ENABLED = true;
 const WAGER_OPTIONS = [1, 5, 10, 25]; // tokens; filtered by the server's min/max
 
 const CARD_BACK_SWIRL = require('../assets/kaiji/card-back-swirl.png');
@@ -80,6 +87,10 @@ const ERRORS = {
   deposit_memo_missing: 'The deposit was missing its Kaiji tag.',
   challenge_taken: 'Someone was faster — that challenge is already taken. Your wager was refunded to your wallet.',
   challenge_not_found: 'That challenge no longer exists.',
+  already_in_tourney: 'You are already in a tournament. Finish or leave it first.',
+  in_tourney: 'You are in a tournament — play your tournament matches first.',
+  tourney_started: 'The tournament has already started.',
+  bad_tourney: 'That tournament size or entry is not available.',
   'Password entry cancelled': 'Cancelled.',
 };
 const friendlyError = (m) => ERRORS[m] ?? m;
@@ -841,10 +852,18 @@ const KaijiScreen = () => {
     setView('wager');
   };
 
-  const onTourney = () => {
-    if (!TOURNEY_ENABLED) return toast.info('Tourney Mode is coming soon — Tournaments will need a signed-in account and a connected wallet.');
+  const onTourney = async () => {
+    if (!TOURNEY_ENABLED) return toast.info('Tourney Mode is coming soon.');
     if (!signedIn) return toast.error('Sign in required — Tournaments are tied to your account as well as your wallet.');
-    return toast.info('Tourney Mode — Connect this to the tournament lobby.');
+    if (!isWalletConnected) return connectPrompt();
+    if (!cfg) return toast.error('Kaiji is offline — Could not reach the Kaiji server. Try again in a moment.');
+    if (!cfg.allowed) return toast.error('Not enabled yet — Kaiji is limited to test wallets right now.');
+    setView('tourney');
+    let resumed = null;
+    try { resumed = await resumeTourneyJoin(); } catch (e) { /* nothing to resume */ }
+    const l = await loadLobby();
+    const id = resumed?.tourney?.id || l?.mine;
+    if (id) openBracket(id);
   };
 
   const lockIn = useCallback(async () => {
@@ -997,7 +1016,7 @@ const KaijiScreen = () => {
 
   // clock for the pick timer and the waiting countdown
   useEffect(() => {
-    const ticking = view === 'queue' || view === 'challenge' || (mode === 'online' && view === 'play' && g.phase === 'pick');
+    const ticking = view === 'queue' || view === 'challenge' || view === 'tbracket' || (mode === 'online' && view === 'play' && g.phase === 'pick');
     if (!ticking) return undefined;
     const t = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(t);
@@ -1188,6 +1207,110 @@ const KaijiScreen = () => {
     startOnline({ challengeId: c.id, wagerUnits: c.wager });
   }, [challenge, cfg, startOnline]);
 
+  // ---------------------------------------------------------------- tournaments
+  const [tourneyId, setTourneyId] = useState(null);
+  const [tState, setTState] = useState(null);
+  const [tLobby, setTLobby] = useState(null);
+  const [tSize, setTSize] = useState(6);
+  const [tEntry, setTEntry] = useState(25);
+  const [tBusy, setTBusy] = useState(false);
+  const tourneyRef = useRef(null); // the tourney whose match is being played right now
+
+  const loadLobby = useCallback(async () => {
+    try {
+      const l = await getTourneys();
+      if (alive.current) setTLobby(l);
+      return l;
+    } catch (e) {
+      return null;
+    }
+  }, []);
+
+  const openBracket = useCallback((id) => {
+    setTourneyId(id);
+    setTState(null);
+    setView('tbracket');
+  }, []);
+
+  useEffect(() => {
+    if (view !== 'tourney') return undefined;
+    loadLobby();
+    const t = setInterval(loadLobby, 5000);
+    return () => clearInterval(t);
+  }, [view, loadLobby]);
+
+  useEffect(() => {
+    if (view !== 'tbracket' || !tourneyId) return undefined;
+    let dead = false;
+    const tick = async () => {
+      try {
+        const st = await getTourneyState(tourneyId);
+        if (!dead && alive.current) setTState(st);
+      } catch (e) { /* keep the last state */ }
+    };
+    tick();
+    const t = setInterval(tick, 3000);
+    return () => { dead = true; clearInterval(t); };
+  }, [view, tourneyId]);
+
+  const joinTable = useCallback(async () => {
+    if (tBusy) return;
+    if (!isWalletConnected || !wallet || !signTransactionOnly) return connectPrompt();
+    setTBusy(true);
+    try {
+      const st = await joinTourney({ wallet, signTransactionOnly, size: tSize, entry: tEntry });
+      setBalTick((x) => x + 1);
+      setTourneyId(st.tourney.id);
+      setTState(st);
+      setView('tbracket');
+      toast.success(st.tourney.status === 'running' ? 'The tournament is starting!' : "You're in — it starts when the table is full.");
+    } catch (e) {
+      toast.error(`Could not join — ${friendlyError(e.message)}`);
+    } finally {
+      setTBusy(false);
+    }
+  }, [tBusy, isWalletConnected, wallet, signTransactionOnly, tSize, tEntry]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const leaveTable = useCallback(async () => {
+    if (tBusy || !tourneyId) return;
+    setTBusy(true);
+    try {
+      await leaveTourney(tourneyId);
+      setBalTick((x) => x + 1);
+      setTourneyId(null);
+      setTState(null);
+      setView('tourney');
+      toast.success('You left — your entry is on its way back to your wallet.');
+    } catch (e) {
+      toast.error(friendlyError(e.message));
+    } finally {
+      setTBusy(false);
+    }
+  }, [tBusy, tourneyId]);
+
+  const playTourneyMatch = useCallback(async (matchId) => {
+    if (tBusy) return;
+    setTBusy(true);
+    try {
+      const st = await enterTourneyMatch(matchId);
+      tourneyRef.current = tourneyId;
+      attachMatch({ match: st.match, side: st.side, rounds: st.rounds || [] });
+    } catch (e) {
+      toast.error(`Could not open your match — ${friendlyError(e.message)}`);
+    } finally {
+      setTBusy(false);
+    }
+  }, [tBusy, tourneyId, attachMatch]);
+
+  // Opened from a tournament notification
+  const incomingTourney = route.params?.tourneyId;
+  useEffect(() => {
+    if (!incomingTourney) return;
+    navigation.setParams({ tourneyId: undefined });
+    if (viewRef.current === 'play') return;
+    openBracket(incomingTourney);
+  }, [incomingTourney]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const cancelQueue = useCallback(async () => {
     const m = netRef.current.match;
     if (!m) return setView('modes');
@@ -1211,6 +1334,17 @@ const KaijiScreen = () => {
   }, [stopWatching]);
 
   const exitToModes = useCallback(async () => {
+    if (tourneyRef.current) {
+      // a tournament match: back to the bracket
+      const id = tourneyRef.current;
+      tourneyRef.current = null;
+      stopWatching();
+      await clearSession();
+      setG(newGame());
+      setTourneyId(id);
+      setView('tbracket');
+      return;
+    }
     if (modeRef.current === 'online') {
       stopWatching();
       if (netRef.current.match?.status === 'settled') await clearSession(); // otherwise the menu keeps showing the pending payout
@@ -1373,8 +1507,8 @@ const KaijiScreen = () => {
           </ModeTile>
           <ModeTile
             title="Tourney Mode"
-            tagline="6, 12 or 24 players. 25 $SKR minimum. Needs a signed-in account."
-            badge="SOON"
+            tagline="6, 12 or 24 players · 25–100 $SKR entry · top 3 win."
+            badge={TOURNEY_ENABLED ? "NEW" : "SOON"}
             locked={!TOURNEY_ENABLED}
             onPress={onTourney}
           >
@@ -1459,6 +1593,196 @@ const KaijiScreen = () => {
             <Meter n={2} />
           </ModeTile>
         </View>
+      </View>
+    );
+  }
+
+  // ----- tournaments: lobby -----
+  if (view === 'tourney') {
+    const dec = cfg?.decimals ?? 6;
+    const fee = (tLobby?.feeBps ?? 1000) / 10000;
+    const bps = tLobby?.prizeBps ?? [6000, 3000, 1000];
+    const pot = tEntry * tSize;
+    const prize = pot * (1 - fee);
+    const fmt = (n) => `${Math.round(n * 100) / 100}`;
+    const table = (tLobby?.lobbies || []).find((l) => l.size === tSize && Number(l.entry) / 10 ** dec === tEntry);
+    const afford = skrBalance === null || tEntry <= skrBalance;
+    return (
+      <View style={[styles.root, pad]}>
+        <StatusBar hidden />
+        <SpeedLines w={W} h={H} />
+        <Embers w={W} h={H} rm={rm} />
+        <Header title="Tourney Mode" onBack={() => setView('modes')} right={balancePill} />
+        <View style={styles.wagerRow}>
+          <View style={styles.wagerLeft}>
+            <Text style={styles.sectionLabel}>PLAYERS</Text>
+            <View style={styles.chips}>
+              {(tLobby?.sizes || [6, 12, 24]).map((n) => (
+                <Pressable key={n} style={[styles.chip, tSize === n && styles.chipOn]} onPress={() => setTSize(n)} accessibilityRole="button" accessibilityState={{ selected: tSize === n }}>
+                  <Text style={[styles.chipText, tSize === n && { color: COLORS.ink }]}>{n}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={[styles.sectionLabel, { marginTop: 12 }]}>ENTRY (SKR)</Text>
+            <View style={styles.chips}>
+              {(tLobby?.entries || [25, 50, 100]).map((e) => (
+                <Pressable key={e} style={[styles.chip, tEntry === e && styles.chipOn]} onPress={() => setTEntry(e)} accessibilityRole="button" accessibilityState={{ selected: tEntry === e }}>
+                  <Text style={[styles.chipText, tEntry === e && { color: COLORS.ink }]}>{e}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <View style={styles.pay}>
+              <Text style={styles.payLabel}>1st</Text>
+              <Text style={[styles.payVal, { color: COLORS.flame }]}>{fmt(prize * bps[0] / 10000)} SKR</Text>
+              <Text style={styles.payLabel}>2nd</Text>
+              <Text style={styles.payVal}>{fmt(prize * bps[1] / 10000)} SKR</Text>
+              <Text style={styles.payLabel}>3rd</Text>
+              <Text style={styles.payVal}>{fmt(prize * bps[2] / 10000)} SKR</Text>
+            </View>
+          </View>
+          <View style={styles.wagerRight}>
+            <Text style={styles.queueSub}>
+              {table ? `${table.joined}/${tSize} players waiting at this table` : 'No table yet — you’ll open one'}
+            </Text>
+            <LockButton
+              label={tBusy ? 'WAITING FOR WALLET…' : `JOIN · PAY ${tEntry} SKR`}
+              enabled={!tBusy && afford}
+              onPress={joinTable}
+              rm={rm}
+            />
+            {!afford && <Text style={styles.warn}>Not enough SKR for this entry.</Text>}
+            <Text style={styles.note}>
+              Starts the moment {tSize} players join. Not full in {tLobby?.fillMinutes ?? 30} min? Everyone is refunded.
+              Knockout, first to 3 each match. 10% fee; prizes 60 / 30 / 10%.
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // ----- tournaments: waiting room, bracket, podium -----
+  if (view === 'tbracket') {
+    const st = tState;
+    const t = st?.tourney;
+    const dec = t?.decimals ?? cfg?.decimals ?? 6;
+    const nameOf = (w) => st?.players?.find((p) => p.wallet === w)?.name || shortAddr(w);
+    const me = st?.me;
+    const potT = t ? Number(t.pot) / 10 ** dec : 0;
+    const prize = potT * (1 - (t?.feeBps ?? 1000) / 10000);
+    const bps = t?.prizeBps ?? [6000, 3000, 1000];
+    const secsLeft = t?.expiresAt ? Math.max(0, Math.ceil((new Date(t.expiresAt).getTime() - now) / 1000)) : 0;
+    const clockStr = `${Math.floor(secsLeft / 60)}:${String(secsLeft % 60).padStart(2, '0')}`;
+    const myMatch = me?.matchId ? st.matches.find((m) => m.id === me.matchId) : null;
+    const latest = (round) => {
+      const byKey = {};
+      (st?.matches || []).filter((m) => m.tourney_round === round).forEach((m) => { byKey[`${m.tourney_kind}-${m.tourney_slot}`] = m; });
+      return Object.values(byKey).sort((a, b) => (a.tourney_kind === b.tourney_kind ? a.tourney_slot - b.tourney_slot : a.tourney_kind === 'main' ? -1 : 1));
+    };
+    return (
+      <View style={[styles.root, pad]}>
+        <StatusBar hidden />
+        <SpeedLines w={W} h={H} />
+        <Embers w={W} h={H} rm={rm} />
+        <Header
+          title={t ? `${t.size}-player tournament` : 'Tournament'}
+          onBack={() => setView('modes')}
+          right={<Text style={styles.queueSub}>{t ? `${Math.round(prize)} SKR prize pool` : ''}</Text>}
+        />
+        {!t ? (
+          <View style={[styles.centered, { flex: 1 }]}><ActivityIndicator color={COLORS.flame} /></View>
+        ) : t.status === 'open' ? (
+          <View style={styles.wagerRow}>
+            <View style={styles.wagerLeft}>
+              <Text style={styles.sectionLabel}>WAITING FOR PLAYERS</Text>
+              <Text style={styles.challenger}>{st.players.length} / {t.size}</Text>
+              <Text style={styles.queueSub}>Starts the moment it's full · refunds in {clockStr}</Text>
+              <ScrollView style={{ maxHeight: H * 0.4, marginTop: 8 }}>
+                {st.players.map((p) => (
+                  <Text key={p.wallet} style={styles.note}>• {p.name}{p.wallet === me?.wallet ? ' (you)' : ''}</Text>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={styles.wagerRight}>
+              <PulseCard w={Math.min(90, H * 0.22)} rm={rm} />
+              {me ? (
+                <Pressable style={styles.ghost} onPress={leaveTable} accessibilityRole="button">
+                  <Text style={styles.ghostText}>{tBusy ? 'Leaving…' : 'Leave and get my entry back'}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ) : t.status === 'cancelled' ? (
+          <View style={[styles.centered, { flex: 1 }]}>
+            <Text style={styles.queueTitle}>Tournament didn't fill</Text>
+            <Text style={styles.queueSub}>Everyone's entry has been refunded to their wallet.</Text>
+            <Pressable style={styles.ghost} onPress={async () => { await clearTourneySession(); setTourneyId(null); setView('tourney'); }} accessibilityRole="button">
+              <Text style={styles.ghostText}>Find another table</Text>
+            </Pressable>
+          </View>
+        ) : t.status === 'running' ? (
+          <View style={styles.wagerRow}>
+            <View style={styles.wagerLeft}>
+              <Text style={styles.sectionLabel}>{t.rounds?.[t.round - 1]?.final ? 'FINALS' : `ROUND ${t.round}`}</Text>
+              <ScrollView style={{ maxHeight: H * 0.62 }}>
+                {latest(t.round).map((m) => {
+                  const done = m.status === 'settled';
+                  const aWon = done && m.outcome === 'win' && m.winner === 'a';
+                  const bWon = done && m.outcome === 'win' && m.winner === 'b';
+                  return (
+                    <View key={m.id} style={styles.bracketRow}>
+                      {m.tourney_kind === 'third' ? <Text style={styles.bracketTag}>3RD PLACE</Text> : null}
+                      <Text style={[styles.bracketName, aWon && { color: COLORS.flame }]} numberOfLines={1}>{nameOf(m.wallet_a)}</Text>
+                      <Text style={styles.bracketScore}>{m.wins_a} – {m.wins_b}</Text>
+                      <Text style={[styles.bracketName, { textAlign: 'right' }, bWon && { color: COLORS.flame }]} numberOfLines={1}>{nameOf(m.wallet_b)}</Text>
+                    </View>
+                  );
+                })}
+                {(t.rounds?.[t.round - 1]?.byes || []).map((w) => (
+                  <Text key={w} style={styles.note}>{nameOf(w)} — bye to the next round</Text>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={styles.wagerRight}>
+              {myMatch && myMatch.status === 'active' ? (
+                <>
+                  <Text style={styles.queueTitle}>Your match is ready</Text>
+                  <LockButton label="PLAY YOUR MATCH" enabled={!tBusy} onPress={() => playTourneyMatch(me.matchId)} rm={rm} />
+                </>
+              ) : me?.out ? (
+                <>
+                  <Text style={styles.queueTitle}>Knocked out</Text>
+                  <Text style={styles.queueSub}>You went out in round {me.out}. You can keep watching.</Text>
+                </>
+              ) : me ? (
+                <>
+                  <PulseCard w={Math.min(90, H * 0.22)} rm={rm} />
+                  <Text style={styles.queueSub}>Waiting for the other matches in this round…</Text>
+                </>
+              ) : (
+                <Text style={styles.queueSub}>You're watching this tournament.</Text>
+              )}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.wagerRow}>
+            <View style={styles.wagerLeft}>
+              <Text style={styles.sectionLabel}>{t.status === 'paid' ? 'PRIZES SENT' : 'PAYING THE PRIZES…'}</Text>
+              {[1, 2, 3].map((place, i) => (
+                <View key={place} style={styles.bracketRow}>
+                  <Text style={[styles.bracketScore, { color: i === 0 ? COLORS.flame : COLORS.bone }]}>{['🥇', '🥈', '🥉'][i]}</Text>
+                  <Text style={styles.bracketName} numberOfLines={1}>{t.places ? nameOf(t.places[place]) : '—'}</Text>
+                  <Text style={styles.bracketScore}>{Math.round(prize * bps[i] / 100) / 100} SKR</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.wagerRight}>
+              <Text style={styles.queueTitle}>{me?.place ? ['Champion! 🏆', 'Runner-up!', 'Third place!'][me.place - 1] : 'Tournament over'}</Text>
+              {me?.place ? <Text style={styles.queueSub}>Your prize {t.status === 'paid' ? 'is in your wallet' : 'is on its way'}.</Text> : null}
+              <LockButton label="NEW TOURNAMENT" enabled onPress={async () => { await clearTourneySession(); setTourneyId(null); setTState(null); setBalTick((x) => x + 1); setView('tourney'); }} rm={rm} />
+            </View>
+          </View>
+        )}
       </View>
     );
   }
@@ -1639,8 +1963,15 @@ const KaijiScreen = () => {
   const oppLocked = online && net?.match ? viewOf(net.match, net.side).lockedOpp : false;
   const deadlineMs = online && net?.match?.round_deadline ? Date.parse(net.match.round_deadline) : 0;
   const timerPct = deadlineMs ? clamp(((deadlineMs - now) / ((cfg?.pickSeconds ?? 25) * 1000)) * 100, 0, 100) : 0;
+  const tourneyMatch = online && net?.match?.mode === 'tourney';
   const endSub =
-    online && net?.match && cfg
+    tourneyMatch
+      ? g.result === 'win'
+        ? 'You advance in the tournament!'
+        : g.result === 'draw'
+        ? 'A draw — the match will be replayed.'
+        : 'Knocked out of the tournament.'
+      : online && net?.match && cfg
       ? endInfo(net.match, net.side, cfg).sub
       : g.result === 'win'
       ? 'You won the practice match.'
@@ -1847,7 +2178,12 @@ const KaijiScreen = () => {
               </Text>
             </View>
             <View style={styles.endRight}>
-              <LockButton label="PLAY AGAIN" enabled onPress={() => (online ? playAgainOnline() : startPractice(level))} rm={rm} />
+              <LockButton
+                label={tourneyMatch ? 'BACK TO TOURNAMENT' : 'PLAY AGAIN'}
+                enabled
+                onPress={() => (tourneyMatch ? exitToModes() : online ? playAgainOnline() : startPractice(level))}
+                rm={rm}
+              />
               <Pressable style={styles.ghost} onPress={exitToModes} accessibilityRole="button">
                 <Text style={styles.ghostText}>Back to modes</Text>
               </Pressable>
@@ -1914,6 +2250,10 @@ export const getKaijiStyles = (c) => StyleSheet.create({
   challengeBtn: { borderWidth: 1.5, borderColor: COLORS.flame, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center' },
   challengeBtnText: { color: COLORS.flame, fontWeight: '800', letterSpacing: 1.2, fontSize: 14 },
   challenger: { fontFamily: FONT, color: COLORS.bone, fontSize: 30 },
+  bracketRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 7, paddingHorizontal: 10, marginBottom: 6, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  bracketName: { flex: 1, color: COLORS.bone, fontSize: 14, fontWeight: '700' },
+  bracketScore: { color: COLORS.dim, fontSize: 14, fontWeight: '800', minWidth: 44, textAlign: 'center' },
+  bracketTag: { color: COLORS.flame, fontSize: 10, fontWeight: '800', letterSpacing: 1, marginRight: 4 },
   record: { color: COLORS.flame, fontSize: 16, fontWeight: '800', marginTop: 4, marginBottom: 10, letterSpacing: 1 },
   queueSub: { color: COLORS.dim, fontSize: 14, marginTop: 6, marginBottom: 8 },
   row: { flex: 1, flexDirection: 'row', alignItems: 'center' },
