@@ -4,7 +4,7 @@
 //    when the tab closes, and the person unlocks again with their password;
 //  · everything else (prices cache, small settings) uses localStorage.
 // Wallet keys are never sent anywhere from here.
-const SENSITIVE = [/^walletData$/, /^walletSecretV2$/, /^wallet-secret-/];
+const SENSITIVE = [/^walletData$/, /^walletSecretV2$/, /^wallet-secret-/, /^cashout_links_v1$/]; // cash-out claim codes are bearer secrets
 const isSensitive = (key) => SENSITIVE.some((re) => re.test(String(key)));
 const store = (key) => {
   try { return isSensitive(key) ? window.sessionStorage : window.localStorage; } catch { return null; }
