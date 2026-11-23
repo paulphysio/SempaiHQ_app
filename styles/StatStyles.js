@@ -42,7 +42,6 @@ export const getStatStyles = (c) => StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: c.textPrimary,
   },
   errorContainer: {
@@ -60,7 +59,6 @@ export const getStatStyles = (c) => StyleSheet.create({
   errorText: {
     color: c.textPrimary,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   scrollContent: {

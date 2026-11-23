@@ -58,7 +58,6 @@ export const getExternalWalletStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textSecondary,
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   walletList: {
     gap: 12,
@@ -115,7 +114,6 @@ export const getExternalWalletStyles = (c) => StyleSheet.create({
     color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
 });

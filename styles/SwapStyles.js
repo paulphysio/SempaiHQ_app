@@ -56,7 +56,6 @@ export const getSwapStyles = (c) => StyleSheet.create({
   connectPromptText: {
     color: c.textPrimary,
     fontSize: 16,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -94,7 +93,6 @@ export const getSwapStyles = (c) => StyleSheet.create({
   balanceText: {
     color: c.textPrimary,
     fontSize: 16,
-    fontFamily: 'Yoruka',
     marginLeft: 10,
     flex: 1,
   },
@@ -110,7 +108,6 @@ export const getSwapStyles = (c) => StyleSheet.create({
   label: {
     color: c.textPrimary,
     fontSize: 16,
-    fontFamily: 'Yoruka',
     
     marginBottom: 8,
   },
@@ -164,7 +161,6 @@ export const getSwapStyles = (c) => StyleSheet.create({
   messageText: {
     color: c.textPrimary,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   footer: {
@@ -177,7 +173,6 @@ export const getSwapStyles = (c) => StyleSheet.create({
   footerText: {
     color: c.textMuted,
     fontSize: 12,
-    fontFamily: 'Yoruka',
   },
   modalContainer: {
     backgroundColor: c.textPrimary,

@@ -61,7 +61,6 @@ export const getSignInStyles = (c) => StyleSheet.create({
     color: '#888888',
     marginHorizontal: 10,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     
   },
   
@@ -90,7 +89,6 @@ export const getSignInStyles = (c) => StyleSheet.create({
     color: '#81C784', // Light green text
     textAlign: 'center',
     fontSize: 14,
-    fontFamily: 'Yoruka',
   },
   
   // Wallet connection container
@@ -149,7 +147,6 @@ export const getSignInStyles = (c) => StyleSheet.create({
   termsText: {
     color: '#BBBBBB',
     fontSize: 14,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -179,7 +176,6 @@ export const getSignInStyles = (c) => StyleSheet.create({
     color: c.border,
     marginTop: 15,
     fontSize: 16,
-    fontFamily: 'Yoruka',
     
   },
   

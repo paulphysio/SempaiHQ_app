@@ -116,7 +116,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'Yoruka',
   },
   errorContainer: {
     flex: 1,
@@ -127,7 +126,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#ff4444',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -210,7 +208,6 @@ const styles = StyleSheet.create({
   playerAvatarText: {
     color: '#fff',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     
   },
   playerDetails: {
@@ -225,7 +222,6 @@ const styles = StyleSheet.create({
   playerAddress: {
     color: '#aaa',
     fontSize: 12,
-    fontFamily: 'Yoruka',
   },
   scoreCell: {
     width: 70,
@@ -234,7 +230,6 @@ const styles = StyleSheet.create({
   scoreValue: {
     color: '#FFC857',
     fontSize: 14,
-    fontFamily: 'Yoruka',
     
   },
   levelCell: {
@@ -244,7 +239,6 @@ const styles = StyleSheet.create({
   levelValue: {
     color: '#ccc',
     fontSize: 12,
-    fontFamily: 'Yoruka',
   },
   tierCell: {
     width: 60,
@@ -259,7 +253,6 @@ const styles = StyleSheet.create({
   tierText: {
     color: '#FFC857',
     fontSize: 12,
-    fontFamily: 'Yoruka',
   },
   shareCell: {
     width: 50,

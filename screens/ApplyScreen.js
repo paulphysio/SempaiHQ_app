@@ -8,6 +8,8 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import { readerAction } from '../services/readerActions';
 import { GelGate } from '../components/gel/GelGate';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass, GelInput, GelButton, GelChips } from '../components/gel/GelKit';
 
 const ApplyScreen = () => {
   const { isDark, colors } = useTheme();
@@ -23,6 +25,7 @@ const ApplyScreen = () => {
   const [success, setSuccess] = useState('');
   const [showPopup, setShowPopup] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     const syncWallet = async () => {
@@ -100,6 +103,8 @@ const ApplyScreen = () => {
       return;
     }
 
+    if (sending) return;
+    setSending(true);
     try {
       // The server records the application and grants the role.
       const res = await readerAction('apply_creator', { role, name, email, reason, submissionLink });
@@ -117,6 +122,8 @@ const ApplyScreen = () => {
     } catch (err) {
       setError(err.message);
       toast.error(`Failed to process application: ${err.message}`);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -124,104 +131,34 @@ const ApplyScreen = () => {
     return <GelGate icon="feather-alt" headerTitle="Become a creator" subtitle="Connect a wallet to apply as a writer or artist." />;
   }
 
+  const addr = wallet?.publicKey?.toString();
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.title}>Apply to Become a Creator</Text>
-
-      {!isWalletConnected ? (
-        <View style={styles.connectContainer}>
-          <Text style={styles.message}>Please connect your wallet to apply.</Text>
-          {/* The global ConnectButton should be used, or place one here if needed */}
-        </View>
-      ) : wallet?.publicKey ? (
-        <Text style={styles.walletConnected}>
-          Wallet: {`${wallet.publicKey.toString().substring(0, 6)}...${wallet.publicKey.toString().substring(wallet.publicKey.toString().length - 4)}`}
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
+      <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 16 }}>
+        <View pointerEvents="none"><GelOrb icon="feather-alt" size={60} lit breathe={false} /></View>
+        <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12, textAlign: 'center' }}>Become a creator</Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 6, maxWidth: 340 }}>
+          Publish your novels or manga on SempaiHQ and earn from every reader.
         </Text>
-      ) : null}
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Name</Text>
-        <TextInput
-          style={styles.input}
-          value={name}
-          onChangeText={setName}
-          placeholder="Your Name"
-          placeholderTextColor="#888"
-          editable={isWalletConnected}
-        />
+        {addr ? <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 6 }}>Wallet {addr.slice(0, 6)}…{addr.slice(-4)}</Text> : null}
       </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="your@email.com"
-          placeholderTextColor="#888"
-          keyboardType="email-address"
-          editable={isWalletConnected}
-        />
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Applying as a...</Text>
-        <View style={styles.roleContainer}>
-          <TouchableOpacity
-            style={[styles.roleButton, role === 'writer' && styles.roleButtonActive]}
-            onPress={() => setRole('writer')}
-            disabled={!isWalletConnected}
-          >
-            <Text style={styles.roleButtonText}>Writer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.roleButton, role === 'artist' && styles.roleButtonActive]}
-            onPress={() => setRole('artist')}
-            disabled={!isWalletConnected}
-          >
-            <Text style={styles.roleButtonText}>Artist</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Why do you want to be a {role}?</Text>
-        <TouchableOpacity
-          style={styles.reasonButton}
-          onPress={() => setShowPopup(true)}
-          disabled={!isWalletConnected}
-        >
-          <Text style={styles.reasonButtonText}>Add Reason</Text>
-        </TouchableOpacity>
-        {reason ? <Text style={styles.reasonPreview}>📝 Reason Added</Text> : null}
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>
-          {role === 'writer' ? 'Novel Link (Optional)' : 'Manga/Art Link (Optional)'}
-        </Text>
-        <TextInput
-          style={styles.input}
+      <GelGlass radius={28} glow={false} padding={18}>
+        <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginLeft: 4 }}>I'm applying as a</Text>
+        <GelChips options={[{ value: 'writer', label: 'Writer' }, { value: 'artist', label: 'Artist' }]} value={role} onChange={setRole} style={{ marginTop: 8 }} />
+        <GelInput label="Name" value={name} onChangeText={setName} placeholder="Your name or pen name" />
+        <GelInput label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" />
+        <GelInput label={`Why do you want to be a ${role}?`} value={reason} onChangeText={setReason} placeholder="What do you create, and what drives you?" multiline />
+        <GelInput
+          label={role === 'writer' ? 'Link to your writing (optional)' : 'Link to your art or manga (optional)'}
           value={submissionLink}
           onChangeText={setSubmissionLink}
-          placeholder="https://example.com/your-work"
-          placeholderTextColor="#888"
-          editable={isWalletConnected}
+          placeholder="https://…"
+          autoCapitalize="none"
         />
-      </View>
-
-      {error ? <Text style={styles.alertDanger}>{error}</Text> : null}
-      {success ? <Text style={styles.alertSuccess}>{success}</Text> : null}
-
-      <TouchableOpacity
-        style={[styles.submitButton, (!isWalletConnected || isLoading) && styles.disabledButton]}
-        onPress={handleSubmit}
-        disabled={!isWalletConnected || isLoading}
-      >
-        {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Submit Application</Text>}
-      </TouchableOpacity>
-
-      <Popup visible={showPopup} onClose={() => setShowPopup(false)} onSubmit={handlePopupSubmit} />
+        {error ? <Text style={{ color: colors.danger, textAlign: 'center', marginTop: 12 }}>{error}</Text> : null}
+        {success ? <Text style={{ color: colors.success, textAlign: 'center', marginTop: 12 }}>{success}</Text> : null}
+        <GelButton label="Send application" icon="paper-plane" loading={sending} disabled={isLoading || !reason.trim()} onPress={handleSubmit} style={{ marginTop: 18 }} />
+      </GelGlass>
     </ScrollView>
   );
 };

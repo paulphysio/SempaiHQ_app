@@ -66,7 +66,6 @@ export const getQRCodeStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textSecondary,
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   qrContainer: {
     backgroundColor: c.textPrimary,
@@ -85,7 +84,6 @@ export const getQRCodeStyles = (c) => StyleSheet.create({
     color: c.textMuted,
     marginTop: 10,
     textAlign: 'center',
-    fontFamily: 'Yoruka',
   },
   addressContainer: {
     backgroundColor: 'rgba(74, 144, 226, 0.1)',
@@ -98,13 +96,11 @@ export const getQRCodeStyles = (c) => StyleSheet.create({
   addressLabel: {
     fontSize: 12,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 5,
   },
   addressText: {
     fontSize: 14,
     color: c.textPrimary,
-    fontFamily: 'Yoruka',
   },
   actions: {
     flexDirection: 'row',
@@ -129,7 +125,6 @@ export const getQRCodeStyles = (c) => StyleSheet.create({
     fontSize: 14,
     
     color: c.textPrimary,
-    fontFamily: 'Yoruka',
   },
   infoBox: {
     flexDirection: 'row',
@@ -144,7 +139,6 @@ export const getQRCodeStyles = (c) => StyleSheet.create({
     color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
 });

@@ -40,14 +40,12 @@ export const getDownloadStyles = (c) => StyleSheet.create({
     color: c.textPrimary,
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'Yoruka',
   },
   errorText: {
     color: c.danger,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    fontFamily: 'Yoruka',
   },
   downloadList: {
     gap: 16,
@@ -78,7 +76,6 @@ export const getDownloadStyles = (c) => StyleSheet.create({
     color: c.textMuted,
     fontSize: 14,
     marginTop: 4,
-    fontFamily: 'Yoruka',
   },
   downloadButton: {
     flexDirection: 'row',
@@ -100,7 +97,6 @@ export const getDownloadStyles = (c) => StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 20,
-    fontFamily: 'Yoruka',
   },
   noDownloads: {
     color: c.textMuted,

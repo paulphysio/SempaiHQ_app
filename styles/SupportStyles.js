@@ -51,7 +51,6 @@ export const getSupportStyles = (c) => StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 24,
-    fontFamily: 'Yoruka',
   },
   form: {
     gap: 16,
@@ -62,8 +61,6 @@ export const getSupportStyles = (c) => StyleSheet.create({
   inputLabel: {
     color: c.accent,
     fontSize: 14,
-    
-    fontFamily: 'Yoruka',
   },
   input: {
     backgroundColor: c.border,

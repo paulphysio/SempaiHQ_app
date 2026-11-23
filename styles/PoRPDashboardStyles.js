@@ -95,7 +95,6 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textPrimary,
     textAlign: 'center',
-    fontFamily: 'Yoruka',
     padding: 40,
   },
   statCard: {
@@ -115,14 +114,12 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   statValue: {
     fontSize: 22,
     
     color: c.textPrimary,
-    fontFamily: 'Yoruka',
   },
   progressCard: {
     backgroundColor: 'rgba(155, 89, 182, 0.1)',
@@ -135,7 +132,6 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
   progressLabel: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   progressBar: {
@@ -154,7 +150,6 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
     fontSize: 12,
     color: c.textPrimary,
     textAlign: 'right',
-    fontFamily: 'Yoruka',
   },
   challengesCard: {
     flexDirection: 'row',
@@ -172,14 +167,12 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
   challengesLabel: {
     fontSize: 12,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   challengesValue: {
     fontSize: 18,
     
     color: c.textPrimary,
-    fontFamily: 'Yoruka',
   },
   infoCard: {
     flexDirection: 'row',
@@ -195,7 +188,6 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
     color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   inputCard: {
@@ -209,7 +201,6 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 10,
   },
   input: {
@@ -266,13 +257,11 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
   multiplierLabel: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
   },
   multiplierValue: {
     fontSize: 16,
     
     color: '#F39C12',
-    fontFamily: 'Yoruka',
   },
   cooldownCard: {
     backgroundColor: 'rgba(231, 76, 60, 0.1)',
@@ -313,6 +302,5 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
   tierText: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
   },
 });

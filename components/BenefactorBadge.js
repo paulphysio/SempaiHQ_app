@@ -107,7 +107,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 12,
     marginTop: 4,
-    fontFamily: 'Yoruka',
   },
 });
 

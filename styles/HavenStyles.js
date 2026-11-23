@@ -102,7 +102,6 @@ export const getHavenStyles = (c) => StyleSheet.create({
   navLinkText: {
     color: c.textPrimary,
     fontSize: width <= 768 ? 18 : 18,
-    fontFamily: 'Yoruka',
     
   },
   main: {
@@ -164,7 +163,6 @@ export const getHavenStyles = (c) => StyleSheet.create({
   },
   howToListText: {
     fontSize: width <= 480 ? 14 : width <= 768 ? 15 : 16,
-    fontFamily: 'Yoruka',
     lineHeight: 24,
     color: '#dcdcdc',
     flex: 1,
@@ -208,7 +206,6 @@ export const getHavenStyles = (c) => StyleSheet.create({
   },
   contentText: {
     fontSize: width <= 480 ? 14 : width <= 768 ? 15 : 16,
-    fontFamily: 'Yoruka',
     lineHeight: 26,
     color: '#dcdcdc',
     marginBottom: 20,
@@ -231,7 +228,6 @@ export const getHavenStyles = (c) => StyleSheet.create({
   },
   footerText: {
     fontSize: width <= 480 ? 14 : 15,
-    fontFamily: 'Yoruka',
     color: '#dcdcdc',
   },
 });

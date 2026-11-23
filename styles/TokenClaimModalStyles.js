@@ -29,7 +29,6 @@ export const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#666666',
     textAlign: 'center',
     marginBottom: 20,
@@ -37,7 +36,6 @@ export const styles = StyleSheet.create({
   },
   modalErrorText: {
     fontSize: 14,
-    fontFamily: 'Yoruka',
     color: '#D32F2F',
     textAlign: 'center',
     marginBottom: 12,

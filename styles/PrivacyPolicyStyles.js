@@ -89,7 +89,6 @@ export const getPrivacyPolicyStyles = (c) => StyleSheet.create({
     color: c.accent,
     fontSize: 16,
     marginBottom: 8,
-    fontFamily: 'Yoruka',
   },
 });
 

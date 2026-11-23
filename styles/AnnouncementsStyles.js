@@ -16,7 +16,6 @@ export const getAnnouncementsStyles = (c) => StyleSheet.create({
     color: c.textPrimary,
     marginTop: 16,
     fontSize: 16,
-    fontFamily: 'Yoruka',
   },
   keyboardContainer: {
     flex: 1,
@@ -63,7 +62,6 @@ export const getAnnouncementsStyles = (c) => StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
     marginTop: 16,
-    fontFamily: 'Yoruka',
   },
   accessDenied: {
     flex: 1,
@@ -76,14 +74,12 @@ export const getAnnouncementsStyles = (c) => StyleSheet.create({
     fontSize: 24,
     
     marginTop: 16,
-    fontFamily: 'Yoruka',
   },
   deniedSubtext: {
     color: c.textMuted,
     fontSize: 16,
     textAlign: 'center',
     marginTop: 8,
-    fontFamily: 'Yoruka',
   },
   dashboard: {
     flex: 1,
@@ -116,8 +112,6 @@ export const getAnnouncementsStyles = (c) => StyleSheet.create({
   label: {
     color: c.accent,
     fontSize: 14,
-    
-    fontFamily: 'Yoruka',
   },
   input: {
     backgroundColor: c.border,
@@ -179,7 +173,6 @@ export const getAnnouncementsStyles = (c) => StyleSheet.create({
   pickerOptionText: {
     color: c.textMuted,
     fontSize: 14,
-    fontFamily: 'Yoruka',
   },
   pickerOptionTextActive: {
     color: '#FFF',

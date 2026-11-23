@@ -76,7 +76,6 @@ export const getWalletPanelStyles = (c) => StyleSheet.create({
   infoLabel: {
     color: c.accent,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     
     marginLeft: 8,
     flex: 1,
@@ -84,7 +83,6 @@ export const getWalletPanelStyles = (c) => StyleSheet.create({
   infoValue: {
     color: c.textPrimary,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     
   },
   actionSection: {
@@ -136,7 +134,6 @@ export const getWalletPanelStyles = (c) => StyleSheet.create({
   errorText: {
     color: '#FF4D4D',
     fontSize: 12,
-    fontFamily: 'Yoruka',
     marginTop: 8,
     textAlign: 'center',
   },

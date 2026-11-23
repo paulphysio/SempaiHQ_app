@@ -66,7 +66,6 @@ export default StyleSheet.create({
   },
   navLinkText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#fff',
     marginLeft: 10,
     
@@ -110,7 +109,6 @@ export default StyleSheet.create({
   },
   balanceText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#fff',
     marginLeft: 12,
     
@@ -121,14 +119,12 @@ export default StyleSheet.create({
   },
   connectText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#fff',
     marginBottom: 15,
     textAlign: 'center',
   },
   walletText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#fff',
     marginBottom: 20,
     textAlign: 'center',
@@ -146,7 +142,6 @@ export default StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     fontSize: 16,
-    fontFamily: 'Yoruka',
     
   },
   input: {
@@ -189,7 +184,6 @@ export default StyleSheet.create({
   },
   verifiedText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#fff',
     
   },
@@ -239,7 +233,6 @@ export default StyleSheet.create({
   },
   alertText: {
     fontSize: 14,
-    fontFamily: 'Yoruka',
     color: '#fff',
     textAlign: 'center',
     
@@ -269,7 +262,6 @@ export default StyleSheet.create({
   },
   modalText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#fff',
     textAlign: 'center',
     

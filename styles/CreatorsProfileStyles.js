@@ -89,7 +89,6 @@ export const styles = StyleSheet.create({
   },
   navText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#FFF',
     marginLeft: 8,
     
@@ -190,13 +189,11 @@ export const styles = StyleSheet.create({
   },
   socialText: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#FFF',
     marginLeft: 8,
   },
   walletInfo: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#FFF',
     opacity: 0.7,
   },
@@ -308,7 +305,6 @@ export const styles = StyleSheet.create({
   },
   popupMessage: {
     fontSize: 16,
-    fontFamily: 'Yoruka',
     color: '#FFF',
     opacity: 0.8,
     textAlign: 'center',
@@ -380,7 +376,6 @@ export const styles = StyleSheet.create({
   modalMessage: {
     color: '#aaa',
     fontSize: 14,
-    fontFamily: 'Yoruka',
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -464,7 +459,6 @@ export const styles = StyleSheet.create({
   currencyOptionText: {
     color: '#aaa',
     fontSize: 14,
-    fontFamily: 'Yoruka',
   },
   currencyOptionTextSelected: {
     color: '#fff',

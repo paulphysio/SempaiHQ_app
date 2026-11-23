@@ -63,7 +63,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     navText: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginLeft: 8,
       color: colors.textPrimary,
     },
@@ -91,7 +90,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     navMenuText: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginLeft: 8,
       color: colors.textPrimary,
     },
@@ -129,7 +127,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     connectText: {
       fontSize: width < 360 ? 16 : 18,
-      fontFamily: 'Yoruka',
       textAlign: 'center',
       marginBottom: 16,
       lineHeight: 24,
@@ -146,7 +143,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     accessDeniedText: {
       fontSize: width < 360 ? 16 : 18,
-      fontFamily: 'Yoruka',
       textAlign: 'center',
       marginBottom: 16,
       lineHeight: 24,
@@ -189,7 +185,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     label: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginBottom: 8,
       color: colors.textPrimary,
     },
@@ -225,7 +220,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     placeholderText: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginBottom: 12,
       opacity: 0.7,
       color: colors.textSecondary,
@@ -277,7 +271,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     checkboxLabel: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginLeft: 8,
       color: colors.textPrimary,
     },
@@ -340,13 +333,11 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     chapterPreview: {
       fontSize: width < 360 ? 12 : 14,
-      fontFamily: 'Yoruka',
       opacity: 0.7,
       color: colors.textSecondary,
     },
     advanceInfo: {
       fontSize: width < 360 ? 12 : 14,
-      fontFamily: 'Yoruka',
       color: colors.accent,
       marginTop: 4,
     },
@@ -514,7 +505,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     writerText: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       color: colors.textPrimary,
     },
     writerId: {
@@ -545,7 +535,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     modalText: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginBottom: 16,
       textAlign: 'center',
       lineHeight: 22,
@@ -594,7 +583,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     tagOptionText: {
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
       marginLeft: 12,
       color: colors.textPrimary,
     },
@@ -623,7 +611,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     },
     footerText: {
       fontSize: width < 360 ? 12 : 14,
-      fontFamily: 'Yoruka',
       opacity: 0.7,
       color: colors.textSecondary,
     },
@@ -671,7 +658,6 @@ export const getNovelDashboardStyles = (isDark = true) => {
     pickerItem: {
       color: colors.textPrimary,
       fontSize: width < 360 ? 14 : 16,
-      fontFamily: 'Yoruka',
     },
   });
 };
@@ -717,7 +703,6 @@ export const styles = StyleSheet.create({
   },
   navText: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   navRight: {
@@ -749,7 +734,6 @@ export const styles = StyleSheet.create({
   },
   navMenuText: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   header: {
@@ -784,7 +768,6 @@ export const styles = StyleSheet.create({
   },
   connectText: {
     fontSize: width < 360 ? 16 : 18,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 24,
@@ -800,7 +783,6 @@ export const styles = StyleSheet.create({
   },
   accessDeniedText: {
     fontSize: width < 360 ? 16 : 18,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 24,
@@ -841,7 +823,6 @@ export const styles = StyleSheet.create({
   },
   label: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   input: {
@@ -880,7 +861,6 @@ export const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginBottom: 12,
     opacity: 0.7,
   },
@@ -927,7 +907,6 @@ export const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   dateButton: {
@@ -990,12 +969,10 @@ export const styles = StyleSheet.create({
   },
   chapterPreview: {
     fontSize: width < 360 ? 12 : 14,
-    fontFamily: 'Yoruka',
     opacity: 0.7,
   },
   advanceInfo: {
     fontSize: width < 360 ? 12 : 14,
-    fontFamily: 'Yoruka',
     color: '#F36316',
     marginTop: 4,
   },
@@ -1168,7 +1145,6 @@ export const styles = StyleSheet.create({
   },
   writerText: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
   },
   writerId: {
     fontSize: width < 360 ? 12 : 14,
@@ -1202,7 +1178,6 @@ export const styles = StyleSheet.create({
   },
   modalText: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginBottom: 16,
     textAlign: 'center',
     lineHeight: 22,
@@ -1250,7 +1225,6 @@ export const styles = StyleSheet.create({
   },
   tagOptionText: {
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
     marginLeft: 12,
   },
   modalCloseButton: {
@@ -1290,7 +1264,6 @@ export const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: width < 360 ? 12 : 14,
-    fontFamily: 'Yoruka',
     opacity: 0.7,
   },
   formActions: {
@@ -1337,6 +1310,5 @@ export const styles = StyleSheet.create({
   pickerItem: {
     color: '#fff',
     fontSize: width < 360 ? 14 : 16,
-    fontFamily: 'Yoruka',
   },
 });

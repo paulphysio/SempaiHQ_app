@@ -33,13 +33,11 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'Yoruka',
   },
   lockedSubtext: {
     fontSize: 14,
     color: '#888',
     marginTop: 10,
-    fontFamily: 'Yoruka',
   },
   connectButton: {
     flexDirection: 'row',
@@ -102,7 +100,6 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   content: {
     flex: 1,
@@ -127,13 +124,11 @@ export const styles = StyleSheet.create({
     
     color: '#FFFFFF',
     marginTop: 10,
-    fontFamily: 'Yoruka',
   },
   statLabel: {
     fontSize: 12,
     color: '#CCCCCC',
     marginTop: 5,
-    fontFamily: 'Yoruka',
   },
   writersContainer: {
     padding: 20,
@@ -149,7 +144,6 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     textAlign: 'center',
-    fontFamily: 'Yoruka',
   },
   writerCard: {
     backgroundColor: '#1A1B26',
@@ -178,7 +172,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 5,
-    fontFamily: 'Yoruka',
   },
   writerActions: {
     flexDirection: 'row',
@@ -241,12 +234,10 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#F39C12',
     marginTop: 5,
-    fontFamily: 'Yoruka',
   },
   rewardDate: {
     fontSize: 12,
     color: '#888',
     marginTop: 5,
-    fontFamily: 'Yoruka',
   },
 });

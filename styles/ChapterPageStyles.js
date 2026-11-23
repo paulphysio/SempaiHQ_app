@@ -40,21 +40,18 @@ export const styles = StyleSheet.create({
   errorText: {
     color: '#ff5555',
     fontSize: 18,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 20,
   },
   errorMessage: {
     color: '#ff5555',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 10,
   },
   successMessage: {
     color: '#55ff55',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -83,7 +80,6 @@ export const styles = StyleSheet.create({
   backHomeText: {
     color: '#55aaff',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     textAlign: 'center',
   },
   navigation: {
@@ -116,7 +112,6 @@ export const styles = StyleSheet.create({
   balanceText: {
     color: '#ffffff',
     fontSize: 14,
-    fontFamily: 'Yoruka',
   },
   lockedContent: {
     alignItems: 'center',
@@ -126,14 +121,12 @@ export const styles = StyleSheet.create({
   message: {
     color: '#ff5555',
     fontSize: 18,
-    fontFamily: 'Yoruka',
     marginBottom: 10,
     textAlign: 'center',
   },
   subMessage: {
     color: '#ffffff',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -179,7 +172,6 @@ export const styles = StyleSheet.create({
   readingModeText: {
     color: '#ffffff',
     fontSize: 14,
-    fontFamily: 'Yoruka',
   },
   transactionPopupOverlay: {
     flex: 1,
@@ -199,7 +191,6 @@ export const styles = StyleSheet.create({
   closePopupText: {
     color: '#ffffff',
     fontSize: 20,
-    fontFamily: 'Yoruka',
   },
   popupTitle: {
     color: '#ffffff',
@@ -212,7 +203,6 @@ export const styles = StyleSheet.create({
   popupMessage: {
     color: '#ffffff',
     fontSize: 16,
-    fontFamily: 'Yoruka',
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -241,7 +231,6 @@ export const styles = StyleSheet.create({
   popupNote: {
     color: '#ffffff',
     fontSize: 12,
-    fontFamily: 'Yoruka',
     marginTop: 10,
     textAlign: 'center',
   },

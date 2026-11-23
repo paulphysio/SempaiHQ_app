@@ -33,7 +33,6 @@ export const getMintStyles = (c) => StyleSheet.create({
     fontSize: 18,
     color: c.textSecondary,
     marginTop: 20,
-    fontFamily: 'Yoruka',
   },
   connectButton: {
     flexDirection: 'row',
@@ -81,7 +80,6 @@ export const getMintStyles = (c) => StyleSheet.create({
   infoDescription: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   mintTypeSelector: {
@@ -133,7 +131,6 @@ export const getMintStyles = (c) => StyleSheet.create({
   formDescription: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -143,7 +140,6 @@ export const getMintStyles = (c) => StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   input: {
@@ -189,7 +185,6 @@ export const getMintStyles = (c) => StyleSheet.create({
     color: c.textSecondary,
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   resultCard: {
@@ -207,6 +202,5 @@ export const getMintStyles = (c) => StyleSheet.create({
     fontSize: 16,
     
     color: c.textPrimary,
-    fontFamily: 'Yoruka',
   },
 });

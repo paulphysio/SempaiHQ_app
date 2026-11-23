@@ -70,7 +70,6 @@ export const getComprehensionStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textPrimary,
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   questionContainer: {
     flexDirection: 'row',
@@ -87,7 +86,6 @@ export const getComprehensionStyles = (c) => StyleSheet.create({
     color: c.textPrimary,
     marginLeft: 15,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 24,
   },
   optionsContainer: {
@@ -128,7 +126,6 @@ export const getComprehensionStyles = (c) => StyleSheet.create({
     fontSize: 16,
     
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
   },
   selectedIndicatorText: {
     color: c.textPrimary,
@@ -138,7 +135,6 @@ export const getComprehensionStyles = (c) => StyleSheet.create({
     color: c.textPrimary,
     marginLeft: 15,
     flex: 1,
-    fontFamily: 'Yoruka',
   },
   selectedOptionText: {
     
@@ -162,13 +158,11 @@ export const getComprehensionStyles = (c) => StyleSheet.create({
     
     color: c.textPrimary,
     marginLeft: 15,
-    fontFamily: 'Yoruka',
   },
   resultSubtext: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     marginLeft: 10,
-    fontFamily: 'Yoruka',
   },
   nextButton: {
     flexDirection: 'row',

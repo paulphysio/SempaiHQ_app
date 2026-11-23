@@ -33,7 +33,6 @@ export const getMarketplaceStyles = (c) => StyleSheet.create({
     fontSize: 18,
     color: c.textSecondary,
     marginTop: 20,
-    fontFamily: 'Yoruka',
   },
   connectButton: {
     flexDirection: 'row',
@@ -96,7 +95,6 @@ export const getMarketplaceStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textSecondary,
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   grid: {
     padding: 10,
@@ -163,7 +161,6 @@ export const getMarketplaceStyles = (c) => StyleSheet.create({
   listedText: {
     fontSize: 12,
     color: '#4CAF50',
-    fontFamily: 'Yoruka',
   },
   emptyContainer: {
     flex: 1,
@@ -175,7 +172,6 @@ export const getMarketplaceStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textSecondary,
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   modalOverlay: {
     flex: 1,
@@ -244,13 +240,11 @@ export const getMarketplaceStyles = (c) => StyleSheet.create({
     fontSize: 14,
     color: c.textSecondary,
     marginLeft: 10,
-    fontFamily: 'Yoruka',
   },
   infoValue: {
     fontSize: 14,
     color: c.textPrimary,
     marginLeft: 8,
-    fontFamily: 'Yoruka',
   },
   purchaseButton: {
     flexDirection: 'row',
@@ -278,7 +272,6 @@ export const getMarketplaceStyles = (c) => StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   input: {

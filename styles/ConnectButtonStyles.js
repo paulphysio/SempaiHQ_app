@@ -102,7 +102,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   dropdownText: {
     fontSize: 13,
-    fontFamily: 'Yoruka',
     color: c.textPrimary,
     marginLeft: 8,
     
@@ -153,7 +152,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   disconnectModalText: {
     fontSize: 13,
-    fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
     marginBottom: 16,
@@ -219,7 +217,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   modalText: {
     fontSize: 13,
-    fontFamily: 'Yoruka',
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
@@ -261,7 +258,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: 14,
-    fontFamily: 'Yoruka',
     color: '#666',
   },
   actionButton: {
@@ -355,7 +351,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   walletOptionDescription: {
     fontSize: 12,
-    fontFamily: 'Yoruka',
     color: '#666',
     lineHeight: 16,
   },
@@ -399,7 +394,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   inputLabel: {
     fontSize: 12,
-    fontFamily: 'Yoruka',
     
     color: c.textPrimary,
     marginBottom: 8,
@@ -445,7 +439,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   dropdownItemText: {
     fontSize: 14,
-    fontFamily: 'Yoruka',
     color: '#666',
     flex: 1,
   },
@@ -457,7 +450,6 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   dropdownActionText: {
     fontSize: 14,
-    fontFamily: 'Yoruka',
     color: c.textPrimary,
     
   },

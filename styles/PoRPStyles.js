@@ -66,7 +66,6 @@ export const getPoRPStyles = (c) => StyleSheet.create({
     fontSize: 16,
     color: c.textPrimary,
     textAlign: 'center',
-    fontFamily: 'Yoruka',
   },
   statRow: {
     flexDirection: 'row',
@@ -85,14 +84,12 @@ export const getPoRPStyles = (c) => StyleSheet.create({
   statLabel: {
     fontSize: 12,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 4,
   },
   statValue: {
     fontSize: 20,
     
     color: c.textPrimary,
-    fontFamily: 'Yoruka',
   },
   progressContainer: {
     marginTop: 20,
@@ -105,7 +102,6 @@ export const getPoRPStyles = (c) => StyleSheet.create({
   progressLabel: {
     fontSize: 14,
     color: c.textSecondary,
-    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   progressBar: {
@@ -124,6 +120,5 @@ export const getPoRPStyles = (c) => StyleSheet.create({
     color: c.textPrimary,
     marginTop: 8,
     textAlign: 'right',
-    fontFamily: 'Yoruka',
   },
 });

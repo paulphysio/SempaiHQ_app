@@ -124,7 +124,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   },
   chatItemText: {
     fontSize: 15,
-    fontFamily: 'Yoruka',
     color: c.textPrimary,
     
     flex: 1,
@@ -213,7 +212,6 @@ export const getChatStyles = (c) => StyleSheet.create({
     color: '#fff',
     
     fontSize: 16,
-    fontFamily: 'Yoruka',
     flex: 1,
   },
   selectionBarEdit: {
@@ -278,7 +276,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   },
   messageText: {
     fontSize: 14,
-    fontFamily: 'Yoruka',
     color: c.textPrimary,
     lineHeight: 18,
     flexShrink: 1,
@@ -306,7 +303,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   },
   replyContent: {
     fontSize: 11,
-    fontFamily: 'Yoruka',
     color: c.textSecondary,
   },
   replyButton: {
@@ -325,7 +321,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   replyText: {
     flex: 1,
     fontSize: 12,
-    fontFamily: 'Yoruka',
     color: c.textPrimary,
   },
   replyName: {
@@ -463,7 +458,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   },
   typingText: {
     fontSize: 11,
-    fontFamily: 'Yoruka',
     color: c.textSecondary,
   },
   errorBanner: {
@@ -479,7 +473,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   errorText: {
     color: '#fff',
     fontSize: 13,
-    fontFamily: 'Yoruka',
     flex: 1,
   },
   loadingIndicator: {
@@ -491,7 +484,6 @@ export const getChatStyles = (c) => StyleSheet.create({
   loadingText: {
     color: c.textSecondary,
     fontSize: 13,
-    fontFamily: 'Yoruka',
     marginLeft: 8,
   },
   emojiPicker: {

@@ -1,11 +1,14 @@
 import React, {useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';
 import { getAddGifStyles } from '../styles/AddGifStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass, GelInput, GelButton } from '../components/gel/GelKit';
+import { readImageBytes } from '../utils/imageUpload';
 
 const AddGifScreen = () => {
   const { isDark, colors } = useTheme();
@@ -47,16 +50,9 @@ const AddGifScreen = () => {
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = fileName;
 
-      const formData = new FormData();
-      formData.append('file', {
-        uri: file.uri,
-        type: file.type || 'image/gif',
-        name: fileName,
-      });
-
       const { error: uploadError } = await supabase.storage
         .from('gifs')
-        .upload(filePath, formData);
+        .upload(filePath, await readImageBytes(file.uri), { contentType: fileExt === 'gif' ? 'image/gif' : 'image/' + fileExt });
 
       if (uploadError) {
         throw new Error(`Upload failed: ${uploadError.message}`);
@@ -98,78 +94,34 @@ const AddGifScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardContainer}
-      >
-        <View style={styles.content}>
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>GIF Title</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Enter GIF title"
-              placeholderTextColor="#888"
-              editable={!uploading}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Tags (optional, comma-separated)</Text>
-            <TextInput
-              style={styles.input}
-              value={tags}
-              onChangeText={setTags}
-              placeholder="e.g., funny, cat, reaction"
-              placeholderTextColor="#888"
-              editable={!uploading}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>GIF File</Text>
-            <TouchableOpacity
-              style={styles.fileButton}
-              onPress={handleFilePick}
-              disabled={uploading}
-            >
-              <Icon name="image" size={20} color="#9B59B6" />
-              <Text style={styles.fileButtonText}>
-                {file ? file.uri.split('/').pop() : 'Select GIF File'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {file && (
-            <View style={styles.previewContainer}>
-              <Image
-                source={{ uri: file.uri }}
-                style={styles.previewImage}
-                resizeMode="contain"
-              />
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.submitButton}
-            onPress={handleSubmit}
-            disabled={uploading}
-          >
-            {uploading ? (
-              <ActivityIndicator size="small" color="#FFF" />
-            ) : (
-              <Text style={styles.submitButtonText}>Add GIF</Text>
-            )}
-          </TouchableOpacity>
-
-          {message && (
-            <Text style={[styles.message, message.includes('Error') ? styles.messageError : styles.messageSuccess]}>
-              {message}
-            </Text>
-          )}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 16 }}>
+          <View pointerEvents="none"><GelOrb icon="film" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>Add a GIF</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 15, textAlign: 'center', marginTop: 6 }}>It joins the GIF library everyone can use in Chat.</Text>
         </View>
-      </KeyboardAvoidingView>
+        <GelGlass radius={28} glow={false} padding={18}>
+          <GelInput label="Title" value={title} onChangeText={setTitle} placeholder="e.g. happy dance" editable={!uploading} style={{ marginTop: 0 }} />
+          <GelInput label="Tags (optional)" value={tags} onChangeText={setTags} placeholder="funny, cat, reaction" editable={!uploading} hint="Separate with commas" />
+          <GelButton
+            label={file ? 'Change GIF' : 'Choose a GIF'}
+            icon="image"
+            variant="secondary"
+            onPress={handleFilePick}
+            disabled={uploading}
+            style={{ marginTop: 16 }}
+          />
+          {file ? (
+            <Image source={{ uri: file.uri }} style={{ width: '100%', height: 200, borderRadius: 18, marginTop: 14 }} resizeMode="contain" />
+          ) : null}
+          {message ? (
+            <Text style={{ color: message.startsWith('Error') || message.startsWith('Please') ? colors.danger : colors.success, textAlign: 'center', marginTop: 12 }}>{message}</Text>
+          ) : null}
+          <GelButton label="Add GIF" icon="plus" loading={uploading} onPress={handleSubmit} style={{ marginTop: 16 }} />
+        </GelGlass>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

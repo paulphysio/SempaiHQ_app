@@ -38,8 +38,6 @@ export const getAddGifStyles = (c) => StyleSheet.create({
   label: {
     color: c.accent,
     fontSize: 14,
-    
-    fontFamily: 'Yoruka',
   },
   input: {
     backgroundColor: c.border,
@@ -96,7 +94,6 @@ export const getAddGifStyles = (c) => StyleSheet.create({
   message: {
     fontSize: 14,
     textAlign: 'center',
-    fontFamily: 'Yoruka',
   },
   messageSuccess: {
     color: '#2ECC71',

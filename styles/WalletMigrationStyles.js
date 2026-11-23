@@ -33,14 +33,12 @@ export const styles = StyleSheet.create({
     fontSize: 18,
     color: '#CCCCCC',
     marginTop: 20,
-    fontFamily: 'Yoruka',
   },
   lockedSubMessage: {
     fontSize: 14,
     color: '#888888',
     marginTop: 10,
     textAlign: 'center',
-    fontFamily: 'Yoruka',
     paddingHorizontal: 20,
   },
   connectButton: {
@@ -89,7 +87,6 @@ export const styles = StyleSheet.create({
   infoDescription: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   migrationTypeSelector: {
@@ -141,7 +138,6 @@ export const styles = StyleSheet.create({
   formDescription: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'Yoruka',
     marginBottom: 20,
     lineHeight: 20,
   },
@@ -151,7 +147,6 @@ export const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     color: '#CCCCCC',
-    fontFamily: 'Yoruka',
     marginBottom: 8,
   },
   input: {
@@ -188,7 +183,6 @@ export const styles = StyleSheet.create({
     color: '#F39C12',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   infoBox: {
@@ -205,7 +199,6 @@ export const styles = StyleSheet.create({
     color: '#CCCCCC',
     marginLeft: 12,
     flex: 1,
-    fontFamily: 'Yoruka',
     lineHeight: 18,
   },
   resultCard: {
@@ -223,6 +216,5 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     
     color: '#FFFFFF',
-    fontFamily: 'Yoruka',
   },
 });

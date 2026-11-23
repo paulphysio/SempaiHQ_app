@@ -8,6 +8,8 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 
 import { gelAlert } from '../components/gel/GelAlert';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass, GelInput, GelButton } from '../components/gel/GelKit';
 const WalletImportScreen = () => {
   const { isDark, colors } = useTheme();
   const styles = useMemo(() => getWalletImportStyles(colors), [isDark]);
@@ -56,93 +58,29 @@ const WalletImportScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Icon name="wallet" size={48} color={colors.accent} style={styles.icon} />
-            <Text style={styles.title}>Import Wallet</Text>
-            <Text style={styles.subtitle}>Import your existing Solana wallet using your private key</Text>
-          </View>
-
-          <View style={styles.formContainer}>
-            <Text style={styles.formDescription}>
-              Enter your Base58-encoded private key and set a password to secure your wallet locally.
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Private Key</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your Base58 private key"
-                placeholderTextColor="#888"
-                value={privateKey}
-                onChangeText={setPrivateKey}
-                multiline
-                numberOfLines={3}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Min 8 characters"
-                placeholderTextColor="#888"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-              />
-            </View>
-
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Re-enter password"
-                placeholderTextColor="#888"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-              />
-            </View>
-
-            <TouchableOpacity
-              style={styles.importButton}
-              onPress={handleImportWallet}
-              disabled={importing || isLoading}
-            >
-              {importing || isLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <Icon name="import" size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                  <Text style={styles.buttonText}>Import Wallet</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <View style={styles.warningBox}>
-              <Icon name="exclamation-triangle" size={16} color={colors.accent} />
-              <Text style={styles.warningText}>
-                Your private key will be encrypted and stored securely. Never share your private key with anyone.
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('Home')}>
-            <Icon name="arrow-left" size={24} color={colors.accent} />
-            <Text style={styles.backButtonText}>Back to Home</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 16 }}>
+          <View pointerEvents="none"><GelOrb icon="key" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>Import a wallet</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 6, maxWidth: 340 }}>
+            Paste a private key from another Solana wallet, then choose a password to lock it on this phone.
+          </Text>
+        </View>
+        <GelGlass radius={28} glow={false} padding={18}>
+          <GelInput label="Private key" placeholder="Base58 private key" value={privateKey} onChangeText={setPrivateKey} multiline secureTextEntry autoCapitalize="none" autoCorrect={false} style={{ marginTop: 0 }} />
+          <GelInput label="Password" placeholder="At least 8 characters" value={password} onChangeText={setPassword} secureTextEntry />
+          <GelInput label="Confirm password" placeholder="Type it again" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+          <GelButton label="Import wallet" icon="file-import" loading={importing || isLoading} onPress={handleImportWallet} style={{ marginTop: 18 }} />
+        </GelGlass>
+        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 14, padding: 14, borderRadius: 20, backgroundColor: 'rgba(245,158,11,0.10)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.35)' }}>
+          <Icon name="alert" size={16} color={colors.warning} style={{ marginTop: 1 }} />
+          <Text style={{ flex: 1, color: colors.warning, fontSize: 13, lineHeight: 19 }}>
+            Your key is locked with your password and stays on this phone. Never share a private key with anyone — not even SempaiHQ.
+          </Text>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

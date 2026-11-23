@@ -60,7 +60,6 @@ export const styles = StyleSheet.create({
   errorMessageText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     flex: 1,
   },
   clearErrorButton: {
@@ -78,7 +77,6 @@ export const styles = StyleSheet.create({
   connectPromptText: {
     color: KA_COLORS.textSecondary,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -176,7 +174,6 @@ export const styles = StyleSheet.create({
   commentText: {
     color: KA_COLORS.ivory,
     fontSize: 14,
-    fontFamily: 'Yoruka',
     lineHeight: 20,
   },
   commentActions: {

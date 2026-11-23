@@ -82,7 +82,6 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
   listContent: {
     padding: 10,
@@ -175,6 +174,5 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     color: '#CCCCCC',
     marginTop: 15,
-    fontFamily: 'Yoruka',
   },
 });
