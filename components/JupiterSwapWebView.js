@@ -5,6 +5,8 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import Modal from 'react-native-modal';
 import { AnimatedPressable, usePulse } from '../utils/animations';
 import { useTheme } from '../context/ThemeContext';
+import GelOrb from './nav/GelOrb';
+import { GelButton } from './gel/GelKit';
 
 const WALLET_NAME = 'Sempai Wallet';
 const WALLET_ICON =
@@ -286,13 +288,9 @@ const JupiterSwapWebView = ({
     >
       <View style={styles.container}>
         <View style={styles.header}>
-          <AnimatedPressable onPress={handleGoBack} disabled={!canGoBack} style={styles.headerButton} scaleTo={0.85}>
-            <Icon name="arrow-left" size={20} color="#fff" />
-          </AnimatedPressable>
+          <GelOrb icon="arrow-left" size={36} onPress={handleGoBack} disabled={!canGoBack} label="Back" breathe={false} />
           <Text style={styles.headerTitle}>Jupiter Swap</Text>
-          <AnimatedPressable onPress={onClose} style={styles.headerButton} scaleTo={0.85}>
-            <Icon name="times" size={20} color="#fff" />
-          </AnimatedPressable>
+          <GelOrb icon="times" size={36} onPress={onClose} label="Close" breathe={false} />
         </View>
 
         <View style={styles.webviewContainer}>
@@ -332,9 +330,7 @@ const JupiterSwapWebView = ({
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Complete your swap in Jupiter, then close this window</Text>
-          <AnimatedPressable onPress={onClose} style={styles.closeButton} scaleTo={0.97}>
-            <Text style={styles.closeButtonText}>Close & Refresh Balances</Text>
-          </AnimatedPressable>
+          <GelButton label="Done — refresh my balances" icon="check" onPress={onClose} />
         </View>
       </View>
     </Modal>

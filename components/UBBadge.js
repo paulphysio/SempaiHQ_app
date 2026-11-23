@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Image, StyleSheet, Text, TouchableOpacity, Modal, Animated, Dimensions } from 'react-native';
+import { View, Image, StyleSheet, Text, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { GelModal, GelInset } from './gel/GelKit';
+import { useTheme } from '../context/ThemeContext';
 
 const { width, height } = Dimensions.get('window');
 
 const UBBadge = ({ type = 'writer', size = 'medium', showLabel = false, onPress }) => {
+  const { colors: themeColors } = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const [pulseAnim] = useState(new Animated.Value(1));
   const [glowAnim] = useState(new Animated.Value(0.3));
@@ -159,60 +162,27 @@ const UBBadge = ({ type = 'writer', size = 'medium', showLabel = false, onPress 
         )}
       </TouchableOpacity>
 
-      <Modal
+      <GelModal
         visible={modalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
+        onClose={() => setModalVisible(false)}
+        actions={[{ label: 'Awesome!', icon: 'star', onPress: () => setModalVisible(false) }]}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setModalVisible(false)}
-        >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-            
-            <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <Image
-                source={badgeImage}
-                style={styles.modalBadge}
-                resizeMode="contain"
-              />
-            </Animated.View>
-            
-            <Text style={[styles.modalTitle, { color: badgeColor }]}>{badgeLabel}</Text>
-            <Text style={styles.modalDescription}>{getBadgeDescription(type)}</Text>
-            
-            <View style={styles.modalStats}>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>RARE</Text>
-                <Text style={styles.statLabel}>Rarity</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+            <Image source={badgeImage} style={styles.modalBadge} resizeMode="contain" />
+          </Animated.View>
+          <Text style={[styles.modalTitle, { color: badgeColor }]}>{badgeLabel}</Text>
+          <Text style={[styles.modalDescription, { color: themeColors.textSecondary }]}>{getBadgeDescription(type)}</Text>
+          <GelInset style={{ alignSelf: 'stretch', flexDirection: 'row', justifyContent: 'space-around' }}>
+            {[['RARE', 'Rarity'], ['100%', 'Authentic'], ['∞', 'Value']].map(([v, l]) => (
+              <View key={l} style={styles.statItem}>
+                <Text style={[styles.statValue, { color: badgeColor }]}>{v}</Text>
+                <Text style={[styles.statLabel, { color: themeColors.textMuted }]}>{l}</Text>
               </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>100%</Text>
-                <Text style={styles.statLabel}>Authentic</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>∞</Text>
-                <Text style={styles.statLabel}>Value</Text>
-              </View>
-            </View>
-            
-            <TouchableOpacity
-              style={[styles.modalButton, { backgroundColor: badgeColor }]}
-              onPress={() => setModalVisible(false)}
-            >
-              <Text style={styles.modalButtonText}>Awesome!</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+            ))}
+          </GelInset>
+        </View>
+      </GelModal>
     </>
   );
 };

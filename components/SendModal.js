@@ -10,7 +10,7 @@ import {
   Image,
   ScrollView,
 } from 'react-native';
-import Modal from 'react-native-modal';
+import { GelModal, GelInput, GelInset, GelRow } from './gel/GelKit';
 import { Connection, PublicKey, Transaction, SystemProgram, sendAndConfirmTransaction } from '@solana/web3.js';
 import {
   getAssociatedTokenAddressSync,
@@ -244,134 +244,71 @@ const SendModal = ({ isOpen, onClose, activeWalletAddress }) => {
 
   if (!isOpen) return null;
 
+  const fmtBal = balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 });
   return (
-    <Modal isVisible={isOpen} onBackdropPress={onClose} style={styles.modal}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Icon name="times" size={22} color="#ffffff" />
-          </TouchableOpacity>
+    <>
+      <GelModal
+        visible={isOpen && !showTokenModal && !showPasswordModal}
+        onClose={onClose}
+        variant="sheet"
+        icon="paper-plane"
+        title="Send tokens"
+        scroll
+        actions={[{ label: 'Send', icon: 'paper-plane', loading, onPress: handleSend }]}
+      >
+        <Text style={[styles.label, { marginTop: 16, marginLeft: 4 }]}>Token</Text>
+        <TouchableOpacity style={styles.selectedToken} onPress={() => setShowTokenModal(true)} accessibilityRole="button" accessibilityLabel={`Token ${TOKEN_MINTS[selectedToken].symbol}, change`}>
+          <Image source={TOKEN_MINTS[selectedToken].logo} style={styles.tokenLogo} />
+          <Text style={styles.tokenName}>{TOKEN_MINTS[selectedToken].symbol}</Text>
+          <Icon name="chevron-down" size={14} color={colors.textMuted} style={styles.dropdownArrow} />
+        </TouchableOpacity>
+        <GelInset>
+          <GelRow label="Available" value={`${fmtBal} ${selectedToken}`} strong />
+        </GelInset>
+        <GelInput label="To (wallet address)" value={recipientAddress} onChangeText={setRecipientAddress} placeholder="Paste the Solana address" autoCapitalize="none" autoCorrect={false} />
+        <GelInput label="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" placeholder="0.00" />
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {successMessage ? <Text style={styles.successText}>{successMessage}</Text> : null}
+      </GelModal>
 
-          <Text style={styles.modalTitle}>Send Tokens</Text>
-
-          {/* Token Selection */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Select Token</Text>
-            <TouchableOpacity style={styles.selectedToken} onPress={() => setShowTokenModal(true)}>
-              <Image source={TOKEN_MINTS[selectedToken].logo} style={styles.tokenLogo} />
-              <Text style={styles.tokenName}>{TOKEN_MINTS[selectedToken].symbol}</Text>
-              <Icon name="chevron-down" size={16} color="#ffffff" style={styles.dropdownArrow} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Balance Display */}
-          <View style={styles.balanceDisplay}>
-            <Text style={styles.balanceLabel}>Available Balance</Text>
-            <Text style={styles.balanceAmount}>
-              {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} {selectedToken}
-            </Text>
-          </View>
-
-          {/* Recipient Address */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Recipient Address</Text>
-            <TextInput
-              style={styles.input}
-              value={recipientAddress}
-              onChangeText={setRecipientAddress}
-              placeholder="Enter recipient address"
-              placeholderTextColor="#888"
-              autoCapitalize="none"
-            />
-          </View>
-
-          {/* Amount */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Amount</Text>
-            <TextInput
-              style={styles.input}
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              placeholder="Enter amount"
-              placeholderTextColor="#888"
-            />
-          </View>
-
-          {/* Error/Success Messages */}
-          {error && <Text style={styles.errorText}>{error}</Text>}
-          {successMessage && <Text style={styles.successText}>{successMessage}</Text>}
-
-          {/* Send Button */}
-          <TouchableOpacity
-            style={[styles.sendButton, loading ? styles.disabledButton : null]}
-            onPress={handleSend}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <>
-                <Icon name="paper-plane" size={16} color="#ffffff" style={styles.buttonIcon} />
-                <Text style={styles.sendButtonText}>Send</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-
-      {/* Token Selection Modal */}
-      <Modal isVisible={showTokenModal} onBackdropPress={() => setShowTokenModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowTokenModal(false)}>
-            <Icon name="times" size={22} color="#ffffff" />
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Select Token</Text>
-          <ScrollView style={styles.tokenList}>
-            {Object.keys(TOKEN_MINTS).map((token) => (
+      {/* choose token */}
+      <GelModal visible={isOpen && showTokenModal} onClose={() => setShowTokenModal(false)} variant="sheet" title="Choose a token">
+        <View style={{ marginTop: 8 }}>
+          {Object.keys(TOKEN_MINTS).map((token) => {
+            const on = token === selectedToken;
+            return (
               <TouchableOpacity
                 key={token}
-                style={styles.tokenItem}
-                onPress={() => {
-                  setSelectedToken(token);
-                  setShowTokenModal(false);
-                }}
+                style={[styles.tokenItem, on && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
+                onPress={() => { setSelectedToken(token); setShowTokenModal(false); }}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
               >
                 <Image source={TOKEN_MINTS[token].logo} style={styles.tokenLogo} />
                 <Text style={styles.tokenName}>{TOKEN_MINTS[token].symbol}</Text>
+                {on ? <Icon name="check" size={14} color={colors.accent} style={{ marginLeft: 'auto' }} /> : null}
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+            );
+          })}
         </View>
-      </Modal>
+      </GelModal>
 
-      {/* Password Modal */}
-      <Modal isVisible={showPasswordModal} onBackdropPress={() => setShowPasswordModal(false)}>
-        <View style={styles.modalContainer}>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowPasswordModal(false)}>
-            <Icon name="times" size={22} color="#ffffff" />
-          </TouchableOpacity>
-          <Text style={styles.modalTitle}>Enter Wallet Password</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            placeholderTextColor="#999"
-          />
-          <TouchableOpacity style={styles.submitButton} onPress={handlePasswordSubmit}>
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={() => setShowPasswordModal(false)}
-          >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-    </Modal>
+      {/* wallet password */}
+      <GelModal
+        visible={isOpen && showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        variant="sheet"
+        icon="lock"
+        title="Confirm it's you"
+        subtitle="Enter your wallet password to send."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setShowPasswordModal(false) },
+          { label: 'Confirm', icon: 'check', onPress: handlePasswordSubmit, disabled: !password },
+        ]}
+      >
+        <GelInput label="Password" placeholder="Your wallet password" secureTextEntry value={password} onChangeText={setPassword} autoFocus onSubmitEditing={handlePasswordSubmit} />
+      </GelModal>
+    </>
   );
 };
 
@@ -415,7 +352,8 @@ export const getSendModalStyles = (c) => StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.12,
     marginBottom: 8,
-    color: 'rgba(255, 255, 255, 0.35)',
+    color: c.textMuted,
+    fontWeight: '700',
   },
   input: {
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
@@ -429,11 +367,12 @@ export const getSendModalStyles = (c) => StyleSheet.create({
   selectedToken: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: c.bgCard,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 25,
     borderWidth: 1,
-    borderColor: 'rgba(243, 99, 22, 0.18)',
+    borderColor: c.borderAccent,
   },
   tokenLogo: {
     width: 32,
@@ -443,8 +382,8 @@ export const getSendModalStyles = (c) => StyleSheet.create({
   },
   tokenName: {
     color: c.textPrimary,
-    fontSize: 14,
-    
+    fontSize: 16,
+    fontWeight: '700',
   },
   dropdownArrow: {
     marginLeft: 'auto',
@@ -471,15 +410,15 @@ export const getSendModalStyles = (c) => StyleSheet.create({
     color: c.textPrimary,
   },
   errorText: {
-    color: '#FF5252',
+    color: c.danger,
     fontSize: 14,
-    marginBottom: 12,
+    marginTop: 12,
     textAlign: 'center',
   },
   successText: {
-    color: '#28A745',
+    color: c.success,
     fontSize: 14,
-    marginBottom: 12,
+    marginTop: 12,
     textAlign: 'center',
   },
   sendButton: {
@@ -510,9 +449,13 @@ export const getSendModalStyles = (c) => StyleSheet.create({
   tokenItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: c.textSecondary,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bgCard,
   },
   submitButton: {
     backgroundColor: '#007bff',

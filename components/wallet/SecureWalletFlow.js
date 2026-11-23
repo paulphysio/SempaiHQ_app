@@ -9,14 +9,14 @@
  */
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal, View, Text, TextInput, ScrollView, StyleSheet, Pressable, Clipboard,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  View, Text, TextInput, ScrollView, StyleSheet, Pressable, Clipboard,
+  ActivityIndicator, Platform, useWindowDimensions,
 } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Connection, Keypair } from '@solana/web3.js';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { GradientButton, GhostButton } from '../ui';
+import { GelModal, GelButton } from '../gel/GelKit';
 import { toast } from '../Toast';
 import { EmbeddedWalletContext } from '../ConnectButtonEnhanced';
 import {
@@ -49,10 +49,15 @@ function makeQuiz(words) {
 }
 
 export default function SecureWalletFlow({ visible, mode = 'create', onClose, onDone }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const { height: winH } = useWindowDimensions();
   const { user } = useAuth();
   const wallet = useContext(EmbeddedWalletContext);
-  const s = useMemo(() => makeStyles(colors), [colors]);
+  const s = useMemo(() => makeStyles({
+    ...colors,
+    inputWell: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.9)',
+    inputRim: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(' + colors.accentRgb + ',0.18)',
+  }), [colors, isDark]);
 
   const startStep = mode === 'upgrade' ? 'intro' : mode === 'restore' ? 'enterWords' : 'password';
   const [step, setStep] = useState(startStep);
@@ -146,17 +151,16 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
   const title = mode === 'restore' ? 'Restore your wallet' : mode === 'upgrade' ? 'Secure your wallet' : 'Create your wallet';
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={() => closeable && onClose?.()} statusBarTranslucent>
-      <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={s.header}>
-          <View style={s.headerIcon}><FontAwesome5 name="shield-alt" size={16} color={colors.accent} /></View>
-          <Text style={s.title}>{title}</Text>
-          {closeable && step !== 'done' && (
-            <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close"><FontAwesome5 name="times" size={18} color={colors.textMuted} /></Pressable>
-          )}
-        </View>
-
-        <ScrollView contentContainerStyle={s.body} keyboardShouldPersistTaps="handled">
+    <GelModal
+      visible={visible}
+      onClose={closeable && step !== 'done' ? onClose : undefined}
+      dismissable={closeable && step !== 'done'}
+      variant="sheet"
+      icon="shield-alt"
+      title={title}
+      maxWidth={520}
+    >
+        <ScrollView style={{ maxHeight: winH * 0.66 }} contentContainerStyle={s.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {!!error && (
             <View style={s.errorBox}><FontAwesome5 name="exclamation-circle" size={14} color={colors.danger} /><Text style={s.errorText}>{error}</Text></View>
           )}
@@ -172,9 +176,9 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
               <Bullet s={s} colors={colors} icon="book-open" text="Your unlocked chapters, purchases and history come with you" />
               <Bullet s={s} colors={colors} icon="fingerprint" text="Everyday use stays one tap — this phone remembers it securely" />
               <View style={s.gap} />
-              <GradientButton label="Secure my wallet" icon="shield-alt" onPress={() => setStep('password')} />
+              <GelButton label="Secure my wallet" icon="shield-alt" onPress={() => setStep('password')} />
               <View style={s.gapSm} />
-              <GhostButton label="Not now" onPress={onClose} />
+              <GelButton variant="ghost" label="Not now" onPress={onClose} />
             </>
           )}
 
@@ -206,7 +210,7 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
                 importantForAutofill="yes" autoCapitalize="none" style={s.input} />
               {!!confirm && confirm !== password && <Text style={s.hint}>Passwords don’t match yet.</Text>}
               <View style={s.gap} />
-              <GradientButton label="Continue" onPress={goWords} disabled={!passwordOk} />
+              <GelButton label="Continue" onPress={goWords} disabled={!passwordOk} />
             </>
           )}
 
@@ -222,13 +226,13 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
                   <View key={i} style={s.wordCell}><Text style={s.wordNum}>{i + 1}</Text><Text style={s.word}>{w}</Text></View>
                 ))}
               </View>
-              <GhostButton label="Copy words (then paste into your password manager)" icon="copy"
+              <GelButton variant="ghost" label="Copy words (then paste into your password manager)" icon="copy"
                 onPress={() => { Clipboard.setString(words.join(' ')); toast.info('Copied — paste them somewhere safe, then clear your clipboard'); }} />
               <Pressable onPress={() => setSaved((v) => !v)} style={s.checkRow}>
                 <FontAwesome5 name={saved ? 'check-square' : 'square'} size={18} color={saved ? colors.accent : colors.textMuted} />
                 <Text style={s.checkText}>I’ve saved my 12 words somewhere safe</Text>
               </Pressable>
-              <GradientButton label="Continue" onPress={() => setStep('confirm')} disabled={!saved} />
+              <GelButton label="Continue" onPress={() => setStep('confirm')} disabled={!saved} />
             </>
           )}
 
@@ -254,9 +258,9 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
               ))}
               {Object.keys(answers).length === 3 && !quizOk && <Text style={s.hint}>Not quite — check your words and try again.</Text>}
               <View style={s.gap} />
-              <GradientButton label={mode === 'upgrade' ? 'Secure my wallet now' : 'Create my wallet'} icon="lock" onPress={run} disabled={!quizOk} />
+              <GelButton label={mode === 'upgrade' ? 'Secure my wallet now' : 'Create my wallet'} icon="lock" onPress={run} disabled={!quizOk} />
               <View style={s.gapSm} />
-              <GhostButton label="Show my words again" onPress={() => setStep('words')} />
+              <GelButton variant="ghost" label="Show my words again" onPress={() => setStep('words')} />
             </>
           )}
 
@@ -271,7 +275,7 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
                 <Text style={s.hint}>{typedWords.trim().split(/\s+/).length}/12 words — check spelling and order.</Text>
               )}
               <View style={s.gap} />
-              <GradientButton label="Continue" onPress={() => setStep('password')} disabled={!isValidRecoveryWords(typedWords)} />
+              <GelButton label="Continue" onPress={() => setStep('password')} disabled={!isValidRecoveryWords(typedWords)} />
             </>
           )}
 
@@ -311,12 +315,11 @@ export default function SecureWalletFlow({ visible, mode = 'create', onClose, on
                 If Google offered to save your password, make sure you tapped Save. Keep your 12 words safe.
               </Text>
               <View style={s.gap} />
-              <GradientButton label="Done" onPress={() => { onDone?.(summary); onClose?.(); }} />
+              <GelButton label="Done" onPress={() => { onDone?.(summary); onClose?.(); }} />
             </>
           )}
         </ScrollView>
-      </KeyboardAvoidingView>
-    </Modal>
+    </GelModal>
   );
 }
 
@@ -329,12 +332,12 @@ const makeStyles = (c) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 48, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: c.border },
   headerIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accentSoft, marginRight: 10 },
   title: { flex: 1, color: c.textPrimary, fontSize: 18, fontWeight: '800' },
-  body: { padding: 20, paddingBottom: 48 },
+  body: { paddingTop: 6, paddingBottom: 12 },
   lead: { color: c.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 8 },
   p: { color: c.textSecondary, fontSize: 14, lineHeight: 21, marginBottom: 10 },
   bold: { fontWeight: '800', color: c.textPrimary },
   label: { color: c.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', marginTop: 14, marginBottom: 6 },
-  input: { backgroundColor: c.bgCard, borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: c.textPrimary, fontSize: 15 },
+  input: { backgroundColor: c.inputWell, borderWidth: 1, borderColor: c.inputRim, borderRadius: 25, paddingHorizontal: 18, paddingVertical: 13, color: c.textPrimary, fontSize: 16 },
   hiddenUser: { height: 1, width: 1, opacity: 0, position: 'absolute' },
   hint: { color: c.warning, fontSize: 13, marginTop: 6 },
   meterRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
@@ -347,16 +350,16 @@ const makeStyles = (c) => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: 8 },
   wordCell: { width: '33.33%', padding: 4 },
   wordNum: { color: c.textFaint, fontSize: 11, marginBottom: 2 },
-  word: { color: c.textPrimary, fontSize: 15, fontWeight: '700', backgroundColor: c.bgCard, borderRadius: 10, borderWidth: 1, borderColor: c.border, paddingVertical: 9, paddingHorizontal: 10, overflow: 'hidden' },
+  word: { color: c.textPrimary, fontSize: 15, fontWeight: '700', backgroundColor: c.inputWell, borderRadius: 14, borderWidth: 1, borderColor: c.inputRim, paddingVertical: 9, paddingHorizontal: 10, overflow: 'hidden' },
   checkRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16 },
   checkText: { color: c.textPrimary, fontSize: 14, marginLeft: 10, flex: 1 },
   quizBlock: { marginBottom: 6 },
   optionRow: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4 },
-  option: { margin: 4, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: c.border, backgroundColor: c.bgCard },
+  option: { margin: 4, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 22, borderWidth: 1, borderColor: c.inputRim, backgroundColor: c.inputWell },
   optionText: { color: c.textPrimary, fontSize: 14, fontWeight: '600' },
   center: { alignItems: 'center', paddingVertical: 30 },
   doneIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: c.success, marginBottom: 16 },
-  card: { backgroundColor: c.bgCard, borderRadius: 14, borderWidth: 1, borderColor: c.border, padding: 14, marginVertical: 12 },
-  errorBox: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: c.bgCard, borderColor: c.danger, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 14 },
+  card: { backgroundColor: c.inputWell, borderRadius: 18, borderWidth: 1, borderColor: c.inputRim, padding: 14, marginVertical: 12 },
+  errorBox: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(229,72,77,0.08)', borderColor: c.danger, borderWidth: 1, borderRadius: 18, padding: 12, marginBottom: 14 },
   errorText: { color: c.danger, fontSize: 13, marginLeft: 8, flex: 1, lineHeight: 19 },
 });

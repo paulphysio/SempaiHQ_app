@@ -1,10 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, KeyboardAvoidingView, Platform } from 'react-native';
-import { useTheme } from '../context/ThemeContext';
+import React, { useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { GelModal, GelInput } from './gel/GelKit';
 
 const Popup = ({ visible, onClose, onSubmit }) => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getPopupStyles(colors), [isDark]);
   const [text, setText] = useState('');
 
   const handleSubmit = () => {
@@ -13,44 +11,19 @@ const Popup = ({ visible, onClose, onSubmit }) => {
   };
 
   return (
-    <Modal
-      animationType="slide"
-      transparent={true}
+    <GelModal
       visible={visible}
-      onRequestClose={onClose}
+      onClose={onClose}
+      icon="feather-alt"
+      title="Why do you want to apply?"
+      subtitle="Tell us what you create and what drives you."
+      actions={[
+        { label: 'Cancel', variant: 'secondary', onPress: onClose },
+        { label: 'Send', icon: 'paper-plane', onPress: handleSubmit, disabled: !text.trim() },
+      ]}
     >
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.centeredView}
-      >
-        <View style={styles.modalView}>
-          <Text style={styles.modalTitle}>Why do you want to apply?</Text>
-          <TextInput
-            style={styles.input}
-            multiline
-            numberOfLines={4}
-            onChangeText={setText}
-            value={text}
-            placeholder="Tell us about your passion and experience..."
-            placeholderTextColor="#888"
-          />
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonClose]}
-              onPress={onClose}
-            >
-              <Text style={styles.textStyle}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.buttonSubmit]}
-              onPress={handleSubmit}
-            >
-              <Text style={styles.textStyle}>Submit</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+      <GelInput multiline value={text} onChangeText={setText} placeholder="Your passion and experience…" />
+    </GelModal>
   );
 };
 

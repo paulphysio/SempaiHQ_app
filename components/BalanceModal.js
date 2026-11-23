@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Clipboard, StyleSheet, Image } from 'react-native';
-import Modal from 'react-native-modal';
+import { GelModal, GelInset } from './gel/GelKit';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { getAssociatedTokenAddressSync, unpackAccount } from '@solana/spl-token';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -117,76 +117,35 @@ const BalanceModal = ({ isOpen, onClose, activeWalletAddress }) => {
   if (!isOpen) return null;
 
   return (
-    <Modal isVisible={isOpen} onBackdropPress={onClose} style={styles.modal}>
-      <View style={styles.modalContainer}>
-        <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-          <Icon name="times" size={22} color="#ffffff" />
-        </TouchableOpacity>
-
-        <Text style={styles.modalTitle}>Your Portfolio</Text>
-
-        {/* Wallet Address */}
-        <View style={styles.walletAddressContainer}>
-          <View>
-            <Text style={styles.walletAddressLabel}>Wallet Address</Text>
-            <Text style={styles.walletAddressText}>
-              {activeWalletAddress?.slice(0, 6)}...{activeWalletAddress?.slice(-4)}
-            </Text>
+    <GelModal
+      visible={isOpen}
+      onClose={onClose}
+      variant="sheet"
+      icon="wallet"
+      title="Your portfolio"
+      subtitle={activeWalletAddress ? `${activeWalletAddress.slice(0, 6)}…${activeWalletAddress.slice(-4)}` : undefined}
+      scroll
+      actions={[{ label: 'Copy address to receive', icon: 'copy', variant: 'secondary', onPress: () => copyToClipboard(activeWalletAddress) }]}
+    >
+      <GelInset>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={styles.loadingText}>Loading balances…</Text>
           </View>
-          <TouchableOpacity
-            style={styles.copyButton}
-            onPress={() => copyToClipboard(activeWalletAddress)}
-          >
-            <Icon name="copy" size={14} color={colors.accent} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Token Balances */}
-        <View style={styles.balancesSection}>
-          <Text style={styles.sectionTitle}>Token Balances</Text>
-
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.accent} />
-              <Text style={styles.loadingText}>Loading balances...</Text>
-            </View>
-          ) : (
-            Object.entries(balances).map(([symbol, data]) => (
-              <View key={symbol} style={styles.balanceRow}>
-                <View style={styles.balanceLeft}>
-                  <Image source={data.logo} style={styles.tokenLogo} />
-                  <View>
-                    <Text style={styles.tokenSymbol}>{data.symbol}</Text>
-                    <Text style={styles.tokenMint}>
-                      {data.mint.slice(0, 8)}...{data.mint.slice(-8)}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.balanceRight}>
-                  <Text style={styles.balanceAmount}>{formatBalance(data.balance)}</Text>
-                  <Text style={styles.balanceSymbol}>{data.symbol}</Text>
-                </View>
+        ) : (
+          Object.entries(balances).map(([symbol, data], i) => (
+            <View key={symbol} style={[styles.balanceRow, i === 0 && { borderTopWidth: 0 }]}>
+              <View style={styles.balanceLeft}>
+                <Image source={data.logo} style={styles.tokenLogo} />
+                <Text style={styles.tokenSymbol}>{data.symbol}</Text>
               </View>
-            ))
-          )}
-        </View>
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.sendButton}>
-            <Icon name="paper-plane" size={13} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Send</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.receiveButton}
-            onPress={() => copyToClipboard(activeWalletAddress)}
-          >
-            <Icon name="copy" size={13} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Receive</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+              <Text style={styles.balanceAmount}>{formatBalance(data.balance)}</Text>
+            </View>
+          ))
+        )}
+      </GelInset>
+    </GelModal>
   );
 };
 
@@ -264,19 +223,16 @@ export const getBalanceModalStyles = (c) => StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.35)',
+    color: c.textMuted,
     marginTop: 12,
   },
   balanceRow: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
+    paddingVertical: 11,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.04)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: c.border,
   },
   balanceLeft: {
     flexDirection: 'row',
@@ -290,8 +246,8 @@ export const getBalanceModalStyles = (c) => StyleSheet.create({
   },
   tokenSymbol: {
     color: c.textPrimary,
-    
-    fontSize: 14,
+    fontWeight: '700',
+    fontSize: 15,
   },
   tokenMint: {
     fontSize: 10,
@@ -304,7 +260,7 @@ export const getBalanceModalStyles = (c) => StyleSheet.create({
   },
   balanceAmount: {
     color: c.textPrimary,
-    
+    fontWeight: '800',
     fontSize: 16,
   },
   balanceSymbol: {

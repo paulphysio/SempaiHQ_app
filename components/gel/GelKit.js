@@ -34,7 +34,7 @@ const glassColors = (isDark, c) => ({
 });
 
 /** The glass surface. Children sit on top of all the layers. */
-export function GelGlass({ children, style, radius = 28, glow = true, padding = 0 }) {
+export function GelGlass({ children, style, innerStyle, radius = 28, glow = true, padding = 0 }) {
   const { isDark, colors } = useTheme();
   const g = glassColors(isDark, colors);
   return (
@@ -52,7 +52,7 @@ export function GelGlass({ children, style, radius = 28, glow = true, padding = 
         style,
       ]}
     >
-      <View style={{ borderRadius: radius, overflow: 'hidden', padding }}>
+      <View style={[{ borderRadius: radius, overflow: 'hidden', padding }, innerStyle]}>
         {Platform.OS === 'ios' ? <BlurView intensity={60} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} /> : null}
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: g.tint }]} />
         <LinearGradient pointerEvents="none" colors={g.wash} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />

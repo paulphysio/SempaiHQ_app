@@ -24,6 +24,8 @@ import Animated, {
   withTiming,
   interpolate,
 } from 'react-native-reanimated';
+import { GelGlass } from './gel/GelKit';
+import GelOrb from './nav/GelOrb';
 import { colors as darkColors, gradients as darkGradients, type as darkType, radius, space, layout, hitSlop, glow, useMangaTheme } from '../theme/theme';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -529,18 +531,20 @@ export const Sheet = ({ visible, onClose, title, children, footer, tall }) => {
         />
         <Animated.View
           entering={FadeInDown.springify().damping(18)}
-          style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, borderWidth: 1, borderColor: colors.lineStrong, maxHeight: tall ? '90%' : '78%', paddingTop: 10 }}
+          style={{ maxHeight: tall ? '90%' : '80%', marginHorizontal: 10, marginBottom: 10 }}
         >
+          <GelGlass radius={30} style={{ flexShrink: 1 }} innerStyle={{ flexShrink: 1, paddingTop: 10 }}>
           <View style={{ alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: colors.lineStrong, marginBottom: 10 }} />
           {title ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingBottom: space.md }}>
               <Text style={type.h1}>{title}</Text>
-              <IconButton icon="times" onPress={onClose} label="Close" size={34} />
+              <GelOrb icon="times" size={30} iconSize={12} onPress={onClose} label="Close" breathe={false} />
             </View>
           ) : null}
           {/* flexShrink lets a ScrollView child take the remaining height and scroll */}
           <View style={{ paddingHorizontal: space.xl, flexShrink: 1 }}>{children}</View>
-          {footer ? <View style={{ padding: space.xl, paddingTop: space.md }}>{footer}</View> : null}
+          {footer ? <View style={{ padding: space.xl, paddingTop: space.md }}>{footer}</View> : <View style={{ height: space.lg }} />}
+          </GelGlass>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

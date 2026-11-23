@@ -13,6 +13,7 @@ import { goToTopLevel } from '../utils/navigation';
 import { LOGO } from '../theme/tokens';
 import { toast } from './Toast';
 import GelOrb from './nav/GelOrb';
+import { GelGlass } from './gel/GelKit';
 import { haptics } from '../utils/haptics';
 
 /** Glossy gel pill — same material as the orbs, stretched. */
@@ -222,7 +223,7 @@ const GlobalNavbar = () => {
             },
           ]}
         >
-          <LinearGradient colors={[colors.bgCardAlt, colors.bgElevated]} style={StyleSheet.absoluteFill} />
+          <GelGlass radius={22}>
           <View style={styles.dropdownHead}>
             <Text style={styles.dropdownLabel}>CONNECTED WALLET</Text>
             <Text style={styles.dropdownAddress}>{address ? `${address.slice(0, 8)}…${address.slice(-6)}` : ''}</Text>
@@ -244,6 +245,7 @@ const GlobalNavbar = () => {
               <Text style={[styles.dropdownText, item.danger && { color: colors.danger }]}>{item.label}</Text>
             </Pressable>
           ))}
+          </GelGlass>
         </Animated.View>
       </Modal>
     </Animated.View>

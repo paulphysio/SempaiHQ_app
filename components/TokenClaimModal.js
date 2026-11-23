@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import { GelModal, GelInset, GelRow } from './gel/GelKit';
+import { useTheme } from '../context/ThemeContext';
 import LinearGradient from 'react-native-linear-gradient';
 import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
 import { getUserDetails } from '../utils/userManagement';
@@ -12,6 +14,7 @@ const MAX_CLAIMS = 500;
 const MINIMUM_SOL_FOR_AIRDROP = 0.005; // 0.5 USD worth of SOL (assuming 1 SOL = $100)
 
 const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
+  const { colors: gelColors } = useTheme();
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const secretKey = walletContext?.secretKey;
@@ -206,83 +209,39 @@ const TokenClaimModal = ({ visible, onClose, onTokenClaim, userId }) => {
     setIsLoading(false);
   };
 
+  const lowSol = isEligible && solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP;
+  const cannotClaim = isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible || lowSol;
   return (
-    <Modal
+    <GelModal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      icon="gift"
+      tone={gelColors.gold}
+      title="Token faucet"
+      subtitle={
+        isCheckingEligibility
+          ? 'Checking if you can claim…'
+          : claimCount >= MAX_CLAIMS
+          ? 'Sorry — the faucet has run dry.'
+          : isEligible
+          ? 'Claim your 1 million SMP.'
+          : "This wallet isn't eligible for the airdrop."
+      }
+      actions={[
+        { label: 'Close', variant: 'secondary', onPress: onClose },
+        { label: isLoading ? 'Claiming…' : 'Claim tokens', icon: 'gift', loading: isLoading, disabled: cannotClaim, onPress: handleClaim },
+      ]}
     >
-      <View style={styles.modalOverlay}>
-        <LinearGradient
-          colors={['#FF8C00', '#FFA500']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.modalContainer}
-        >
-          <View style={styles.ornateBorder}>
-            <View style={styles.contentContainer}>
-              <Text style={styles.title}>Token Faucet</Text>
-              {isCheckingEligibility ? (
-                <Text style={styles.message}>Checking eligibility...</Text>
-              ) : (
-                <Text style={styles.message}>
-                  {claimCount >= MAX_CLAIMS
-                    ? 'Sorry, the faucet has been emptied out!'
-                    : isEligible
-                    ? 'Claim your 1 million Sempai Tokens'
-                    : 'You are not eligible for this airdrop.'}
-                </Text>
-              )}
-              <View style={styles.counterContainer}>
-                <Text style={styles.counterText}>
-                  Claims: {claimCount}/{MAX_CLAIMS}
-                </Text>
-              </View>
-              {errorMessage && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{errorMessage}</Text>
-                </View>
-              )}
-              {isEligible && solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>
-                    Warning: Your wallet has less than 0.5 USD worth of SOL. You need at least 0.5 USD worth of SOL to pay for transaction fees and account creation. Please reconnect your wallet after topping up your wallet before claiming. 
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={[
-                  styles.claimButton,
-                  (isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible || solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP) && styles.claimButtonDisabled,
-                ]}
-                onPress={handleClaim}
-                disabled={isLoading || isCheckingEligibility || claimCount >= MAX_CLAIMS || !isEligible || (solBalance !== null && solBalance < MINIMUM_SOL_FOR_AIRDROP)}
-              >
-                {isLoading ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator color="#FFF" style={styles.loadingSpinner} />
-                    <Text style={[styles.claimButtonText, { marginLeft: 8 }]}>
-                      Claiming...
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={[
-                    styles.claimButtonText,
-                    (claimCount >= MAX_CLAIMS || !isEligible) && styles.claimButtonTextDisabled,
-                  ]}>
-                    Claim Tokens
-                  </Text>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-                <Text style={styles.closeButtonText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </LinearGradient>
-      </View>
-    </Modal>
+      <GelInset>
+        <GelRow label="Claimed so far" value={`${claimCount} / ${MAX_CLAIMS}`} strong />
+      </GelInset>
+      {errorMessage ? <Text style={{ color: gelColors.danger, fontSize: 14, textAlign: 'center', marginTop: 12 }}>{errorMessage}</Text> : null}
+      {lowSol ? (
+        <Text style={{ color: gelColors.warning, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 12 }}>
+          You need about $0.50 of SOL in this wallet for network fees. Top up, reconnect your wallet, then claim.
+        </Text>
+      ) : null}
+    </GelModal>
   );
 };
 

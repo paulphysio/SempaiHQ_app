@@ -103,11 +103,8 @@ export const getGlobalNavbarStyles = (colors, isDark) =>
       position: 'absolute',
       top: HEADER_HEIGHT - 4,
       right: 12,
-      width: 230,
-      borderRadius: radius.lg,
-      overflow: 'hidden',
-      borderWidth: 1,
-      borderColor: colors.borderStrong,
+      width: 240,
+      borderRadius: 22,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 12 },
       shadowOpacity: isDark ? 0.55 : 0.2,
@@ -128,7 +125,7 @@ export const getGlobalNavbarStyles = (colors, isDark) =>
       backgroundColor: colors.accentSoft,
     },
     dropdownText: { color: colors.textPrimary, fontSize: 14, fontWeight: '600' },
-    pressed: { backgroundColor: colors.bgCardAlt },
+    pressed: { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(' + colors.accentRgb + ',0.08)' },
   });
 
 export default getGlobalNavbarStyles;

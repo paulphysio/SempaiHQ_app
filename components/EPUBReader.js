@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator, Pressable, Text, Modal, FlatList, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Pressable, Text, FlatList, Platform } from 'react-native';
+import { GelModal } from './gel/GelKit';
 import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -313,40 +314,32 @@ const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
         </>
       )}
 
-      <Modal visible={tocOpen} transparent animationType="slide" onRequestClose={() => setTocOpen(false)}>
-        <Pressable style={st.scrim} onPress={() => setTocOpen(false)} accessibilityLabel="Close contents" />
-        <View style={[st.sheet, { backgroundColor: colors.bgElevated, borderColor: colors.border }]}>
-          <View style={[st.sheetHead, { borderBottomColor: colors.border }]}>
-            <Text style={[st.sheetTitle, { color: colors.textPrimary }]}>Contents</Text>
-            <Pressable onPress={() => setTocOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close contents">
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
-            </Pressable>
-          </View>
-          <FlatList
-            data={chapters}
-            keyExtractor={(_, i) => String(i)}
-            initialScrollIndex={chapters.length && current > 3 ? current - 3 : undefined}
-            getItemLayout={(_, i) => ({ length: 48, offset: 48 * i, index: i })}
-            renderItem={({ item, index }) => {
-              const on = index === current;
-              return (
-                <Pressable
-                  onPress={() => goTo(index)}
-                  style={[st.row, on && { backgroundColor: colors.accentSoft }]}
-                  accessibilityRole="button"
+      <GelModal visible={tocOpen} onClose={() => setTocOpen(false)} variant="sheet" title="Contents">
+        <FlatList
+          style={{ maxHeight: 440, marginTop: 10 }}
+          data={chapters}
+          keyExtractor={(_, i) => String(i)}
+          initialScrollIndex={chapters.length && current > 3 ? current - 3 : undefined}
+          getItemLayout={(_, i) => ({ length: 48, offset: 48 * i, index: i })}
+          renderItem={({ item, index }) => {
+            const on = index === current;
+            return (
+              <Pressable
+                onPress={() => goTo(index)}
+                style={[st.row, { borderRadius: 24 }, on && { backgroundColor: colors.accentSoft }]}
+                accessibilityRole="button"
+              >
+                <Text
+                  numberOfLines={1}
+                  style={{ paddingLeft: (item.depth || 0) * 14, fontSize: 14, color: on ? colors.accent : colors.textSecondary, fontWeight: on ? '700' : '400' }}
                 >
-                  <Text
-                    numberOfLines={1}
-                    style={{ paddingLeft: (item.depth || 0) * 14, fontSize: 14, color: on ? colors.accent : colors.textSecondary, fontWeight: on ? '700' : '400' }}
-                  >
-                    {item.label}
-                  </Text>
-                </Pressable>
-              );
-            }}
-          />
-        </View>
-      </Modal>
+                  {item.label}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      </GelModal>
     </ReaderShell>
   );
 };
