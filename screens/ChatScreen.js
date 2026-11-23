@@ -1,1363 +1,583 @@
-import React, { memo, useState, useEffect, useRef, useCallback, useContext, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  FlatList,
-  Animated,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-  Dimensions,
-  TouchableWithoutFeedback,
-  Platform,
+  View, Text, TextInput, FlatList, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform,
+  RefreshControl, StyleSheet, Modal, useWindowDimensions, ScrollView,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native'; // Replaced useRouter and useLocalSearchParams
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker';
-import Modal from 'react-native-modal';
-import { supabase } from '../services/supabaseClient';
-import { EmbeddedWalletContext } from '../components/ConnectButton';
-import { getChatStyles } from '../styles/ChatStyles';
+import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../context/ThemeContext';
+import { supabase } from '../services/supabaseClient';
+import {
+  myId, fetchPeople, searchPeople, fetchInbox, fetchCommunityPreview, fetchMessages, sendMessage,
+  editMessage, deleteMessage, markRead, uploadPhoto, searchGifs, watchChat, PAGE,
+} from '../services/chat';
+import { shrinkImage } from '../utils/imageUpload';
+import { GelGlass, GelModal, GelOption, GelInput, GelButton } from '../components/gel/GelKit';
+import GelOrb from '../components/nav/GelOrb';
+import { Avatar } from '../components/feed/FeedKit';
+import { Bubble, DayPill, ChatRow, nameOf, dayLabel, listTime } from '../components/chat/ChatKit';
+import { toast } from '../components/Toast';
+import { gelAlert } from '../components/gel/GelAlert';
 
-import { LOGO } from '../theme/tokens';
-const { width, height } = Dimensions.get('window');
+/*
+ * Chat — the Community room (everyone) and private conversations.
+ * List of chats → a conversation with bubbly messages, replies, photos, GIFs,
+ * "typing…", sent/read ticks, and live delivery.
+ */
+const POLL_MS = 6000;
 
-const truncateName = (name) => {
-  if (!name || name.length <= 10) return name;
-  return `${name.slice(0, 3)}...${name.slice(-3)}`;
-};
+export default function ChatScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const [me, setMe] = useState(undefined); // undefined = loading, null = signed out
+  const [open, setOpen] = useState(null); // null | { type: 'group' } | { type: 'dm', userId, user }
 
-const Message = memo(
-  ({ msg, walletAddress, onReply, isPrivate, onScrollToParent }) => {
-    const { isDark, colors } = useTheme();
-    const styles = useMemo(() => getChatStyles(colors), [isDark]);
-    const isOwnMessage = isPrivate
-      ? String(msg.sender_wallet).toLowerCase() === String(walletAddress).toLowerCase()
-      : String(msg.wallet_address).toLowerCase() === String(walletAddress).toLowerCase();
-    const isSuper = msg.is_superuser || (msg.is_writer && msg.is_artist);
-    const showWriterBadge = msg.is_writer && !msg.is_artist && !msg.is_superuser;
-    const showArtistBadge = msg.is_artist && !msg.is_writer && !msg.is_superuser;
-    const showBenefactorBadge = msg.is_benefactor && !isSuper;
+  useEffect(() => {
+    let alive = true;
+    const load = () => myId().then((id) => alive && setMe(id));
+    load();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => load());
+    return () => { alive = false; sub?.subscription?.unsubscribe(); };
+  }, []);
 
-    const getBenefactorBadgeImage = () => {
-      if (!msg.is_benefactor) return null;
-      const level = msg.benefactor_level?.toLowerCase();
-      if (level === 'gold') return require('../assets/plan-image/Gold.png');
-      if (level === 'silver') return require('../assets/plan-image/Sliver.png');
-      if (level === 'blue') return require('../assets/plan-image/Blue.png');
-      return require('../assets/plan-image/Black.png');
-    };
+  // Opened from elsewhere: { userId } (new) or { chatId: wallet } (older links)
+  useEffect(() => {
+    const p = route.params || {};
+    if (p.userId) {
+      fetchPeople([p.userId]).then((m) => setOpen({ type: 'dm', userId: p.userId, user: m[p.userId] || { id: p.userId } }));
+    } else if (p.chatId && p.chatId !== 'group') {
+      supabase.from('users').select('id, name, image').eq('wallet_address', p.chatId).maybeSingle()
+        .then(({ data }) => data && setOpen({ type: 'dm', userId: data.id, user: data }));
+    } else if (p.chatId === 'group') {
+      setOpen({ type: 'group' });
+    }
+  }, [route.params?.userId, route.params?.chatId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const top = Platform.OS === 'web' ? 0 : insets.top;
+  const page = [st.page, { backgroundColor: colors.bg }, Platform.OS === 'web' && StyleSheet.absoluteFillObject];
+
+  if (me === undefined) {
+    return <View style={[page, st.center]}><ActivityIndicator color={colors.accent} /></View>;
+  }
+  if (!me) {
     return (
-      <View
-        style={[
-          styles.messageContainer,
-          isOwnMessage ? styles.ownMessage : styles.otherMessage,
-        ]}
-      >
-        <View style={[styles.messageBubble, isOwnMessage ? styles.ownMessageBubble : null]}>
-          <View style={styles.messageHeader}>
-            {msg.profile_image ? (
-              <Image source={{ uri: msg.profile_image }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder} />
-            )}
-            <View style={styles.headerContent}>
-              <View style={styles.nameContainer}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.userName}>{truncateName(msg.name)}</Text>
-                  {isSuper && (
-                    <FontAwesome5
-                      name="check-circle"
-                      size={10}
-                      color={colors.accent}
-                      style={styles.badge}
-                    />
-                  )}
-                  {showWriterBadge && (
-                    <Image
-                      source={require('../assets/writer-badge.png')}
-                      style={styles.badgeImage}
-                    />
-                  )}
-                  {showArtistBadge && (
-                    <Image
-                      source={require('../assets/artist-badge.png')}
-                      style={styles.badgeImage}
-                    />
-                  )}
-                  {showBenefactorBadge && getBenefactorBadgeImage() && (
-                    <Image
-                      source={getBenefactorBadgeImage()}
-                      style={styles.badgeImage}
-                    />
-                  )}
-                </View>
-              </View>
-              {isPrivate && (
-                <Text style={styles.messageStatus}>
-                  {msg.status === 'sending'
-                    ? '...'
-                    : msg.status === 'read'
-                    ? '✓✓'
-                    : msg.status === 'delivered'
-                    ? '✓'
-                    : ''}
-                </Text>
-              )}
-            </View>
-          </View>
-          {msg.parent_id && (
-            <TouchableOpacity
-              style={styles.replyPreview}
-              onPress={() => onScrollToParent(msg.parent_id)}
-            >
-              <Text style={styles.replyName}>
-                {truncateName(msg.parent_name) || 'Unknown'}
-              </Text>
-              <Text style={styles.replyContent}>
-                {msg.parent_content
-                  ? `${msg.parent_content.slice(0, 20)}${msg.parent_content.length > 20 ? '...' : ''}`
-                  : 'No content'}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {msg.content && <Text style={styles.messageText}>{msg.content}</Text>}
-          {msg.media_url && <Image source={{ uri: msg.media_url }} style={styles.media} />}
-          <TouchableOpacity
-            style={styles.replyButton}
-            onPress={() => onReply(msg.id)}
-          >
-            <FontAwesome5 name="reply" size={12} color={colors.accent} />
-          </TouchableOpacity>
+      <View style={[page, { paddingTop: top }]}>
+        <Header title="Chats" onBack={() => navigation.goBack()} colors={colors} />
+        <View style={[st.center, { flex: 1, padding: 28 }]}>
+          <GelOrb icon="comments" size={70} lit breathe={false} />
+          <Text style={[st.emptyTitle, { color: colors.textPrimary }]}>Sign in to chat</Text>
+          <Text style={[st.emptySub, { color: colors.textSecondary }]}>Talk with readers and creators in the Community room, or message anyone privately.</Text>
         </View>
       </View>
     );
-  },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.msg.id === nextProps.msg.id &&
-      prevProps.msg.content === nextProps.msg.content &&
-      prevProps.msg.media_url === nextProps.msg.media_url &&
-      prevProps.msg.status === nextProps.msg.status &&
-      prevProps.msg.parent_id === nextProps.msg.parent_id &&
-      prevProps.msg.parent_name === nextProps.msg.parent_name &&
-      prevProps.msg.parent_content === nextProps.msg.parent_content &&
-      prevProps.walletAddress === nextProps.walletAddress &&
-      prevProps.isPrivate === nextProps.isPrivate &&
-      prevProps.onReply === nextProps.onReply &&
-      prevProps.onScrollToParent === nextProps.onScrollToParent
-    );
   }
-);
 
-const ChatItem = memo(
-  ({ item, activeChat, switchChat }) => {
-    const { isDark, colors } = useTheme();
-    const styles = useMemo(() => getChatStyles(colors), [isDark]);
-    return (
-    <TouchableOpacity
-      style={[
-        styles.chatItem,
-        activeChat === item.wallet_address ? styles.activeChatItem : null,
-      ]}
-      onPress={() => switchChat(item.wallet_address)}
-    >
-      <View style={styles.chatItemContent}>
-        {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.chatAvatar} />
-        ) : (
-          <View style={styles.chatAvatarPlaceholder} />
-        )}
-        <Text style={styles.chatItemText} numberOfLines={1}>
-          {truncateName(item.name)}
-        </Text>
-      </View>
-    </TouchableOpacity>
-    );
-  },
-  (prevProps, nextProps) => {
-    return (
-      prevProps.item.wallet_address === nextProps.item.wallet_address &&
-      prevProps.item.name === nextProps.item.name &&
-      prevProps.item.image === nextProps.item.image &&
-      prevProps.activeChat === nextProps.activeChat &&
-      prevProps.switchChat === nextProps.switchChat
-    );
-  }
-);
+  return open ? (
+    <Conversation chat={open} me={me} onBack={() => (route.params?.userId || route.params?.chatId ? navigation.goBack() : setOpen(null))} />
+  ) : (
+    <ChatList me={me} onOpen={setOpen} onBack={() => navigation.goBack()} />
+  );
+}
 
-const GifPicker = ({ onSelect, onClose }) => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getChatStyles(colors), [isDark]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [gifs, setGifs] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+/* ── header ─────────────────────────────────────────────────────────────── */
+function Header({ title, subtitle, onBack, right, left, colors, onPressTitle }) {
+  const insets = useSafeAreaInsets();
+  const top = Platform.OS === 'web' ? 0 : insets.top;
+  return (
+    <View style={{ paddingTop: top + 6, paddingHorizontal: 10, paddingBottom: 8 }}>
+      <GelGlass radius={30} glow={false}>
+        <View style={st.headRow}>
+          <GelOrb icon="arrow-left" size={36} onPress={onBack} label="Back" breathe={false} />
+          {left}
+          <Pressable style={{ flex: 1, minWidth: 0 }} onPress={onPressTitle} disabled={!onPressTitle}>
+            <Text style={[st.headTitle, { color: colors.textPrimary }]} numberOfLines={1}>{title}</Text>
+            {subtitle ? <Text style={[st.headSub, { color: colors.textMuted }]} numberOfLines={1}>{subtitle}</Text> : null}
+          </Pressable>
+          {right}
+        </View>
+      </GelGlass>
+    </View>
+  );
+}
 
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
+/* ── list of chats ──────────────────────────────────────────────────────── */
+function ChatList({ me, onOpen, onBack }) {
+  const { colors } = useTheme();
+  const [rows, setRows] = useState(null);
+  const [community, setCommunity] = useState(null);
+  const [q, setQ] = useState('');
+  const [people, setPeople] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(false);
 
-  const fetchGifs = useCallback(async (query) => {
-    if (!query.trim()) {
-      setGifs([]);
-      return;
-    }
-    setLoading(true);
+  const load = useCallback(async () => {
     try {
-      const { data, error } = await supabase
-        .from('gifs')
-        .select('id, title, url')
-        .ilike('title', `%${query}%`)
-        .limit(20);
-      if (error) throw error;
-      setGifs(data || []);
-    } catch (error) {
-      console.error('Error fetching GIFs:', error.message);
-      setGifs([]);
+      const [inbox, last] = await Promise.all([fetchInbox(), fetchCommunityPreview()]);
+      setRows(inbox);
+      setCommunity(last);
+      setError(false);
+    } catch {
+      setError(true);
+      setRows((r) => r || []);
     } finally {
-      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
+  useFocusEffect(useCallback(() => {
+    load();
+    const t = setInterval(load, 15000);
+    return () => clearInterval(t);
+  }, [load]));
+
   useEffect(() => {
-    const debounce = setTimeout(() => fetchGifs(searchTerm), 300);
-    return () => clearTimeout(debounce);
-  }, [searchTerm, fetchGifs]);
+    const term = q.trim();
+    if (term.length < 2) { setPeople([]); return undefined; }
+    const t = setTimeout(() => searchPeople(term, me).then(setPeople).catch(() => setPeople([])), 300);
+    return () => clearTimeout(t);
+  }, [q, me]);
+
+  const term = q.trim().toLowerCase();
+  const shown = (rows || []).filter((r) => !term || (r.other_name || '').toLowerCase().includes(term));
+  const totalUnread = (rows || []).reduce((n, r) => n + (r.unread || 0), 0);
+  const preview = (r) => {
+    const body = r.last_content || (r.last_media ? '📷 Photo' : '');
+    return `${r.last_from_me ? 'You: ' : ''}${body}`;
+  };
 
   return (
-    <Modal
-      isVisible={true}
-      onBackdropPress={onClose}
-      style={styles.gifModal}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
-    >
-      <Animated.View style={[styles.gifContainer, { opacity: fadeAnim }]}>
-        <View style={styles.gifHeader}>
-          <TextInput
-            value={searchTerm}
-            onChangeText={setSearchTerm}
-            placeholder="Search GIFs..."
-            style={styles.gifInput}
-            autoFocus
+    <View style={[st.page, { backgroundColor: colors.bg }, Platform.OS === 'web' && StyleSheet.absoluteFillObject]}>
+      <Header title="Chats" subtitle={totalUnread ? `${totalUnread} unread` : 'Community and private messages'} onBack={onBack} colors={colors} />
+      <FlatList
+        data={shown}
+        keyExtractor={(r) => r.other_id}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={colors.accent} colors={[colors.accent]} />}
+        ListHeaderComponent={
+          <View>
+            <GelInput placeholder="Search chats or people" value={q} onChangeText={setQ} autoCapitalize="none" style={{ marginTop: 2, marginBottom: 12 }} />
+            {people.length ? (
+              <View style={{ marginBottom: 10 }}>
+                <Text style={[st.section, { color: colors.textMuted }]}>PEOPLE</Text>
+                {people.map((u) => (
+                  <ChatRow key={u.id} user={u} title={nameOf(u)} preview="Start a conversation" time="" onPress={() => onOpen({ type: 'dm', userId: u.id, user: u })} />
+                ))}
+              </View>
+            ) : null}
+            {!term ? (
+              <>
+                <Text style={[st.section, { color: colors.textMuted }]}>COMMUNITY</Text>
+                <ChatRow
+                  title="Community"
+                  icon={<View pointerEvents="none"><GelOrb icon="users" size={44} lit breathe={false} /></View>}
+                  preview={community ? (community.content || (community.media_url ? '📷 Photo' : '')) : 'Say hi to everyone on SempaiHQ'}
+                  time={community ? listTime(community.created_at) : ''}
+                  onPress={() => onOpen({ type: 'group' })}
+                />
+                <Text style={[st.section, { color: colors.textMuted, marginTop: 8 }]}>PRIVATE</Text>
+              </>
+            ) : null}
+          </View>
+        }
+        renderItem={({ item }) => (
+          <ChatRow
+            user={{ id: item.other_id, name: item.other_name, image: item.other_image }}
+            title={nameOf({ name: item.other_name })}
+            preview={preview(item)}
+            time={listTime(item.last_at)}
+            unread={item.unread}
+            onPress={() => onOpen({ type: 'dm', userId: item.other_id, user: { id: item.other_id, name: item.other_name, image: item.other_image } })}
           />
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <FontAwesome5 name="times" size={16} color={colors.accent} />
-          </TouchableOpacity>
-        </View>
-        {loading ? (
-          <ActivityIndicator size="small" color={colors.accent} />
-        ) : gifs.length > 0 ? (
-          <FlatList
-            data={gifs}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => onSelect(item.url)}
-                style={styles.gifItem}
-              >
-                <Image source={{ uri: item.url }} style={styles.gifImage} />
-              </TouchableOpacity>
-            )}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={2}
-            contentContainerStyle={styles.gifGrid}
-          />
-        ) : (
-          <Text style={styles.noGifs}>No GIFs found</Text>
         )}
-      </Animated.View>
-    </Modal>
+        ListEmptyComponent={
+          rows === null ? (
+            <ActivityIndicator style={{ marginTop: 30 }} color={colors.accent} />
+          ) : (
+            <View style={[st.center, { paddingVertical: 30 }]}>
+              <Text style={[st.emptySub, { color: colors.textSecondary }]}>
+                {error ? "Couldn't load your chats — pull down to retry." : term ? 'No chats match.' : 'No private chats yet. Search for someone above to start one.'}
+              </Text>
+            </View>
+          )
+        }
+      />
+    </View>
   );
-};
+}
 
-const ChatScreen = () => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getChatStyles(colors), [isDark]);
-  const walletContext = useContext(EmbeddedWalletContext);
-  const wallet = walletContext?.wallet;
-  const isWalletConnected = walletContext?.isWalletConnected || !!wallet?.publicKey;
+/* ── one conversation ───────────────────────────────────────────────────── */
+function Conversation({ chat, me, onBack }) {
   const navigation = useNavigation();
-  const route = useRoute(); // Added to access route params
-  const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [replyingTo, setReplyingTo] = useState(null);
-  const [walletAddress, setWalletAddress] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const [msgs, setMsgs] = useState([]); // oldest → newest
+  const [people, setPeople] = useState(chat.user ? { [chat.user.id]: chat.user } : {});
+  const [loading, setLoading] = useState(true);
+  const [older, setOlder] = useState(false);
+  const [ended, setEnded] = useState(false);
+  const [text, setText] = useState('');
+  const [replyTo, setReplyTo] = useState(null);
+  const [editing, setEditing] = useState(null);
+  const [menu, setMenu] = useState(null); // message whose options are open
+  const [attach, setAttach] = useState(false);
+  const [gifOpen, setGifOpen] = useState(false);
+  const [viewer, setViewer] = useState(null);
+  const [typing, setTyping] = useState(null);
   const [sending, setSending] = useState(false);
-  const [file, setFile] = useState(null);
-  const [showGifPicker, setShowGifPicker] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [users, setUsers] = useState([]);
-  const [recentChats, setRecentChats] = useState([]);
-  const [activeChat, setActiveChat] = useState('group');
-  const [privateMessages, setPrivateMessages] = useState({});
-  const [typingUsers, setTypingUsers] = useState({});
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const typingChannelRef = useRef(null);
-  const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [hasMoreMessages, setHasMoreMessages] = useState(true);
-  const flatListRef = useRef(null);
-  const slideAnim = useRef(new Animated.Value(-width)).current;
-  const hasScrolled = useRef(false);
-  const oldestMessageTimestamp = useRef(null);
-  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [initialLoad, setInitialLoad] = useState(true);
-  // Selection state for multi-select/delete/edit
-  const [selectedMessages, setSelectedMessages] = useState([]);
-  const [selectionMode, setSelectionMode] = useState(false);
-  // Delete and edit logic
-  const [editMode, setEditMode] = useState(false);
-  const [editText, setEditText] = useState('');
-  const [editMsgId, setEditMsgId] = useState(null);
+  const watch = useRef(null);
+  const typingTimer = useRef(null);
+  const isGroup = chat.type === 'group';
 
-  useEffect(() => {
-    const syncWallet = async () => {
-      try {
-        if (wallet && wallet.publicKey && isWalletConnected) {
-          setWalletAddress(wallet.publicKey);
-          await AsyncStorage.setItem('walletAddress', String(wallet.publicKey));
-        } else {
-          const key = await AsyncStorage.getItem('walletAddress');
-          if (key) setWalletAddress(key);
-          else setError('Please connect your wallet to chat.');
-        }
-      } catch (err) {
-        setError('Failed to sync wallet');
-      }
-    };
-    syncWallet();
-  }, [wallet, isWalletConnected]);
+  const learnPeople = useCallback(async (list) => {
+    const ids = list.map((m) => m.authorId).filter((id) => id && !people[id]);
+    if (!ids.length) return;
+    const found = await fetchPeople(ids);
+    setPeople((p) => ({ ...p, ...found }));
+  }, [people]);
 
-  useEffect(() => {
-    const { chatId, messageId } = route.params || {};
-    if (chatId) {
-      setActiveChat(chatId);
-      if (chatId !== 'group' && !privateMessages[chatId]) {
-        fetchPrivateMessages(chatId);
-      }
-    }
-    if (messageId) {
-      setTimeout(() => scrollToMessage(messageId), 500);
-    }
-  }, [route.params]);
-
-  const scrollToMessage = (messageId) => {
-    const msgList = activeChat === 'group' ? messages : privateMessages[activeChat] || [];
-    const index = msgList.findIndex((m) => m.id.toString() === messageId);
-    if (index !== -1 && flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index, animated: true });
-      hasScrolled.current = true;
-    }
-  };
-
-  const fetchRecentChats = useCallback(async () => {
-    if (!walletAddress) return;
-    try {
-      // Fetch all private messages where the user is sender or recipient
-      const { data, error } = await supabase
-        .from('private_messages')
-        .select('sender_wallet, recipient_wallet, created_at')
-        .or(`sender_wallet.eq.${walletAddress},recipient_wallet.eq.${walletAddress}`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Collect all unique wallet addresses that have messaged or been messaged by the user
-      const uniqueContacts = new Map();
-      for (const msg of data) {
-        const contactWallets = [msg.sender_wallet, msg.recipient_wallet].filter(
-          (w) => w !== walletAddress
-        );
-        for (const contactWallet of contactWallets) {
-          if (!uniqueContacts.has(contactWallet)) {
-            uniqueContacts.set(contactWallet, msg.created_at);
-          }
-        }
-      }
-
-      // Fetch user info for all unique contacts
-      const contactWalletArr = Array.from(uniqueContacts.keys());
-      let contacts = [];
-      if (contactWalletArr.length > 0) {
-        const { data: usersData } = await supabase
-          .from('users')
-          .select('id, name, wallet_address, image, isWriter, isArtist, isSuperuser')
-          .in('wallet_address', contactWalletArr);
-        // Map by wallet_address for quick lookup
-        const userMap = new Map((usersData || []).map(u => [u.wallet_address, u]));
-        contacts = contactWalletArr.map(wallet => {
-          const userData = userMap.get(wallet);
-          return {
-            id: userData?.id || null,
-            name: userData?.name || wallet,
-            wallet_address: userData?.wallet_address || wallet,
-            image: userData?.image,
-            isWriter: userData?.isWriter || false,
-            isArtist: userData?.isArtist || false,
-            isSuperuser: userData?.isSuperuser || false,
-          };
-        });
-      }
-      setRecentChats(contacts);
-    } catch (error) {
-      setError('Failed to load recent chats');
-    }
-  }, [walletAddress]);
-
-  const fetchUsers = useCallback(async () => {
-    if (!searchTerm.trim() || !walletAddress) {
-      setUsers([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, name, wallet_address, image, isWriter, isArtist, isSuperuser')
-        .or(`name.ilike.%${searchTerm}%,wallet_address.ilike.%${searchTerm}%`)
-        .neq('wallet_address', walletAddress)
-        .limit(10);
-      if (error) throw error;
-      const userList = data.map((user) => ({
-        id: user.id,
-        name: user.name || user.wallet_address,
-        wallet_address: user.wallet_address,
-        image: user.image,
-        isWriter: user.isWriter || false,
-        isArtist: user.isArtist || false,
-        isSuperuser: user.isSuperuser || false,
-      }));
-      setUsers(userList);
-    } catch (error) {
-      setError('Failed to load users');
-    } finally {
-      setLoading(false);
-    }
-  }, [searchTerm, walletAddress]);
-
-  const fetchGroupMessages = useCallback(async (loadMore = false) => {
-    if (!walletAddress) return;
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (loadMore && oldestMessageTimestamp.current) {
-        query = query.lt('created_at', oldestMessageTimestamp.current);
-      }
-
-      const { data: messagesData, error } = await query;
-
-      if (error) throw error;
-      if (!messagesData || messagesData.length === 0) {
-        if (!loadMore) setMessages([]);
-        setHasMoreMessages(false);
-        setLoading(false);
-        return;
-      }
-
-      const enrichedMessages = await Promise.all(
-        messagesData.map(async (msg) => {
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('id, name, image, isWriter, isArtist, isSuperuser')
-            .eq('wallet_address', msg.wallet_address)
-            .maybeSingle();
-          if (userError) console.error('Error fetching user for message:', userError.message);
-
-          let parent_name = null;
-          let parent_content = null;
-          if (msg.parent_id) {
-            const { data: parentMsg, error: parentError } = await supabase
-              .from('messages')
-              .select('wallet_address, content')
-              .eq('id', msg.parent_id)
-              .maybeSingle();
-            if (parentError) console.error('Error fetching parent message:', parentError.message);
-            else if (parentMsg) {
-              const { data: parentUser, error: parentUserError } = await supabase
-                .from('users')
-                .select('name')
-                .eq('wallet_address', parentMsg.wallet_address)
-                .maybeSingle();
-              if (parentUserError) console.error('Error fetching parent user:', parentUserError.message);
-              parent_name = parentUser?.name || parentMsg.wallet_address || 'Unknown';
-              parent_content = parentMsg.content || null;
-            }
-          }
-
-          return {
-            ...msg,
-            user_id: userData?.id || null,
-            name: userData?.name || msg.wallet_address,
-            profile_image: userData?.image,
-            is_writer: userData?.isWriter || false,
-            is_artist: userData?.isArtist || false,
-            is_superuser: userData?.isSuperuser || false,
-            parent_name,
-            parent_content,
-          };
-        })
-      );
-
-      setMessages((prev) => {
-        const existingIds = new Set(prev.map((msg) => msg.id || msg.tempId));
-        const newMessages = enrichedMessages.filter((msg) => !existingIds.has(msg.id || msg.tempId));
-        const combinedMessages = loadMore ? [...newMessages, ...prev] : [...prev, ...newMessages];
-        return combinedMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      });
-      setHasMoreMessages(messagesData.length === 50);
-      if (enrichedMessages.length > 0) {
-        oldestMessageTimestamp.current = enrichedMessages[0].created_at;
-      }
-    } catch (error) {
-      setError('Failed to load group messages');
-    } finally {
-      setLoading(false);
-    }
-  }, [walletAddress]);
-
-  const fetchPrivateMessages = useCallback(async (recipientWallet, loadMore = false) => {
-    if (!walletAddress || !recipientWallet) return;
-    setLoading(true);
-    try {
-      let query = supabase
-        .from('private_messages')
-        .select('*')
-        .or(
-          `and(sender_wallet.eq.${walletAddress},recipient_wallet.eq.${recipientWallet}),and(sender_wallet.eq.${recipientWallet},recipient_wallet.eq.${walletAddress})`
-        )
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (loadMore && oldestMessageTimestamp.current) {
-        query = query.lt('created_at', oldestMessageTimestamp.current);
-      }
-
-      const { data: messagesData, error } = await query;
-
-      if (error) throw error;
-      if (!messagesData || messagesData.length === 0) {
-        if (!loadMore) {
-          setPrivateMessages((prev) => ({ ...prev, [recipientWallet]: [] }));
-        }
-        setHasMoreMessages(false);
-        setLoading(false);
-        return;
-      }
-
-      const enrichedMessages = await Promise.all(
-        messagesData.map(async (msg) => {
-          const { data: senderData, error: senderError } = await supabase
-            .from('users')
-            .select('id, name, image, isWriter, isArtist, isSuperuser')
-            .eq('wallet_address', msg.sender_wallet)
-            .maybeSingle();
-          if (senderError) console.error('Error fetching sender:', senderError.message);
-
-          let parent_name = null;
-          let parent_content = null;
-          if (msg.parent_id) {
-            const { data: parentMsg, error: parentError } = await supabase
-              .from('private_messages')
-              .select('sender_wallet, content')
-              .eq('id', msg.parent_id)
-              .maybeSingle();
-            if (parentError) console.error('Error fetching parent private message:', parentError.message);
-            else if (parentMsg) {
-              const { data: parentUser, error: parentUserError } = await supabase
-                .from('users')
-                .select('name')
-                .eq('wallet_address', parentMsg.sender_wallet)
-                .maybeSingle();
-              if (parentUserError) console.error('Error fetching parent user:', parentUserError.message);
-              parent_name = parentUser?.name || parentMsg.sender_wallet || 'Unknown';
-              parent_content = parentMsg.content || null;
-            }
-          }
-
-          return {
-            ...msg,
-            user_id: senderData?.id || null,
-            name: senderData?.name || msg.sender_wallet,
-            profile_image: senderData?.image,
-            is_writer: senderData?.isWriter || false,
-            is_artist: senderData?.isArtist || false,
-            is_superuser: senderData?.isSuperuser || false,
-            status: msg.status || 'sent',
-            parent_name,
-            parent_content,
-          };
-        })
-      );
-
-      setPrivateMessages((prev) => {
-        const currentMessages = prev[recipientWallet] || [];
-        const existingIds = new Set(currentMessages.map((msg) => msg.id || msg.tempId));
-        const newMessages = enrichedMessages.filter((msg) => !existingIds.has(msg.id || msg.tempId));
-        const combinedMessages = loadMore ? [...newMessages, ...currentMessages] : [...currentMessages, ...newMessages];
-        return {
-          ...prev,
-          [recipientWallet]: combinedMessages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
-        };
-      });
-      setHasMoreMessages(messagesData.length === 50);
-      if (enrichedMessages.length > 0) {
-        oldestMessageTimestamp.current = enrichedMessages[0].created_at;
-      }
-
-      await supabase
-        .from('private_messages')
-        .update({ status: 'read' })
-        .eq('recipient_wallet', walletAddress)
-        .eq('sender_wallet', recipientWallet)
-        .in('status', ['sent', 'delivered']);
-    } catch (error) {
-      setError('Failed to load private messages');
-    } finally {
-      setLoading(false);
-    }
-  }, [walletAddress]);
-
-  useEffect(() => {
-    fetchRecentChats();
-    const debounce = setTimeout(fetchUsers, 300);
-    return () => clearTimeout(debounce);
-  }, [fetchRecentChats, fetchUsers, searchTerm]);
-
-  useEffect(() => {
-    oldestMessageTimestamp.current = null;
-    setHasMoreMessages(true);
-    if (activeChat === 'group') {
-      fetchGroupMessages();
-    } else {
-      fetchPrivateMessages(activeChat);
-    }
-  }, [activeChat, fetchGroupMessages, fetchPrivateMessages]);
-
-  useEffect(() => {
-    // Clean up previous channel if any
-    if (typingChannelRef.current) {
-      typingChannelRef.current.unsubscribe();
-      typingChannelRef.current = null;
-    }
-    if (!walletAddress || activeChat === 'group') {
-      return;
-    }
-    // Create and subscribe to new channel
-    const channel = supabase.channel(`typing:${activeChat}`);
-    typingChannelRef.current = channel;
-    channel
-      .on('presence', { event: 'typing' }, (payload) => {
-        if (payload.user !== walletAddress) {
-          setTypingUsers((prev) => ({
-            ...prev,
-            [activeChat]: payload.typing ? payload.user : null,
-          }));
-        }
-      });
-    channel.subscribe();
-    return () => {
-      if (typingChannelRef.current) {
-        typingChannelRef.current.unsubscribe();
-        typingChannelRef.current = null;
-      }
-    };
-  }, [walletAddress, activeChat]);
-
-  const handleTyping = useCallback(() => {
-    if (!typingChannelRef.current || activeChat === 'group') return;
-    typingChannelRef.current.track({ typing: true, user: walletAddress });
-    clearTimeout(window.typingTimeout);
-    window.typingTimeout = setTimeout(() => {
-      typingChannelRef.current && typingChannelRef.current.track({ typing: false, user: walletAddress });
-    }, 2000);
-  }, [activeChat, walletAddress]);
-
-  const handleReply = (id) => setReplyingTo(id);
-
-  const handleScrollToParent = (parentId) => {
-    const index = (activeChat === 'group' ? messages : privateMessages[activeChat] || []).findIndex(
-      (m) => m.id === parentId
-    );
-    if (index !== -1 && flatListRef.current) {
-      flatListRef.current.scrollToIndex({ index, animated: true });
-      hasScrolled.current = true;
-    }
-  };
-
-  // Cache key helpers
-  const getCacheKey = () => `chat_cache_${activeChat}`;
-
-  // Load cached messages on mount or chat switch
-  useEffect(() => {
-    const loadCachedMessages = async () => {
-      try {
-        const cacheKey = getCacheKey();
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (activeChat === 'group') setMessages(parsed);
-          else setPrivateMessages((prev) => ({ ...prev, [activeChat]: parsed }));
-        }
-      } catch (e) {
-        // Ignore cache errors
-      }
-      setInitialLoad(false);
-    };
-    loadCachedMessages();
-  }, [activeChat]);
-
-  // Save messages to cache when they change
-  useEffect(() => {
-    const saveCache = async () => {
-      try {
-        const cacheKey = getCacheKey();
-        if (activeChat === 'group') {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify(messages.slice(-50)));
-        } else {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify((privateMessages[activeChat] || []).slice(-50)));
-        }
-      } catch (e) {}
-    };
-    if (!initialLoad) saveCache();
-  }, [messages, privateMessages, activeChat, initialLoad]);
-
-  // Scroll to bottom logic
-  const scrollToBottom = useCallback(() => {
-    if (flatListRef.current) {
-      flatListRef.current.scrollToEnd({ animated: true });
-      hasScrolled.current = true;
-    }
-  }, [flatListRef]);
-
-  // Show/hide scroll-to-bottom button based on scroll position
-  const handleScroll = (event) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const paddingToBottom = 40;
-    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
-    setShowScrollToBottom(!isAtBottom);
-  };
-
-  // Always scroll to bottom when new messages arrive (if user is at bottom or just loaded)
-  useEffect(() => {
-    if (!showScrollToBottom && (activeChat === 'group' ? messages.length : (privateMessages[activeChat] || []).length)) {
-      scrollToBottom();
-    }
-  }, [messages, privateMessages, activeChat]);
-
-  // FlatList onContentSizeChange handler
-  const handleContentSizeChange = () => {
-    if (!showScrollToBottom) scrollToBottom();
-  };
-
-  // Infinite scroll: only load older messages when user scrolls up
-  const handleEndReached = () => {
-    if (loading || !hasMoreMessages) return;
-    // Only load more if user is near the top
-    if (flatListRef.current) {
-      flatListRef.current.scrollToOffset({ offset: 0, animated: false });
-    }
-    if (activeChat === 'group') {
-      fetchGroupMessages(true);
-    } else {
-      fetchPrivateMessages(activeChat, true);
-    }
-  };
-
-  const handleFileChange = async () => {
-    try {
-      const res = await DocumentPicker.getDocumentAsync({
-        type: 'image/*',
-      });
-      if (res.type === 'success') {
-        setFile(res);
-      }
-    } catch (err) {
-      if (!DocumentPicker.isCancel(err)) {
-        setError('Error picking file');
-      }
-    }
-  };
-
-  // Switch chat handler for sidebar
-  const switchChat = useCallback((walletAddr) => {
-    setSidebarOpen(false); // Close sidebar immediately for UX
-    setSearchTerm(''); // Clear search to avoid sidebar reopening
-    setActiveChat(walletAddr);
-    setReplyingTo(null);
-    // Optionally reset scroll position
-    setTimeout(() => {
-      if (flatListRef.current) {
-        flatListRef.current.scrollToEnd({ animated: false });
-      }
-    }, 100);
+  const merge = useCallback((incoming) => {
+    setMsgs((cur) => {
+      const byId = new Map(cur.filter((m) => !m.temp).map((m) => [m.id, m]));
+      incoming.forEach((m) => byId.set(m.id, { ...byId.get(m.id), ...m }));
+      const temps = cur.filter((m) => m.temp && !incoming.some((n) => n.content === m.content && n.authorId === m.authorId));
+      return [...byId.values(), ...temps].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    });
   }, []);
 
-  // Send message handler (stub, implement as needed)
-  const handleSend = async () => {
-    if (sending || (!input.trim() && !file)) return;
-    setSending(true);
-    let mediaUrl = null;
-    let tempId = `temp-${Date.now()}`;
-    try {
-      // 1. Handle file upload if present (stub: you may need to implement actual upload logic)
-      if (file) {
-        // TODO: Implement actual upload logic to Supabase Storage or other
-        // For now, just use file.uri as a placeholder
-        mediaUrl = file.uri;
-      }
-
-      // 2. Prepare optimistic message with parent info if replying
-      let parent_name_optimistic = null;
-      let parent_content_optimistic = null;
-      if (replyingTo) {
-        const parentMsg = (activeChat === 'group'
-          ? messages
-          : privateMessages[activeChat] || []
-        ).find((m) => m.id === replyingTo || m.tempId === replyingTo);
-        if (parentMsg) {
-          parent_name_optimistic = parentMsg.name || parentMsg.wallet_address || parentMsg.sender_wallet || 'Unknown';
-          parent_content_optimistic = parentMsg.content || null;
-        }
-      }
-      const newMsg = {
-        id: tempId,
-        tempId,
-        content: input.trim(),
-        media_url: mediaUrl,
-        created_at: new Date().toISOString(),
-        wallet_address: walletAddress,
-        sender_wallet: walletAddress,
-        status: 'sending',
-        parent_id: replyingTo,
-        parent_name: parent_name_optimistic,
-        parent_content: parent_content_optimistic,
-        name: '',
-        profile_image: '',
-        is_writer: false,
-        is_artist: false,
-        is_superuser: false,
-      };
-
-      if (activeChat === 'group') {
-        setMessages((prev) => [...prev, newMsg]);
-      } else {
-        setPrivateMessages((prev) => ({
-          ...prev,
-          [activeChat]: [...(prev[activeChat] || []), newMsg],
-        }));
-      }
-
-      // 3. Send to Supabase
-      let result;
-      if (activeChat === 'group') {
-        result = await supabase
-          .from('messages')
-          .insert({
-            content: input.trim(),
-            media_url: mediaUrl,
-            wallet_address: walletAddress,
-            parent_id: replyingTo,
-          })
-          .select()
-          .maybeSingle();
-      } else {
-        result = await supabase
-          .from('private_messages')
-          .insert({
-            content: input.trim(),
-            media_url: mediaUrl,
-            sender_wallet: walletAddress,
-            recipient_wallet: activeChat,
-            parent_id: replyingTo,
-            status: 'sent',
-          })
-          .select()
-          .maybeSingle();
-      }
-
-      const { data: savedMsg, error } = result;
-      if (error) throw error;
-
-      // 4. Replace optimistic message with real one, and add parent info for reply preview
-      let parent_name_saved = null;
-      let parent_content_saved = null;
-      if (replyingTo) {
-        const parentMsg = (activeChat === 'group'
-          ? messages
-          : privateMessages[activeChat] || []
-        ).find((m) => m.id === replyingTo || m.tempId === replyingTo);
-        if (parentMsg) {
-          parent_name_saved = parentMsg.name || parentMsg.wallet_address || parentMsg.sender_wallet || 'Unknown';
-          parent_content_saved = parentMsg.content || null;
-        }
-      }
-      const savedMsgWithParent = { ...savedMsg, status: 'sent', parent_name: parent_name_saved, parent_content: parent_content_saved };
-      if (activeChat === 'group') {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? savedMsgWithParent : m))
-        );
-      } else {
-        setPrivateMessages((prev) => ({
-          ...prev,
-          [activeChat]: (prev[activeChat] || []).map((m) =>
-            m.id === tempId ? savedMsgWithParent : m
-          ),
-        }));
-      }
-    } catch (err) {
-      // On error, mark as failed
-      if (activeChat === 'group') {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
-        );
-      } else {
-        setPrivateMessages((prev) => ({
-          ...prev,
-          [activeChat]: (prev[activeChat] || []).map((m) =>
-            m.id === tempId ? { ...m, status: 'failed' } : m
-          ),
-        }));
-      }
-      setError('Failed to send message');
-    } finally {
-      setInput('');
-      setFile(null);
-      setReplyingTo(null);
-      setSending(false);
-    }
-  };
-
-  // GIF select handler (stub, implement as needed)
-  const handleGifSelect = (url) => {
-    // Implement your GIF send logic here
-    setShowGifPicker(false);
-  };
-
-  // Dismiss error banner
-  const dismissError = () => setError(null);
-
-  // Message selection handlers
-  const isOwnMessage = (msg) => {
-    return (activeChat === 'group'
-      ? String(msg.wallet_address).toLowerCase() === String(walletAddress).toLowerCase()
-      : String(msg.sender_wallet).toLowerCase() === String(walletAddress).toLowerCase()
-    );
-  };
-
-  const handleLongPressMessage = (msg) => {
-    if (!isOwnMessage(msg)) return;
-    setSelectionMode(true);
-    setSelectedMessages([msg.id || msg.tempId]);
-  };
-
-  const handleSelectMessage = (msg) => {
-    if (!isOwnMessage(msg)) return;
-    setSelectionMode(true);
-    setSelectedMessages((prev) => {
-      const id = msg.id || msg.tempId;
-      if (prev.includes(id)) {
-        return prev.filter((mid) => mid !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  };
-
-  const clearSelection = () => {
-    setSelectionMode(false);
-    setSelectedMessages([]);
-  };
-
-  // Delete and edit logic
-  const handleDeleteMessages = async () => {
-    if (selectedMessages.length === 0) return;
-    if (!window.confirm || window.confirm('Delete selected message(s)?')) {
-      const ids = selectedMessages;
-      if (activeChat === 'group') {
-        setMessages((prev) => prev.filter((m) => !ids.includes(m.id || m.tempId)));
-        await supabase.from('messages').delete().in('id', ids);
-      } else {
-        setPrivateMessages((prev) => ({
-          ...prev,
-          [activeChat]: (prev[activeChat] || []).filter((m) => !ids.includes(m.id || m.tempId)),
-        }));
-        await supabase.from('private_messages').delete().in('id', ids);
-      }
-      clearSelection();
-    }
-  };
-
-  const handleEditMessage = () => {
-    if (selectedMessages.length !== 1) return;
-    const id = selectedMessages[0];
-    const msg = (activeChat === 'group' ? messages : privateMessages[activeChat] || []).find((m) => (m.id || m.tempId) === id);
-    if (!msg || msg.status === 'failed' || msg.status === 'sending') return;
-    setEditText(msg.content);
-    setEditMsgId(id);
-    setEditMode(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editMsgId || !editText.trim()) return;
-    if (activeChat === 'group') {
-      setMessages((prev) => prev.map((m) => (m.id === editMsgId ? { ...m, content: editText } : m)));
-      await supabase.from('messages').update({ content: editText }).eq('id', editMsgId);
-    } else {
-      setPrivateMessages((prev) => ({
-        ...prev,
-        [activeChat]: (prev[activeChat] || []).map((m) => (m.id === editMsgId ? { ...m, content: editText } : m)),
-      }));
-      await supabase.from('private_messages').update({ content: editText }).eq('id', editMsgId);
-    }
-    setEditMode(false);
-    setEditMsgId(null);
-    setEditText('');
-    clearSelection();
-  };
-
-  const handleCancelEdit = () => {
-    setEditMode(false);
-    setEditMsgId(null);
-    setEditText('');
-    clearSelection();
-  };
-
-  // For sidebar overlay
-  const renderSidebarOverlay = () => (
-    sidebarOpen ? <View style={styles.sidebarOverlay} pointerEvents="auto" /> : null
-  );
-
-  // Animated top bar for selection mode
-  const selectionBarAnim = useRef(new Animated.Value(0)).current;
+  // first page + live updates + a quiet poll in case live delivery is off
   useEffect(() => {
-    Animated.timing(selectionBarAnim, {
-      toValue: selectionMode ? 1 : 0,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [selectionMode]);
-  const renderSelectionBar = () => (
-    <Animated.View
-      style={[
-        styles.selectionBar,
-        {
-          transform: [
-            {
-              translateY: selectionBarAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [-80, 0],
-              }),
-            },
-          ],
-          opacity: selectionBarAnim,
-        },
-      ]}
-    >
-      <TouchableOpacity onPress={clearSelection} style={styles.selectionBarCancel}>
-        <FontAwesome5 name="times" size={20} color="#fff" />
-      </TouchableOpacity>
-      <Text style={styles.selectionBarText}>{selectedMessages.length} selected</Text>
-      {selectedMessages.length === 1 && (
-        <TouchableOpacity style={styles.selectionBarEdit} onPress={handleEditMessage}>
-          <FontAwesome5 name="edit" size={20} color="#fff" />
-        </TouchableOpacity>
-      )}
-      <TouchableOpacity style={styles.selectionBarDelete} onPress={handleDeleteMessages}>
-        <FontAwesome5 name="trash" size={20} color="#fff" />
-      </TouchableOpacity>
-    </Animated.View>
-  );
+    let alive = true;
+    (async () => {
+      try {
+        const first = await fetchMessages(chat, { me });
+        if (!alive) return;
+        setMsgs(first);
+        setEnded(first.length < PAGE);
+        learnPeople(first);
+        if (!isGroup) markRead(chat.userId);
+      } catch {
+        toast.error("Couldn't load messages.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    watch.current = watchChat(chat, me, {
+      onInsert: (m) => { merge([m]); learnPeople([m]); if (!isGroup && m.authorId !== me) markRead(chat.userId); },
+      onUpdate: (m) => merge([m]),
+      onDelete: (id) => setMsgs((cur) => cur.filter((m) => m.id !== id)),
+      onTyping: (uid) => {
+        if (!uid || uid === me) return;
+        setTyping(uid);
+        clearTimeout(typingTimer.current);
+        typingTimer.current = setTimeout(() => setTyping(null), 3500);
+      },
+    });
+    const poll = setInterval(async () => {
+      try {
+        const latest = await fetchMessages(chat, { me });
+        if (!alive) return;
+        merge(latest);
+        if (!isGroup && latest.some((m) => m.authorId !== me && !m.readAt)) markRead(chat.userId);
+      } catch {}
+    }, POLL_MS);
+    return () => { alive = false; clearInterval(poll); clearTimeout(typingTimer.current); watch.current?.stop(); };
+  }, [chat.type, chat.userId, me]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Edit message modal
-  const renderEditModal = () => (
-    editMode && (
-      <Modal isVisible={true} onBackdropPress={handleCancelEdit}>
-        <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20 }}>
-          <Text style={{   fontSize: 16, marginBottom: 10 }}>Edit Message</Text>
-          <TextInput
-            value={editText}
-            onChangeText={setEditText}
-            style={{ borderWidth: 1, borderColor: colors.accent, borderRadius: 8, padding: 10, fontSize: 15, marginBottom: 16 }}
-            multiline
-            maxLength={1000}
-            autoFocus
-          />
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-            <TouchableOpacity onPress={handleCancelEdit} style={{ marginRight: 16 }}>
-              <Text style={{ color: colors.danger,   fontSize: 15 }}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleSaveEdit}>
-              <Text style={{ color: colors.accent,   fontSize: 15 }}>Save</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-    )
-  );
-
-  const renderMessage = useCallback(
-    ({ item }) => {
-      const selected = selectedMessages.includes(item.id || item.tempId);
-      return (
-        <TouchableOpacity
-          activeOpacity={selectionMode ? 0.6 : 1}
-          onLongPress={() => handleLongPressMessage(item)}
-          delayLongPress={500}
-          onPress={() => selectionMode ? handleSelectMessage(item) : undefined}
-          style={selected ? [styles.selectedMessage] : undefined}
-        >
-          {selected && (
-            <View style={styles.checkmarkOverlay}>
-              <FontAwesome5 name="check" size={12} color="#fff" />
-            </View>
-          )}
-          <Message
-            msg={item}
-            walletAddress={walletAddress}
-            onReply={handleReply}
-            isPrivate={activeChat !== 'group'}
-            onScrollToParent={handleScrollToParent}
-          />
-        </TouchableOpacity>
-      );
-    },
-    [walletAddress, handleReply, activeChat, handleScrollToParent, selectionMode, selectedMessages]
-  );
-
-  const toggleSidebar = () => {
-    const toValue = sidebarOpen ? -width : 0;
-    Animated.timing(slideAnim, {
-      toValue,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-    setSidebarOpen(!sidebarOpen);
+  const loadOlder = async () => {
+    if (older || ended || !msgs.length) return;
+    setOlder(true);
+    try {
+      const more = await fetchMessages(chat, { me, before: msgs.find((m) => !m.temp)?.createdAt });
+      merge(more);
+      learnPeople(more);
+      setEnded(more.length < PAGE);
+    } catch {}
+    setOlder(false);
   };
 
-  const onScrollToIndexFailed = (info) => {
-    // Fallback: scroll to end if the index is not found
-    if (flatListRef.current) {
-      flatListRef.current.scrollToEnd({ animated: true });
+  const byId = useMemo(() => Object.fromEntries(msgs.map((m) => [m.id, m])), [msgs]);
+  const parentOf = (m) => {
+    const p = m.parentId && byId[m.parentId];
+    if (!p) return null;
+    return { name: p.authorId === me ? 'You' : nameOf(people[p.authorId]), content: p.content, media: p.media };
+  };
+
+  // newest first for the inverted list, with day separators
+  const items = useMemo(() => {
+    const out = [];
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const m = msgs[i];
+      const prev = msgs[i - 1];
+      const next = msgs[i + 1];
+      const first = !prev || prev.authorId !== m.authorId || new Date(m.createdAt) - new Date(prev.createdAt) > 5 * 60 * 1000;
+      const last = !next || next.authorId !== m.authorId || new Date(next.createdAt) - new Date(m.createdAt) > 5 * 60 * 1000;
+      out.push({ type: 'msg', key: m.id, m, first, last });
+      if (!prev || dayLabel(prev.createdAt) !== dayLabel(m.createdAt)) out.push({ type: 'day', key: `day-${m.createdAt}`, label: dayLabel(m.createdAt) });
+    }
+    return out;
+  }, [msgs]);
+
+  const send = async ({ media = null } = {}) => {
+    const body = text.trim();
+    if (sending || (!body && !media)) return;
+    if (editing) {
+      const id = editing.id;
+      setEditing(null);
+      setText('');
+      merge([{ ...editing, content: body, editedAt: new Date().toISOString() }]);
+      try { await editMessage(chat, id, body); } catch { toast.error("Couldn't save the edit."); }
+      return;
+    }
+    const temp = { id: `temp-${Date.now()}`, temp: true, authorId: me, content: body, media, parentId: replyTo?.id || null, createdAt: new Date().toISOString(), status: 'sending' };
+    setMsgs((cur) => [...cur, temp]);
+    setText('');
+    setReplyTo(null);
+    setSending(true);
+    try {
+      const saved = await sendMessage(chat, { content: body, media, parentId: temp.parentId });
+      setMsgs((cur) => cur.filter((m) => m.id !== temp.id && m.id !== saved.id).concat(saved).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
+    } catch (e) {
+      setMsgs((cur) => cur.map((m) => (m.id === temp.id ? { ...m, status: 'failed' } : m)));
+      toast.error("Message not sent — check your connection and try again.");
+    }
+    setSending(false);
+  };
+
+  const pickPhoto = async () => {
+    setAttach(false);
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') { toast.info('Allow photo access to send pictures.'); return; }
+      }
+      const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 1 });
+      if (r.canceled || !r.assets?.[0]) return;
+      setSending(true);
+      const small = await shrinkImage(r.assets[0], 1600);
+      const url = await uploadPhoto(me, small);
+      setSending(false);
+      await send({ media: url });
+    } catch (e) {
+      setSending(false);
+      toast.error(e?.message || "Couldn't send the photo.");
     }
   };
+
+  const remove = (m) => {
+    setMenu(null);
+    gelAlert('Delete message?', 'It will be removed for everyone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setMsgs((cur) => cur.filter((x) => x.id !== m.id));
+          try { await deleteMessage(chat, m.id); } catch { toast.error("Couldn't delete it."); merge([m]); }
+        },
+      },
+    ]);
+  };
+
+  const other = !isGroup ? people[chat.userId] || chat.user : null;
+  const title = isGroup ? 'Community' : nameOf(other);
+  const subtitle = typing ? (isGroup ? `${nameOf(people[typing])} is typing…` : 'typing…') : isGroup ? 'Everyone on SempaiHQ' : 'Private chat';
+  const openProfile = (uid) => uid && navigation.navigate('Profile', { userId: uid });
+  const statusOf = (m) => m.status || (isGroup ? 'sent' : m.readAt ? 'read' : 'sent');
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      style={[st.page, { backgroundColor: colors.bg }, Platform.OS === 'web' && StyleSheet.absoluteFillObject]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {renderEditModal()}
-      {renderSidebarOverlay()}
-      {selectionMode ? renderSelectionBar() : (
-        <View style={styles.header}>
-          <TouchableOpacity onPress={toggleSidebar} style={styles.menuButton}>
-            <FontAwesome5 name="bars" size={20} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.libraryLogo}
-            onPress={() => navigation.navigate('Home')}
-            accessible={true}
-            accessibilityLabel="Go to home"
-          >
-            <Image
-              source={LOGO}
-              style={styles.logo}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {activeChat === 'group'
-              ? 'Group Chat'
-              : truncateName(
-                  recentChats.find((u) => u.wallet_address === activeChat)?.name ||
-                  users.find((u) => u.wallet_address === activeChat)?.name ||
-                  activeChat
-                )}
-          </Text>
-        </View>
-      )}
+      <Header
+        title={title}
+        subtitle={subtitle}
+        onBack={onBack}
+        colors={colors}
+        onPressTitle={!isGroup ? () => openProfile(chat.userId) : undefined}
+        left={isGroup
+          ? <View pointerEvents="none"><GelOrb icon="users" size={34} lit breathe={false} /></View>
+          : <Avatar user={other} size={36} onPress={() => openProfile(chat.userId)} />}
+      />
 
-      {error && (
-        <TouchableWithoutFeedback onPress={dismissError}>
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-            <FontAwesome5 name="times" size={14} color="#fff" />
-          </View>
-        </TouchableWithoutFeedback>
-      )}
-
-      {loading && (
-        <View style={styles.loadingIndicator}>
-          <ActivityIndicator size="small" color={colors.accent} />
-          <Text style={styles.loadingText}>Loading...</Text>
-        </View>
-      )}
-
-      <View style={styles.chatArea}>
-        <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
-          <View style={styles.sidebarContent}>
-            <TextInput
-              value={searchTerm}
-              onChangeText={setSearchTerm}
-              placeholder="Search users..."
-              style={styles.searchInput}
-              editable={!!walletAddress}
-            />
-            <FlatList
-              data={[
-                { wallet_address: 'group', name: 'Group Chat', image: null },
-                ...(searchTerm.trim() ? users : recentChats),
-              ]}
-              renderItem={({ item }) => (
-                <ChatItem
-                  item={item}
-                  activeChat={activeChat}
-                  switchChat={switchChat}
-                />
-              )}
-              keyExtractor={(item) => item.wallet_address}
-              ListHeaderComponent={
-                searchTerm.trim() && users.length > 0 ? (
-                  <Text style={styles.sectionHeader}>Search Results</Text>
-                ) : !searchTerm.trim() && recentChats.length > 0 ? (
-                  <Text style={styles.sectionHeader}>Recent Chats</Text>
-                ) : null
-              }
-              contentContainerStyle={styles.chatList}
-              initialNumToRender={10}
-              maxToRenderPerBatch={10}
-              windowSize={5}
-              extraData={sidebarOpen}
-            />
-            <View style={styles.divider} />
-          </View>
-        </Animated.View>
-
+      {loading ? (
+        <View style={[st.center, { flex: 1 }]}><ActivityIndicator color={colors.accent} /></View>
+      ) : (
         <FlatList
-          ref={flatListRef}
-          data={activeChat === 'group' ? messages : privateMessages[activeChat] || []}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id?.toString() || item.tempId || `${item.created_at}-${item.sender_wallet || item.wallet_address}-${Math.random()}`}
-          contentContainerStyle={styles.messageList}
-          initialNumToRender={5}
-          maxToRenderPerBatch={5}
-          windowSize={3}
-          onScrollToIndexFailed={onScrollToIndexFailed}
-          onEndReached={handleEndReached}
-          onEndReachedThreshold={0.01}
-          inverted={false}
-          onContentSizeChange={handleContentSizeChange}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
+          inverted
+          data={items}
+          keyExtractor={(it) => it.key}
+          renderItem={({ item }) =>
+            item.type === 'day' ? (
+              <DayPill label={item.label} />
+            ) : (
+              <Bubble
+                msg={item.m}
+                mine={item.m.authorId === me}
+                first={item.first}
+                last={item.last}
+                showAuthor={isGroup}
+                author={people[item.m.authorId]}
+                parent={parentOf(item.m)}
+                status={statusOf(item.m)}
+                onLongPress={() => !item.m.temp && setMenu(item.m)}
+                onPressImage={setViewer}
+                onPressAuthor={() => openProfile(item.m.authorId)}
+              />
+            )
+          }
+          onEndReached={loadOlder}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={older ? <ActivityIndicator style={{ margin: 14 }} color={colors.accent} /> : <View style={{ height: 8 }} />}
+          ListEmptyComponent={
+            <View style={[st.center, { padding: 30, transform: [{ scaleY: -1 }] }]}>
+              <GelOrb icon={isGroup ? 'users' : 'comment-dots'} size={56} lit breathe={false} />
+              <Text style={[st.emptySub, { color: colors.textSecondary, marginTop: 12 }]}>
+                {isGroup ? 'Be the first to say something to everyone.' : `Say hi to ${nameOf(other)} 👋`}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{ paddingVertical: 8, flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
         />
-        {showScrollToBottom && (
-          <TouchableOpacity
-            style={styles.scrollToBottomButton}
-            onPress={scrollToBottom}
-            activeOpacity={0.8}
-          >
-            <FontAwesome5 name="arrow-down" style={styles.scrollToBottomIcon} />
-          </TouchableOpacity>
-        )}
-        {activeChat !== 'group' && typingUsers[activeChat] && (
-          <View style={styles.typingIndicator}>
-            <Text style={styles.typingText}>Typing...</Text>
+      )}
+
+      {/* composer */}
+      <View style={{ paddingHorizontal: 10, paddingBottom: Math.max(insets.bottom, 10), paddingTop: 4 }}>
+        <GelGlass radius={28} glow={false}>
+          {replyTo || editing ? (
+            <View style={[st.replyBar, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : `rgba(${colors.accentRgb},0.12)` }]}>
+              <View style={[st.replyAccent, { backgroundColor: colors.accent }]} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ color: colors.accent, fontSize: 12, fontWeight: '800' }}>
+                  {editing ? 'Editing message' : `Replying to ${replyTo.authorId === me ? 'yourself' : nameOf(people[replyTo.authorId])}`}
+                </Text>
+                <Text style={{ color: colors.textSecondary, fontSize: 13 }} numberOfLines={1}>
+                  {(editing || replyTo).content || '📷 Photo'}
+                </Text>
+              </View>
+              <GelOrb icon="times" size={26} iconSize={10} onPress={() => { setReplyTo(null); if (editing) { setEditing(null); setText(''); } }} label="Cancel" breathe={false} />
+            </View>
+          ) : null}
+          <View style={st.composer}>
+            {!editing ? <GelOrb icon="plus" size={36} onPress={() => setAttach(true)} label="Add photo or GIF" breathe={false} /> : null}
+            <TextInput
+              value={text}
+              onChangeText={(t) => { setText(t); if (t) watch.current?.typing(); }}
+              placeholder={isGroup ? 'Message everyone…' : 'Message…'}
+              placeholderTextColor={colors.textMuted}
+              multiline
+              maxLength={2000}
+              style={[st.input, { color: colors.textPrimary, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.9)', borderColor: isDark ? 'rgba(255,255,255,0.10)' : `rgba(${colors.accentRgb},0.18)` }]}
+            />
+            <GelOrb
+              icon={editing ? 'check' : 'paper-plane'}
+              size={40}
+              lit={!!text.trim()}
+              loading={sending}
+              disabled={!text.trim() || sending}
+              onPress={() => send()}
+              label={editing ? 'Save edit' : 'Send'}
+              breathe={false}
+            />
           </View>
-        )}
+        </GelGlass>
       </View>
 
-      {replyingTo && (
-        <View style={styles.replyBar}>
-          <Text style={styles.replyText} numberOfLines={1}>
-            Replying to{' '}
-            <Text style={styles.replyName}>
-              {truncateName(
-                (activeChat === 'group'
-                  ? messages
-                  : privateMessages[activeChat] || []
-                ).find((m) => m.id === replyingTo)?.name || 'Unknown'
-              )}
-            </Text>
-            {': '}
-            {(activeChat === 'group'
-              ? messages
-              : privateMessages[activeChat] || []
-            ).find((m) => m.id === replyingTo)?.content?.slice(0, 20) || ''}
-          </Text>
-          <TouchableOpacity
-            onPress={() => setReplyingTo(null)}
-            style={styles.cancelReply}
-          >
-            <FontAwesome5 name="times" size={14} color={colors.danger} />
-          </TouchableOpacity>
+      {/* message options */}
+      <GelModal visible={!!menu} onClose={() => setMenu(null)} variant="sheet" title="Message">
+        {menu ? (
+          <View style={{ marginTop: 6 }}>
+            <GelOption icon="reply" title="Reply" onPress={() => { setReplyTo(menu); setMenu(null); }} />
+            {menu.content ? (
+              <GelOption icon="copy" title="Copy text" onPress={async () => { try { await Clipboard.setStringAsync(menu.content); toast.success('Copied'); } catch {} setMenu(null); }} />
+            ) : null}
+            {menu.authorId === me && menu.content ? (
+              <GelOption icon="pen" title="Edit" onPress={() => { setEditing(menu); setText(menu.content); setReplyTo(null); setMenu(null); }} />
+            ) : null}
+            {menu.authorId === me ? <GelOption icon="trash" tone="#E5484D" title="Delete" onPress={() => remove(menu)} /> : null}
+            {menu.authorId !== me && isGroup ? (
+              <GelOption icon="comment" title={`Message ${nameOf(people[menu.authorId])} privately`} onPress={() => { const u = people[menu.authorId] || { id: menu.authorId }; setMenu(null); navigation.push('Chat', { userId: u.id }); }} />
+            ) : null}
+          </View>
+        ) : null}
+      </GelModal>
+
+      {/* attach */}
+      <GelModal visible={attach} onClose={() => setAttach(false)} variant="sheet" title="Send">
+        <View style={{ marginTop: 6 }}>
+          <GelOption icon="image" title="Photo" description="From your gallery" onPress={pickPhoto} />
+          <GelOption icon="film" title="GIF" description="Search the SempaiHQ GIF library" onPress={() => { setAttach(false); setGifOpen(true); }} />
         </View>
-      )}
+      </GelModal>
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          value={input}
-          onChangeText={(text) => {
-            setInput(text);
-            handleTyping();
-          }}
-          placeholder="Type a message..."
-          style={styles.input}
-          editable={!uploading && !!walletAddress}
-          multiline
-          maxLength={1000}
-        />
-        <TouchableOpacity
-          onPress={handleFileChange}
-          style={styles.inputButton}
-          disabled={uploading}
-        >
-          <FontAwesome5 name="paperclip" size={18} color={colors.accent} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => setShowGifPicker(true)}
-          style={styles.inputButton}
-          disabled={uploading}
-        >
-          <FontAwesome5 name="image" size={18} color={colors.accent} />
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => handleSend()}
-          style={styles.sendButton}
-          disabled={uploading || sending || (!input.trim() && !file)}
-        >
-          <FontAwesome5
-            name="paper-plane"
-            size={18}
-            color={uploading || sending ? '#ccc' : '#fff'}
-          />
-        </TouchableOpacity>
-      </View>
+      <GifPicker visible={gifOpen} onClose={() => setGifOpen(false)} onPick={(url) => { setGifOpen(false); send({ media: url }); }} />
 
-      {showGifPicker && (
-        <GifPicker
-          onSelect={handleGifSelect}
-          onClose={() => setShowGifPicker(false)}
-        />
-      )}
+      {/* full-size photo */}
+      <Modal visible={!!viewer} transparent animationType="fade" onRequestClose={() => setViewer(null)} statusBarTranslucent>
+        <Pressable style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center' }} onPress={() => setViewer(null)} accessibilityLabel="Close photo">
+          {viewer ? <Image source={{ uri: viewer }} style={{ width, height: height * 0.85 }} resizeMode="contain" /> : null}
+          <View style={{ position: 'absolute', top: (Platform.OS === 'web' ? 0 : insets.top) + 10, left: 12 }}>
+            <GelOrb icon="times" size={36} onPress={() => setViewer(null)} label="Close" breathe={false} />
+          </View>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
-};
+}
 
-export default memo(ChatScreen);
+function GifPicker({ visible, onClose, onPick }) {
+  const { colors } = useTheme();
+  const [q, setQ] = useState('');
+  const [gifs, setGifs] = useState(null);
+  useEffect(() => {
+    if (!visible) return undefined;
+    const t = setTimeout(() => searchGifs(q).then(setGifs).catch(() => setGifs([])), 250);
+    return () => clearTimeout(t);
+  }, [q, visible]);
+  return (
+    <GelModal visible={visible} onClose={onClose} variant="sheet" title="GIFs">
+      <GelInput placeholder="Search GIFs" value={q} onChangeText={setQ} autoCapitalize="none" />
+      <ScrollView style={{ maxHeight: 380, marginTop: 12 }} showsVerticalScrollIndicator={false}>
+        {gifs === null ? (
+          <ActivityIndicator color={colors.accent} />
+        ) : gifs.length ? (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {gifs.map((g) => (
+              <Pressable key={g.id} onPress={() => onPick(g.url)} style={{ width: '31.5%', aspectRatio: 1, borderRadius: 14, overflow: 'hidden' }} accessibilityRole="button" accessibilityLabel={g.title || 'GIF'}>
+                <Image source={{ uri: g.url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              </Pressable>
+            ))}
+          </View>
+        ) : (
+          <Text style={{ color: colors.textSecondary, textAlign: 'center', marginVertical: 20 }}>No GIFs found.</Text>
+        )}
+      </ScrollView>
+    </GelModal>
+  );
+}
+
+const st = StyleSheet.create({
+  page: { flex: 1 },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  headRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 6, paddingVertical: 6 },
+  headTitle: { fontFamily: 'Yoruka', fontSize: 20 },
+  headSub: { fontSize: 12, marginTop: 1 },
+  section: { fontSize: 11, fontWeight: '800', letterSpacing: 1.4, marginBottom: 8, marginLeft: 6 },
+  emptyTitle: { fontFamily: 'Yoruka', fontSize: 24, marginTop: 18, textAlign: 'center' },
+  emptySub: { fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 6 },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, padding: 6 },
+  input: {
+    flex: 1, minHeight: 42, maxHeight: 130, borderRadius: 21, borderWidth: 1, paddingHorizontal: 15,
+    paddingTop: 10, paddingBottom: 10, fontSize: 16, marginBottom: 6, ...Platform.select({ web: { outlineStyle: 'none' } }),
+  },
+  replyBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  replyAccent: { width: 3, alignSelf: 'stretch', borderRadius: 2 },
+});

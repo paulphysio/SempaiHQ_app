@@ -44,9 +44,9 @@ const GuardedHome = withScreenBoundary(HomeScreen, 'Home');
 const GuardedSignIn = withScreenBoundary(SignIn, 'SignIn');
 
 // Full-screen experiences: no floating tab bar over the content.
-const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader', 'BazaarReader']);
+const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader', 'BazaarReader', 'Chat']);
 // Book readers bring their own slim bar; the app header would eat reading space.
-const NO_NAVBAR_ROUTES = new Set(['Kaiji', 'Chapter', 'Reader', 'BazaarReader', 'Feed']);
+const NO_NAVBAR_ROUTES = new Set(['Kaiji', 'Chapter', 'Reader', 'BazaarReader', 'Feed', 'Chat']);
 
 // Keep the native splash up until fonts + auth are ready, instead of flashing
 // a blank screen while the app boots.

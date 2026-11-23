@@ -828,7 +828,9 @@ const CreatorsProfileScreen = () => {
                 icon={<FontAwesome5 name={canMessageCreator === false ? 'lock' : 'envelope'} size={14} color={canMessageCreator === false ? palette.textPrimary : palette.textOnAccent} />}
                 onPress={() => {
                   if (canMessageCreator !== false) {
-                    setShowMessageModal(true);
+                    // straight into the conversation (history, photos, replies…)
+                    if (creatorData?.id) navigation.navigate('Chat', { userId: creatorData.id });
+                    else setShowMessageModal(true);
                   } else {
                     toast.info(`Subscribers only — ${`Buy ${creatorData?.name || 'this creator'}'s badge to unlock messaging.`}`);
                   }
