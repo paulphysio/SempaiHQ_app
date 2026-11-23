@@ -1,12 +1,13 @@
 // screens/WalletImportScreen.js
 import React, { useEffect, useState, useContext, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const WalletImportScreen = () => {
   const { isDark, colors } = useTheme();
   const styles = useMemo(() => getWalletImportStyles(colors), [isDark]);
@@ -25,15 +26,15 @@ const WalletImportScreen = () => {
 
   const handleImportWallet = async () => {
     if (!privateKey.trim()) {
-      Alert.alert('Error', 'Please enter your private key');
+      gelAlert('Error', 'Please enter your private key');
       return;
     }
     if (!password || password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
+      gelAlert('Error', 'Password must be at least 8 characters long');
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      gelAlert('Error', 'Passwords do not match');
       return;
     }
 

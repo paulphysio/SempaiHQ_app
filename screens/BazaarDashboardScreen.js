@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  RefreshControl,
-  Alert,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +10,7 @@ import { resolveRefund } from '../utils/bazaar';
 import { toast } from '../components/Toast';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const TABS = ['Overview', 'My Books', 'Refunds', 'All Sales'];
 
 const BazaarDashboardScreen = () => {
@@ -234,7 +227,7 @@ const BazaarDashboardScreen = () => {
 
   const handleResolve = (refundId, action) => {
     const approve = action === 'approve';
-    Alert.alert(
+    gelAlert(
       approve ? 'Approve refund?' : 'Reject refund?',
       approve ? 'Access is revoked. You must send the on-chain refund manually.' : 'The buyer keeps access.',
       [

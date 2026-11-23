@@ -1,22 +1,5 @@
 import React, { useState, useEffect, useContext, useRef, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Image,
-  ImageBackground,
-  Pressable,
-  StatusBar,
-  Animated,
-  Easing,
-  Modal,
-  Vibration,
-  AccessibilityInfo,
-  useWindowDimensions,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Image, ImageBackground, Pressable, StatusBar, Animated, Easing, Modal, Vibration, AccessibilityInfo, useWindowDimensions, ScrollView } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Orientation from 'react-native-orientation-locker';
@@ -42,6 +25,7 @@ import { isOpen, isFinished, viewOf, roundForMe, roundMessage, endInfo, shortAdd
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 
+import { gelAlert } from '../components/gel/GelAlert';
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
@@ -811,7 +795,7 @@ const KaijiScreen = () => {
 
   const leaveMatch = () => {
     if (modeRef.current === 'online') {
-      Alert.alert(
+      gelAlert(
         'Leave the match screen?',
         'The match keeps running. Any round you do not lock in before the timer ends is forfeited. You can resume it from the menu.',
         [
@@ -830,7 +814,7 @@ const KaijiScreen = () => {
       );
       return;
     }
-    Alert.alert('Leave match?', 'Practice matches are free, so nothing is lost.', [
+    gelAlert('Leave match?', 'Practice matches are free, so nothing is lost.', [
       { text: 'Keep playing', style: 'cancel' },
       {
         text: 'Leave',
@@ -844,7 +828,7 @@ const KaijiScreen = () => {
   };
 
   const connectPrompt = () =>
-    Alert.alert('Connect your wallet', 'Connect or create a wallet to play for tokens.', [
+    gelAlert('Connect your wallet', 'Connect or create a wallet to play for tokens.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Connect', onPress: () => navigation.navigate('WalletImport') },
     ]);

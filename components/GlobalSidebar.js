@@ -1,19 +1,5 @@
 import React, { useState, useContext, useEffect, useMemo, useRef, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  ScrollView,
-  Alert,
-  Image,
-  Animated,
-  BackHandler,
-  Easing,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, Animated, BackHandler, Easing, LayoutAnimation, Platform, UIManager, StyleSheet } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Constants from 'expo-constants';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,6 +17,7 @@ import { toast } from './Toast';
 import GelOrb from './nav/GelOrb';
 import { haptics } from '../utils/haptics';
 
+import { gelAlert } from './gel/GelAlert';
 // Old architecture: Android needs LayoutAnimation switched on explicitly.
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -294,13 +281,13 @@ const GlobalSidebar = ({ isVisible, onClose }) => {
     toast.success('Wallet address copied');
   };
   const disconnect = () => {
-    Alert.alert('Disconnect wallet?', 'You can reconnect at any time.', [
+    gelAlert('Disconnect wallet?', 'You can reconnect at any time.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Disconnect', style: 'destructive', onPress: () => disconnectWallet?.() },
     ]);
   };
   const confirmSignOut = () => {
-    Alert.alert('Sign out?', 'You will need to sign in again to read and earn.', [
+    gelAlert('Sign out?', 'You will need to sign in again to read and earn.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: () => { onClose(); signOut?.(); } },
     ]);

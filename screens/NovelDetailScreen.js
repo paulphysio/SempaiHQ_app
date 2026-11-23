@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
-  Animated,
-  StyleSheet,
-  RefreshControl,
-  Alert, Platform } from 'react-native';
+import { View, Text, Pressable, FlatList, Animated, StyleSheet, RefreshControl, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { useOnline } from '../hooks/useOnline';
@@ -28,6 +20,7 @@ import { space } from '../theme/tokens';
 import { DetailHero, ChapterRow, makeDetailStyles, formatCount, STATUS } from '../components/detail/DetailKit';
 import { BOTTOM_NAV_CLEARANCE } from '../components/GlobalBottomNav';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const FREE_CHAPTERS = 3; // indices 0–2 are always free
 
 /* ═════════════════════════════════════════════════════════════ screen ═══ */
@@ -254,7 +247,7 @@ const NovelDetailScreen = () => {
 
   const handleSaveOffline = useCallback(async () => {
     if (isSavedOffline) {
-      Alert.alert('Remove download?', 'Saved chapters will no longer be readable offline.', [
+      gelAlert('Remove download?', 'Saved chapters will no longer be readable offline.', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',

@@ -47,6 +47,7 @@ import GelOrb from '../components/nav/GelOrb';
 import { ActionButton, makeDetailStyles } from '../components/detail/DetailKit';
 import { Page, PageHeader, Card, Field, TextField } from '../components/page/PageKit';
 import { radius, space } from '../theme/tokens';
+import { GelModal, GelInset, GelRow } from '../components/gel/GelKit';
 
 const { height, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -3094,113 +3095,48 @@ const ChapterScreen = () => {
         />
       </Sheet>
 
-      <Modal
+      <GelModal
         visible={showTransactionPopup}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowTransactionPopup(false)}
+        onClose={() => setShowTransactionPopup(false)}
+        icon="lock-open"
+        title="Confirm payment"
+        subtitle={`Unlock ${transactionDetails?.subscriptionType === '3CHAPTERS' ? '3 chapters' : 'all chapters'}`}
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setShowTransactionPopup(false) },
+          {
+            label: 'Pay now',
+            icon: 'check',
+            onPress: () => {
+              setShowTransactionPopup(false);
+              processChapterPayment(chapterId, transactionDetails.subscriptionType, transactionDetails.currency);
+            },
+          },
+        ]}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowTransactionPopup(false)}
-            >
-              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Confirm Transaction</Text>
-            <Text style={styles.modalSubtitle}>
-              Unlock {transactionDetails?.subscriptionType === '3CHAPTERS' ? '3 chapters' : 'all chapters'} for:
-            </Text>
-            <View style={styles.transactionDetails}>
-              <Text style={styles.detailText}>
-                Amount: {transactionDetails?.displayAmount} {transactionDetails?.currency}
-              </Text>
-              <Text style={styles.detailText}>USD Value: ${transactionDetails?.usd}</Text>
-              <Text style={styles.detailText}>
-                Wallet: {activeWalletAddress ? `${activeWalletAddress.slice(0, 6)}...${activeWalletAddress.slice(-4)}` : 'N/A'}
-              </Text>
-            </View>
-            <View style={styles.modalButtonRow}>
-              <TouchableOpacity
-                style={styles.modalConfirmButton}
-                onPress={() => {
-                  setShowTransactionPopup(false);
-                  processChapterPayment(
-                    chapterId,
-                    transactionDetails.subscriptionType,
-                    transactionDetails.currency
-                  );
-                }}
-              >
-                <Text style={styles.modalButtonText}>Confirm Payment</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowTransactionPopup(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.modalNote}>This transaction will be processed securely.</Text>
-          </View>
-        </View>
-      </Modal>
+        <GelInset>
+          <GelRow label="Amount" value={`${transactionDetails?.displayAmount ?? '—'} ${transactionDetails?.currency ?? ''}`} strong />
+          <GelRow label="Value" value={`$${transactionDetails?.usd ?? '—'}`} />
+          <GelRow label="From wallet" value={activeWalletAddress ? `${activeWalletAddress.slice(0, 6)}…${activeWalletAddress.slice(-4)}` : '—'} />
+        </GelInset>
+      </GelModal>
 
-      {/* Payment Processing Animation Modal */}
-      <Modal
+      {/* Payment in progress */}
+      <GelModal
         visible={showPaymentAnimation}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPaymentAnimation(false)}
+        dismissable={false}
+        icon="gem"
+        title="Unlocking your chapter"
+        subtitle="Sending your SMP — this takes a few seconds."
       >
-        <View style={styles.paymentAnimationOverlay}>
-          <Animated.View style={[
-            styles.paymentAnimationContainer,
-            {
-              transform: [{ scale: paymentPulseAnimation }]
-            }
-          ]}>
-            <Animated.View style={[
-              styles.paymentAnimationRing,
-              {
-                transform: [{ scale: paymentPulseAnimation }],
-                opacity: paymentPulseAnimation.interpolate({
-                  inputRange: [1, 1.2],
-                  outputRange: [0.8, 0]
-                })
-              }
-            ]} />
-            <Animated.View style={[
-              styles.paymentAnimationRing,
-              styles.paymentAnimationRing2,
-              {
-                transform: [{ scale: paymentPulseAnimation }],
-                opacity: paymentPulseAnimation.interpolate({
-                  inputRange: [1, 1.2],
-                  outputRange: [0.6, 0]
-                })
-              }
-            ]} />
-            <FontAwesome5 name="gem" size={40} color={colors.accent} style={styles.paymentIcon} />
-            <Text style={styles.paymentAnimationText}>Processing Payment</Text>
-            <Animated.View style={styles.paymentProgressBar}>
-              <Animated.View 
-                style={[
-                  styles.paymentProgressFill,
-                  {
-                    width: paymentAnimationProgress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: ['0%', '100%']
-                    })
-                  }
-                ]}
-              />
-            </Animated.View>
-            <Text style={styles.paymentAnimationSubtext}>Unlocking chapter with SMP...</Text>
-          </Animated.View>
+        <View style={[styles.paymentProgressBar, { marginTop: 18, alignSelf: 'stretch', width: 'auto' }]}>
+          <Animated.View
+            style={[
+              styles.paymentProgressFill,
+              { width: paymentAnimationProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+            ]}
+          />
         </View>
-      </Modal>
+      </GelModal>
 
       {/* Video Ad Modal */}
       <Modal
@@ -3209,12 +3145,9 @@ const ChapterScreen = () => {
         onRequestClose={() => setShowVideoAd(false)}
       >
         <View style={styles.fullScreenVideoContainer}>
-          <TouchableOpacity
-            style={styles.fullScreenCloseButton}
-            onPress={() => setShowVideoAd(false)}
-          >
-            <FontAwesome5 name="times" size={24} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.fullScreenCloseButton}>
+            <GelOrb icon="times" size={40} onPress={() => setShowVideoAd(false)} label="Close ad" breathe={false} />
+          </View>
           <View style={styles.videoProgressContainer}>
             <Text style={styles.videoProgressText}>
               {Math.min(Math.floor(watchDuration), 30)} / 30s
@@ -3256,27 +3189,17 @@ const ChapterScreen = () => {
       </Modal>
 
       {/* Benefactor Subscription Modal */}
-      <Modal
+      <GelModal
         visible={showBenefactorModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBenefactorModal(false)}
+        onClose={() => setShowBenefactorModal(false)}
+        variant="sheet"
+        title="Become a benefactor"
+        subtitle="Read new chapters early and back this writer. Pick how you'll pay, then a plan."
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.benefactorModalContent}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowBenefactorModal(false)}
-            >
-              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Subscribe to Writer</Text>
-            <Text style={styles.modalSubtitle}>Choose a subscription plan</Text>
-
             {/* Scrollable body: keeps everything on-screen on short devices
                 instead of overflowing/clipping the plan grid below it. */}
             <ScrollView
-              style={{ width: '100%' }}
+              style={{ width: '100%', maxHeight: 460, marginTop: 14 }}
               contentContainerStyle={styles.benefactorScrollBody}
               showsVerticalScrollIndicator={false}
               nestedScrollEnabled
@@ -3437,98 +3360,63 @@ const ChapterScreen = () => {
                 })}
               </View>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      </GelModal>
 
-      {/* Plan Details Modal */}
-      <Modal
-        visible={showPlanDetailsModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowPlanDetailsModal(false)}
+      {/* Plan details */}
+      <GelModal
+        visible={showPlanDetailsModal && !!selectedPlanDetails}
+        onClose={() => setShowPlanDetailsModal(false)}
+        actions={selectedPlanDetails ? [
+          {
+            label: `Subscribe · $${selectedPlanDetails.price}`,
+            icon: 'crown',
+            loading: isProcessing,
+            onPress: () => {
+              setShowPlanDetailsModal(false);
+              handleBenefactorUnlock({ ...selectedPlanDetails, selectedToken: selectedBenefactorToken });
+            },
+          },
+        ] : []}
       >
-        <View style={styles.modalOverlay}>
-          <Animated.View
-            style={[
-              styles.planDetailsModal,
-              {
-                opacity: planDetailsAnimation,
-                transform: [
-                  {
-                    scale: planDetailsAnimation.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.9, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => setShowPlanDetailsModal(false)}
-            >
-              <FontAwesome5 name="times" size={20} color={colors.textPrimary} />
-            </TouchableOpacity>
-
-            {selectedPlanDetails && (
-              <>
-                <Image
-                  source={selectedPlanDetails.image}
-                  style={styles.planDetailsBadge}
-                  resizeMode="contain"
-                />
-                <Text style={[styles.planDetailsName, { color: selectedPlanDetails.color }]}>
-                  {selectedPlanDetails.name} Plan
-                </Text>
-                <Text style={styles.planDetailsPrice}>${selectedPlanDetails.price}</Text>
-                <Text style={styles.planDetailsDuration}>{selectedPlanDetails.duration}</Text>
-
-                <View style={styles.planFeaturesList}>
-                  {selectedPlanDetails.features.map((feature, index) => (
-                    <View key={index} style={styles.planFeatureItem}>
-                      <FontAwesome5 name="check" size={14} color={colors.gold} style={styles.featureCheckIcon} />
-                      <Text style={styles.planFeatureText}>{feature}</Text>
-                    </View>
-                  ))}
+        {selectedPlanDetails ? (
+          <View style={{ alignItems: 'center' }}>
+            <Image source={selectedPlanDetails.image} style={styles.planDetailsBadge} resizeMode="contain" />
+            <Text style={[styles.planDetailsName, { color: selectedPlanDetails.color }]}>{selectedPlanDetails.name} plan</Text>
+            <Text style={styles.planDetailsPrice}>${selectedPlanDetails.price}</Text>
+            <Text style={styles.planDetailsDuration}>{selectedPlanDetails.duration}</Text>
+            <GelInset style={{ alignSelf: 'stretch' }}>
+              {selectedPlanDetails.features.map((feature, index) => (
+                <View key={index} style={styles.planFeatureItem}>
+                  <FontAwesome5 name="check" size={13} color={colors.gold} style={styles.featureCheckIcon} />
+                  <Text style={styles.planFeatureText}>{feature}</Text>
                 </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.planDetailsSubscribeButton,
-                    { backgroundColor: selectedPlanDetails.color },
-                    isProcessing && styles.planDetailsSubscribeButtonDisabled
-                  ]}
-                  onPress={() => {
-                    setShowPlanDetailsModal(false);
-                    handleBenefactorUnlock({ ...selectedPlanDetails, selectedToken: selectedBenefactorToken });
-                  }}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <ActivityIndicator size="small" color={colors.textPrimary} />
-                  ) : (
-                    <Text style={styles.planDetailsSubscribeButtonText}>
-                      Subscribe for ${selectedPlanDetails.price}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-          </Animated.View>
-        </View>
-      </Modal>
+              ))}
+            </GelInset>
+          </View>
+        ) : null}
+      </GelModal>
 
       {/* Pioneer Badge Modal */}
-      <Modal
+      <GelModal
         visible={showPioneerModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => !isClaimingPioneer && setShowPioneerModal(false)}
+        onClose={() => !isClaimingPioneer && setShowPioneerModal(false)}
+        dismissable={!isClaimingPioneer}
+        actions={[
+          { label: 'Maybe later', variant: 'ghost', disabled: isClaimingPioneer, onPress: () => setShowPioneerModal(false) },
+          {
+            label: 'Claim badge',
+            icon: 'award',
+            loading: isClaimingPioneer,
+            onPress: () => {
+              // The badge was granted on the server when the payment was
+              // verified (unlock-chapter) — nothing to write from the phone.
+              toast.success('Congratulations — you earned the Pioneer badge!');
+              setShowPioneerModal(false);
+            },
+          },
+        ]}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.pioneerCard}>
+          <View>
             {/* Hero */}
             <View style={styles.pioneerHero}>
               <View style={styles.pioneerBadgeRing}>
@@ -3556,138 +3444,55 @@ const ChapterScreen = () => {
               </View>
             </View>
 
-            {/* Actions */}
-            <TouchableOpacity
-              style={[styles.pioneerClaimButton, isClaimingPioneer && { opacity: 0.6 }]}
-              disabled={isClaimingPioneer}
-              onPress={async () => {
-                setIsClaimingPioneer(true);
-                try {
-                  // The badge was granted on the server when your payment was
-                  // verified (unlock-chapter) — nothing to write from the phone.
-                  toast.success('Congratulations — You have earned the Pioneer badge!');
-                  setShowPioneerModal(false);
-                } catch (error) {
-                  console.error('[Pioneer Badge] Error:', error);
-                  toast.error('Failed to add Pioneer badge: ' + error.message);
-                } finally {
-                  setIsClaimingPioneer(false);
-                }
-              }}
-            >
-              {isClaimingPioneer ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <>
-                  <FontAwesome5 name="award" size={14} color="#fff" style={{ marginRight: 8 }} />
-                  <Text style={styles.pioneerClaimButtonText}>Claim Pioneer Badge</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.pioneerDeclineButton}
-              disabled={isClaimingPioneer}
-              onPress={() => setShowPioneerModal(false)}
-            >
-              <Text style={styles.pioneerDeclineText}>Maybe later</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
+      </GelModal>
 
-      {/* ATA Funding Modal */}
-      <Modal
+      {/* The writer has no SMP account yet */}
+      <GelModal
         visible={showAtaFundingModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowAtaFundingModal(false)}
+        onClose={() => setShowAtaFundingModal(false)}
+        icon="user-plus"
+        tone={colors.gold}
+        title="Help this writer get paid"
+        subtitle="This writer doesn't have an SMP account yet, so their share would go to the treasury. Open it for them (~0.002 SOL) and become their Pioneer."
+        stackActions
+        actions={[
+          { label: 'Cancel', variant: 'ghost', onPress: () => setShowAtaFundingModal(false) },
+          {
+            label: 'Skip — pay the treasury',
+            variant: 'secondary',
+            onPress: async () => {
+              setShowAtaFundingModal(false);
+              // writer share goes to the treasury
+              if (pendingPaymentDetails) {
+                await processChapterPayment(pendingPaymentDetails.targetChapterId, pendingPaymentDetails.paymentType, pendingPaymentDetails.currency);
+              }
+            },
+          },
+          {
+            label: 'Open it & pay',
+            icon: 'check-circle',
+            onPress: async () => {
+              try {
+                setShowAtaFundingModal(false);
+                await createWriterAta(pendingAuthorData?.wallet_address, activePublicKey, signAndSendTransaction);
+                if (pendingPaymentDetails) {
+                  await processChapterPayment(pendingPaymentDetails.targetChapterId, pendingPaymentDetails.paymentType, pendingPaymentDetails.currency);
+                }
+              } catch (error) {
+                console.error('[ATA Funding] Error:', error);
+                setError(`Couldn't open the writer's account: ${error.message}`);
+                setTimeout(() => setError(null), 5000);
+              }
+            },
+          },
+        ]}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.ataModalContent}>
-            <View style={styles.ataModalHeader}>
-              <View style={styles.ataModalIcon}>
-                <FontAwesome5 name="exclamation-triangle" size={28} color={colors.warning || '#FFC857'} />
-              </View>
-              <Text style={styles.ataModalTitle}>Writer Missing ATA</Text>
-              <Text style={styles.ataModalDescription}>
-                This writer doesn't have an SMP Associated Token Account yet. Without it, their payment share will be rerouted to the treasury.
-              </Text>
-            </View>
-
-            <View style={styles.ataInfoCard}>
-              <View style={styles.ataInfoRow}>
-                <Text style={styles.ataInfoLabel}>Writer Wallet:</Text>
-                <Text style={styles.ataInfoValue}>{pendingAuthorData?.wallet_address?.slice(0, 8)}...</Text>
-              </View>
-              <View style={styles.ataInfoRow}>
-                <Text style={styles.ataInfoLabel}>ATA Address:</Text>
-                <Text style={styles.ataInfoValue}>{writerAtaAddress?.slice(0, 8)}...</Text>
-              </View>
-              <View style={styles.ataCostBadge}>
-                <Text style={styles.ataCostText}>~0.002 SOL to create ATA</Text>
-              </View>
-            </View>
-
-            <View style={styles.ataButtonContainer}>
-              <TouchableOpacity
-                style={styles.ataPrimaryButton}
-                onPress={async () => {
-                  try {
-                    setShowAtaFundingModal(false);
-                    // Create writer ATA first
-                    await createWriterAta(
-                      pendingAuthorData?.wallet_address,
-                      activePublicKey,
-                      signAndSendTransaction
-                    );
-                    // Then proceed with payment
-                    if (pendingPaymentDetails) {
-                      await processChapterPayment(
-                        pendingPaymentDetails.targetChapterId,
-                        pendingPaymentDetails.paymentType,
-                        pendingPaymentDetails.currency
-                      );
-                    }
-                  } catch (error) {
-                    console.error('[ATA Funding] Error:', error);
-                    setError(`Failed to create ATA: ${error.message}`);
-                    setTimeout(() => setError(null), 5000);
-                  }
-                }}
-              >
-                <FontAwesome5 name="check-circle" size={18} color="#ffffff" style={styles.ataButtonIcon} />
-                <Text style={styles.ataPrimaryButtonText}>Fund ATA & Proceed</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.ataSecondaryButton}
-                onPress={async () => {
-                  setShowAtaFundingModal(false);
-                  // Proceed with payment (writer share will be rerouted to treasury)
-                  if (pendingPaymentDetails) {
-                    await processChapterPayment(
-                      pendingPaymentDetails.targetChapterId,
-                      pendingPaymentDetails.paymentType,
-                      pendingPaymentDetails.currency
-                    );
-                  }
-                }}
-              >
-                <FontAwesome5 name="arrow-right" size={16} color={colors.warning || '#FFC857'} style={styles.ataButtonIcon} />
-                <Text style={styles.ataSecondaryButtonText}>Skip - Send to Treasury</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.ataCancelButton}
-                onPress={() => setShowAtaFundingModal(false)}
-              >
-                <Text style={styles.ataCancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        <GelInset>
+          <GelRow label="Writer wallet" value={pendingAuthorData?.wallet_address ? `${pendingAuthorData.wallet_address.slice(0, 6)}…${pendingAuthorData.wallet_address.slice(-4)}` : '—'} />
+          <GelRow label="Cost" value="~0.002 SOL" strong />
+        </GelInset>
+      </GelModal>
     </View>
   );
 };

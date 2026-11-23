@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Platform } from 'react-native';
+import { GelModal, GelButton } from './gel/GelKit';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { supabase } from '../services/supabaseClient';
 import Constants from 'expo-constants';
@@ -280,74 +281,25 @@ export const GoogleAuthProvider = ({ children }) => {
       }}
     >
       {children}
-      <Modal
-        animationType="none"
-        transparent={true}
+      <GelModal
         visible={modalVisible}
-        onRequestClose={() => {
-          if (!isSigningIn) {
-            modalScale.value = withSpring(0.6);
-            modalOpacity.value = withTiming(0);
-            backdropOpacity.value = withTiming(0, { duration: 300 }, () => {
-              runOnJS(closeModal)();
-            });
-          }
-        }}
+        onClose={() => { if (!isSigningIn) closeModal(); }}
+        dismissable={!loading}
+        icon="book-open"
+        title="Sempai HQ awaits"
+        subtitle="Sign in to read, earn SMP and keep your progress on every device."
       >
-        <Animated.View style={[styles.modalContainer, animatedBackdropStyle]}>
-          <Animated.View style={[styles.modalContent, animatedModalStyle]}>
-            <LinearGradient
-              colors={['rgba(243, 99, 22, 0.35)', 'rgba(255, 147, 0, 0.35)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.modalBackground}
-            >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Sempai HQ Awaits!</Text>
-                <Text style={styles.modalSubtitle}>Unleash Your Anime Adventure!</Text>
-              </View>
-              {error && <Text style={styles.errorText}>{error}</Text>}
-              <Animated.View style={[styles.googleButtonContainer, animatedButtonStyle]}>
-                <TouchableOpacity
-                  style={styles.googleButton}
-                  onPress={handleGoogleSignIn}
-                  disabled={loading || isSigningIn}
-                >
-                  <LinearGradient
-                    colors={['#FF4500', '#FF8C00', '#FFC857']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.googleButtonGradient}
-                  >
-                    <Image
-                      source={{ uri: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/1200px-Google_%22G%22_Logo.svg.png' }}
-                      style={styles.googleLogo}
-                    />
-                    <Text style={styles.googleButtonText}>
-                      {loading ? 'SIGNING IN...' : 'SIGN IN WITH GOOGLE'}
-                    </Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Animated.View>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  if (!isSigningIn) {
-                    modalScale.value = withSpring(0.6);
-                    modalOpacity.value = withTiming(0);
-                    backdropOpacity.value = withTiming(0, { duration: 300 }, () => {
-                      runOnJS(closeModal)();
-                    });
-                  }
-                }}
-                disabled={loading || isSigningIn}
-              >
-                <Text style={styles.cancelButtonText}>CANCEL</Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </Animated.View>
-        </Animated.View>
-      </Modal>
+        {error ? <Text style={{ color: '#E5484D', textAlign: 'center', marginTop: 12, fontSize: 14 }}>{error}</Text> : null}
+        <View style={{ marginTop: 20, gap: 10 }}>
+          <GelButton
+            label={loading ? 'Signing in…' : 'Continue with Google'}
+            icon="google"
+            loading={loading}
+            onPress={handleGoogleSignIn}
+          />
+          <GelButton label="Not now" variant="ghost" onPress={() => { if (!isSigningIn) closeModal(); }} disabled={loading} />
+        </View>
+      </GelModal>
     </GoogleAuthContext.Provider>
   );
 };

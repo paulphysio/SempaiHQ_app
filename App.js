@@ -34,6 +34,7 @@ import GlobalSidebar from './components/GlobalSidebar';
 const WEB_LINKS = Platform.OS === 'web' ? require('./web/linking') : null;
 const WEB_DEEP_LINK_AT_START = !!(WEB_LINKS && WEB_LINKS.hasDeepLink());
 import { ToastHost, toast } from './components/Toast';
+import { GelAlertHost } from './components/gel/GelAlert';
 import OfflineBanner from './components/OfflineBanner';
 import { withScreenBoundary } from './components/ScreenBoundary';
 import WalletSecurityGate from './components/wallet/WalletSecurityGate';
@@ -499,6 +500,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
           />
         ) : null}
         <ToastHost />
+        <GelAlertHost />
       </View>
     </NavigationContainer>
   );

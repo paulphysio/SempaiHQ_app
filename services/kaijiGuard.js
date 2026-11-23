@@ -1,8 +1,9 @@
-import { Alert } from 'react-native';
+
 import * as SecureStore from 'expo-secure-store';
 import { resumeMatch } from './kaijiApi';
 import { isOpen, viewOf, shortAddr } from './kaijiMapping';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const TOURNEY_KEY = 'kaiji_tourney_v1';
 
 /** Tourney mode calls this when a player enters / finishes, so wallet changes can be blocked in between. */
@@ -24,7 +25,7 @@ export async function markTourneyActive(active) {
 export async function confirmWalletChange() {
   try {
     if (await SecureStore.getItemAsync(TOURNEY_KEY)) {
-      Alert.alert(
+      gelAlert(
         'Tournament in progress',
         'You cannot switch wallets until your tournament ends. Prizes and card trades are tied to the wallet you entered with.',
         [{ text: 'OK' }]
@@ -35,7 +36,7 @@ export async function confirmWalletChange() {
     if (s && isOpen(s.match)) {
       const payoutWallet = shortAddr(viewOf(s.match, s.side).myWallet);
       return await new Promise((resolve) =>
-        Alert.alert(
+        gelAlert(
           'Match in progress',
           `A Kaiji match is open. Its payout goes to the wallet that made the deposit (${payoutWallet}). If you switch now you may not be able to collect it.`,
           [

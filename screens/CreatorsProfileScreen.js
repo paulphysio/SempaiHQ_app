@@ -1,20 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  Linking,
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Easing,
-  TextInput,
-  RefreshControl,
-  Clipboard,
-  Share,
-} from 'react-native';
+import { View, Text, Image, TouchableOpacity, ScrollView, Linking, ActivityIndicator, Animated, Easing, TextInput, RefreshControl, Clipboard, Share } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Modal from 'react-native-modal';
@@ -57,6 +42,7 @@ import {
 } from '../components/MangaUI';
 import { toast } from '../components/Toast';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const connection = new Connection(RPC_URL, 'confirmed');
 
 const EMPTY_STATS = { total_seconds: 0, total_chapters: 0, total_novels: 0, last_read_at: null };
@@ -315,7 +301,7 @@ const CreatorsProfileScreen = () => {
       return {
         text: 'Dashboard',
         action: () =>
-          Alert.alert('Choose Dashboard', '', [
+          gelAlert('Choose Dashboard', '', [
             { text: 'Novel', onPress: () => navigation.navigate('NovelDashboard') },
             { text: 'Manga', onPress: () => navigation.navigate('MangaDashboard') },
             { text: 'Cancel', style: 'cancel' },
@@ -418,7 +404,7 @@ const CreatorsProfileScreen = () => {
       } catch { /* checked again when sending */ }
     }
     const who = creatorData?.name || 'this creator';
-    Alert.alert(
+    gelAlert(
       opensSkrAccount ? 'Open their SKR account' : 'Confirm tip',
       opensSkrAccount
         ? `${who} doesn't have an SKR account yet. Your tip of ${amount} SKR will open one for them (about 0.002 SOL network fee), and you'll earn the Seeker badge.`

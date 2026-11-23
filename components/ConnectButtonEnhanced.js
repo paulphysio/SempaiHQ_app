@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect, useContext, createContext, useMemo } from 'react';
-import { View, Text, TouchableOpacity, Alert, Platform, TextInput, Clipboard, ToastAndroid, ActivityIndicator, ScrollView, Animated } from 'react-native';
-import Modal from 'react-native-modal';
+import { View, Text, TouchableOpacity, Platform, TextInput, Clipboard, ToastAndroid, ActivityIndicator, ScrollView, Animated } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as solanaWeb3 from '@solana/web3.js';
@@ -24,6 +23,9 @@ import {
 } from '../services/walletVault';
 import { readerAction } from '../services/readerActions';
 
+import { gelAlert } from './gel/GelAlert';
+import { GelModal, GelButton, GelInput, GelOption } from './gel/GelKit';
+import GelOrb from './nav/GelOrb';
 // Opens the "Secure my wallet" flow (components/wallet/SecureWalletFlow).
 export const SECURE_WALLET_EVENT = 'sempai:secure-wallet';
 export const openSecureWalletFlow = (mode = 'create') => DeviceEventEmitter.emit(SECURE_WALLET_EVENT, { mode });
@@ -983,44 +985,36 @@ const PasswordModal = ({ isVisible, onClose, onSubmit, onUseBiometrics }) => {
     }
   };
 
+  const bio = biometricsAvailable && onUseBiometrics;
   return (
-    <Modal
-      isVisible={isVisible}
-      onBackdropPress={onClose}
-      style={styles.modal}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
+    <GelModal
+      visible={isVisible}
+      onClose={onClose}
+      variant="sheet"
+      icon="lock"
+      title="Confirm it's you"
+      subtitle={bio ? 'Use your fingerprint, or enter your wallet password.' : 'Enter your wallet password to continue.'}
+      actions={[
+        { label: 'Cancel', variant: 'secondary', onPress: onClose },
+        { label: 'Confirm', icon: 'check', onPress: handleSubmit, disabled: !password },
+      ]}
     >
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Authenticate Transaction</Text>
-        <Text style={styles.modalText}>Choose your authentication method:</Text>
-        
-        {biometricsAvailable && onUseBiometrics && (
-          <TouchableOpacity style={styles.actionButton} onPress={handleBiometrics}>
-            <FontAwesome5 name="fingerprint" size={20} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={styles.actionButtonText}>Use Fingerprint</Text>
-          </TouchableOpacity>
-        )}
-        
-        <Text style={[styles.modalText, { marginTop: biometricsAvailable && onUseBiometrics ? 16 : 8, marginBottom: 8 }]}>
-          {biometricsAvailable && onUseBiometrics ? 'Or enter password:' : 'Enter your password:'}
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Password"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          placeholderTextColor="#999"
-        />
-        <TouchableOpacity style={styles.actionButton} onPress={handleSubmit}>
-          <Text style={styles.actionButtonText}>Submit Password</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-          <Text style={styles.secondaryButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+      {bio ? (
+        <View style={{ marginTop: 16 }}>
+          <GelButton label="Use fingerprint" icon="fingerprint" variant="secondary" onPress={handleBiometrics} />
+        </View>
+      ) : null}
+      <GelInput
+        label="Password"
+        placeholder="Your wallet password"
+        secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+        onSubmitEditing={handleSubmit}
+        returnKeyType="done"
+        autoFocus={!bio}
+      />
+    </GelModal>
   );
 };
 
@@ -1031,37 +1025,14 @@ const WalletSelectionModal = ({ isVisible, onClose, onSelectEmbedded }) => {
   const styles = useMemo(() => getConnectButtonStyles(colors), [isDark]);
 
   return (
-    <Modal
-      isVisible={isVisible}
-      onBackdropPress={onClose}
-      style={styles.modal}
-      animationIn="slideInUp"
-      animationOut="slideOutDown"
-    >
-      <View style={styles.modalContent}>
-        <Text style={styles.modalTitle}>Choose Wallet Type</Text>
-        <Text style={styles.modalText}>Select how you want to manage your crypto assets:</Text>
-
-        <TouchableOpacity style={styles.walletOption} onPress={onSelectEmbedded}>
-          <View style={styles.walletOptionHeader}>
-            <MaterialCommunityIcons name="wallet-outline" size={24} color={colors.accent} />
-            <Text style={styles.walletOptionTitle}>Sempai Embedded Wallet</Text>
-          </View>
-          <Text style={styles.walletOptionDescription}>
-            Secure, password-protected wallet with biometric support. Easy backup and recovery through your account.
-          </Text>
-          <View style={styles.walletOptionFeatures}>
-            <Text style={styles.walletOptionFeature}>✓ Password & Biometric Protection</Text>
-            <Text style={styles.walletOptionFeature}>✓ Account-based Recovery</Text>
-            <Text style={styles.walletOptionFeature}>✓ Cross-device Sync</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={onClose}>
-          <Text style={styles.secondaryButtonText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
-    </Modal>
+    <GelModal visible={isVisible} onClose={onClose} variant="sheet" icon="wallet" title="Choose a wallet">
+      <GelOption
+        icon="shield-alt"
+        title="SempaiHQ wallet"
+        description="Locked with your password and fingerprint, backed up by 12 recovery words."
+        onPress={onSelectEmbedded}
+      />
+    </GelModal>
   );
 };
 
@@ -1150,35 +1121,27 @@ const ConnectButton = ({ compact = false, label }) => {
   };
 
   const renderDisconnectModal = () => {
-    if (!showDisconnectModal) return null;
     return (
-      <Modal
-        isVisible={showDisconnectModal}
-        onBackdropPress={() => setShowDisconnectModal(false)}
-        style={styles.modal}
-        animationIn="slideInUp"
-        animationOut="slideOutDown"
-      >
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Disconnect Wallet</Text>
-          <Text style={styles.modalText}>
-            Are you sure you want to disconnect your {getWalletLabel()} wallet?
-          </Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={async () => {
+      <GelModal
+        visible={showDisconnectModal}
+        onClose={() => setShowDisconnectModal(false)}
+        icon="unlink"
+        tone="#E5484D"
+        title="Disconnect wallet?"
+        subtitle="You can reconnect any time with your password or your 12 recovery words."
+        actions={[
+          { label: 'Cancel', variant: 'secondary', onPress: () => setShowDisconnectModal(false) },
+          {
+            label: 'Disconnect',
+            variant: 'danger',
+            onPress: async () => {
               if (!(await confirmWalletChange())) return; // KAIJI guard
               await disconnectWallet();
               setShowDisconnectModal(false);
-            }}
-          >
-            <Text style={styles.actionButtonText}>Disconnect</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowDisconnectModal(false)}>
-            <Text style={styles.secondaryButtonText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+            },
+          },
+        ]}
+      />
     );
   };
 
@@ -1268,15 +1231,14 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
 
   if (!walletContext) {
     return (
-      <Modal isVisible={isVisible} onBackdropPress={onClose}>
-        <View style={styles.container}>
-          <Text style={styles.modalTitle}>Wallet Context Not Available</Text>
-          <Text style={styles.modalText}>Please restart the app and try again.</Text>
-          <TouchableOpacity onPress={onClose} style={styles.modalButton}>
-            <Text style={styles.modalButtonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
+      <GelModal
+        visible={isVisible}
+        onClose={onClose}
+        icon="exclamation-circle"
+        title="Wallet isn't ready"
+        subtitle="Please restart the app and try again."
+        actions={[{ label: 'Close', onPress: onClose }]}
+      />
     );
   }
 
@@ -1334,14 +1296,14 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
   };
 
   const handleCreateWallet = async () => {
-    if (password !== confirmPassword) { Alert.alert('Error', 'Passwords do not match'); return; }
+    if (password !== confirmPassword) { gelAlert('Error', 'Passwords do not match'); return; }
 
     // KAIJI guard: blocked during a tourney, warns during a match
     if (!(await confirmWalletChange())) return;
     
     // If user already has a wallet, warn them before creating a new one
     if (hasExistingWallet) {
-      Alert.alert(
+      gelAlert(
         'Replace Existing Wallet?',
         'You already have a wallet linked to this account. Creating a new wallet will replace the old one. Continue?',
         [
@@ -1397,11 +1359,11 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
 
   const handleImportWallet = async () => {
     if (!password || password.length < MIN_PASSWORD_LENGTH) {
-      Alert.alert('Error', `Your wallet password needs at least ${MIN_PASSWORD_LENGTH} characters`);
+      gelAlert('Error', `Your wallet password needs at least ${MIN_PASSWORD_LENGTH} characters`);
       return;
     }
     if (!confirmPassword || password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      gelAlert('Error', 'Passwords do not match');
       return;
     }
 
@@ -1422,183 +1384,107 @@ const WalletConnectionModal = ({ isVisible, onClose }) => {
     }
   };
 
-  return (
-    <Modal
-      isVisible={isVisible}
-      onBackdropPress={onClose}
-      style={styles.modal}
-      animationIn="fadeIn"
-      animationOut="fadeOut"
-      backdropOpacity={0.6}
-    >
-      <Animated.View
-        style={[
-          styles.modalContent,
-          { opacity: fadeAnim, transform: [{ translateY: slideAnim }, { scale: scaleAnim }] }
-        ]}
+  const GREEN = '#22A06B';
+  const PURPLE = '#8E44D6';
+  const back = (
+    <View style={{ position: 'absolute', top: 6, left: 6, zIndex: 5 }}>
+      <GelOrb icon="arrow-left" size={30} iconSize={12} onPress={() => handleModeChange('menu')} label="Back" breathe={false} />
+    </View>
+  );
+  const sheet = {
+    visible: isVisible,
+    onClose,
+    variant: 'sheet',
+    scroll: mode !== 'menu',
+  };
+
+  if (mode === 'create') {
+    return (
+      <GelModal
+        {...sheet}
+        icon="plus"
+        title="Create a wallet"
+        subtitle="Choose a password to lock it on this phone."
+        actions={[{ label: 'Create wallet', icon: 'check', loading, onPress: handleCreateWallet }]}
       >
-        {mode === 'menu' && (
-          <>
-            <View style={styles.modalHeader}>
-              <MaterialCommunityIcons name="wallet-outline" size={48} color={colors.accent} />
-              <Text style={styles.modalTitle}>Choose Your Wallet</Text>
-              <Text style={styles.modalSubtitle}>Select how you want to manage your crypto assets</Text>
-            </View>
+        {back}
+        <GelInput label="Password" placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`} secureTextEntry value={password} onChangeText={setPassword} autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
+        <GelInput label="Confirm password" placeholder="Type it again" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
+      </GelModal>
+    );
+  }
 
-            <TouchableOpacity style={styles.walletOption} onPress={async () => { if (!(await confirmWalletChange())) return; onClose(); openSecureWalletFlow('create'); }} activeOpacity={0.7}>
-              <LinearGradient colors={['rgba(243, 99, 22, 0.1)', 'rgba(243, 99, 22, 0.05)']} style={styles.walletOptionGradient}>
-                <View style={styles.walletOptionHeader}>
-                  <View style={styles.walletIconContainer}>
-                    <MaterialCommunityIcons name="plus-circle" size={28} color={colors.accent} />
-                  </View>
-                  <View style={styles.walletOptionTextContainer}>
-                    <Text style={styles.walletOptionTitle}>Create New Wallet</Text>
-                    <Text style={styles.walletOptionDescription}>Locked with your password, backed up by 12 recovery words — only you can open it</Text>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color={colors.accent} />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+  if (mode === 'retrieve') {
+    return (
+      <GelModal
+        {...sheet}
+        icon="download"
+        tone={GREEN}
+        title="Restore your wallet"
+        subtitle={hasExistingWallet ? 'Enter your password to open the wallet linked to this account.' : 'Enter your wallet password.'}
+        actions={[{ label: 'Restore wallet', icon: 'unlock', loading, onPress: handleRetrieveWallet }]}
+      >
+        {back}
+        <GelInput label="Password" placeholder="Your wallet password" secureTextEntry value={password} onChangeText={setPassword} autoComplete="password" textContentType="password" importantForAutofill="yes" onSubmitEditing={handleRetrieveWallet} returnKeyType="done" />
+        <GelButton
+          label="Forgot it? Use your 12 recovery words"
+          variant="ghost"
+          small
+          style={{ marginTop: 10 }}
+          onPress={() => { onClose(); openSecureWalletFlow('restore'); }}
+        />
+      </GelModal>
+    );
+  }
 
-            <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('retrieve')} activeOpacity={0.7}>
-              <LinearGradient colors={['rgba(76, 175, 80, 0.1)', 'rgba(76, 175, 80, 0.05)']} style={styles.walletOptionGradient}>
-                <View style={styles.walletOptionHeader}>
-                  <View style={[styles.walletIconContainer, { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}>
-                    <MaterialCommunityIcons name="download" size={28} color="#4CAF50" />
-                  </View>
-                  <View style={styles.walletOptionTextContainer}>
-                    <Text style={[styles.walletOptionTitle, { color: '#4CAF50' }]}>Restore Wallet</Text>
-                    <Text style={styles.walletOptionDescription}>
-                      {hasExistingWallet ? 'Access your existing wallet linked to this account' : 'Access your existing wallet with your password'}
-                    </Text>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#4CAF50" />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+  if (mode === 'import') {
+    return (
+      <GelModal
+        {...sheet}
+        icon="key"
+        tone={PURPLE}
+        title="Import a wallet"
+        subtitle="Paste your private key, then choose a password to lock it on this phone."
+        actions={[{ label: 'Import wallet', icon: 'check', loading, onPress: handleImportWallet }]}
+      >
+        {back}
+        <GelInput label="Private key" placeholder="Your private key (base58)" value={privateKeyInput} onChangeText={setPrivateKeyInput} multiline autoCapitalize="none" autoCorrect={false} />
+        <GelInput label="Password" placeholder="At least 8 characters" secureTextEntry value={password} onChangeText={setPassword} />
+        <GelInput label="Confirm password" placeholder="Type it again" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
+      </GelModal>
+    );
+  }
 
-            <TouchableOpacity style={styles.walletOption} onPress={() => handleModeChange('import')} activeOpacity={0.7}>
-              <LinearGradient colors={['rgba(156, 39, 176, 0.1)', 'rgba(156, 39, 176, 0.05)']} style={styles.walletOptionGradient}>
-                <View style={styles.walletOptionHeader}>
-                  <View style={[styles.walletIconContainer, { backgroundColor: 'rgba(156, 39, 176, 0.15)' }]}>
-                    <MaterialCommunityIcons name="key" size={28} color="#9C27B0" />
-                  </View>
-                  <View style={styles.walletOptionTextContainer}>
-                    <Text style={[styles.walletOptionTitle, { color: '#9C27B0' }]}>Import Wallet</Text>
-                    <Text style={styles.walletOptionDescription}>Import an existing wallet using your private key</Text>
-                  </View>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#9C27B0" />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {mode === 'create' && (
-          <>
-            <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color={colors.accent} />
-              <Text style={styles.backButtonText}>Back</Text>
-            </TouchableOpacity>
-            <View style={styles.formHeader}>
-              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(243, 99, 22, 0.15)' }]}>
-                <MaterialCommunityIcons name="plus-circle" size={32} color={colors.accent} />
-              </View>
-              <Text style={styles.modalTitle}>Create New Wallet</Text>
-              <Text style={styles.modalSubtitle}>Set a secure password to protect your wallet</Text>
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <TextInput style={styles.input} placeholder={`Min ${MIN_PASSWORD_LENGTH} characters`} secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" autoComplete="new-password" textContentType="newPassword" importantForAutofill="yes" />
-            </View>
-            <TouchableOpacity style={styles.actionButton} onPress={handleCreateWallet} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={[colors.accent, colors.accentDeep]} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Create Wallet</Text>}
-              </LinearGradient>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {mode === 'retrieve' && (
-          <>
-            <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#4CAF50" />
-              <Text style={[styles.backButtonText, { color: '#4CAF50' }]}>Back</Text>
-            </TouchableOpacity>
-            <View style={styles.formHeader}>
-              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}>
-                <MaterialCommunityIcons name="download" size={32} color="#4CAF50" />
-              </View>
-              <Text style={[styles.modalTitle, { color: '#4CAF50' }]}>Restore Wallet</Text>
-              <Text style={styles.modalSubtitle}>
-                {hasExistingWallet ? 'Enter your password to access your wallet' : 'Enter your password to access your existing wallet'}
-              </Text>
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <TextInput style={styles.input} placeholder="Enter your wallet password" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" autoComplete="password" textContentType="password" importantForAutofill="yes" />
-            </View>
-            <TouchableOpacity style={styles.actionButton} onPress={handleRetrieveWallet} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={['#4CAF50', '#66BB6A']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Restore Wallet</Text>}
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { onClose(); openSecureWalletFlow('restore'); }} style={{ alignItems: 'center', paddingVertical: 14 }} activeOpacity={0.7}>
-              <Text style={[styles.modalSubtitle, { color: '#4CAF50', fontWeight: '700' }]}>Forgot your password? Use your 12 recovery words</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {mode === 'import' && (
-          <>
-            <TouchableOpacity style={styles.backButton} onPress={() => handleModeChange('menu')}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#9C27B0" />
-              <Text style={[styles.backButtonText, { color: '#9C27B0' }]}>Back</Text>
-            </TouchableOpacity>
-            <View style={styles.formHeader}>
-              <View style={[styles.formIconContainer, { backgroundColor: 'rgba(156, 39, 176, 0.15)' }]}>
-                <MaterialCommunityIcons name="key" size={32} color="#9C27B0" />
-              </View>
-              <Text style={[styles.modalTitle, { color: '#9C27B0' }]}>Import Wallet</Text>
-              <Text style={styles.modalSubtitle}>Enter your private key and set a password to secure your wallet</Text>
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Private Key</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="Enter your private key (base58)" 
-                value={privateKeyInput} 
-                onChangeText={setPrivateKeyInput} 
-                placeholderTextColor="#999"
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <TextInput style={styles.input} placeholder="Min 8 characters" secureTextEntry value={password} onChangeText={setPassword} placeholderTextColor="#999" />
-            </View>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
-              <TextInput style={styles.input} placeholder="Re-enter password" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} placeholderTextColor="#999" />
-            </View>
-            <TouchableOpacity style={styles.actionButton} onPress={handleImportWallet} disabled={loading} activeOpacity={0.8}>
-              <LinearGradient colors={['#9C27B0', '#BA68C8']} style={styles.actionButtonGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                {loading ? <ActivityIndicator color="#ffffff" size="small" /> : <Text style={styles.actionButtonText}>Import Wallet</Text>}
-              </LinearGradient>
-            </TouchableOpacity>
-          </>
-        )}
-      </Animated.View>
-    </Modal>
+  return (
+    <GelModal
+      {...sheet}
+      icon="wallet"
+      title="Your wallet"
+      subtitle="Create a new one, or bring back the one you already have."
+    >
+      <View style={{ marginTop: 8 }}>
+        <GelOption
+          icon="plus"
+          title="Create a new wallet"
+          description="Locked with your password, backed up by 12 recovery words — only you can open it."
+          onPress={async () => { if (!(await confirmWalletChange())) return; onClose(); openSecureWalletFlow('create'); }}
+        />
+        <GelOption
+          icon="download"
+          tone={GREEN}
+          title="Restore my wallet"
+          description={hasExistingWallet ? 'Open the wallet linked to this account.' : 'Open your wallet with its password.'}
+          onPress={() => handleModeChange('retrieve')}
+        />
+        <GelOption
+          icon="key"
+          tone={PURPLE}
+          title="Import a wallet"
+          description="Use a private key from another wallet."
+          onPress={() => handleModeChange('import')}
+        />
+      </View>
+    </GelModal>
   );
 };
 

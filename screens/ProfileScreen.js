@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  Image,
-  ActivityIndicator,
-  Alert,
-  Linking,
-  Share,
-  Clipboard,
-  RefreshControl,
-  Animated,
-  Easing,
-} from 'react-native';
+import { View, Text, ScrollView, Image, ActivityIndicator, Linking, Share, Clipboard, RefreshControl, Animated, Easing } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -42,6 +29,7 @@ import {
 } from '../components/MangaUI';
 import { toast } from '../components/Toast';
 
+import { gelAlert } from '../components/gel/GelAlert';
 // ---------------------------------------------------------------------------------------------
 // Cosmetic "reader rank", derived from total reading time. Thresholds are in seconds; tweak freely.
 // ---------------------------------------------------------------------------------------------
@@ -230,7 +218,7 @@ const ProfileScreen = () => {
       return {
         text: 'Dashboard',
         action: () =>
-          Alert.alert('Choose Dashboard', '', [
+          gelAlert('Choose Dashboard', '', [
             { text: 'Novel', onPress: () => navigation.navigate('NovelDashboard') },
             { text: 'Manga', onPress: () => navigation.navigate('MangaDashboard') },
             { text: 'Cancel', style: 'cancel' },

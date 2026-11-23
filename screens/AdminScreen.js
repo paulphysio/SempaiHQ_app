@@ -1,19 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  SafeAreaView,
-  RefreshControl,
-  Alert,
-  StyleSheet,
-  TextInput,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, SafeAreaView, RefreshControl, StyleSheet, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../services/supabaseClient';
@@ -23,6 +9,7 @@ import { FontAwesome5 } from '@expo/vector-icons';
 import { resolveRefund } from '../utils/bazaar';
 import { toast } from '../components/Toast';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const TABS = [
   { key: 'overview', label: 'Overview', icon: 'chart-line' },
   { key: 'applications', label: 'Applications', icon: 'user-plus' },
@@ -416,7 +403,7 @@ const AdminScreen = () => {
   };
 
   const deleteAnnouncement = (ann) => {
-    Alert.alert('Delete announcement?', `"${ann.title}" will be permanently removed.`, [
+    gelAlert('Delete announcement?', `"${ann.title}" will be permanently removed.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive',

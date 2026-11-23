@@ -1,18 +1,5 @@
 import React, { useState, useEffect, useRef, useContext, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  SafeAreaView,
-  StatusBar,
-  Platform,
-  FlatList,
-  ScrollView,
-  ActivityIndicator,
-  Image,
-  Alert,
-  KeyboardAvoidingView,
-  Keyboard,
-} from 'react-native';
+import { View, Text, SafeAreaView, StatusBar, Platform, FlatList, ScrollView, ActivityIndicator, Image, KeyboardAvoidingView, Keyboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
@@ -36,6 +23,7 @@ import { radius, space, layout, glow, useMangaTheme } from '../theme/theme';
 import { getStyles as getDashboardStyles } from '../styles/MangaDashboardStyles';
 import { toast } from '../components/Toast';
 
+import { gelAlert } from '../components/gel/GelAlert';
 const TAG_OPTIONS = [
   'Action', 'Adult(18+)', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance',
   'Sci-Fi', 'Slice of Life', 'Supernatural', 'Thriller', 'Historical', 'Sports', 'Psychological',
@@ -363,7 +351,7 @@ const MangaDashboardScreen = () => {
   };
 
   const deleteChapter = (idx) => {
-    Alert.alert('Delete chapter?', `"${chapters[idx]?.title}" will be removed from this draft.`, [
+    gelAlert('Delete chapter?', `"${chapters[idx]?.title}" will be removed from this draft.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -383,7 +371,7 @@ const MangaDashboardScreen = () => {
 
   const deleteSeries = () => {
     if (!activeManga?.id) return;
-    Alert.alert(
+    gelAlert(
       'Delete series?',
       `"${activeManga.title}" and all its chapters, pages, comments, and reader subscriptions will be permanently deleted. This cannot be undone.`,
       [
@@ -509,7 +497,7 @@ const MangaDashboardScreen = () => {
   const startNew = () => {
     const dirty = title || summary || coverPreview || chapters.length;
     if (!dirty && !activeManga) return;
-    Alert.alert('Start a new series?', 'Unsaved changes in the editor will be discarded.', [
+    gelAlert('Start a new series?', 'Unsaved changes in the editor will be discarded.', [
       { text: 'Keep editing', style: 'cancel' },
       { text: 'Discard & start new', style: 'destructive', onPress: clearForm },
     ]);

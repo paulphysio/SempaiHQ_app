@@ -1,16 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -21,6 +10,7 @@ import { toast } from '../Toast';
 import { radius, space } from '../../theme/tokens';
 import { saveDraft, loadDraft, loadWriterPrefs, saveWriterPrefs, timeSince } from '../../services/drafts';
 
+import { gelAlert } from '../gel/GelAlert';
 /*
  * Writing Studio — a full-screen, offline-first chapter editor.
  *
@@ -147,7 +137,7 @@ const ChapterEditor = ({
         };
         if (!initialContent.trim() && !initialTitle.trim()) restore();
         else
-          Alert.alert('Unsaved draft found', `You have a newer draft on this device (${timeSince(draft.updatedAt)}). Restore it?`, [
+          gelAlert('Unsaved draft found', `You have a newer draft on this device (${timeSince(draft.updatedAt)}). Restore it?`, [
             { text: 'Keep current', style: 'cancel' },
             { text: 'Restore draft', onPress: restore },
           ]);

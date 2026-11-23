@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, Alert } from 'react-native';
+import { View, Text } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import Animated, { FadeInDown, FadeOut, Layout } from 'react-native-reanimated';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -11,6 +11,7 @@ import { radius, space, Tap, Input, GradientButton, Toast, SectionHeader } from 
 import { useMangaTheme } from '../theme/theme';
 import { toast } from './Toast';
 
+import { gelAlert } from './gel/GelAlert';
 const connection = new Connection(RPC_URL, 'confirmed');
 
 const COMMENT_COOLDOWN = 60 * 1000;
@@ -94,7 +95,7 @@ const Comment = ({ comment, replies, depth = 0, ctx }) => {
             ) : null}
             {isOwner ? (
               <Tap
-                onPress={() => Alert.alert('Delete comment?', 'This cannot be undone.', [
+                onPress={() => gelAlert('Delete comment?', 'This cannot be undone.', [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Delete', style: 'destructive', onPress: () => deleteComment(comment.id) },
                 ])}

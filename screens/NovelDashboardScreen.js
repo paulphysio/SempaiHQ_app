@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
-import { View, Text, Pressable, Platform, ScrollView, Image, KeyboardAvoidingView, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, Platform, ScrollView, Image, KeyboardAvoidingView, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import Modal from 'react-native-modal';
 import {
@@ -32,6 +32,7 @@ import {
 } from '../components/page/PageKit';
 import { coverSource, radius, space } from '../theme/tokens';
 
+import { gelAlert } from '../components/gel/GelAlert';
 // The actual image bytes for upload. (Passing the picker's {uri, name, type}
 // object made storage save that object as text instead of the picture.)
 async function readImageBytes(uri) {
@@ -501,7 +502,7 @@ const NovelDashboardScreen = () => {
       toast.error('Invalid chapter index for deletion.');
       return;
     }
-    Alert.alert(
+    gelAlert(
       'Delete chapter?',
       `"${chapterTitles[index]}" will be removed when you save. This can't be undone.`,
       [
@@ -562,7 +563,7 @@ const NovelDashboardScreen = () => {
       toast.error('You can only delete your own novels unless you are a superuser.');
       return;
     }
-    Alert.alert('Delete novel?', `"${novel.title}" and all its chapters will be permanently deleted.`, [
+    gelAlert('Delete novel?', `"${novel.title}" and all its chapters will be permanently deleted.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: () => deleteNovel(novel) },
     ]);
