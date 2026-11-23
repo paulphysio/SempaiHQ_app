@@ -24,6 +24,7 @@ import { getStatStyles } from '../styles/StatStyles';
 import { formatNumber } from '../utils/formatNumber';
 import { useTheme } from '../context/ThemeContext';
 import ScreenSkeleton from '../components/ScreenSkeleton';
+import GelOrb from '../components/nav/GelOrb';
 
 const { width } = Dimensions.get('window');
 const connection = new Connection(RPC_URL, 'confirmed');
@@ -388,18 +389,18 @@ const StatPageScreen = () => {
   };
 
   const chartConfig = {
-    backgroundGradientFrom: '#23234A',
-    backgroundGradientTo: '#1A1B26',
+    backgroundGradientFrom: colors.bgCard,
+    backgroundGradientTo: colors.bgCard,
     backgroundGradientFromOpacity: 0.95,
     backgroundGradientToOpacity: 0.95,
-    color: (opacity = 1) => `rgba(242, 140, 56, ${opacity})`, // vibrant orange
-    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+    color: (opacity = 1) => `rgba(${colors.accentRgb}, ${opacity})`,
+    labelColor: (opacity = 1) => (isDark ? `rgba(255, 255, 255, ${opacity * 0.75})` : `rgba(30, 41, 59, ${opacity * 0.8})`),
     fillShadowGradient: colors.accent,
     fillShadowGradientOpacity: 0.18,
     propsForDots: {
       r: '7',
       strokeWidth: '3',
-      stroke: '#FFD580',
+      stroke: colors.accentHi,
       fill: colors.accent,
       shadowColor: colors.accent,
       shadowOffset: { width: 0, height: 2 },
@@ -407,14 +408,14 @@ const StatPageScreen = () => {
       shadowRadius: 4,
     },
     propsForBackgroundLines: {
-      stroke: 'rgba(255,255,255,0.08)',
+      stroke: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.08)',
       strokeDasharray: '',
     },
     propsForLabels: {
       fontSize: 13,
        
       fontFamily: 'System',
-      fill: '#FFD580',
+      fill: colors.textSecondary,
     },
     barPercentage: 0.6,
     decimalPlaces: 0,
@@ -435,7 +436,7 @@ const StatPageScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1B26" />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
       {errorMessage && (
         <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.errorContainer}>
@@ -451,7 +452,10 @@ const StatPageScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />
         }
       >
-        <Text style={styles.title}>Platform Statistics</Text>
+        <View style={{ alignItems: 'center', marginBottom: 18 }}>
+          <View pointerEvents="none"><GelOrb icon="chart-pie" size={60} lit breathe={false} /></View>
+          <Text style={[styles.title, { fontFamily: 'Yoruka', marginTop: 12, marginBottom: 0 }]}>Platform stats</Text>
+        </View>
 
         <View style={styles.statGrid}>
           <View style={styles.statCard}>
@@ -505,7 +509,7 @@ const StatPageScreen = () => {
               withInnerLines={true}
               withOuterLines={false}
             />
-            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 }}>
               Number of unique users per day
             </Text>
           </View>
@@ -522,7 +526,7 @@ const StatPageScreen = () => {
               fromZero={true}
               withHorizontalLabels={true}
             />
-            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 }}>
               Active users in the last 7 and 30 days
             </Text>
           </View>
@@ -532,7 +536,7 @@ const StatPageScreen = () => {
               data={pieChartData.map((item, i) => ({
                 ...item,
                 color: item.color,
-                legendFontColor: '#FFD580',
+                legendFontColor: colors.textSecondary,
                 legendFontSize: 14,
                 legendFontFamily: 'System',
                 name: item.name,
@@ -545,7 +549,7 @@ const StatPageScreen = () => {
               style={styles.chart}
               hasLegend={true}
             />
-            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 }}>
               Distribution of SMP token holders
             </Text>
           </View>
@@ -562,7 +566,7 @@ const StatPageScreen = () => {
               fromZero={true}
               withHorizontalLabels={true}
             />
-            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 }}>
               Number of events by activity type
             </Text>
           </View>
@@ -580,7 +584,7 @@ const StatPageScreen = () => {
               withInnerLines={true}
               withOuterLines={false}
             />
-            <Text style={{ color: '#FFD580', fontSize: 13, textAlign: 'center', marginTop: 4, fontFamily: 'System' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 4 }}>
               Comments posted per day (last 30 days)
             </Text>
           </View>

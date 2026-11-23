@@ -10,6 +10,8 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 import { GelGate } from '../components/gel/GelGate';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass, GelInput, GelButton, GelChips } from '../components/gel/GelKit';
 
 const AnnouncementsScreen = () => {
   const { isDark, colors } = useTheme();
@@ -31,6 +33,7 @@ const AnnouncementsScreen = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -70,6 +73,7 @@ const AnnouncementsScreen = () => {
       setHasAccess(false);
     } finally {
       setLoading(false);
+      setAccessChecked(true);
     }
   };
 
@@ -171,157 +175,70 @@ const AnnouncementsScreen = () => {
     }
   };
 
-  if (loading && !hasAccess) {
+  if (isWalletConnected && !hasAccess && (loading || !accessChecked)) {
     return <ScreenSkeleton variant="list" label="Loading announcements" />;
   }
 
   if (!isWalletConnected) {
-    return <GelGate icon="bullhorn" headerTitle="Announcements" subtitle="Connect a wallet to see announcements from writers you follow." />;
+    return <GelGate icon="bullhorn" headerTitle="Announcements" subtitle="Connect a wallet to post announcements to your readers." />;
+  }
+
+  if (!hasAccess) {
+    return (
+      <GelGate
+        icon="lock"
+        headerTitle="Announcements"
+        title="Creators only"
+        subtitle="Writers, artists and admins can post announcements. Apply to become a creator."
+        action="Become a creator"
+        onAction={() => navigation.navigate('Apply')}
+      />
+    );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardContainer}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 140 }}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="arrow-left" size={20} color="#FFF" />
-          </TouchableOpacity>
-          <View style={styles.headerContent}>
-            <Icon name="bullhorn" size={24} color="#FFF" />
-            <Text style={styles.headerTitle}>Announcements</Text>
-          </View>
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 16 }}>
+          <View pointerEvents="none"><GelOrb icon="bullhorn" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>New announcement</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 6, maxWidth: 340 }}>
+            Tell your readers what's coming — it lands in their notifications.
+          </Text>
         </View>
-
-        <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#9B59B6" colors={['#9B59B6']} />
-          }
-        >
-          {!isWalletConnected ? (
-            <View style={styles.connectPrompt}>
-              <Icon name="gem" size={60} color="#9B59B6" />
-              <Text style={styles.promptText}>Connect your wallet to access the Announcements page.</Text>
-            </View>
-          ) : !hasAccess ? (
-            <View style={styles.accessDenied}>
-              <Icon name="times-circle" size={60} color="#E74C3C" />
-              <Text style={styles.deniedText}>Access Denied</Text>
-              <Text style={styles.deniedSubtext}>Only writers, artists, and superusers may enter.</Text>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Home')}
-                style={styles.backButton}
-              >
-                <Icon name="home" size={20} color="#FFF" />
-                <Text style={styles.backButtonText}>Return Home</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.dashboard}>
-              <View style={styles.section}>
-                <View style={styles.sectionHeader}>
-                  <Icon name="bullhorn" size={20} color="#9B59B6" />
-                  <Text style={styles.sectionTitle}>Create Announcement</Text>
-                </View>
-
-                <View style={styles.form}>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Announcement Title</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={announcementTitle}
-                      onChangeText={setAnnouncementTitle}
-                      placeholder="e.g., Exciting News for Fans!"
-                      placeholderTextColor="#888"
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Message</Text>
-                    <TextInput
-                      style={styles.textarea}
-                      value={announcementMessage}
-                      onChangeText={setAnnouncementMessage}
-                      placeholder="Write your announcement here"
-                      placeholderTextColor="#888"
-                      multiline
-                      numberOfLines={5}
-                    />
-                  </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.label}>Release Date (Optional)</Text>
-                    <TextInput
-                      style={styles.input}
-                      value={announcementReleaseDate ? announcementReleaseDate.toLocaleDateString() : ''}
-                      onChangeText={(text) => {
-                        if (text) {
-                          const date = new Date(text);
-                          if (!isNaN(date.getTime())) {
-                            setAnnouncementReleaseDate(date);
-                          }
-                        } else {
-                          setAnnouncementReleaseDate(null);
-                        }
-                      }}
-                      placeholder="MM/DD/YYYY"
-                      placeholderTextColor="#888"
-                    />
-                  </View>
-
-                  {isSuperuser && (
-                    <View style={styles.inputGroup}>
-                      <Text style={styles.label}>Target Audience</Text>
-                      <View style={styles.pickerContainer}>
-                        {['all', 'writers', 'artists', 'creators'].map((option) => (
-                          <TouchableOpacity
-                            key={option}
-                            style={[
-                              styles.pickerOption,
-                              audience === option && styles.pickerOptionActive,
-                            ]}
-                            onPress={() => setAudience(option)}
-                          >
-                            <Text
-                              style={[
-                                styles.pickerOptionText,
-                                audience === option && styles.pickerOptionTextActive,
-                              ]}
-                            >
-                              {option.charAt(0).toUpperCase() + option.slice(1)}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </View>
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.submitButton}
-                    onPress={handleAnnouncementSubmit}
-                    disabled={loading}
-                  >
-                    {loading ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <View style={styles.buttonContent}>
-                        <Icon name="bullhorn" size={20} color="#FFF" />
-                        <Text style={styles.buttonText}>Send Announcement</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <GelGlass radius={28} glow={false} padding={18}>
+          <GelInput label="Title" value={announcementTitle} onChangeText={setAnnouncementTitle} placeholder="e.g. Chapter 40 drops Friday!" style={{ marginTop: 0 }} />
+          <GelInput label="Message" value={announcementMessage} onChangeText={setAnnouncementMessage} placeholder="Write your announcement" multiline />
+          <GelInput
+            label="Release date (optional)"
+            value={announcementReleaseDate ? announcementReleaseDate.toLocaleDateString() : ''}
+            onChangeText={(text) => {
+              if (!text) { setAnnouncementReleaseDate(null); return; }
+              const date = new Date(text);
+              if (!isNaN(date.getTime())) setAnnouncementReleaseDate(date);
+            }}
+            placeholder="MM/DD/YYYY"
+            hint="Leave empty to post now"
+          />
+          {isSuperuser ? (
+            <>
+              <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: '700', marginTop: 14, marginLeft: 4 }}>Who gets it</Text>
+              <GelChips
+                options={[{ value: 'all', label: 'All' }, { value: 'writers', label: 'Writers' }, { value: 'artists', label: 'Artists' }, { value: 'creators', label: 'Creators' }]}
+                value={audience}
+                onChange={setAudience}
+                style={{ marginTop: 8 }}
+              />
+            </>
+          ) : null}
+          <GelButton label="Send announcement" icon="bullhorn" loading={loading} disabled={!announcementTitle.trim() || !announcementMessage.trim()} onPress={handleAnnouncementSubmit} style={{ marginTop: 18 }} />
+        </GelGlass>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

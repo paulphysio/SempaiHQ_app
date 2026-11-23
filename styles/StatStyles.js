@@ -83,8 +83,10 @@ export const getStatStyles = (c) => StyleSheet.create({
   },
   statCard: {
     width: '48%',
-    backgroundColor: 'rgba(42,42,62,0.85)',
-    borderRadius: 18,
+    backgroundColor: c.bgCard,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 24,
     padding: 18,
     marginBottom: 18,
     alignItems: 'center',
@@ -99,7 +101,7 @@ export const getStatStyles = (c) => StyleSheet.create({
     // backdropFilter: 'blur(8px)',
   },
   statTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: 'Yoruka',
     color: c.accent,
     marginBottom: 5,
@@ -111,7 +113,8 @@ export const getStatStyles = (c) => StyleSheet.create({
   statValue: {
     fontSize: 28,
     
-    color: '#FFF',
+    color: c.textPrimary,
+    fontWeight: '800',
     textAlign: 'center',
     marginTop: 2,
     marginBottom: 2,
@@ -128,8 +131,10 @@ export const getStatStyles = (c) => StyleSheet.create({
     paddingTop: 18,
   },
   chartCard: {
-    backgroundColor: 'rgba(42,42,62,0.85)',
-    borderRadius: 18,
+    backgroundColor: c.bgCard,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 24,
     padding: 18,
     marginBottom: 24,
     shadowColor: '#000',

@@ -11,7 +11,8 @@ import { toast } from '../components/Toast';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 
 import { gelAlert } from '../components/gel/GelAlert';
-import { GelGate } from '../components/gel/GelGate';
+import { GelGate, GelPageHeader } from '../components/gel/GelGate';
+import { GelChips } from '../components/gel/GelKit';
 const TABS = ['Overview', 'My Books', 'Refunds', 'All Sales'];
 
 const BazaarDashboardScreen = () => {
@@ -319,25 +320,10 @@ const BazaarDashboardScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={BAZAAR_COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bazaar Dashboard</Text>
-        <View style={{ width: 40 }} />
-      </View>
-
-      <View style={styles.tabBar}>
-        {visibleTabs.map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.tab, tab === t && styles.tabActive]}
-            onPress={() => setTab(t)}
-          >
-            <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{t}</Text>
-          </TouchableOpacity>
-        ))}
+    <View style={[styles.container, { backgroundColor: BAZAAR_COLORS.bg }]}>
+      <GelPageHeader title="Bazaar dashboard" subtitle="Sales, readers and refunds" />
+      <View style={{ paddingHorizontal: 16 }}>
+        <GelChips options={visibleTabs} value={tab} onChange={setTab} style={{ marginTop: 4 }} />
       </View>
 
       <ScrollView

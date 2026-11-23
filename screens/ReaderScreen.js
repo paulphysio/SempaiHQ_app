@@ -7,6 +7,7 @@ import {
   Alert,
   Modal,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,11 +18,14 @@ import PDFReader from '../components/PDFReader';
 import EPUBReader from '../components/EPUBReader';
 import { getReaderStyles } from '../styles/ReaderStyles';
 import { useTheme } from '../context/ThemeContext';
+import GelOrb from '../components/nav/GelOrb';
+import { GelButton } from '../components/gel/GelKit';
+import { GelPageHeader } from '../components/gel/GelGate';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ReaderScreen({ navigation }) {
-  const { isDark } = useTheme();
+  const { isDark, colors } = useTheme();
   const styles = useMemo(() => getReaderStyles(isDark), [isDark]);
   const insets = useSafeAreaInsets();
   const [file, setFile] = useState(null);
@@ -147,32 +151,24 @@ export default function ReaderScreen({ navigation }) {
   if (file && !error) return renderReader();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconButton} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={24} color={styles.headerTitle.color} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Reader</Text>
-        {file && (
-          <View style={styles.headerActions}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => setShowTOC(true)}>
-              <Ionicons name="list-outline" size={24} color={styles.headerTitle.color} />
-            </TouchableOpacity>
-          </View>
-        )}
+    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: Platform.OS === 'web' ? 0 : insets.top }}>
+      <GelPageHeader title="Reader" subtitle="Your own PDF and EPUB files" onBack={handleBack} />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, paddingBottom: 110 }}>
+        <View pointerEvents="none"><GelOrb icon={error ? 'exclamation-circle' : 'book-reader'} size={76} lit breathe={!error} tone={error ? '#E5484D' : undefined} /></View>
+        <Text style={{ fontFamily: 'Yoruka', fontSize: 26, color: colors.textPrimary, marginTop: 18, textAlign: 'center' }}>
+          {error ? "Couldn't open that file" : 'Read your own books'}
+        </Text>
+        <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 8, maxWidth: 320 }}>
+          {error || 'Open a PDF or EPUB from your phone — it scrolls, keeps your place, and has full screen.'}
+        </Text>
+        <GelButton
+          label={error ? 'Try another file' : 'Open a file'}
+          icon="folder-open"
+          loading={loading}
+          onPress={() => { setError(null); pickFile(); }}
+          style={{ marginTop: 22, alignSelf: 'stretch', maxWidth: 360, width: '100%' }}
+        />
       </View>
-
-      {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={styles.errorText.color} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.pickButton} onPress={() => setError(null)}>
-            <Text style={styles.pickButtonText}>Try Again</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {!file && !error && renderFilePicker()}
     </View>
   );
 }
