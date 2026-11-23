@@ -14,6 +14,7 @@ import ConnectButton from '../components/ConnectButton';
 import * as Notifications from 'expo-notifications';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
+import { GelGate } from '../components/gel/GelGate';
 
 const { width, height } = Dimensions.get('window');
 
@@ -246,14 +247,7 @@ const CreatorDashboardScreen = () => {
   );
 
   if (!isWalletConnected) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContent}>
-          <Text style={styles.message}>Please connect your wallet to access the Creator Dashboard</Text>
-          <ConnectButton />
-        </View>
-      </SafeAreaView>
-    );
+    return <GelGate icon="pen-fancy" headerTitle="Creator dashboard" subtitle="Connect a wallet to manage your work and earnings." />;
   }
 
   return (

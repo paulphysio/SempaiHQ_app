@@ -9,6 +9,7 @@ import { getAnnouncementsStyles } from '../styles/AnnouncementsStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import ScreenSkeleton from '../components/ScreenSkeleton';
+import { GelGate } from '../components/gel/GelGate';
 
 const AnnouncementsScreen = () => {
   const { isDark, colors } = useTheme();
@@ -172,6 +173,10 @@ const AnnouncementsScreen = () => {
 
   if (loading && !hasAccess) {
     return <ScreenSkeleton variant="list" label="Loading announcements" />;
+  }
+
+  if (!isWalletConnected) {
+    return <GelGate icon="bullhorn" headerTitle="Announcements" subtitle="Connect a wallet to see announcements from writers you follow." />;
   }
 
   return (

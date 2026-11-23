@@ -7,6 +7,7 @@ import Popup from '../components/Popup';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import { readerAction } from '../services/readerActions';
+import { GelGate } from '../components/gel/GelGate';
 
 const ApplyScreen = () => {
   const { isDark, colors } = useTheme();
@@ -118,6 +119,10 @@ const ApplyScreen = () => {
       toast.error(`Failed to process application: ${err.message}`);
     }
   };
+
+  if (!isWalletConnected) {
+    return <GelGate icon="feather-alt" headerTitle="Become a creator" subtitle="Connect a wallet to apply as a writer or artist." />;
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>

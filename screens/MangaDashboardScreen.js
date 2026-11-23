@@ -24,6 +24,7 @@ import { getStyles as getDashboardStyles } from '../styles/MangaDashboardStyles'
 import { toast } from '../components/Toast';
 
 import { gelAlert } from '../components/gel/GelAlert';
+import { GelGate } from '../components/gel/GelGate';
 const TAG_OPTIONS = [
   'Action', 'Adult(18+)', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Horror', 'Mystery', 'Romance',
   'Sci-Fi', 'Slice of Life', 'Supernatural', 'Thriller', 'Historical', 'Sports', 'Psychological',
@@ -808,12 +809,7 @@ const MangaDashboardScreen = () => {
   );
 
   if (!isWalletConnected) {
-    return gate(
-      <View style={styles.center}>
-        <EmptyState icon="gem" title="Connect your wallet" subtitle="Connect to open the Artist Studio and publish your manga." />
-        <ConnectButton />
-      </View>
-    );
+    return <GelGate icon="palette" headerTitle="Artist studio" subtitle="Connect a wallet to open the Artist Studio and publish your manga." />;
   }
 
   if (initializing) {

@@ -9,6 +9,7 @@ import { getMarketplaceStyles } from '../styles/MarketplaceStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import { GelModal, GelInput, GelInset, GelRow } from '../components/gel/GelKit';
+import { GelGate } from '../components/gel/GelGate';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -243,21 +244,7 @@ const MarketplaceScreen = () => {
   );
 
   if (!isWalletConnected) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.lockedContainer}>
-          <FontAwesome5 name="wallet" size={48} color="#E74C3C" />
-          <Text style={styles.lockedMessage}>Connect Wallet to Access Marketplace</Text>
-          <TouchableOpacity 
-            style={styles.connectButton}
-            onPress={() => navigation.navigate('WalletImport')}
-          >
-            <FontAwesome5 name="wallet" size={16} color="#FFFFFF" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Connect Wallet</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
+    return <GelGate icon="store" headerTitle="Marketplace" title="Connect your wallet" subtitle="Connect a wallet to buy and sell collectibles." />;
   }
 
   return (

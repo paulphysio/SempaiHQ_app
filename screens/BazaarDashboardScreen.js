@@ -11,6 +11,7 @@ import { toast } from '../components/Toast';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 
 import { gelAlert } from '../components/gel/GelAlert';
+import { GelGate } from '../components/gel/GelGate';
 const TABS = ['Overview', 'My Books', 'Refunds', 'All Sales'];
 
 const BazaarDashboardScreen = () => {
@@ -314,21 +315,7 @@ const BazaarDashboardScreen = () => {
   }
 
   if (!user) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={BAZAAR_COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bazaar Dashboard</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <View style={styles.centerContainer}>
-          <Ionicons name="wallet-outline" size={48} color={BAZAAR_COLORS.textMuted} />
-          <Text style={styles.mutedText}>Connect your wallet to view your bazaar dashboard.</Text>
-        </View>
-      </View>
-    );
+    return <GelGate icon="chart-line" headerTitle="Bazaar dashboard" subtitle="Connect a wallet to see your sales, readers and refunds." />;
   }
 
   return (

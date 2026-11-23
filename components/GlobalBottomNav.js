@@ -15,7 +15,7 @@ import { haptics } from '../utils/haptics';
 export const BOTTOM_NAV_CLEARANCE = NAV.height + NAV.bottomGap + 8;
 
 const SLOTS = ['menu', 'messages', 'inbox', 'swap', 'leaderboard'];
-const ROUTE_SLOT = { Inbox: 2, Swap: 3, Leaderboard: 4 };
+const ROUTE_SLOT = { Chat: 2, Inbox: 2, Swap: 3, Leaderboard: 4 };
 const LAMP_W = 34;
 
 const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
@@ -64,7 +64,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
   const onContentLayout = (e) => setSlotW(e.nativeEvent.layout.width / SLOTS.length);
 
   // ---- actions ----------------------------------------------------------
-  const goInbox = useCallback(() => goToTopLevel(navigation, 'Inbox'), [navigation]);
+  const goInbox = useCallback(() => goToTopLevel(navigation, 'Chat'), [navigation]);
   const goSwap = useCallback(() => goToTopLevel(navigation, 'Swap'), [navigation]);
   const goLeaderboard = useCallback(() => goToTopLevel(navigation, 'Leaderboard'), [navigation]);
   const toggleMenu = useCallback(() => {
@@ -175,7 +175,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
                 />
               </View>
               <View style={styles.slot}>
-                <GelOrb icon="inbox" size={NAV.buttonSize} lit={currentRoute === 'Inbox'} onPress={goInbox} label="Inbox" />
+                <GelOrb icon="comments" size={NAV.buttonSize} lit={currentRoute === 'Chat' || currentRoute === 'Inbox'} onPress={goInbox} label="Chats" />
               </View>
               <View style={styles.slot}>
                 <GelOrb icon="exchange-alt" size={NAV.buttonSize} lit={currentRoute === 'Swap'} onPress={goSwap} label="Swap tokens" />

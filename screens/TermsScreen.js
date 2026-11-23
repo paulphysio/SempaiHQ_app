@@ -6,13 +6,18 @@ import {
 } from 'react-native';
 import { getTermsStyles } from '../styles/TermsStyles';
 import { useTheme } from '../context/ThemeContext';
+import GelOrb from '../components/nav/GelOrb';
 
 const TermsScreen = () => {
   const { isDark, colors } = useTheme();
   const styles = useMemo(() => getTermsStyles(colors), [isDark]);
   return (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.lastUpdated}>Updated at 2025-05-25</Text>
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 18 }}>
+          <View pointerEvents="none"><GelOrb icon="file-contract" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>Terms of service</Text>
+          <Text style={[styles.lastUpdated, { marginBottom: 0, marginTop: 4 }]}>Updated at 2025-05-25</Text>
+        </View>
 
         <View style={styles.termsContent}>
           <Text style={styles.heading}>General Terms</Text>

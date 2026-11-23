@@ -21,7 +21,9 @@ import { getNovelForOffline, isErrorNetworkError } from '../services/offlineCach
 import { useTheme } from '../context/ThemeContext';
 import { getNovelPageStyles } from '../styles/NovelPageStyles';
 
-import { LOGO } from '../theme/tokens';
+import { LOGO, coverSource } from '../theme/tokens';
+import { GelGlass, GelButton } from '../components/gel/GelKit';
+import { GelPageHeader } from '../components/gel/GelGate';
 const { width, height } = Dimensions.get('window');
 
 // Kaito Adventure Design System - Japanese Dark-Orange
@@ -500,49 +502,43 @@ const NovelSummaryScreen = () => {
   // Single novel summary view
   if (id && singleNovel) {
     return (
-      <SafeAreaView style={styles.page}>
-        <View style={styles.backgroundGradient} />
-        <View style={styles.emberContainer}>
-          {emberAnims.current.map((anim, index) => (
-            <Animated.View
-              key={index}
-              style={[
-                styles.ember,
-                {
-                  left: `${Math.random() * 100}%`,
-                  opacity: anim,
-                  transform: [
-                    {
-                      translateY: anim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [height, -50],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            />
-          ))}
-        </View>
-
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
         <ScrollView
-          style={styles.summaryMain}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={KA_COLORS_BASE.orangeBright} colors={[KA_COLORS_BASE.orangeBright]} />
-          }
+          contentContainerStyle={{ paddingBottom: 130 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} colors={[colors.accent]} />}
         >
-          <View style={styles.singleSummaryContainer}>
-            <Text style={styles.singleSummaryTitle}>{singleNovel.title}</Text>
-            <Text style={styles.singleSummaryText}>
-              {singleNovel.summary || 'No summary available for this novel.'}
+          <GelPageHeader title="Summary" subtitle={singleNovel.title} />
+          <View style={{ alignItems: 'center', paddingHorizontal: 16, marginTop: 8 }}>
+            <Image
+              source={coverSource(singleNovel.image)}
+              style={{ width: 150, height: 220, borderRadius: 20, backgroundColor: colors.bgCard }}
+              resizeMode="cover"
+            />
+            <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, textAlign: 'center', marginTop: 16 }}>
+              {singleNovel.title}
             </Text>
           </View>
+          <View style={{ paddingHorizontal: 16, marginTop: 16 }}>
+            <GelGlass radius={26} glow={false} padding={18}>
+              <Text style={{ color: colors.textSecondary, fontSize: 16, lineHeight: 26 }} selectable>
+                {singleNovel.summary || 'No summary for this novel yet.'}
+              </Text>
+            </GelGlass>
+            <GelButton
+              label="Start reading"
+              icon="book-open"
+              style={{ marginTop: 18 }}
+              onPress={() => navigation.navigate('Chapter', { novelId: singleNovel.id, chapterId: '0' })}
+            />
+            <GelButton
+              label="Back to the novel"
+              variant="ghost"
+              style={{ marginTop: 6 }}
+              onPress={() => navigation.navigate('NovelDetail', { id: singleNovel.id })}
+            />
+          </View>
         </ScrollView>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>© 2025 SempaiHQ. All rights reserved.</Text>
-        </View>
-      </SafeAreaView>
+      </View>
     );
   }
 

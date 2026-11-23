@@ -60,11 +60,10 @@ const GROUPS = [
     title: 'Community',
     icon: 'users',
     items: [
-      { name: 'Chat', screen: 'Chat', icon: 'comments' },
+      { name: 'Chats', screen: 'Chat', icon: 'comments' },
       { name: 'Badges', screen: 'Badges', icon: 'award' },
       { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
       { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },
-      { name: 'Inbox', screen: 'Inbox', icon: 'envelope' },
     ],
   },
   {

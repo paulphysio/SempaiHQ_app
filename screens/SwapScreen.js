@@ -33,6 +33,7 @@ import { AnimatedPressable, useCountUp, usePulse, useEntrance, useAnimatedVisibi
 import { logMoneyEvent } from '../services/moneyFeed';
 import bs58 from 'bs58';
 import { useTheme } from '../context/ThemeContext';
+import { GelGate } from '../components/gel/GelGate';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -557,6 +558,10 @@ const SwapScreen = () => {
       </Text>
     );
   };
+
+  if (!isWalletConnected) {
+    return <GelGate icon="exchange-alt" headerTitle="Swap" subtitle="Connect a wallet to see live balances and swap tokens." />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

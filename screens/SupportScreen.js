@@ -14,6 +14,8 @@ import { supabase } from '../services/supabaseClient';
 import { FontAwesome5 as Icon } from '@expo/vector-icons';
 import { getSupportStyles } from '../styles/SupportStyles';
 import { useTheme } from '../context/ThemeContext';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGlass, GelInput, GelButton } from '../components/gel/GelKit';
 
 const API_BASE_URL = 'https://sempaihq.com/api';
 
@@ -83,99 +85,26 @@ const SupportScreen = () => {
   };
 
   return (
-    <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardContainer}
-      >
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.supportSection}>
-            <Text style={styles.description}>
-              Have an issue or question? Fill out the form below, and our team will get back to you soon.
-            </Text>
-
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <Icon name="user" size={16} color="#9B59B6" /> Name
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="Enter your name"
-                  placeholderTextColor="#888"
-                  editable={!isSubmitting}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <Icon name="envelope" size={16} color="#9B59B6" /> Email
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Enter your email"
-                  placeholderTextColor="#888"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  editable={!isSubmitting}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <Icon name="comment" size={16} color="#9B59B6" /> Subject
-                </Text>
-                <TextInput
-                  style={styles.input}
-                  value={subject}
-                  onChangeText={setSubject}
-                  placeholder="Enter the subject"
-                  placeholderTextColor="#888"
-                  editable={!isSubmitting}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>
-                  <Icon name="comment" size={16} color="#9B59B6" /> Message
-                </Text>
-                <TextInput
-                  style={styles.textarea}
-                  value={message}
-                  onChangeText={setMessage}
-                  placeholder="Describe your issue or question"
-                  placeholderTextColor="#888"
-                  multiline
-                  numberOfLines={5}
-                  textAlignVertical="top"
-                  editable={!isSubmitting}
-                />
-              </View>
-
-              {error && <Text style={styles.alertError}>{error}</Text>}
-              {success && <Text style={styles.alertSuccess}>{success}</Text>}
-
-              <TouchableOpacity
-                style={styles.submitButton}
-                onPress={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#FFF" />
-                ) : (
-                  <View style={styles.buttonContent}>
-                    <Icon name="paper-plane" size={20} color="#FFF" />
-                    <Text style={styles.buttonText}>Submit</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.bg }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 16 }}>
+          <View pointerEvents="none"><GelOrb icon="life-ring" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>Help & support</Text>
+          <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 6, maxWidth: 340 }}>
+            Have a problem or a question? Tell us and we'll get back to you by email.
+          </Text>
+        </View>
+        <GelGlass radius={28} glow={false} padding={18}>
+          <GelInput label="Your name" value={name} onChangeText={setName} placeholder="Name" editable={!isSubmitting} style={{ marginTop: 0 }} />
+          <GelInput label="Email" value={email} onChangeText={setEmail} placeholder="you@example.com" keyboardType="email-address" autoCapitalize="none" editable={!isSubmitting} />
+          <GelInput label="Subject" value={subject} onChangeText={setSubject} placeholder="What is it about?" editable={!isSubmitting} />
+          <GelInput label="Message" value={message} onChangeText={setMessage} placeholder="Describe the problem or question" multiline editable={!isSubmitting} />
+          {error ? <Text style={{ color: colors.danger, marginTop: 12, textAlign: 'center' }}>{error}</Text> : null}
+          {success ? <Text style={{ color: colors.success, marginTop: 12, textAlign: 'center' }}>{success}</Text> : null}
+          <GelButton label="Send" icon="paper-plane" loading={isSubmitting} onPress={handleSubmit} style={{ marginTop: 18 }} />
+        </GelGlass>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 

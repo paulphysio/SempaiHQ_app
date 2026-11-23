@@ -23,6 +23,7 @@ import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, SMP_DEC
 import { getSwapStyles } from '../styles/SwapStyles';
 import { logMoneyEvent } from '../services/moneyFeed';
 import { useTheme } from '../context/ThemeContext';
+import { GelGate } from '../components/gel/GelGate';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -316,6 +317,10 @@ const NexusScreen = () => {
       setBalance(0);
     }
   }, [isWalletConnected, activeWalletAddress, selectedToken, checkBalance]);
+
+  if (!isWalletConnected) {
+    return <GelGate icon="wallet" headerTitle="Wallet" subtitle="Connect a wallet to see your balances and send tokens." />;
+  }
 
   return (
     <SafeAreaView style={styles.container}>

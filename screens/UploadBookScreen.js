@@ -11,6 +11,7 @@ import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { useBazaarTheme } from '../styles/BazaarStyles';
 import { BAZAAR_AUTHOR_SHARE_PCT, BAZAAR_LEND_PRICE_SMP, BAZAAR_TIERS } from '../utils/bazaar';
 import { toast } from '../components/Toast';
+import { GelGate } from '../components/gel/GelGate';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50MB
 
@@ -267,21 +268,7 @@ const UploadBookScreen = () => {
   }
 
   if (!user) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color={BAZAAR_COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Upload Book</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <View style={styles.centerContainer}>
-          <Ionicons name="wallet-outline" size={48} color={BAZAAR_COLORS.textMuted} />
-          <Text style={styles.mutedText}>Connect your wallet to publish a book.</Text>
-        </View>
-      </View>
-    );
+    return <GelGate icon="cloud-upload-alt" headerTitle="Upload a book" subtitle="Connect a wallet to publish a book in the Bazaar." />;
   }
 
   return (

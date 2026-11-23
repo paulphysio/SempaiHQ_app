@@ -39,26 +39,32 @@ export const getPrivacyPolicyStyles = (c) => StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 120,
   },
   lastUpdated: {
     color: c.accent,
     fontSize: 14,
     fontStyle: 'italic',
     marginBottom: 20,
-    fontFamily: 'Yoruka',
+    fontWeight: '700',
   },
   policyContent: {
-    gap: 20,
+    gap: 16,
+    padding: 18,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.bgCard,
   },
   paragraph: {
     color: c.textSecondary,
-    fontSize: 16,
-    lineHeight: 24,
-    fontFamily: 'Yoruka',
+    fontSize: 15,
+    lineHeight: 23,
+    
   },
   heading: {
     color: c.accent,
-    fontSize: 18,
+    fontSize: 20,
     
     marginTop: 10,
     marginBottom: 8,
@@ -71,9 +77,9 @@ export const getPrivacyPolicyStyles = (c) => StyleSheet.create({
   },
   listItem: {
     color: c.textSecondary,
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 22,
-    fontFamily: 'Yoruka',
+    
   },
   bold: {
     

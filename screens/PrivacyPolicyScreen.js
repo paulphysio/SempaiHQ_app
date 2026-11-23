@@ -6,13 +6,18 @@ import {
 } from 'react-native';
 import { getPrivacyPolicyStyles } from '../styles/PrivacyPolicyStyles';
 import { useTheme } from '../context/ThemeContext';
+import GelOrb from '../components/nav/GelOrb';
 
 const PrivacyPolicyScreen = () => {
   const { isDark, colors } = useTheme();
   const styles = useMemo(() => getPrivacyPolicyStyles(colors), [isDark]);
   return (
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.lastUpdated}>Updated at 2025-05-25</Text>
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 18 }}>
+          <View pointerEvents="none"><GelOrb icon="user-shield" size={60} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>Privacy policy</Text>
+          <Text style={[styles.lastUpdated, { marginBottom: 0, marginTop: 4 }]}>Updated at 2025-05-25</Text>
+        </View>
 
         <View style={styles.policyContent}>
           <Text style={styles.paragraph}>
