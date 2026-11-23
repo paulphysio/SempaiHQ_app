@@ -872,7 +872,7 @@ const KaijiScreen = () => {
     const stale = () => !alive.current || mid !== matchId.current;
     const mine = g.pick;
     const botPlay = aiChoose(level, g.bot, g.me, history.current);
-    if (!botPlay) return finish('win');
+    if (!botPlay) return finish(g.w > g.l ? 'win' : g.w < g.l ? 'lose' : 'draw');
 
     Vibration.vibrate(15);
     playSound('lock');
@@ -928,8 +928,9 @@ const KaijiScreen = () => {
     await sleep(2100);
     if (stale()) return;
 
-    if (nw >= WINS_NEEDED || botLeft === 0) return finish('win');
-    if (nl >= WINS_NEEDED || meLeft === 0) return finish('lose');
+    if (nw >= WINS_NEEDED) return finish('win');
+    if (nl >= WINS_NEEDED) return finish('lose');
+    if (meLeft === 0 || botLeft === 0) return finish(nw > nl ? 'win' : nw < nl ? 'lose' : 'draw'); // out of cards: the score decides
     beginRound(g.round + 1);
   }, [g, level, opp, rm, finish, beginRound, impactFx, enterMe, enterBot, flip, resolve, impact]);
 
@@ -1975,6 +1976,8 @@ const KaijiScreen = () => {
       ? endInfo(net.match, net.side, cfg).sub
       : g.result === 'win'
       ? 'You won the practice match.'
+      : g.result === 'draw'
+      ? 'Out of cards with the score level — a draw.'
       : `${opp} took this one. Try again.`;
   const canPick = g.phase === 'pick' && !g.result;
   const botLeft = total(g.bot);
