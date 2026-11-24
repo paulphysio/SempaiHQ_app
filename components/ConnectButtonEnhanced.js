@@ -76,6 +76,9 @@ const privateKeyFromWalletData = async (walletData) => {
   throw new Error('Private key unavailable');
 };
 
+const UI_AUDIT = process.env.EXPO_PUBLIC_UI_AUDIT === '1' && Platform.OS === 'web';
+const AUDIT_WALLET = UI_AUDIT ? { publicKey: new solanaWeb3.PublicKey('JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4') } : null;
+
 const secureStoreWrapper = {
   setItemAsync: async (key, value, useBiometrics = false) => {
     try {
@@ -861,12 +864,16 @@ export const EmbeddedWalletProvider = ({ children }) => {
 
   // ─── Provider ────────────────────────────────────────────────────────────────
 
+  // Design-review builds only (EXPO_PUBLIC_UI_AUDIT=1, web): pretend a read-only wallet is connected so
+  // wallet pages can be screenshotted. It has no key, so nothing can be signed. Real builds never set it.
+  const auditWallet = UI_AUDIT ? AUDIT_WALLET : null;
+
   return (
     <EmbeddedWalletContext.Provider
       value={{
-        wallet,
+        wallet: auditWallet || wallet,
         secretKey,
-        isWalletConnected,
+        isWalletConnected: !!auditWallet || isWalletConnected,
         walletType,
         createEmbeddedWallet,
         retrieveEmbeddedWallet,
