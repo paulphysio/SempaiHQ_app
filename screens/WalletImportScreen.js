@@ -1,6 +1,7 @@
 // screens/WalletImportScreen.js
 import React, { useEffect, useState, useContext, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, TextInput, ActivityIndicator, ScrollView, Platform } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import { useNavigation } from '@react-navigation/native';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';

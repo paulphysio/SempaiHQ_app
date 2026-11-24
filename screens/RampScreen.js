@@ -1,7 +1,8 @@
 // Ramp: Buy (MoonPay → USDC or SOL, every fee shown first) and Cash out (USDC → Jupiter Send link →
 // claim in Jupiter Mobile → withdraw to bank there).
 import React, { useState, useContext, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, Share, Platform, Linking, KeyboardAvoidingView } from 'react-native';
+import { View, Text, ScrollView, Pressable, Share, Platform, Linking } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as WebBrowser from 'expo-web-browser';

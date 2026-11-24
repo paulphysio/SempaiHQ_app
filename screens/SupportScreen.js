@@ -1,15 +1,8 @@
 import React, {useState, useMemo } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
+  View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Platform, Alert,
 } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import { supabase } from '../services/supabaseClient';
 import { FontAwesome5 as Icon } from '@expo/vector-icons';
 import { getSupportStyles } from '../styles/SupportStyles';

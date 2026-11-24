@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
-import { View, Text, Pressable, Platform, ScrollView, Image, KeyboardAvoidingView, StyleSheet } from 'react-native';
+import { View, Text, Pressable, Platform, ScrollView, Image, StyleSheet } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import {
   NestableScrollContainer,

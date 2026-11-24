@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, TextInput, FlatList, Pressable, Image, ActivityIndicator, KeyboardAvoidingView, Platform,
-  RefreshControl, StyleSheet, Modal, useWindowDimensions, ScrollView,
+  View, Text, TextInput, FlatList, Pressable, Image, ActivityIndicator, Platform, RefreshControl, StyleSheet, Modal, useWindowDimensions, ScrollView, Keyboard,
 } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -216,6 +216,12 @@ function Conversation({ chat, me, onBack }) {
   const navigation = useNavigation();
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
+  const [kbOpen, setKbOpen] = useState(false);
+  useEffect(() => {
+    const a = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
+    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));
+    return () => { a.remove(); b.remove(); };
+  }, []);
   const { width, height } = useWindowDimensions();
   const [msgs, setMsgs] = useState([]); // oldest → newest
   const [people, setPeople] = useState(chat.user ? { [chat.user.id]: chat.user } : {});
@@ -450,7 +456,7 @@ function Conversation({ chat, me, onBack }) {
       )}
 
       {/* composer */}
-      <View style={{ paddingHorizontal: 10, paddingBottom: Math.max(insets.bottom, 10), paddingTop: 4 }}>
+      <View style={{ paddingHorizontal: 10, paddingBottom: kbOpen ? 8 : Math.max(insets.bottom, 10), paddingTop: 4 }}>
         <GelGlass radius={28} glow={false}>
           {replyTo || editing ? (
             <View style={[st.replyBar, { borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : `rgba(${colors.accentRgb},0.12)` }]}>

@@ -1,5 +1,6 @@
 import React, {useState, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Platform, Image, ScrollView } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import * as ImagePicker from 'expo-image-picker';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { supabase } from '../services/supabaseClient';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useContext, useCallback, useMemo } from 'react';
-import { View, Text, SafeAreaView, StatusBar, Platform, FlatList, ScrollView, ActivityIndicator, Image, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, SafeAreaView, StatusBar, Platform, FlatList, ScrollView, ActivityIndicator, Image, Keyboard } from 'react-native';
+import KeyboardAvoidingView from '../components/KeyboardSafe';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
