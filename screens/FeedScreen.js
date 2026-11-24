@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, Pressable, FlatList, Modal, Image, ScrollView, ActivityIndicator,
   KeyboardAvoidingView, Platform, RefreshControl, Linking, Share, StyleSheet, useWindowDimensions,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, FontAwesome6 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle } from 'react-native-svg';
 import { supabase } from '../services/supabaseClient';
 import {
-  POST_MAX, MAX_IMAGES, SITE_URL, currentUserId, fetchMe, fetchPosts, fetchMyMarks, fetchFollowing,
+  POST_MAX, MAX_IMAGES, SITE_URL, currentUserId, fetchMe, fetchPosts, fetchPost, fetchMyMarks, fetchFollowing,
   setLiked, setReposted, setFollowing, createPost, deletePost, fetchReplies, addReply, deleteReply,
   postImages, xShareUrl, displayName,
 } from '../services/feed';
@@ -46,6 +46,15 @@ export default function FeedScreen() {
 
   const [composeOpen, setComposeOpen] = useState(false);
   const [thread, setThread] = useState(null); // post being viewed
+  const route = useRoute();
+
+  // Opened from a notification: show that post's thread
+  const wantPost = route.params?.postId;
+  useEffect(() => {
+    if (!wantPost) return;
+    navigation.setParams({ postId: undefined });
+    fetchPost(wantPost).then((p) => p && setThread(p)).catch(() => {});
+  }, [wantPost]); // eslint-disable-line react-hooks/exhaustive-deps
   const [viewer, setViewer] = useState(null); // { urls, index }
   const [menu, setMenu] = useState(null); // { post, kind: 'more' | 'share' }
   const busy = useRef({});

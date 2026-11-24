@@ -55,6 +55,19 @@ const classify = (msg, colors) => {
       return { group: 'titles', icon: 'magic', tint: colors.electric, label: 'New manga' };
     case 'announcement':
       return { group: 'announcements', icon: 'bullhorn', tint: colors.gold, label: 'From the creator' };
+    case 'feed_like':
+      return { group: 'social', icon: 'heart', tint: colors.accent, label: 'Likes' };
+    case 'feed_reply':
+    case 'reply':
+    case 'comment':
+      return { group: 'social', icon: 'comment', tint: colors.info, label: msg.type === 'comment' ? 'New comment' : 'Reply' };
+    case 'follow':
+      return { group: 'social', icon: 'user-plus', tint: colors.electric, label: 'New follower' };
+    case 'bazaar_new':
+      return { group: 'titles', icon: 'store', tint: colors.electric, label: 'New in the Bazaar' };
+    case 'bazaar_sale':
+    case 'bazaar_lend':
+      return { group: 'other', icon: 'coins', tint: colors.gold, label: msg.type === 'bazaar_sale' ? 'Sale' : 'Book borrowed' };
     default:
       return { group: 'other', icon: 'bell', tint: colors.info, label: 'Update' };
   }
@@ -64,6 +77,7 @@ const FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'chapters', label: 'Chapters' },
   { key: 'titles', label: 'New titles' },
+  { key: 'social', label: 'Social' },
   { key: 'announcements', label: 'Announcements' },
 ];
 
@@ -319,7 +333,7 @@ export const MessagesSheet = ({ open, onClose, messages, loading, loaded, isWall
     [messages, colors]
   );
   const counts = useMemo(() => {
-    const c = { all: classified.length, chapters: 0, titles: 0, announcements: 0 };
+    const c = { all: classified.length, chapters: 0, titles: 0, social: 0, announcements: 0 };
     classified.forEach(({ group }) => { if (c[group] !== undefined) c[group] += 1; });
     return c;
   }, [classified]);
@@ -341,7 +355,11 @@ export const MessagesSheet = ({ open, onClose, messages, loading, loaded, isWall
       onClose();
       // Let the sheet start closing before the screen changes.
       setTimeout(() => {
-        if (msg.manga_id) navigation.navigate('MangaDetail', { id: msg.manga_id });
+        const d = msg.data || {};
+        if (d.postId) navigation.navigate('Feed', { postId: d.postId });
+        else if (d.bookId) navigation.navigate('BazaarBook', { bookId: d.bookId });
+        else if (d.userId) navigation.navigate('Profile', { userId: d.userId });
+        else if (msg.manga_id) navigation.navigate('MangaDetail', { id: msg.manga_id });
         else if (msg.novel_id) navigation.navigate('NovelDetail', { id: msg.novel_id });
       }, 120);
     },
@@ -380,7 +398,17 @@ export const MessagesSheet = ({ open, onClose, messages, loading, loaded, isWall
   }
 
   return (
-    <Sheet visible={open} onClose={onClose} title="Messages" tall>
+    <Sheet visible={open} onClose={onClose} title="Notifications" tall>
+      {isWalletConnected ? (
+        <Pressable
+          onPress={() => { onClose(); setTimeout(() => navigation.navigate('NotificationSettings'), 120); }}
+          accessibilityRole="button"
+          style={{ flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, paddingVertical: 4, marginBottom: 6 }}
+        >
+          <FontAwesome5 name="sliders-h" size={12} color={colors.accent} />
+          <Text style={{ color: colors.accent, fontWeight: '800', fontSize: 13 }}>Choose what you get notified about</Text>
+        </Pressable>
+      ) : null}
       {isWalletConnected && messages.length ? (
         <>
           <Text style={[sheetStyles.summary, { color: colors.textSecondary }]}>

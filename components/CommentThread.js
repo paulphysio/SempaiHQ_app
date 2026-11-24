@@ -293,7 +293,7 @@ const CommentThread = ({ table, scope, notifyContext = {}, replyMessage, isWalle
       if (commentError) throw commentError;
 
       // Points and the reply notification are decided by the server.
-      if (replyingTo) readerAction('comment_notify', { table, commentId: inserted.id });
+      readerAction('comment_notify', { table, commentId: inserted.id, notifyOwner: true }).catch(() => {});
       if (!hasReachedDailyLimit) {
         readerAction('comment_reward', { table, commentId: inserted.id })
           .then((r) => { if (r.ok && r.rewarded) toast.success(`+${r.points} points for commenting`); });

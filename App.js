@@ -11,6 +11,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
+import { getActiveChat } from './services/activeChat';
 import Constants from 'expo-constants';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -80,6 +81,7 @@ const LAZY_SCREENS = [
   ['Crazy Corner', () => require('./screens/FeedScreen').default],
   ['FeedScreen', () => require('./screens/FeedScreen').default],
   ['Ramp', () => require('./screens/RampScreen').default],
+  ['NotificationSettings', () => require('./screens/NotificationSettingsScreen').default],
   ['Marketplace', () => require('./screens/MarketplaceScreen').default],
   ['WalletImport', () => require('./screens/WalletImportScreen').default],
   ['Mint', () => require('./screens/MintScreen').default],
@@ -114,13 +116,19 @@ const FAST_TRANSITION = {
 // Pushes that arrive while the app is open still show the system banner,
 // play the sound and land in the status bar.
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (n) => {
+    // Stay quiet about the chat you're already looking at.
+    const d = n?.request?.content?.data || {};
+    const open = getActiveChat();
+    const quiet = !!open && ((d.type === 'dm' && d.userId === open) || (d.type === 'community' && open === 'group'));
+    return {
+      shouldShowAlert: !quiet,
+      shouldShowBanner: !quiet,
+      shouldShowList: !quiet,
+      shouldPlaySound: !quiet,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 const Stack = createStackNavigator();
@@ -392,6 +400,12 @@ const AppContent = ({ setIsStatusBarHidden }) => {
         try {
           if (data.type === 'kaiji_challenge' && data.challengeId) navigationRef.navigate('Kaiji', { challengeId: data.challengeId });
           else if (data.type === 'kaiji_tourney' && data.tourneyId) navigationRef.navigate('Kaiji', { tourneyId: data.tourneyId });
+          else if (data.type === 'kaiji') navigationRef.navigate('Kaiji');
+          else if (data.type === 'dm' && data.userId) navigationRef.navigate('Chat', { userId: data.userId });
+          else if (data.type === 'community') navigationRef.navigate('Chat', { chatId: 'group' });
+          else if (data.type === 'feed_post' && data.postId) navigationRef.navigate('Feed', { postId: data.postId });
+          else if (data.type === 'profile' && data.userId) navigationRef.navigate('Profile', { userId: data.userId });
+          else if (data.type === 'bazaar_book' && data.bookId) navigationRef.navigate('BazaarBook', { bookId: data.bookId });
           else if (data.mangaId) navigationRef.navigate('MangaDetail', { id: data.mangaId });
           else if (data.novelId) navigationRef.navigate('NovelDetail', { id: data.novelId });
           else return true;

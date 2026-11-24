@@ -691,23 +691,8 @@ const NovelDashboardScreen = () => {
             chapter: chapterNumber,
           }),
         }));
-      } else if (!selectedNovel) {
-        ({ notified } = await notifyReaders({
-          userIds: await getCreatorReaderIds(creatorId, { excludeContentId: novelId }),
-          excludeUserId: creatorId,
-          title: `✨ New novel · ${novelTitle}`,
-          body: 'A writer you read just started a new story. Be one of the first to dive in.',
-          data: { novelId, type: 'new_novel' },
-          rowFor: (userId) => ({
-            user_id: userId,
-            novel_id: novelId,
-            novel_title: novelTitle,
-            type: 'new_novel',
-            message,
-            chapter: null,
-          }),
-        }));
       }
+      // A brand-new title is announced to everyone by the server (push-events), not from here.
 
       toast.success(
         !selectedNovel

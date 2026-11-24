@@ -34,10 +34,23 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
     }
 
-    const { userIds, title, body, data } = await req.json();
+    const { userIds: requested, title, body, data, category } = await req.json();
 
-    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    if (!requested || !Array.isArray(requested) || requested.length === 0) {
       return new Response("userIds is required and must be a non-empty array", { status: 400 });
+    }
+
+    // Respect notification settings: drop people who muted this category
+    // (notification_prefs.prefs[category] === false). No category = always send.
+    let userIds = requested;
+    if (typeof category === "string" && category) {
+      const muted = new Set<string>();
+      for (let i = 0; i < requested.length; i += 200) {
+        const { data: rows } = await supabaseAdmin.from("notification_prefs").select("user_id, prefs").in("user_id", requested.slice(i, i + 200));
+        for (const r of rows || []) if (r?.prefs?.[category] === false) muted.add(r.user_id);
+      }
+      userIds = requested.filter((id: string) => !muted.has(id));
+      if (!userIds.length) return new Response(JSON.stringify({ success: true, message: "Everyone muted this" }), { status: 200 });
     }
 
     if (!title || !body) {

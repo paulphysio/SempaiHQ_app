@@ -61,6 +61,7 @@ const GROUPS = [
     icon: 'users',
     items: [
       { name: 'Chats', screen: 'Chat', icon: 'comments' },
+      { name: 'Notifications', screen: 'NotificationSettings', icon: 'bell' },
       { name: 'Badges', screen: 'Badges', icon: 'award' },
       { name: 'Leaderboard', screen: 'Leaderboard', icon: 'trophy' },
       { name: 'Kaiji', screen: 'Kaiji', icon: 'language' },

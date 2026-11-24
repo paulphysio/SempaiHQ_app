@@ -847,6 +847,7 @@ async function notifyChallenge(m: any) {
           title,
           body,
           data: { type: 'kaiji_challenge', challengeId: m.id },
+          category: 'kaiji',
         }),
       }).catch((e) => console.warn('[kaiji challenge push]', errMsg(e)));
     }
@@ -943,7 +944,7 @@ async function pushTo(wallets: string[], title: string, body: string, data: Reco
     await fetch(`${base}/functions/v1/send-push-notification`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ userIds: [...ids], title, body, data }),
+      body: JSON.stringify({ userIds: [...ids], title, body, data, category: 'kaiji' }),
     });
   } catch (e) {
     console.warn('[kaiji tourney push]', errMsg(e));

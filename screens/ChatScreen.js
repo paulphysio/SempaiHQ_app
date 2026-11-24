@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, FlatList, Pressable, Image, ActivityIndicator, Platform, RefreshControl, StyleSheet, Modal, useWindowDimensions, ScrollView, Keyboard,
 } from 'react-native';
 import KeyboardAvoidingView from '../components/KeyboardSafe';
+import { setActiveChat } from '../services/activeChat';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -217,6 +218,11 @@ function Conversation({ chat, me, onBack }) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const [kbOpen, setKbOpen] = useState(false);
+  // this chat is on screen: its pushes shouldn't pop a banner
+  useEffect(() => {
+    setActiveChat(chat.type === 'group' ? 'group' : chat.userId);
+    return () => setActiveChat(null);
+  }, [chat.type, chat.userId]);
   useEffect(() => {
     const a = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKbOpen(true));
     const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKbOpen(false));

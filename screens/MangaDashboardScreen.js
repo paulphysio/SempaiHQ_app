@@ -701,23 +701,8 @@ const MangaDashboardScreen = () => {
             chapter: chapters.length,
           }),
         }));
-      } else if (!activeManga) {
-        ({ notified } = await notifyReaders({
-          userIds: await getCreatorReaderIds(creatorId, { excludeContentId: mangaId }),
-          excludeUserId: creatorId,
-          title: `✨ New manga · ${title}`,
-          body: 'An artist you read just launched a new series. Be one of the first to see it.',
-          data: { mangaId, type: 'new_manga' },
-          rowFor: (uid) => ({
-            user_id: uid,
-            manga_id: mangaId,
-            novel_title: title,
-            type: 'new_manga',
-            message: `A new manga "${title}" has been published!`,
-            chapter: null,
-          }),
-        }));
       }
+      // A brand-new title is announced to everyone by the server (push-events), not from here.
       loadedChapterCount.current = chapters.length;
 
       console.log('[MangaDashboard] Step 7: Success - cleaning up and reloading');

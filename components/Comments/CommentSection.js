@@ -652,7 +652,7 @@ const CommentSection = ({ novelId, chapter }) => {
         readerAction('comment_reward', { table: 'comments', commentId: comment.id })
           .then((r) => { if (r.ok && r.rewarded) toast.success(`+${r.points} points for commenting`); });
       }
-      if (replyingTo) readerAction('comment_notify', { table: 'comments', commentId: comment.id });
+      readerAction('comment_notify', { table: 'comments', commentId: comment.id, notifyOwner: true }).catch(() => {});
 
       setNewComment('');
       setReplyingTo(null);

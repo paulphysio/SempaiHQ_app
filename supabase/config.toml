@@ -406,3 +406,6 @@ verify_jwt = false
 
 [functions.withdraw-smp]
 verify_jwt = false
+
+[functions.push-events]
+verify_jwt = false

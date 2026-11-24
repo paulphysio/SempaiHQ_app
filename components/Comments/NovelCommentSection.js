@@ -652,7 +652,7 @@ const NovelCommentSection = ({ novelId, novelTitle = 'Unknown Novel', isOnline: 
       if (commentError) throw commentError;
 
       // Points and the reply notification are decided by the server.
-      if (replyingTo) readerAction('comment_notify', { table: 'comments', commentId: insertedComment.id });
+      readerAction('comment_notify', { table: 'comments', commentId: insertedComment.id, notifyOwner: true }).catch(() => {});
       if (!hasReachedDailyLimit) {
         readerAction('comment_reward', { table: 'comments', commentId: insertedComment.id })
           .then((r) => toast.success(r.ok && r.rewarded ? `Comment posted · +${r.points} points` : 'Comment posted'));

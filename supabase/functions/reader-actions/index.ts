@@ -18,6 +18,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.106.1";
 import nacl from "https://esm.sh/tweetnacl@1.0.3";
 import bs58 from "https://esm.sh/bs58@5.0.0";
+import { sendPush, CATEGORIES } from "../_shared/push.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_KEY = (Deno.env.get("SB_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")) || "";
@@ -91,14 +92,10 @@ async function eventExists(details: string) {
   return !!data?.length;
 }
 
-async function push(userIds: string[], title: string, body: string, data: Record<string, unknown> = {}) {
+async function push(userIds: string[], title: string, body: string, data: Record<string, unknown> = {}, category: string | null = null) {
   if (!userIds.length) return;
   try {
-    await fetch(`${SUPABASE_URL}/functions/v1/send-push-notification`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${SERVICE_KEY}` },
-      body: JSON.stringify({ userIds, title, body, data }),
-    });
+    await sendPush(admin, userIds, { title, body, data, category }); // skips people who muted this category
   } catch (e: any) {
     console.warn("[reader-actions] push failed:", e?.message);
   }
@@ -289,7 +286,28 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
       rows.push({ user_id: owner, type: "comment", message: `${who} commented on ${title || "your work"}`, comment_id: c.id, is_read: false, ...scope });
     }
     await insertNotifications(rows);
+    const open: Record<string, unknown> = c.novel_id ? { type: "comment", novelId: c.novel_id } : c.manga_id ? { type: "comment", mangaId: c.manga_id } : { type: "comment" };
+    for (const row of rows) {
+      await push([row.user_id as string], row.type === "reply" ? `${who} replied to you` : `New comment on ${clip(title || "your work", 50)}`, clip(c.content || c.comment || "", 160) || String(row.message), open, "social");
+    }
     return { notified: rows.length };
+  },
+
+  // Notification settings: which categories this person wants on their phone
+  async notif_prefs_get({ user }) {
+    const { data } = await admin.from("notification_prefs").select("prefs").eq("user_id", user.id).maybeSingle();
+    const prefs: Record<string, boolean> = {};
+    for (const k of CATEGORIES) prefs[k] = data?.prefs?.[k] !== false;
+    return { prefs };
+  },
+  async notif_prefs_set({ user }, p) {
+    const prefs: Record<string, boolean> = {};
+    for (const k of CATEGORIES) if (typeof p?.prefs?.[k] === "boolean") prefs[k] = p.prefs[k];
+    const { data: cur } = await admin.from("notification_prefs").select("prefs").eq("user_id", user.id).maybeSingle();
+    const next = { ...(cur?.prefs || {}), ...prefs };
+    const { error } = await admin.from("notification_prefs").upsert({ user_id: user.id, prefs: next, updated_at: new Date().toISOString() });
+    if (error) throw new Refuse("Could not save your settings");
+    return { prefs: next };
   },
 
   async notify_readers({ user, isAdmin }, p) {
@@ -316,7 +334,7 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
     const pushData: Record<string, string> = { type };
     if (kind === "novel") pushData.novelId = contentId; else pushData.mangaId = contentId;
     if (d.chapterId != null) pushData.chapterId = clip(d.chapterId, 40);
-    await push(targets, clip(p.title || content.title, 80), clip(p.body || message, 180), pushData);
+    await push(targets, clip(p.title || content.title, 80), clip(p.body || message, 180), pushData, "releases");
     return { notified: targets.length };
   },
 
@@ -343,7 +361,7 @@ const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
     targets = uniq(targets).filter((id) => id !== user.id);
     const message = clip(`${a.title}: ${a.message}`, 400);
     await insertNotifications(targets.map((id) => ({ user_id: id, type: "announcement", message, is_read: false })));
-    await push(targets, clip(a.title, 80), clip(a.message, 180), { type: "announcement", announcementId: a.id });
+    await push(targets, clip(a.title, 80), clip(a.message, 180), { type: "announcement", announcementId: a.id }, "announcements");
     return { notified: targets.length };
   },
 
