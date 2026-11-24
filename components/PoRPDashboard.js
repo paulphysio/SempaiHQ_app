@@ -9,7 +9,8 @@ import { getPoRPDashStyles } from '../styles/PoRPDashboardStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from './Toast';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 const TIER_COLORS = {
   seed: ['#8B8B8B', '#6B6B6B'],

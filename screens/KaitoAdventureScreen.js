@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
+import { SITE_API } from '../constants';
 import {
   View,
   Text,
@@ -303,42 +304,6 @@ const KaitoAdventureScreen = () => {
   const toggleMenu = () => setMenuOpen((prev) => !prev);
   const toggleTheme = () => setIsDarkMode((prev) => !prev);
 
-  // Handle nexus transition completion
-  const handleNexusComplete = useCallback(() => {
-    setShowNexusTransition(false);
-    
-    if (nexusMode === 'combat') {
-      startCombat();
-    } else if (nexusMode === 'wave') {
-      const firstEnemy = generateWaveEnemy(1);
-      setCurrentWaveEnemy(firstEnemy);
-      setWaveCount(1);
-      setWaveResult(null);
-
-      const levelScaleHealth = 1 + (player.level - 1) * 0.08;
-      const levelScaleDamage = 1 + (player.level - 1) * 0.05;
-      const weatherMod = weather.effect === 'rain' ? 0.9 : weather.effect === 'storm' ? 0.8 : 1;
-
-      const scaledEnemyHealth = Math.round(firstEnemy.health * levelScaleHealth * weatherMod);
-
-      setWaveState({
-        playerHealth: player.health > player.max_health ? player.max_health : player.health,
-        enemy: {
-          ...firstEnemy,
-          health: scaledEnemyHealth,
-          max_health: scaledEnemyHealth,
-          damage: Math.round(firstEnemy.damage * levelScaleDamage * weatherMod),
-          gold: Math.round(firstEnemy.gold * levelScaleHealth),
-        },
-        enemyHealth: scaledEnemyHealth,
-        enemyMaxHealth: scaledEnemyHealth,
-        isAttacking: false,
-        log: player.health <= 0 ? ["You're at 0 health! Craft a potion quickly!"] : [],
-      });
-      setModals((prev) => ({ ...prev, wave: true }));
-      setGameMessage(`Wave 1 started against ${firstEnemy.name}!`);
-    }
-  }, [nexusMode, startCombat, player, weather, generateWaveEnemy]);
 
   // ---- Persistence and Supabase Sync ----
   useEffect(() => {
@@ -1371,6 +1336,44 @@ const KaitoAdventureScreen = () => {
     };
   }, []);
 
+  // (defined after startCombat and generateWaveEnemy: browsers refuse to read them before they exist)
+  // Handle nexus transition completion
+  const handleNexusComplete = useCallback(() => {
+    setShowNexusTransition(false);
+    
+    if (nexusMode === 'combat') {
+      startCombat();
+    } else if (nexusMode === 'wave') {
+      const firstEnemy = generateWaveEnemy(1);
+      setCurrentWaveEnemy(firstEnemy);
+      setWaveCount(1);
+      setWaveResult(null);
+
+      const levelScaleHealth = 1 + (player.level - 1) * 0.08;
+      const levelScaleDamage = 1 + (player.level - 1) * 0.05;
+      const weatherMod = weather.effect === 'rain' ? 0.9 : weather.effect === 'storm' ? 0.8 : 1;
+
+      const scaledEnemyHealth = Math.round(firstEnemy.health * levelScaleHealth * weatherMod);
+
+      setWaveState({
+        playerHealth: player.health > player.max_health ? player.max_health : player.health,
+        enemy: {
+          ...firstEnemy,
+          health: scaledEnemyHealth,
+          max_health: scaledEnemyHealth,
+          damage: Math.round(firstEnemy.damage * levelScaleDamage * weatherMod),
+          gold: Math.round(firstEnemy.gold * levelScaleHealth),
+        },
+        enemyHealth: scaledEnemyHealth,
+        enemyMaxHealth: scaledEnemyHealth,
+        isAttacking: false,
+        log: player.health <= 0 ? ["You're at 0 health! Craft a potion quickly!"] : [],
+      });
+      setModals((prev) => ({ ...prev, wave: true }));
+      setGameMessage(`Wave 1 started against ${firstEnemy.name}!`);
+    }
+  }, [nexusMode, startCombat, player, weather, generateWaveEnemy]);
+
   useEffect(() => {
     const checkBuffExpiration = () => {
       if (gatherBuff && Date.now() >= gatherBuff.expires) {
@@ -1857,7 +1860,7 @@ const KaitoAdventureScreen = () => {
       const fetchTime = Date.now();
       console.log('🔍 Fetching leaderboard data from API at:', new Date(fetchTime).toLocaleTimeString());
       
-      const res = await fetch('https://sempaihq.com/api/porp/leaderboard?limit=50', {
+      const res = await fetch(`${SITE_API}/porp/leaderboard?limit=50`, {
         method: 'GET',
       });
 

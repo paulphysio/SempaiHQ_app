@@ -11,7 +11,8 @@ import { toast } from '../components/Toast';
 import { GelModal, GelInput, GelInset, GelRow } from '../components/gel/GelKit';
 import { GelGate } from '../components/gel/GelGate';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 const RARITY_COLORS = {
   common: ['#8B8B8B', '#6B6B6B'],

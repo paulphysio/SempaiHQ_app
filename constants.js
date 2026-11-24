@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { PublicKey, Keypair } from '@solana/web3.js';
 
 // Handle bs58 import for ESM compatibility
@@ -41,3 +42,7 @@ export const LAMPORTS_PER_SOL = 1_000_000_000;
 
 // Web API URL for fetching fallback SMP price
 export const WEB_API_BASE_URL = 'https://www.sempaihq.com';
+
+// The website's API (/api/*). On the web the app is served by that same website (app.sempaihq.com),
+// so it calls its own /api — a call to another domain would be blocked by the browser.
+export const SITE_API = Platform.OS === 'web' ? '/api' : 'https://sempaihq.com/api';

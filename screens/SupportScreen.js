@@ -10,7 +10,8 @@ import { useTheme } from '../context/ThemeContext';
 import GelOrb from '../components/nav/GelOrb';
 import { GelGlass, GelInput, GelButton } from '../components/gel/GelKit';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 const SupportScreen = () => {
   const { isDark, colors } = useTheme();

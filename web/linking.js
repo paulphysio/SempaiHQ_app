@@ -53,6 +53,7 @@ export const linking = {
       PrivacyPolicy: 'privacy-policy',
       Terms: 'terms',
       Support: 'support',
+      NotificationSettings: 'notification-settings',
     },
   },
 };

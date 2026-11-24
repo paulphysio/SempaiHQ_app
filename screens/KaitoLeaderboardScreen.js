@@ -5,7 +5,8 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import { GelModal } from '../components/gel/GelKit';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 export const getKaitoLbStyles = (c) => StyleSheet.create({
   container: {

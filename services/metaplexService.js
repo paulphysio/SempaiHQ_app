@@ -11,7 +11,8 @@ import { RPC_URL } from '../constants';
  * Simplified version for mobile app using API endpoints
  */
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 /**
  * Mint a new NFT using the API

@@ -3,7 +3,8 @@
  * Provides advanced DEX functionality for token swapping on Solana
  */
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 /**
  * Get Meteora pool information

@@ -11,7 +11,8 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import { GelGate } from '../components/gel/GelGate';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 const MintScreen = () => {
   const { isDark, colors } = useTheme();

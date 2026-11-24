@@ -41,7 +41,7 @@ const BazaarBookScreen = () => {
   const currencyText = { fontSize: 13, fontWeight: '700' };
   const navigation = useNavigation();
   const route = useRoute();
-  const { bookId } = route.params || {};
+  const bookId = route.params?.bookId || route.params?.id; // app links pass bookId, web addresses (/bazaar/:id) pass id
   const walletContext = useContext(EmbeddedWalletContext);
   const wallet = walletContext?.wallet;
   const isWalletConnected = !!wallet?.publicKey;

@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../../constants';
+const API_BASE_URL = SITE_API;
 
 const DEVICE_STORAGE_KEY = 'porp_device_hash';
 

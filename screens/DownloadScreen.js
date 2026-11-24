@@ -6,7 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 import { GelButton } from '../components/gel/GelKit';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 const DownloadScreen = () => {
   const { isDark, colors } = useTheme();

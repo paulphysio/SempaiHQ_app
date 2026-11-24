@@ -1,7 +1,8 @@
 import { Platform, Linking } from 'react-native';
 import { PublicKey, Transaction } from '@solana/web3.js';
 
-const API_BASE_URL = 'https://sempaihq.com/api';
+import { SITE_API } from '../constants';
+const API_BASE_URL = SITE_API;
 
 /**
  * External wallet service for connecting to Phantom, Solflare, and other mobile wallets

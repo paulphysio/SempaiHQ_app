@@ -3,7 +3,9 @@
 // (a public key, safe in a URL). If that endpoint ever signs the link, we must not edit it, so the
 // coin / amount / method are then only passed in the request body.
 
-const WIDGET_ENDPOINT = 'https://www.sempaihq.com/api/moonpay-widget';
+import { SITE_API } from '../constants';
+
+const WIDGET_ENDPOINT = `${SITE_API}/moonpay-widget`;
 const API = 'https://api.moonpay.com/v3/currencies';
 
 export const BUY_ASSETS = [
