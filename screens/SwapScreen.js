@@ -25,7 +25,8 @@ import {
 } from '@solana/spl-token';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as Clipboard from 'expo-clipboard';
-import { GelModal, GelInput, GelInset } from '../components/gel/GelKit';
+import { GelModal, GelInput, GelInset, GelGlass } from '../components/gel/GelKit';
+import GelOrb from '../components/nav/GelOrb';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, WEB_API_BASE_URL } from '../constants';
@@ -33,7 +34,7 @@ import { AnimatedPressable, useCountUp, usePulse, useEntrance, useAnimatedVisibi
 import { logMoneyEvent } from '../services/moneyFeed';
 import bs58 from 'bs58';
 import { useTheme } from '../context/ThemeContext';
-import { GelGate } from '../components/gel/GelGate';
+import { GelGate, GelPageHeader } from '../components/gel/GelGate';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -204,7 +205,7 @@ function useTokenPrices() {
 
 const SwapScreen = () => {
   const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getSwapScreenStyles(colors), [isDark]);
+  const styles = useMemo(() => getSwapScreenStyles(colors, isDark), [isDark]);
   const { wallet, signAndSendTransaction, signTransactionOnly, setShowModal } = useContext(EmbeddedWalletContext);
   const isWalletConnected = !!wallet?.publicKey;
   const activeWalletAddress = wallet?.publicKey?.toString();
@@ -567,21 +568,20 @@ const SwapScreen = () => {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
 
-      <View style={styles.screenHeader}>
-        <Text style={styles.screenTitle}>Swap</Text>
-        <AnimatedPressable
-          onPress={() => {
-            spinRefresh();
-            refreshPrices();
-            if (isWalletConnected) checkBalance();
-          }}
-          style={styles.headerIconButton}
-        >
-          <Animated.View style={spinStyle}>
-            <Icon name="sync-alt" size={16} color={colors.accent} />
-          </Animated.View>
-        </AnimatedPressable>
-      </View>
+      <GelPageHeader
+        title="Swap"
+        subtitle="Trade tokens at live prices"
+        right={
+          <GelOrb
+            icon="sync-alt"
+            size={36}
+            breathe={false}
+            iconSize={13}
+            label="Refresh prices"
+            onPress={() => { spinRefresh(); refreshPrices(); if (isWalletConnected) checkBalance(); }}
+          />
+        }
+      />
 
       {/* Messages */}
       {errorVis.shouldRender && (
@@ -639,7 +639,7 @@ const SwapScreen = () => {
               </AnimatedPressable>
             </View>
           ) : (
-            <View style={styles.swapCard}>
+            <GelGlass radius={30} glow padding={14}>
               {/* From */}
               <View style={styles.tokenPanel}>
                 <View style={styles.tokenPanelTopRow}>
@@ -760,7 +760,7 @@ const SwapScreen = () => {
                   </Animated.View>
                 </View>
               </View>
-            </View>
+            </GelGlass>
           )}
         </Animated.View>
       </ScrollView>
@@ -939,8 +939,12 @@ const SwapScreen = () => {
 // ---------------------------------------------------------------------------
 // Styles — original dark/orange design, unchanged palette
 // ---------------------------------------------------------------------------
-export const getSwapScreenStyles = (c) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: c.bgCard },
+export const getSwapScreenStyles = (c, isDark = true) => {
+  const panel = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.92)';
+  const line = isDark ? 'rgba(255,255,255,0.09)' : `rgba(${c.accentRgb},0.16)`;
+  const soft = isDark ? 'rgba(255,255,255,0.08)' : `rgba(${c.accentRgb},0.10)`;
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   screenHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -954,7 +958,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#1f1f1f',
+    backgroundColor: soft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -986,17 +990,18 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
   connectPromptText: { color: c.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
   connectButton: { backgroundColor: c.accent, paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12 },
   connectButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  swapCard: { backgroundColor: '#1c1c1c', borderRadius: 20, padding: 16 },
-  tokenPanel: { backgroundColor: '#242424', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#2f2f2f' },
+  swapCard: {},
+  tokenPanel: { backgroundColor: panel, borderRadius: 22, padding: 14, borderWidth: 1, borderColor: line },
   tokenPanelTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  tokenPanelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  tokenPanelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   tokenPanelBottomRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-  amountInput: { color: c.textPrimary, fontSize: 26,   flex: 1, padding: 0 },
-  amountOutput: { color: c.border },
+  amountInput: { color: c.textPrimary, fontSize: 26, flex: 1, minWidth: 0, padding: 0 },
+  amountOutput: { color: c.textSecondary },
   tokenPicker: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: c.bgCard,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF',
+    flexShrink: 0,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 30,
@@ -1013,10 +1018,10 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
   rateText: { color: c.textMuted, fontSize: 12 },
   priceTagSm: { color: c.gold, fontSize: 12, fontWeight: '600' },
   priceTagLg: { color: c.gold, fontSize: 14, fontWeight: '700' },
-  priceSkeleton: { width: 40, height: 12, borderRadius: 4, backgroundColor: '#3a3a3a' },
+  priceSkeleton: { width: 40, height: 12, borderRadius: 4, backgroundColor: soft },
   priceSkeletonLg: { width: 50, height: 14 },
   swapDirectionWrap: { alignItems: 'center', justifyContent: 'center', height: 0 },
-  swapDirectionLine: { position: 'absolute', height: 1, width: '100%', backgroundColor: '#2f2f2f', top: 0 },
+  swapDirectionLine: { position: 'absolute', height: 1, width: '100%', backgroundColor: 'transparent', top: 0 },
   swapDirectionButton: {
     position: 'absolute',
     top: -18,
@@ -1027,7 +1032,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
-    borderColor: '#1c1c1c',
+    borderColor: isDark ? c.bgCard : '#FFFFFF',
     zIndex: 2,
   },
   label: { color: c.textMuted, fontSize: 12, fontWeight: '600' },
@@ -1037,7 +1042,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#3a3a3a',
+    borderColor: line,
     fontSize: 15,
   },
   inputGroup: { marginBottom: 14 },
@@ -1047,29 +1052,29 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
   portfolioTotal: { color: c.gold, fontSize: 14, fontWeight: '700' },
   actionButtons: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
   portfolioButton: {
-    backgroundColor: '#242424',
+    backgroundColor: panel,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#2f2f2f',
+    borderColor: line,
   },
   portfolioButtonText: { color: c.accent, fontSize: 12, marginTop: 5, fontWeight: '600' },
   swapButton: {
     flexDirection: 'row',
     backgroundColor: c.accent,
     paddingVertical: 16,
-    borderRadius: 14,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
   },
-  disabledButton: { backgroundColor: '#3a3a3a' },
-  swapButtonText: { color: '#fff', fontSize: 16,   marginLeft: 8 },
-  errorText: { color: '#ff4444', fontSize: 13, flex: 1 },
-  successText: { color: '#44ff88', fontSize: 13, flex: 1 },
-  warnText: { color: '#ffcc44', fontSize: 12, flex: 1 },
-  modalContainer: { backgroundColor: '#1c1c1c', borderRadius: 18, padding: 20, borderWidth: 1, borderColor: '#2f2f2f' },
+  disabledButton: { opacity: 0.55 },
+  swapButtonText: { color: '#fff', fontSize: 16, fontWeight: '800', marginLeft: 8 },
+  errorText: { color: c.danger || '#E5484D', fontSize: 13, flex: 1 },
+  successText: { color: c.success || '#1F9D55', fontSize: 13, flex: 1 },
+  warnText: { color: c.warning || '#B7791F', fontSize: 12, flex: 1 },
+  modalContainer: { backgroundColor: c.bgCard, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: line },
   closeButton: { alignSelf: 'flex-end', padding: 5 },
   modalTitle: { color: c.textPrimary, fontSize: 18,   marginBottom: 6, textAlign: 'center' },
   submitButton: {
@@ -1092,7 +1097,7 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
   tokenLogo: { width: 34, height: 34, borderRadius: 17, marginRight: 12 },
   tokenName: { color: c.textPrimary, fontSize: 14, fontWeight: '600' },
   tokenSymbolMuted: { color: c.textMuted, fontSize: 12, marginTop: 1 },
-  portfolioTotalBox: { backgroundColor: '#242424', borderRadius: 14, padding: 16, alignItems: 'center', marginBottom: 14 },
+  portfolioTotalBox: { backgroundColor: panel, borderRadius: 22, padding: 16, alignItems: 'center', marginBottom: 14, borderWidth: 1, borderColor: line },
   portfolioTotalLabel: { color: c.textMuted, fontSize: 12 },
   portfolioTotalValue: { color: c.textPrimary, fontSize: 26, fontWeight: '800', marginTop: 4 },
   portfolioRefreshBtn: { position: 'absolute', right: 12, top: 12, padding: 6 },
@@ -1106,8 +1111,9 @@ export const getSwapScreenStyles = (c) => StyleSheet.create({
     gap: 10,
   },
   addressText: { color: c.textPrimary, fontSize: 13, lineHeight: 19, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  cancelButton: { backgroundColor: '#2f2f2f', paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
-  cancelButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  cancelButton: { backgroundColor: soft, paddingVertical: 12, borderRadius: 999, alignItems: 'center' },
+  cancelButtonText: { color: c.textPrimary, fontSize: 15, fontWeight: '600' },
 });
+};
 
 export default SwapScreen;

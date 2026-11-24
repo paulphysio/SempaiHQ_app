@@ -1,5 +1,5 @@
 import React, {useState, useEffect, useContext, useMemo } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, Image, SafeAreaView, RefreshControl, TextInput } from 'react-native';
+import { View, Text, FlatList, Pressable, ActivityIndicator, Image, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
@@ -8,8 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getMarketplaceStyles } from '../styles/MarketplaceStyles';
 import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
-import { GelModal, GelInput, GelInset, GelRow } from '../components/gel/GelKit';
-import { GelGate } from '../components/gel/GelGate';
+import { GelModal, GelInput, GelInset, GelRow, GelGlass, GelChips } from '../components/gel/GelKit';
+import GelOrb from '../components/nav/GelOrb';
+import { GelGate, GelPageHeader } from '../components/gel/GelGate';
 
 import { SITE_API } from '../constants';
 const API_BASE_URL = SITE_API;
@@ -30,6 +31,7 @@ const RARITY_ICONS = {
 
 const MarketplaceScreen = () => {
   const { isDark, colors } = useTheme();
+  const themeColors = colors;
   const styles = useMemo(() => getMarketplaceStyles(colors), [isDark]);
   const navigation = useNavigation();
   const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
@@ -131,83 +133,40 @@ const MarketplaceScreen = () => {
     return;
   };
 
-  const renderListing = ({ item }) => {
-    const colors = RARITY_COLORS[item.rarity] || RARITY_COLORS.common;
+  const card = (item, onPress, footer) => {
+    const tint = RARITY_COLORS[item.rarity] || RARITY_COLORS.common;
     const icon = RARITY_ICONS[item.rarity] || RARITY_ICONS.common;
-
     return (
-      <TouchableOpacity 
-        style={styles.itemCard}
-        onPress={() => {
-          setSelectedItem(item);
-          setShowDetailModal(true);
-        }}
-      >
-        <LinearGradient
-          colors={colors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.rarityBadge}
-        >
-          <FontAwesome5 name={icon} size={16} color="#FFFFFF" />
-        </LinearGradient>
-        
-        {item.nft_image_url ? (
-          <Image source={{ uri: item.nft_image_url }} style={styles.itemImage} />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <FontAwesome5 name="image" size={40} color="#CCCCCC" />
+      <Pressable onPress={onPress} style={{ flex: 1, margin: 6, maxWidth: '50%' }} accessibilityRole="button" accessibilityLabel={item.nft_name}>
+        <GelGlass radius={22} glow={false} padding={8}>
+          <View style={{ aspectRatio: 1, borderRadius: 16, overflow: 'hidden', backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : `rgba(${themeColors.accentRgb},0.06)`, alignItems: 'center', justifyContent: 'center' }}>
+            {item.nft_image_url ? <Image source={{ uri: item.nft_image_url }} style={{ width: '100%', height: '100%' }} /> : <FontAwesome5 name="image" size={34} color={themeColors.textMuted} />}
+            <LinearGradient colors={tint} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ position: 'absolute', top: 8, left: 8, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+              <FontAwesome5 name={icon} size={12} color="#FFFFFF" />
+            </LinearGradient>
           </View>
-        )}
-        
-        <View style={styles.itemInfo}>
-          <Text style={styles.itemName} numberOfLines={1}>{item.nft_name}</Text>
-          <Text style={styles.itemPrice}>{item.price_smp.toLocaleString()} SMP</Text>
-          <Text style={styles.itemSeller}>by {item.users?.name || 'Anonymous'}</Text>
-        </View>
-      </TouchableOpacity>
+          <Text style={{ color: themeColors.textPrimary, fontWeight: '800', fontSize: 14, marginTop: 8, marginHorizontal: 4 }} numberOfLines={1}>{item.nft_name}</Text>
+          <View style={{ marginHorizontal: 4, marginBottom: 4 }}>{footer}</View>
+        </GelGlass>
+      </Pressable>
     );
   };
 
-  const renderHoardItem = ({ item }) => {
-    const colors = RARITY_COLORS[item.rarity] || RARITY_COLORS.common;
-    const icon = RARITY_ICONS[item.rarity] || RARITY_ICONS.common;
+  const renderListing = ({ item }) =>
+    card(item, () => { setSelectedItem(item); setShowDetailModal(true); }, (
+      <>
+        <Text style={{ color: themeColors.accent, fontWeight: '900', fontSize: 13, marginTop: 2 }}>{item.price_smp?.toLocaleString()} SMP</Text>
+        <Text style={{ color: themeColors.textMuted, fontSize: 12, marginTop: 1 }} numberOfLines={1}>by {item.users?.name || 'Anonymous'}</Text>
+      </>
+    ));
 
-    return (
-      <TouchableOpacity 
-        style={styles.itemCard}
-        onPress={() => {
-          setSelectedItem(item);
-          setShowListModal(true);
-        }}
-      >
-        <LinearGradient
-          colors={colors}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.rarityBadge}
-        >
-          <FontAwesome5 name={icon} size={16} color="#FFFFFF" />
-        </LinearGradient>
-        
-        {item.nft_image_url ? (
-          <Image source={{ uri: item.nft_image_url }} style={styles.itemImage} />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <FontAwesome5 name="image" size={40} color="#CCCCCC" />
-          </View>
-        )}
-        
-        <View style={styles.itemInfo}>
-          <Text style={styles.itemName} numberOfLines={1}>{item.nft_name}</Text>
-          <Text style={styles.itemRarity}>{item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)}</Text>
-          {item.is_listed && (
-            <Text style={styles.listedText}>Listed for {item.listing_price_smp?.toLocaleString()} SMP</Text>
-          )}
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const renderHoardItem = ({ item }) =>
+    card(item, () => { setSelectedItem(item); setShowListModal(true); }, (
+      <>
+        <Text style={{ color: themeColors.textSecondary, fontSize: 12, marginTop: 2 }}>{item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)}</Text>
+        {item.is_listed ? <Text style={{ color: themeColors.accent, fontWeight: '800', fontSize: 12, marginTop: 1 }}>Listed · {item.listing_price_smp?.toLocaleString()} SMP</Text> : null}
+      </>
+    ));
 
   const renderDetailModal = () => (
     <GelModal
@@ -249,46 +208,17 @@ const MarketplaceScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.tabs}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'marketplace' && styles.activeTab]}
-          onPress={() => {
-            setActiveTab('marketplace');
-            loadListings();
-          }}
-        >
-          <FontAwesome5 
-            name="store" 
-            size={16} 
-            color={activeTab === 'marketplace' ? '#FFFFFF' : '#CCCCCC'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'marketplace' && styles.activeTabText]}>
-            Marketplace
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'hoard' && styles.activeTab]}
-          onPress={() => {
-            setActiveTab('hoard');
-            loadHoardItems();
-          }}
-        >
-          <FontAwesome5 
-            name="treasure-chest" 
-            size={16} 
-            color={activeTab === 'hoard' ? '#FFFFFF' : '#CCCCCC'} 
-          />
-          <Text style={[styles.tabText, activeTab === 'hoard' && styles.activeTabText]}>
-            My Hoard
-          </Text>
-        </TouchableOpacity>
-      </View>
-
+    <View style={{ flex: 1, backgroundColor: themeColors.bg }}>
+      <GelPageHeader title="Marketplace" subtitle="Collectibles from the SempaiHQ community" />
+      <GelChips
+        options={[{ value: 'marketplace', label: 'For sale' }, { value: 'hoard', label: 'My hoard' }]}
+        value={activeTab}
+        onChange={(v) => { setActiveTab(v); if (v === 'marketplace') loadListings(); else loadHoardItems(); }}
+        style={{ marginTop: 4, marginHorizontal: 16, marginBottom: 6 }}
+      />
       {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Loading marketplace...</Text>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={themeColors.accent} />
         </View>
       ) : (
         <FlatList
@@ -296,19 +226,16 @@ const MarketplaceScreen = () => {
           renderItem={activeTab === 'marketplace' ? renderListing : renderHoardItem}
           keyExtractor={(item) => item.id}
           numColumns={2}
-          contentContainerStyle={styles.grid}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          contentContainerStyle={{ padding: 10, paddingBottom: 130 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={themeColors.accent} colors={[themeColors.accent]} />}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <FontAwesome5 
-                name={activeTab === 'marketplace' ? 'store' : 'treasure-chest'} 
-                size={48} 
-                color="#CCCCCC" 
-              />
-              <Text style={styles.emptyText}>
-                {activeTab === 'marketplace' ? 'No items for sale' : 'Your hoard is empty'}
+            <View style={{ alignItems: 'center', paddingTop: 70, paddingHorizontal: 30 }}>
+              <View pointerEvents="none"><GelOrb icon={activeTab === 'marketplace' ? 'store' : 'gem'} size={64} lit breathe={false} /></View>
+              <Text style={{ fontFamily: 'Yoruka', fontSize: 22, color: themeColors.textPrimary, marginTop: 14 }}>
+                {activeTab === 'marketplace' ? 'Nothing for sale yet' : 'Your hoard is empty'}
+              </Text>
+              <Text style={{ color: themeColors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center', marginTop: 6 }}>
+                {activeTab === 'marketplace' ? 'Collectibles listed by readers and creators will show up here.' : 'Collectibles you own will show up here.'}
               </Text>
             </View>
           }
@@ -317,7 +244,7 @@ const MarketplaceScreen = () => {
 
       {renderDetailModal()}
       {renderListModal()}
-    </SafeAreaView>
+    </View>
   );
 };
 

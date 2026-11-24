@@ -713,6 +713,25 @@ const KaitoAdventureScreen = () => {
     setGameMessage(`${skillName} unlocked!`);
   }, []);
 
+  const getAvailableIngredients = useMemo(() => {
+    return allIngredients.map((name) => {
+      const item = player.inventory.find((i) => i.name === name);
+      // Water, sugar, and shadow root are always available with infinity quantity
+      if (['Water', 'Sugar', 'Shadow Root'].includes(name)) {
+        return {
+          name,
+          quantity: Infinity,
+          owned: true,
+        };
+      }
+      return {
+        name,
+        quantity: item?.quantity ?? 0,
+        owned: !!item,
+      };
+    });
+  }, [player.inventory]);
+
   // ---- Crafting ----
   const toggleIngredient = useCallback(
     (item) => {
@@ -736,24 +755,6 @@ const KaitoAdventureScreen = () => {
     [player.inventory, getAvailableIngredients]
   );
 
-  const getAvailableIngredients = useMemo(() => {
-    return allIngredients.map((name) => {
-      const item = player.inventory.find((i) => i.name === name);
-      // Water, sugar, and shadow root are always available with infinity quantity
-      if (['Water', 'Sugar', 'Shadow Root'].includes(name)) {
-        return {
-          name,
-          quantity: Infinity,
-          owned: true,
-        };
-      }
-      return {
-        name,
-        quantity: item?.quantity ?? 0,
-        owned: !!item,
-      };
-    });
-  }, [player.inventory]);
 
   const craftItem = useCallback(
     (type, onSuccess) => {

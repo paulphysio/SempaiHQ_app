@@ -5,6 +5,8 @@
 // so it works in both dark and light mode. Looping animations switch off when the OS "reduce motion" setting is on.
 
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { GelGlass } from './gel/GelKit';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   View,
   Text,
@@ -96,37 +98,13 @@ export const StaggerIn = ({ index = 0, base = 120, step = 130, from = 28, childr
 };
 
 // ------------------------------------------------------------------ manga panel (thick ink border + hard offset shadow)
-export const MangaPanel = ({ palette, isDark, children, style, offset = 5, bodyStyle, tint }) => {
-  const shadowColor = isDark ? palette.accentDim : palette.textPrimary;
-  return (
-    <View style={[{ marginRight: offset, marginBottom: offset + 20 }, style]}>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: offset,
-          left: offset,
-          right: -offset,
-          bottom: -offset,
-          backgroundColor: shadowColor,
-        }}
-      />
-      <View
-        style={[
-          {
-            backgroundColor: tint || palette.bgCard,
-            borderWidth: 3,
-            borderColor: palette.textPrimary,
-            overflow: 'hidden',
-          },
-          bodyStyle,
-        ]}
-      >
-        {children}
-      </View>
-    </View>
-  );
-};
+export const MangaPanel = ({ children, style, bodyStyle }) => (
+  // Gel glass panel (the bubbly look used across the app). Kept the old name/props so the
+  // profile screens don't change.
+  <GelGlass radius={28} glow={false} style={[{ marginBottom: 18 }, style]} innerStyle={bodyStyle}>
+    {children}
+  </GelGlass>
+);
 
 // ------------------------------------------------------------------ halftone screentone corner
 export const Halftone = memo(({ color, rows = 6, cols = 9, size = 7, gap = 5, corner = 'tr', style }) => {
@@ -330,22 +308,12 @@ export const SfxText = ({ children, color, outline, size = 32, delay = 700, tilt
 // ------------------------------------------------------------------ slanted section banner
 export const SlashBanner = ({ title, subtitle, palette, style }) => (
   <View style={[{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }, style]}>
-    <View
-      style={{
-        transform: [{ skewX: '-14deg' }],
-        backgroundColor: palette.accent,
-        paddingHorizontal: 14,
-        paddingVertical: 5,
-        borderWidth: 2,
-        borderColor: palette.textPrimary,
-      }}
-    >
-      <View style={{ transform: [{ skewX: '14deg' }] }}>
-        <Text style={{ color: palette.textOnAccent, fontSize: 13, fontWeight: '900', letterSpacing: 3 }}>{title}</Text>
-      </View>
+    <View style={{ backgroundColor: palette.accent, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999, overflow: 'hidden' }}>
+      <LinearGradient pointerEvents="none" colors={['rgba(255,255,255,0.38)', 'rgba(255,255,255,0)']} style={{ position: 'absolute', top: 1, left: 8, right: 8, height: 11, borderRadius: 11 }} />
+      <Text style={{ color: palette.textOnAccent, fontSize: 12, fontWeight: '900', letterSpacing: 2 }}>{title}</Text>
     </View>
-    {subtitle ? <Text style={{ marginLeft: 10, color: palette.textMuted, fontSize: 11, letterSpacing: 2 }}>{subtitle}</Text> : null}
-    <View style={{ flex: 1, height: 2, marginLeft: 10, backgroundColor: palette.border }} />
+    {subtitle ? <Text style={{ marginLeft: 10, color: palette.textMuted, fontSize: 11, letterSpacing: 1 }}>{subtitle}</Text> : null}
+    <View style={{ flex: 1, height: 1, marginLeft: 10, backgroundColor: palette.border, opacity: 0.6 }} />
   </View>
 );
 
@@ -396,7 +364,7 @@ export const InkBar = ({ progress = 0, palette, height = 14, reduceMotion }) => 
     return () => a.stop();
   }, [p, reduceMotion]);
   return (
-    <View style={{ height, borderWidth: 2, borderColor: palette.textPrimary, backgroundColor: palette.bgCard, overflow: 'hidden' }}>
+    <View style={{ height, borderRadius: height / 2, backgroundColor: palette.bgElevated, overflow: 'hidden' }}>
       <Animated.View
         style={{
           height: '100%',
@@ -408,7 +376,7 @@ export const InkBar = ({ progress = 0, palette, height = 14, reduceMotion }) => 
         <View
           key={i}
           pointerEvents="none"
-          style={{ position: 'absolute', top: 0, bottom: 0, left: `${i * 25}%`, width: 2, backgroundColor: palette.textPrimary, opacity: 0.3 }}
+          style={{ position: 'absolute', top: 0, bottom: 0, left: `${i * 25}%`, width: 1, backgroundColor: palette.textPrimary, opacity: 0.12 }}
         />
       ))}
     </View>
@@ -424,9 +392,9 @@ export const SpeechBubble = ({ children, palette, style }) => (
         width: 14,
         height: 14,
         backgroundColor: palette.bgElevated,
-        borderLeftWidth: 2,
-        borderTopWidth: 2,
-        borderColor: palette.textPrimary,
+        borderLeftWidth: 1,
+        borderTopWidth: 1,
+        borderColor: palette.border,
         transform: [{ rotate: '45deg' }],
         marginBottom: -8,
         zIndex: 2,
@@ -435,9 +403,9 @@ export const SpeechBubble = ({ children, palette, style }) => (
     <View
       style={{
         backgroundColor: palette.bgElevated,
-        borderWidth: 2,
-        borderColor: palette.textPrimary,
-        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: palette.border,
+        borderRadius: 22,
         paddingHorizontal: 16,
         paddingVertical: 12,
       }}
@@ -448,12 +416,10 @@ export const SpeechBubble = ({ children, palette, style }) => (
 );
 
 // ------------------------------------------------------------------ button with hard ink shadow
-export const InkButton = ({ label, icon, onPress, palette, isDark, variant = 'primary', disabled, accessibilityLabel }) => {
+export const InkButton = ({ label, icon, onPress, palette, variant = 'primary', disabled, accessibilityLabel }) => {
   const primary = variant === 'primary';
-  const shadowColor = isDark ? palette.accentDim : palette.textPrimary;
   return (
-    <View style={{ marginRight: 4, marginBottom: 4, opacity: disabled ? 0.5 : 1 }}>
-      <View pointerEvents="none" style={{ position: 'absolute', top: 4, left: 4, right: -4, bottom: -4, backgroundColor: shadowColor }} />
+    <View style={{ opacity: disabled ? 0.5 : 1 }}>
       <PressScale onPress={onPress} disabled={disabled} accessibilityLabel={accessibilityLabel || label} scaleTo={0.96}>
         <View
           style={{
@@ -461,22 +427,21 @@ export const InkButton = ({ label, icon, onPress, palette, isDark, variant = 'pr
             alignItems: 'center',
             justifyContent: 'center',
             paddingVertical: 12,
-            paddingHorizontal: 14,
+            paddingHorizontal: 16,
+            borderRadius: 999,
+            overflow: 'hidden',
             backgroundColor: primary ? palette.accent : palette.bgElevated,
-            borderWidth: 3,
-            borderColor: palette.textPrimary,
+            borderWidth: 1,
+            borderColor: primary ? 'rgba(255,255,255,0.35)' : palette.border,
           }}
         >
+          <LinearGradient
+            pointerEvents="none"
+            colors={primary ? ['rgba(255,255,255,0.40)', 'rgba(255,255,255,0)'] : ['rgba(255,255,255,0.10)', 'rgba(255,255,255,0)']}
+            style={{ position: 'absolute', top: 1, left: 12, right: 12, height: 18, borderRadius: 18 }}
+          />
           {icon}
-          <Text
-            style={{
-              marginLeft: icon ? 8 : 0,
-              color: primary ? palette.textOnAccent : palette.textPrimary,
-              fontSize: 12,
-              fontWeight: '900',
-              letterSpacing: 2,
-            }}
-          >
+          <Text style={{ marginLeft: icon ? 8 : 0, color: primary ? palette.textOnAccent : palette.textPrimary, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 }}>
             {label}
           </Text>
         </View>

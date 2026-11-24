@@ -1,264 +1,69 @@
-import React, {useState, useContext, useMemo } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, SafeAreaView, ScrollView, Platform, Image } from 'react-native';
-import KeyboardAvoidingView from '../components/KeyboardSafe';
+// Mint: create NFTs and tokens on Solana. Minting is switched off for now, so this page explains what's
+// coming instead of showing a form that can't submit.
+import React, { useContext } from 'react';
+import { View, Text, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../services/supabaseClient';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { getMintStyles } from '../styles/MintStyles';
 import { useTheme } from '../context/ThemeContext';
-import { toast } from '../components/Toast';
-import { GelGate } from '../components/gel/GelGate';
+import { GelGlass, GelButton, GelOption } from '../components/gel/GelKit';
+import { GelGate, GelPageHeader } from '../components/gel/GelGate';
+import GelOrb from '../components/nav/GelOrb';
 
-import { SITE_API } from '../constants';
-const API_BASE_URL = SITE_API;
+const KINDS = [
+  {
+    icon: 'image',
+    title: 'Mint an NFT',
+    lines: ['Turn a cover, a panel or fan art into a one-of-one collectible', 'Name, description and image — stored permanently', 'Sell it in the SempaiHQ Marketplace'],
+  },
+  {
+    icon: 'coins',
+    title: 'Create a token',
+    lines: ['Launch a token for your series or community', 'Pick the name, symbol and supply', 'Use it for rewards, perks or access'],
+  },
+];
 
-const MintScreen = () => {
-  const { isDark, colors } = useTheme();
-  const styles = useMemo(() => getMintStyles(colors), [isDark]);
+export default function MintScreen() {
+  const { colors, isDark } = useTheme();
   const navigation = useNavigation();
-  const { wallet, isWalletConnected } = useContext(EmbeddedWalletContext);
-  
-  const [mintType, setMintType] = useState('nft'); // nft, token
-  const [nftName, setNftName] = useState('');
-  const [nftDescription, setNftDescription] = useState('');
-  const [nftImageUrl, setNftImageUrl] = useState('');
-  const [tokenName, setTokenName] = useState('');
-  const [tokenSymbol, setTokenSymbol] = useState('');
-  const [tokenSupply, setTokenSupply] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [mintResult, setMintResult] = useState(null);
-
-  const handleMintNFT = async () => {
-    toast.info('Minting Disabled — Minting functionality is currently disabled. Please check back later.');
-    return;
-  };
-
-  const handleMintToken = async () => {
-    toast.info('Minting Disabled — Minting functionality is currently disabled. Please check back later.');
-    return;
-  };
+  const { isWalletConnected } = useContext(EmbeddedWalletContext);
 
   if (!isWalletConnected) {
     return <GelGate icon="gem" headerTitle="Mint" title="Connect your wallet" subtitle="Connect a wallet to mint collectibles." />;
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.content}
-      >
-        <ScrollView>
-          <View style={styles.infoCard}>
-            <FontAwesome5 name="gem" size={24} color="#9B59B6" />
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoTitle}>Create Digital Assets</Text>
-              <Text style={styles.infoDescription}>
-                Mint NFTs and tokens on the Solana blockchain with ease
-              </Text>
-            </View>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <GelPageHeader title="Mint" subtitle="NFTs and tokens on Solana" />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 6, paddingBottom: 130 }}>
+        <View style={{ alignItems: 'center', marginTop: 6, marginBottom: 16 }}>
+          <View pointerEvents="none"><GelOrb icon="gem" size={64} lit breathe={false} /></View>
+          <Text style={{ fontFamily: 'Yoruka', fontSize: 28, color: colors.textPrimary, marginTop: 12 }}>Create digital assets</Text>
+          <View style={{ marginTop: 8, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : `rgba(${colors.accentRgb},0.10)` }}>
+            <Text style={{ color: colors.accent, fontWeight: '900', fontSize: 12, letterSpacing: 1 }}>COMING SOON</Text>
           </View>
+          <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10, maxWidth: 340 }}>
+            Minting is switched off while we finish it. Here's what you'll be able to make.
+          </Text>
+        </View>
 
-          <View style={styles.mintTypeSelector}>
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                mintType === 'nft' && styles.activeTypeButton
-              ]}
-              onPress={() => setMintType('nft')}
-            >
-              <FontAwesome5 
-                name="image" 
-                size={18} 
-                color={mintType === 'nft' ? '#FFFFFF' : '#CCCCCC'} 
-              />
-              <Text style={[
-                styles.typeButtonText,
-                mintType === 'nft' && styles.activeTypeButtonText
-              ]}>
-                Mint NFT
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.typeButton,
-                mintType === 'token' && styles.activeTypeButton
-              ]}
-              onPress={() => setMintType('token')}
-            >
-              <FontAwesome5 
-                name="coins" 
-                size={18} 
-                color={mintType === 'token' ? '#FFFFFF' : '#CCCCCC'} 
-              />
-              <Text style={[
-                styles.typeButtonText,
-                mintType === 'token' && styles.activeTypeButtonText
-              ]}>
-                Mint Token
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {mintType === 'nft' && (
-            <View style={styles.mintForm}>
-              <Text style={styles.formTitle}>Mint NFT</Text>
-              <Text style={styles.formDescription}>
-                Create a unique non-fungible token on the blockchain
-              </Text>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>NFT Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter NFT name"
-                  placeholderTextColor="#888"
-                  value={nftName}
-                  onChangeText={setNftName}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Description *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Describe your NFT"
-                  placeholderTextColor="#888"
-                  value={nftDescription}
-                  onChangeText={setNftDescription}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Image URL</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter image URL"
-                  placeholderTextColor="#888"
-                  value={nftImageUrl}
-                  onChangeText={setNftImageUrl}
-                />
-              </View>
-
-              {nftImageUrl && (
-                <View style={styles.imagePreview}>
-                  <Image source={{ uri: nftImageUrl }} style={styles.previewImage} />
-                </View>
-              )}
-
-              <TouchableOpacity 
-                style={styles.mintButton}
-                onPress={handleMintNFT}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <FontAwesome5 name="magic" size={16} color="#FFFFFF" style={styles.buttonIcon} />
-                    <Text style={styles.buttonText}>Mint NFT</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.infoBox}>
-                <FontAwesome5 name="info-circle" size={16} color="#4A90E2" />
-                <Text style={styles.infoBoxText}>
-                  Your NFT will be minted on the Solana blockchain and added to your hoard. Minting fees apply.
-                </Text>
-              </View>
+        {KINDS.map((k) => (
+          <GelGlass key={k.title} radius={28} glow={false} padding={18} style={{ marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View pointerEvents="none"><GelOrb icon={k.icon} size={46} lit breathe={false} /></View>
+              <Text style={{ fontFamily: 'Yoruka', fontSize: 22, color: colors.textPrimary, flex: 1 }}>{k.title}</Text>
             </View>
-          )}
-
-          {mintType === 'token' && (
-            <View style={styles.mintForm}>
-              <Text style={styles.formTitle}>Mint Token</Text>
-              <Text style={styles.formDescription}>
-                Create a fungible token on the Solana blockchain
-              </Text>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Token Name *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter token name"
-                  placeholderTextColor="#888"
-                  value={tokenName}
-                  onChangeText={setTokenName}
-                />
+            {k.lines.map((l) => (
+              <View key={l} style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignItems: 'flex-start' }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: colors.accent, marginTop: 7 }} />
+                <Text style={{ flex: 1, color: colors.textSecondary, fontSize: 14, lineHeight: 20 }}>{l}</Text>
               </View>
+            ))}
+            <GelButton label="Coming soon" variant="secondary" disabled onPress={() => {}} style={{ marginTop: 16 }} />
+          </GelGlass>
+        ))}
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Token Symbol *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter token symbol (e.g., SMP)"
-                  placeholderTextColor="#888"
-                  value={tokenSymbol}
-                  onChangeText={setTokenSymbol}
-                  autoCapitalize="characters"
-                  maxLength={10}
-                />
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Total Supply *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter total supply"
-                  placeholderTextColor="#888"
-                  value={tokenSupply}
-                  onChangeText={setTokenSupply}
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <TouchableOpacity 
-                style={styles.mintButton}
-                onPress={handleMintToken}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <FontAwesome5 name="coins" size={16} color="#FFFFFF" style={styles.buttonIcon} />
-                    <Text style={styles.buttonText}>Mint Token</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <View style={styles.infoBox}>
-                <FontAwesome5 name="info-circle" size={16} color="#4A90E2" />
-                <Text style={styles.infoBoxText}>
-                  Your token will be created as a Solana SPL Token. You'll need to pay rent for the token mint account.
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {mintResult && (
-            <View style={styles.resultCard}>
-              <LinearGradient
-                colors={['#4CAF50', '#45A049']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.resultBanner}
-              >
-                <FontAwesome5 name="check-circle" size={24} color="#FFFFFF" />
-                <Text style={styles.resultText}>{mintResult.message}</Text>
-              </LinearGradient>
-            </View>
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+        <GelOption icon="store" title="Browse the Marketplace" description="See collectibles listed for sale" onPress={() => navigation.navigate('Marketplace')} />
+      </ScrollView>
+    </View>
   );
-};
-
-export default MintScreen;
+}

@@ -136,21 +136,23 @@ const StatPageScreen = () => {
             .from('users')
             .select('id')
             .eq('wallet_address', activeWalletAddress)
-            .single()
+            .limit(1)
+            .maybeSingle()
         );
-        if (userError) throw new Error(`User fetch error: ${userError.message}`);
-        if (!userData) throw new Error('User not found');
-        console.log('User data:', userData);
-
-        const { data: userBalance, error: balanceError } = await withTimeout(
-          supabase
-            .from('wallet_balances')
-            .select('amount')
-            .eq('user_id', userData.id)
-            .eq('currency', 'SMP')
-            .single()
-        );
-        const offChainBalance = userBalance ? Number(userBalance.amount) || 0 : 0;
+        if (userError) console.warn('[Stats] user lookup:', userError.message);
+        // A wallet with no SempaiHQ account simply has no in-app balance — not an error.
+        let offChainBalance = 0;
+        if (userData?.id) {
+          const { data: userBalance } = await withTimeout(
+            supabase
+              .from('wallet_balances')
+              .select('amount')
+              .eq('user_id', userData.id)
+              .eq('currency', 'SMP')
+              .maybeSingle()
+          );
+          offChainBalance = userBalance ? Number(userBalance.amount) || 0 : 0;
+        }
         console.log('Off-chain balance:', offChainBalance);
 
         setUserSmpBalance({ onChain: onChainBalance, offChain: offChainBalance });
@@ -590,10 +592,6 @@ const StatPageScreen = () => {
           </View>
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 Sempai HQ. All rights reserved.</Text>
-      </View>
     </SafeAreaView>
   );
 };

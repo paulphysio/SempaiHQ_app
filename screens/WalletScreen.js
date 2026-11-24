@@ -5,25 +5,30 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  ScrollView,
+  Pressable,
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
   Platform,
   Linking,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
 import { useNavigation } from '@react-navigation/native';
 import { Connection, PublicKey, SystemProgram, Transaction, VersionedTransaction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { createTransferInstruction, getAssociatedTokenAddressSync, unpackAccount, getAccount, getOrCreateAssociatedTokenAccount, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/FontAwesome5';
-import { GelModal, GelInput } from '../components/gel/GelKit';
+import { GelModal, GelInput, GelGlass, GelButton, GelChips, GelOption } from '../components/gel/GelKit';
+import GelOrb from '../components/nav/GelOrb';
+import KeyboardSafe from '../components/KeyboardSafe';
+import * as Clipboard from 'expo-clipboard';
+import { toast } from '../components/Toast';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import { USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, SMP_DECIMALS } from '../constants';
 import { getSwapStyles } from '../styles/SwapStyles';
 import { logMoneyEvent } from '../services/moneyFeed';
 import { useTheme } from '../context/ThemeContext';
-import { GelGate } from '../components/gel/GelGate';
+import { GelGate, GelPageHeader } from '../components/gel/GelGate';
 
 const connection = new Connection(RPC_URL, 'confirmed');
 
@@ -51,6 +56,8 @@ const NexusScreen = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [password, setPassword] = useState('');
+  useEffect(() => { if (error) toast.error(error); }, [error]);
+  useEffect(() => { if (successMessage) toast.success(successMessage); }, [successMessage]);
 
   // Debug wallet state
   useEffect(() => {
@@ -322,20 +329,15 @@ const NexusScreen = () => {
     return <GelGate icon="wallet" headerTitle="Wallet" subtitle="Connect a wallet to see your balances and send tokens." />;
   }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1A1B26" />
+  const short = activeWalletAddress ? `${activeWalletAddress.slice(0, 4)}…${activeWalletAddress.slice(-4)}` : '';
+  const copyAddress = async () => {
+    try { await Clipboard.setStringAsync(activeWalletAddress); toast.success('Address copied'); } catch { /* ignore */ }
+  };
+  const fmtBal = (n) => (selectedToken === 'SOL' ? n.toFixed(4) : n.toLocaleString(undefined, { maximumFractionDigits: 2 }));
 
-      {/* Messages */}
-      {(successMessage || error) && (
-        <Animated.View
-          entering={FadeIn}
-          exiting={FadeOut}
-          style={[styles.messageContainer, error ? styles.errorMessage : styles.successMessage]}
-        >
-          <Text style={styles.messageText}>{successMessage || error}</Text>
-        </Animated.View>
-      )}
+  return (
+    <KeyboardSafe style={{ flex: 1, backgroundColor: colors.bg }}>
+      <GelPageHeader title="Wallet" subtitle="Your balances, send and receive" />
 
       {/* Password */}
       <GelModal
@@ -353,106 +355,66 @@ const NexusScreen = () => {
         <GelInput label="Password" placeholder="Your wallet password" secureTextEntry value={password} onChangeText={setPassword} autoFocus onSubmitEditing={handlePasswordSubmit} />
       </GelModal>
 
-      {/* Main Content */}
-      <View style={styles.main}>
-        <View style={styles.swapCard}>
-          {!isWalletConnected ? (
-            <View style={styles.connectPrompt}>
-              <Icon name="wallet" size={48} color={colors.accent} style={styles.walletIcon} />
-              <Text style={styles.connectPromptText}>Please connect your wallet to send tokens.</Text>
-              <TouchableOpacity
-                style={styles.connectButton}
-                onPress={() => setShowModal(true)}
-              >
-                <Text style={styles.connectButtonText}>Connect Wallet</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.swapForm}>
-              <Text style={styles.formTitle}>Send Tokens</Text>
-              <View style={styles.balanceDisplay}>
-                <Icon name="gem" size={16} color={colors.accent} />
-                <Text style={styles.balanceText}>
-                  Balance: {balance.toFixed(4)} {selectedToken}
-                </Text>
-                <TouchableOpacity onPress={checkBalance} style={styles.refreshButton}>
-                  <Icon name="sync-alt" size={16} color="#ffffff" />
-                </TouchableOpacity>
-              </View>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 6, paddingBottom: 130 }} keyboardShouldPersistTaps="handled">
+        {/* balance */}
+        <GelGlass radius={30} glow padding={20}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.textMuted, fontSize: 13, fontWeight: '700' }}>Balance</Text>
+            <Pressable onPress={copyAddress} accessibilityRole="button" accessibilityLabel="Copy wallet address"
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : `rgba(${colors.accentRgb},0.08)` }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '700' }}>{short}</Text>
+              <Icon name="copy" size={11} color={colors.accent} />
+            </Pressable>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginTop: 8 }}>
+            <Text style={{ fontFamily: 'Yoruka', color: colors.textPrimary, fontSize: 38 }} numberOfLines={1} adjustsFontSizeToFit>{fmtBal(balance)}</Text>
+            <Text style={{ color: colors.accent, fontSize: 16, fontWeight: '900', marginBottom: 8 }}>{selectedToken}</Text>
+            <View style={{ flex: 1 }} />
+            <GelOrb icon="sync-alt" size={36} onPress={checkBalance} label="Refresh balance" breathe={false} iconSize={13} />
+          </View>
+          <GelChips options={Object.keys(TOKEN_MINTS)} value={selectedToken} onChange={setSelectedToken} style={{ marginTop: 14 }} />
+        </GelGlass>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Amount</Text>
-                <TextInput
-                  style={styles.input}
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="numeric"
-                  placeholder="Enter amount"
-                  placeholderTextColor="#888"
-                  accessibilityLabel="Transfer amount input"
-                />
-              </View>
+        {/* send */}
+        <GelGlass radius={28} glow={false} padding={18} style={{ marginTop: 14 }}>
+          <Text style={{ fontFamily: 'Yoruka', color: colors.textPrimary, fontSize: 22 }}>Send {selectedToken}</Text>
+          <GelInput
+            label="Amount"
+            value={amount}
+            onChangeText={(t) => setAmount(t.replace(/[^0-9.,]/g, '').replace(',', '.'))}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+            accessibilityLabel="Transfer amount"
+          />
+          {balance > 0 ? (
+            <Pressable onPress={() => setAmount(String(selectedToken === 'SOL' ? Math.max(0, Math.floor((balance - 0.002) * 1e4) / 1e4) : balance))}
+              accessibilityRole="button" style={{ alignSelf: 'flex-end', marginTop: 6, marginRight: 4 }}>
+              <Text style={{ color: colors.accent, fontSize: 13, fontWeight: '800' }}>Use max</Text>
+            </Pressable>
+          ) : null}
+          <GelInput
+            label="Recipient address"
+            value={recipientAddress}
+            onChangeText={(t) => setRecipientAddress(t.trim())}
+            placeholder="Solana address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityLabel="Recipient address"
+          />
+          <GelButton label={`Send ${selectedToken}`} icon="paper-plane" loading={loading} disabled={!amount || !recipientAddress} onPress={handleTransfer} style={{ marginTop: 18 }} />
+          {selectedToken === 'SOL' ? (
+            <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 10, marginHorizontal: 4 }}>Keep a little SOL (about 0.002) for network fees.</Text>
+          ) : null}
+        </GelGlass>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Recipient Address</Text>
-                <TextInput
-                  style={styles.input}
-                  value={recipientAddress}
-                  onChangeText={setRecipientAddress}
-                  placeholder="Enter Solana address"
-                  placeholderTextColor="#888"
-                  accessibilityLabel="Recipient address input"
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Token</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={selectedToken}
-                    onValueChange={(value) => setSelectedToken(value)}
-                    style={styles.picker}
-                    itemStyle={styles.pickerItem}
-                  >
-                    <Picker.Item label="SOL" value="SOL" />
-                    <Picker.Item label="USDC" value="USDC" />
-                    <Picker.Item label="SMP" value="SMP" />
-                  </Picker>
-                </View>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.swapButton, loading ? styles.disabledButton : null]}
-                onPress={handleTransfer}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Icon name="paper-plane" size={16} color="#ffffff" style={styles.buttonIcon} />
-                    <Text style={styles.swapButtonText}>Send Tokens</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.swapButton, { marginTop: 10, backgroundColor: colors.accent }]}
-                onPress={() => Linking.openURL('https://ramp.network')}
-              >
-                <Icon name="credit-card" size={16} color="#ffffff" style={styles.buttonIcon} />
-                <Text style={styles.swapButtonText}>Buy Crypto (Ramp)</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+        {/* more */}
+        <View style={{ marginTop: 14 }}>
+          <GelOption icon="credit-card" title="Buy crypto" description="USDC or SOL with a card, fees shown first" onPress={() => navigation.navigate('Ramp')} />
+          <GelOption icon="university" title="Cash out USDC" description="To your bank through Jupiter" onPress={() => navigation.navigate('Ramp', { tab: 'cashout' })} />
+          <GelOption icon="exchange-alt" title="Swap tokens" description="Trade between SOL, USDC, SMP and more" onPress={() => navigation.navigate('Swap')} />
         </View>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>© 2025 Sempai HQ. All rights reserved.</Text>
-      </View>
-    </SafeAreaView>
+      </ScrollView>
+    </KeyboardSafe>
   );
 };
 

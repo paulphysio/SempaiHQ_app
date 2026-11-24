@@ -1,5 +1,6 @@
 // screens/DAOGovernanceScreen.js
 // Live money-activity feed (DexScreener-style) backed by the public money_events table.
+import { GelPageHeader } from '../components/gel/GelGate';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
@@ -179,16 +180,16 @@ const DAOGovernanceScreen = () => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Icon name="landmark" size={18} color={colors.accent} />
-          <Text style={styles.headerTitle}>DAO Governance</Text>
-        </View>
-        <View style={styles.liveBadge}>
-          <Animated.View style={[styles.liveDot, { opacity: livePulse }]} />
-          <Text style={styles.liveText}>LIVE</Text>
-        </View>
-      </View>
+      <GelPageHeader
+        title="DAO Governance"
+        subtitle="Every payment, payout and swap — in the open"
+        right={
+          <View style={styles.liveBadge}>
+            <Animated.View style={[styles.liveDot, { opacity: livePulse }]} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+        }
+      />
 
       {/* Stats strip */}
       <View style={styles.statsRow}>
@@ -256,7 +257,7 @@ const DAOGovernanceScreen = () => {
 };
 
 export const getDAOStyles = (c) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { flex: 1, backgroundColor: c.bg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -278,8 +279,8 @@ export const getDAOStyles = (c) => StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#44ff88' },
-  liveText: { color: '#44ff88', fontSize: 10, letterSpacing: 1 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.success || '#22C55E' },
+  liveText: { color: c.success || '#22C55E', fontSize: 10, fontWeight: '800', letterSpacing: 1 },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -288,10 +289,10 @@ export const getDAOStyles = (c) => StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: c.bg,
+    backgroundColor: c.bgCard,
     borderWidth: 1,
-    borderColor: c.bgCard,
-    borderRadius: 10,
+    borderColor: c.border,
+    borderRadius: 18,
     paddingVertical: 10,
     alignItems: 'center',
   },

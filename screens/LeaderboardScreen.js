@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
+import { GelPageHeader } from '../components/gel/GelGate';
+import { GelChips } from '../components/gel/GelKit';
+import GelOrb from '../components/nav/GelOrb';
 import {
   View,
   Text,
@@ -166,46 +169,17 @@ const LeaderboardScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <LinearGradient colors={[colors.bgCardAlt, colors.bg]} style={styles.header}>
-        <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.7}>
-            <FontAwesome5 name="arrow-left" size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.eyebrow}>SEMPAI HQ</Text>
-            <Text style={styles.pageTitle}>Leaderboard</Text>
-          </View>
-          <View style={styles.headerTrophyWrap}>
-            <FontAwesome5 name="trophy" size={18} color={colors.accent} />
-          </View>
-        </View>
-
-        {/* Time Frame Selector */}
-        <View style={styles.timeFrameSelector}>
-          {[
-            { key: 'week', label: 'Weekly', icon: 'calendar-week' },
-            { key: 'month', label: 'Monthly', icon: 'calendar-alt' },
-            { key: 'all', label: 'All Time', icon: 'infinity' },
-          ].map((tf) => (
-            <TouchableOpacity
-              key={tf.key}
-              style={[styles.timeButton, timeFrame === tf.key && styles.timeButtonActive]}
-              onPress={() => setTimeFrame(tf.key)}
-              activeOpacity={0.85}
-            >
-              <FontAwesome5
-                name={tf.icon}
-                size={12}
-                color={timeFrame === tf.key ? '#FFFFFF' : '#75718F'}
-              />
-              <Text style={[styles.timeButtonText, timeFrame === tf.key && styles.timeButtonTextActive]}>
-                {tf.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </LinearGradient>
+      <GelPageHeader
+        title="Leaderboard"
+        subtitle="Top readers on SempaiHQ"
+        right={<View pointerEvents="none"><GelOrb icon="trophy" size={36} lit breathe={false} iconSize={14} /></View>}
+      />
+      <GelChips
+        options={[{ value: 'week', label: 'Weekly' }, { value: 'month', label: 'Monthly' }, { value: 'all', label: 'All time' }]}
+        value={timeFrame}
+        onChange={setTimeFrame}
+        style={{ marginTop: 2, marginHorizontal: 16, marginBottom: 6 }}
+      />
 
       <ScrollView
         style={styles.scrollView}
