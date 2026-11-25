@@ -170,7 +170,7 @@ export const getComprehensionStyles = (c) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.accent,
     padding: 18,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 2,
     borderColor: c.accent,
   },

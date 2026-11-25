@@ -146,7 +146,7 @@ export const getWalletImportStyles = (c) => StyleSheet.create({
   },
   importButton: {
     backgroundColor: c.accent,
-    borderRadius: 10,
+    borderRadius: 999,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',

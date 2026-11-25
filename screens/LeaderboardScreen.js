@@ -430,7 +430,7 @@ export const getLeaderboardStyles = (c) => StyleSheet.create({
   },
   retryButton: {
     backgroundColor: c.accent,
-    borderRadius: 14,
+    borderRadius: 999,
     paddingHorizontal: 28,
     paddingVertical: 14,
     marginTop: 24,
@@ -510,6 +510,7 @@ export const getLeaderboardStyles = (c) => StyleSheet.create({
   timeButtonActive: {
     backgroundColor: c.accent,
     borderColor: c.accent,
+    borderRadius: 999,
   },
   timeButtonText: {
     color: c.textMuted,
@@ -876,7 +877,7 @@ export const getLeaderboardStyles = (c) => StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
     backgroundColor: c.accent,
-    borderRadius: 14,
+    borderRadius: 999,
     paddingVertical: 15,
   },
   shareButtonXText: {

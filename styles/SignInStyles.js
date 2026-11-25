@@ -114,9 +114,11 @@ export const getSignInStyles = (c) => StyleSheet.create({
   },
   googleButton: {
     backgroundColor: '#DB4437',
+    borderRadius: 999,
   },
   twitterButton: {
     backgroundColor: '#1DA1F2',
+    borderRadius: 999,
   },
   buttonText: {
     color: c.bgCard,

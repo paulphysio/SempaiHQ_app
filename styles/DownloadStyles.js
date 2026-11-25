@@ -81,7 +81,7 @@ export const getDownloadStyles = (c) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ff6600',
-    borderRadius: 12,
+    borderRadius: 999,
     paddingHorizontal: 20,
     paddingVertical: 12,
   },

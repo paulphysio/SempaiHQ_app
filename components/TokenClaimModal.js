@@ -343,6 +343,7 @@ const styles = StyleSheet.create({
   },
   claimButtonDisabled: {
     backgroundColor: '#CCCCCC',
+    borderRadius: 999,
   },
   claimButtonText: {
     color: '#FFF',

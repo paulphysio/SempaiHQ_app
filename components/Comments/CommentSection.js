@@ -113,7 +113,7 @@ export const getCommentSectionStyles = (c) => StyleSheet.create({
     backgroundColor: c.accent,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 4,
+    borderRadius: 999,
   },
   connectButtonText: {
     color: c.textPrimary,
@@ -152,11 +152,12 @@ export const getCommentSectionStyles = (c) => StyleSheet.create({
     backgroundColor: c.accent,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 4,
+    borderRadius: 999,
   },
   postButtonDisabled: {
     backgroundColor: c.accentDeep,
     opacity: 0.5,
+    borderRadius: 999,
   },
   postButtonText: {
     color: c.textPrimary,
@@ -255,11 +256,12 @@ export const getCommentSectionStyles = (c) => StyleSheet.create({
     alignItems: 'center',
     backgroundColor: c.accent,
     padding: 8,
-    borderRadius: 4,
+    borderRadius: 999,
   },
   postReplyButtonDisabled: {
     backgroundColor: c.accentDeep,
     opacity: 0.5,
+    borderRadius: 999,
   },
   replies: {
     marginLeft: 16,

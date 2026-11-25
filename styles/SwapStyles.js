@@ -63,7 +63,7 @@ export const getSwapStyles = (c) => StyleSheet.create({
     backgroundColor: c.accent,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 999,
     alignItems: 'center',
   },
   connectButtonText: {
@@ -98,7 +98,7 @@ export const getSwapStyles = (c) => StyleSheet.create({
   },
   refreshButton: {
     padding: 8,
-    borderRadius: 8,
+    borderRadius: 999,
     backgroundColor: c.accent,
   },
   inputGroup: {
@@ -126,7 +126,7 @@ export const getSwapStyles = (c) => StyleSheet.create({
     backgroundColor: c.accent,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
@@ -210,7 +210,7 @@ export const getSwapStyles = (c) => StyleSheet.create({
   submitButton: {
     backgroundColor: '#007bff',
     padding: 10,
-    borderRadius: 4,
+    borderRadius: 999,
     alignItems: 'center',
     marginBottom: 10,
   },
@@ -223,7 +223,7 @@ export const getSwapStyles = (c) => StyleSheet.create({
   cancelButton: {
     backgroundColor: '#dc3545',
     padding: 10,
-    borderRadius: 4,
+    borderRadius: 999,
     alignItems: 'center',
   },
   cancelButtonText: {

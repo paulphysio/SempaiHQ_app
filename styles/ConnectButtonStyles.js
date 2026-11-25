@@ -262,7 +262,7 @@ export const getConnectButtonStyles = (c) => StyleSheet.create({
   },
   actionButton: {
     backgroundColor: c.accent,
-    borderRadius: 10,
+    borderRadius: 999,
     paddingVertical: 11,
     paddingHorizontal: 20,
     width: '100%',

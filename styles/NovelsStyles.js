@@ -164,6 +164,7 @@ export const getNovelsStyles = (isDark = true) => {
       padding: SPACE.md,
       borderRadius: RADIUS.sm,
       alignItems: 'center',
+      borderRadius: 999,
     },
 
     // ---------------------------------------------------------- hero section
@@ -535,6 +536,7 @@ export const getNovelsStyles = (isDark = true) => {
       paddingVertical: SPACE.md,
       borderRadius: RADIUS.sm,
       marginTop: SPACE.lg,
+      borderRadius: 999,
     },
     emptyButtonText: {
       color: c.textOnAccent,

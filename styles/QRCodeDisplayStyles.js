@@ -114,7 +114,7 @@ export const getQRCodeStyles = (c) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.accent,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 2,
     borderColor: c.accent,
   },

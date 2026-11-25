@@ -687,6 +687,7 @@ export const getProfileStyles = (isDark = true) => {
       alignItems: 'center',
       justifyContent: 'center',
       ...cardShadow(c, 0.5, 8, 6),
+      borderRadius: 999,
     },
     actionButtonText: {
       color: c.textOnAccent,

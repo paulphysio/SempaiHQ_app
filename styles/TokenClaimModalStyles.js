@@ -42,7 +42,7 @@ export const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 8,
+    borderRadius: 999,
     paddingVertical: 12,
     paddingHorizontal: 24,
     width: '100%',

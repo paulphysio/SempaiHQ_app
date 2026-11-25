@@ -220,6 +220,7 @@ export const getFeedStyles = (isDark = true) => {
       borderWidth: 2,
       borderColor: c.primaryBorder,
       ...glowShadow(c, c.primary),
+      borderRadius: 999,
     },
     buttonIcon: {
       marginRight: SPACE.sm,
@@ -425,6 +426,7 @@ export const getFeedStyles = (isDark = true) => {
       borderRadius: RADIUS.md,
       borderWidth: 1,
       borderColor: c.primaryBorder,
+      borderRadius: 999,
     },
     attachText: {
       fontSize: 14,
@@ -453,6 +455,7 @@ export const getFeedStyles = (isDark = true) => {
       borderRadius: RADIUS.sm,
       alignSelf: 'flex-end',
       marginTop: SPACE.md,
+      borderRadius: 999,
     },
     postButtonText: {
       color: c.textPrimary,

@@ -237,7 +237,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F36316',
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   novelButtonText: {
     fontSize: 16,
@@ -264,7 +264,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F36316',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 999,
     marginRight: 8,
   },
   navButtonText: {
@@ -313,7 +313,7 @@ export const styles = StyleSheet.create({
   choiceButton: {
     backgroundColor: '#F36316',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 999,
     alignItems: 'center',
     marginBottom: 8,
   },

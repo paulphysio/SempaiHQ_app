@@ -220,7 +220,7 @@ export const getPoRPDashStyles = (c) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: c.accent,
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 2,
     borderColor: c.accent,
   },

@@ -426,7 +426,7 @@ export const getSendModalStyles = (c) => StyleSheet.create({
     backgroundColor: c.accent,
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -460,7 +460,7 @@ export const getSendModalStyles = (c) => StyleSheet.create({
   submitButton: {
     backgroundColor: '#007bff',
     padding: 10,
-    borderRadius: 4,
+    borderRadius: 999,
     alignItems: 'center',
     marginBottom: 10,
   },
@@ -472,7 +472,7 @@ export const getSendModalStyles = (c) => StyleSheet.create({
   cancelButton: {
     backgroundColor: '#dc3545',
     padding: 10,
-    borderRadius: 4,
+    borderRadius: 999,
     alignItems: 'center',
   },
   cancelButtonText: {

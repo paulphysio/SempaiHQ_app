@@ -109,7 +109,7 @@ export const getLoadingBtnStyles = (c) => StyleSheet.create({
   },
   solidButton: {
     backgroundColor: c.accent,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   disabled: {
     opacity: 0.6,

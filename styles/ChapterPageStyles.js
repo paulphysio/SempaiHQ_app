@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
   fetchButton: {
     backgroundColor: '#55aaff',
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 999,
     marginBottom: 20,
   },
   fetchButtonText: {
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
   unlockButton: {
     backgroundColor: '#55aaff',
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 999,
     margin: 10,
     width: 150,
     alignItems: 'center',
@@ -146,6 +146,7 @@ export const styles = StyleSheet.create({
   disabledButton: {
     backgroundColor: '#555',
     opacity: 0.5,
+    borderRadius: 999,
   },
   buttonText: {
     color: '#ffffff',
@@ -166,7 +167,7 @@ export const styles = StyleSheet.create({
   readWithSmpButton: {
     backgroundColor: '#55aaff',
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 999,
     marginBottom: 10,
   },
   readingModeText: {
@@ -216,7 +217,7 @@ export const styles = StyleSheet.create({
   confirmButton: {
     backgroundColor: '#55aaff',
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 999,
     flex: 1,
     marginRight: 10,
     alignItems: 'center',
@@ -224,7 +225,7 @@ export const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: '#ff5555',
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 999,
     flex: 1,
     alignItems: 'center',
   },

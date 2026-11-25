@@ -136,6 +136,7 @@ export const getChapterScreenStyles = (isDark = true) => {
       maxWidth: 420,
       marginBottom: SPACE.md,
       ...cardShadow(c, isDark ? 0.35 : 0.18, 10, 5),
+      borderRadius: 999,
     },
     actionButtonText: {
       color: c.textOnAccent,
@@ -444,6 +445,7 @@ export const getChapterScreenStyles = (isDark = true) => {
       justifyContent: 'center',
       flex: 1,
       ...cardShadow(c, isDark ? 0.35 : 0.18, 10, 5),
+      borderRadius: 999,
     },
     smpButtonText: {
       color: c.textOnAccent,
@@ -682,6 +684,7 @@ export const getChapterScreenStyles = (isDark = true) => {
       borderRadius: RADIUS.sm,
       alignItems: 'center',
       alignSelf: 'flex-start',
+      borderRadius: 999,
     },
     editButtonText: {
       color: c.textOnAccent,
@@ -721,6 +724,7 @@ export const getChapterScreenStyles = (isDark = true) => {
       borderRadius: RADIUS.sm,
       flex: 1,
       alignItems: 'center',
+      borderRadius: 999,
     },
     saveButtonText: {
       color: c.textOnAccent,
@@ -919,6 +923,7 @@ export const getChapterScreenStyles = (isDark = true) => {
       width: '100%',
       marginBottom: SPACE.sm,
       ...cardShadow(c, isDark ? 0.35 : 0.18, 10, 5),
+      borderRadius: 999,
     },
     pioneerClaimButtonText: {
       color: c.textOnAccent,
@@ -966,6 +971,7 @@ export const getChapterScreenStyles = (isDark = true) => {
       flex: 1,
       alignItems: 'center',
       ...cardShadow(c, isDark ? 0.3 : 0.15, 8, 4),
+      borderRadius: 999,
     },
     modalCancelButton: {
       backgroundColor: c.bgElevated,

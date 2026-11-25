@@ -25,7 +25,7 @@ import {
 } from '@solana/spl-token';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as Clipboard from 'expo-clipboard';
-import { GelModal, GelInput, GelInset, GelGlass } from '../components/gel/GelKit';
+import { GelModal, GelInput, GelInset, GelGlass, GelButton } from '../components/gel/GelKit';
 import GelOrb from '../components/nav/GelOrb';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
@@ -634,9 +634,7 @@ const SwapScreen = () => {
               <Text style={styles.connectPromptText}>
                 Connect to view live balances, real-time USDC pricing, and start swapping.
               </Text>
-              <AnimatedPressable style={styles.connectButton} onPress={() => setShowModal(true)}>
-                <Text style={styles.connectButtonText}>Connect Wallet</Text>
-              </AnimatedPressable>
+              <GelButton label="Connect wallet" icon="wallet" onPress={() => setShowModal(true)} style={{ alignSelf: 'stretch' }} />
             </View>
           ) : (
             <GelGlass radius={30} glow padding={14}>
@@ -710,23 +708,14 @@ const SwapScreen = () => {
               </View>
 
               {/* Swap button */}
-              <AnimatedPressable
-                style={[styles.swapButton, loading ? styles.disabledButton : null]}
+              <GelButton
+                label={!amount ? 'Enter an amount' : coinFrom === coinTo ? 'Select different tokens' : `Swap ${coinFrom} → ${coinTo}`}
+                icon="exchange-alt"
+                loading={loading}
+                disabled={loading || !amount || coinFrom === coinTo}
                 onPress={handleSwap}
-                disabled={loading}
-                scaleTo={0.97}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Icon name="exchange-alt" size={16} color="#ffffff" />
-                    <Text style={styles.swapButtonText}>
-                      {!amount ? 'Enter an amount' : coinFrom === coinTo ? 'Select different tokens' : 'Swap'}
-                    </Text>
-                  </>
-                )}
-              </AnimatedPressable>
+                style={{ marginTop: 16 }}
+              />
 
               {/* Portfolio quick actions */}
               <View style={styles.portfolioSection}>
@@ -736,28 +725,17 @@ const SwapScreen = () => {
                     {pricesLoading ? 'Loading…' : formatUsd(animatedPortfolioTotal, { compact: true })}
                   </Text>
                 </View>
-                <View style={styles.actionButtons}>
-                  <Animated.View style={[{ flex: 1 }, portfolioButtonAnims[0]]}>
-                    <AnimatedPressable
-                      onPress={() => { checkAllBalances(); setShowBalanceModal(true); }}
-                      style={styles.portfolioButton}
-                    >
-                      <Icon name="wallet" size={16} color={colors.accent} />
-                      <Text style={styles.portfolioButtonText}>Balances</Text>
-                    </AnimatedPressable>
-                  </Animated.View>
-                  <Animated.View style={[{ flex: 1 }, portfolioButtonAnims[1]]}>
-                    <AnimatedPressable onPress={() => setShowSendModal(true)} style={styles.portfolioButton}>
-                      <Icon name="paper-plane" size={16} color={colors.accent} />
-                      <Text style={styles.portfolioButtonText}>Send</Text>
-                    </AnimatedPressable>
-                  </Animated.View>
-                  <Animated.View style={[{ flex: 1 }, portfolioButtonAnims[2]]}>
-                    <AnimatedPressable onPress={handleReceive} style={styles.portfolioButton}>
-                      <Icon name="qrcode" size={16} color={colors.accent} />
-                      <Text style={styles.portfolioButtonText}>Receive</Text>
-                    </AnimatedPressable>
-                  </Animated.View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 4 }}>
+                  {[
+                    { icon: 'wallet', label: 'Balances', onPress: () => { checkAllBalances(); setShowBalanceModal(true); } },
+                    { icon: 'paper-plane', label: 'Send', onPress: () => setShowSendModal(true) },
+                    { icon: 'qrcode', label: 'Receive', onPress: handleReceive },
+                  ].map((a, i) => (
+                    <Animated.View key={a.label} style={[{ alignItems: 'center' }, portfolioButtonAnims[i]]}>
+                      <GelOrb icon={a.icon} size={54} onPress={a.onPress} label={a.label} breathe={false} iconSize={18} />
+                      <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '800', marginTop: 8 }}>{a.label}</Text>
+                    </Animated.View>
+                  ))}
                 </View>
               </View>
             </GelGlass>
@@ -988,7 +966,7 @@ export const getSwapScreenStyles = (c, isDark = true) => {
   },
   connectPromptTitle: { color: c.textPrimary, fontSize: 18,   marginBottom: 8 },
   connectPromptText: { color: c.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  connectButton: { backgroundColor: c.accent, paddingVertical: 14, paddingHorizontal: 36, borderRadius: 12 },
+  connectButton: { backgroundColor: c.accent, paddingVertical: 14, paddingHorizontal: 36, borderRadius: 999 },
   connectButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   swapCard: {},
   tokenPanel: { backgroundColor: panel, borderRadius: 22, padding: 14, borderWidth: 1, borderColor: line },
@@ -1081,17 +1059,17 @@ export const getSwapScreenStyles = (c, isDark = true) => {
     flexDirection: 'row',
     backgroundColor: c.accent,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
   },
   submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   tokenList: { maxHeight: 340 },
-  tokenItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, marginBottom: 8, backgroundColor: c.bgCard, borderWidth: 1, borderColor: c.border },
+  tokenItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, marginBottom: 8, backgroundColor: panel, borderWidth: 1, borderColor: line },
   tokenItemSelected: { borderWidth: 1, borderColor: c.accent },
   modalMessage: { color: c.textMuted, fontSize: 13, textAlign: 'center', marginBottom: 14, lineHeight: 19 },
-  balanceItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, marginBottom: 8, backgroundColor: c.bgCard, borderWidth: 1, borderColor: c.border },
+  balanceItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 22, marginBottom: 8, backgroundColor: panel, borderWidth: 1, borderColor: line },
   balanceAmount: { color: c.textPrimary, fontSize: 15, fontWeight: '700' },
   balanceValueText: { color: c.gold, fontSize: 12, marginTop: 2 },
   tokenLogo: { width: 34, height: 34, borderRadius: 17, marginRight: 12 },

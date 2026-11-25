@@ -248,7 +248,7 @@ const getThemedStyles = (colors, isDark) => {
       backgroundColor: c.accent,
       borderWidth: 1,
       borderColor: c.accentBright,
-      borderRadius: 4,
+      borderRadius: 999,
       paddingHorizontal: 20,
       paddingVertical: 14,
       alignItems: 'center',

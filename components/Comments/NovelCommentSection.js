@@ -160,11 +160,12 @@ const getCommentStyles = (isDark = true) => {
       backgroundColor: colors.accent,
       paddingVertical: 8,
       paddingHorizontal: 16,
-      borderRadius: 4,
+      borderRadius: 999,
     },
     postButtonDisabled: {
       backgroundColor: colors.accentDim,
       opacity: 0.5,
+      borderRadius: 999,
     },
     postButtonText: {
       color: colors.ivory,
@@ -262,11 +263,12 @@ const getCommentStyles = (isDark = true) => {
       alignItems: 'center',
       backgroundColor: colors.accent,
       padding: 8,
-      borderRadius: 4,
+      borderRadius: 999,
     },
     postReplyButtonDisabled: {
       backgroundColor: colors.accentDim,
       opacity: 0.5,
+      borderRadius: 999,
     },
     replies: {
       marginLeft: 16,

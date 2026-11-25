@@ -72,9 +72,11 @@ export const getPopupStyles = (c) => StyleSheet.create({
   },
   buttonClose: {
     backgroundColor: '#555',
+    borderRadius: 999,
   },
   buttonSubmit: {
     backgroundColor: c.accent,
+    borderRadius: 999,
   },
   textStyle: {
     color: 'white',

@@ -225,6 +225,7 @@ export const getApplyStyles = (c) => StyleSheet.create({
   },
   roleButtonActive: {
     backgroundColor: c.accent,
+    borderRadius: 999,
   },
   roleButtonText: {
     color: '#fff',
@@ -233,7 +234,7 @@ export const getApplyStyles = (c) => StyleSheet.create({
   reasonButton: {
     backgroundColor: c.accent,
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 999,
     alignItems: 'center',
   },
   reasonButtonText: {
@@ -259,7 +260,7 @@ export const getApplyStyles = (c) => StyleSheet.create({
   submitButton: {
     backgroundColor: c.accent,
     padding: 18,
-    borderRadius: 8,
+    borderRadius: 999,
     alignItems: 'center',
     marginTop: 20,
   },

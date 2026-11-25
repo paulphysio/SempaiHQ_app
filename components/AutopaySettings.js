@@ -180,6 +180,7 @@ const getThemedStyles = (colors, isDark) => {
     toggleButtonEnabled: {
       backgroundColor: colors.accent,
       borderColor: colors.accent,
+      borderRadius: 999,
     },
     toggleText: {
       fontSize: 14,

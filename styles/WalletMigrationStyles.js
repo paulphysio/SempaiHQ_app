@@ -165,7 +165,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#9B59B6',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 2,
     borderColor: '#8E44AD',
   },
