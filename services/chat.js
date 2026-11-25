@@ -158,3 +158,52 @@ export function watchChat(chat, me, { onInsert, onUpdate, onDelete, onTyping }) 
     stop: () => { supabase.removeChannel(ch); supabase.removeChannel(typingCh); },
   };
 }
+
+// ─── reactions (migrations/20261208_chat_reactions.sql) ───────────────────────
+export const QUICK_REACTIONS = ['❤️', '😂', '😮', '😢', '🔥', '👍'];
+export const MORE_REACTIONS = ['🙏', '👏', '🎉', '💯', '😍', '🥹', '😭', '😡', '🤯', '🤔', '👀', '✨', '💀', '🫡', '🤝', '🥳', '😎', '😅', '💔', '✅'];
+const scopeOf = (chat) => (chat.type === 'group' ? 'group' : 'dm');
+
+/** { [messageId]: { [userId]: emoji } } for these messages. */
+export async function fetchReactions(chat, ids) {
+  const list = [...new Set((ids || []).filter(Boolean).map(String))];
+  if (!list.length) return {};
+  const out = {};
+  for (let i = 0; i < list.length; i += 100) {
+    const { data } = await supabase
+      .from('chat_reactions')
+      .select('message_id, user_id, emoji')
+      .eq('scope', scopeOf(chat))
+      .in('message_id', list.slice(i, i + 100));
+    for (const r of data || []) (out[r.message_id] = out[r.message_id] || {})[r.user_id] = r.emoji;
+  }
+  return out;
+}
+
+/** React with `emoji`, or remove my reaction when `emoji` is null. */
+export async function setReaction(chat, messageId, emoji, me) {
+  const scope = scopeOf(chat);
+  if (!emoji) {
+    const { error } = await supabase.from('chat_reactions').delete().eq('scope', scope).eq('message_id', String(messageId)).eq('user_id', me);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase
+    .from('chat_reactions')
+    .upsert({ scope, message_id: String(messageId), user_id: me, emoji }, { onConflict: 'scope,message_id,user_id' });
+  if (error) throw error;
+}
+
+/** Live reaction changes in this chat: onChange({ messageId, userId, emoji|null }). */
+export function watchReactions(chat, onChange) {
+  const scope = scopeOf(chat);
+  const ch = supabase
+    .channel(`reactions:${scope}:${Math.random().toString(36).slice(2, 8)}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_reactions', filter: `scope=eq.${scope}` }, (p) => {
+      const row = p.eventType === 'DELETE' ? p.old : p.new;
+      if (!row?.message_id || !row?.user_id) return;
+      onChange({ messageId: row.message_id, userId: row.user_id, emoji: p.eventType === 'DELETE' ? null : row.emoji });
+    })
+    .subscribe();
+  return () => supabase.removeChannel(ch);
+}

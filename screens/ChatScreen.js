@@ -13,8 +13,7 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../services/supabaseClient';
 import {
   myId, fetchPeople, searchPeople, fetchInbox, fetchCommunityPreview, fetchMessages, sendMessage,
-  editMessage, deleteMessage, markRead, uploadPhoto, searchGifs, watchChat, PAGE,
-} from '../services/chat';
+  editMessage, deleteMessage, markRead, uploadPhoto, searchGifs, watchChat, PAGE, fetchReactions, setReaction, watchReactions, QUICK_REACTIONS, MORE_REACTIONS } from '../services/chat';
 import { shrinkImage } from '../utils/imageUpload';
 import { GelGlass, GelModal, GelOption, GelInput, GelButton } from '../components/gel/GelKit';
 import GelOrb from '../components/nav/GelOrb';
@@ -238,6 +237,9 @@ function Conversation({ chat, me, onBack }) {
   const [replyTo, setReplyTo] = useState(null);
   const [editing, setEditing] = useState(null);
   const [menu, setMenu] = useState(null); // message whose options are open
+  const [reactions, setReactions] = useState({}); // { messageId: { userId: emoji } }
+  const [moreEmoji, setMoreEmoji] = useState(false);
+  const reactLoaded = useRef(new Set());
   const [attach, setAttach] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
   const [viewer, setViewer] = useState(null);
@@ -299,8 +301,55 @@ function Conversation({ chat, me, onBack }) {
         if (!isGroup && latest.some((m) => m.authorId !== me && !m.readAt)) markRead(chat.userId);
       } catch {}
     }, POLL_MS);
-    return () => { alive = false; clearInterval(poll); clearTimeout(typingTimer.current); watch.current?.stop(); };
+    const stopReactions = watchReactions(chat, ({ messageId, userId, emoji }) => {
+      setReactions((cur) => {
+        const next = { ...(cur[messageId] || {}) };
+        if (emoji) next[userId] = emoji; else delete next[userId];
+        return { ...cur, [messageId]: next };
+      });
+    });
+    return () => { alive = false; clearInterval(poll); clearTimeout(typingTimer.current); watch.current?.stop(); stopReactions(); };
   }, [chat.type, chat.userId, me]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // reactions for messages as they arrive
+  useEffect(() => {
+    const ids = msgs.filter((m) => !m.temp && !reactLoaded.current.has(String(m.id))).map((m) => String(m.id));
+    if (!ids.length) return;
+    ids.forEach((id) => reactLoaded.current.add(id));
+    fetchReactions(chat, ids).then((found) => setReactions((cur) => ({ ...cur, ...found }))).catch(() => {});
+  }, [msgs]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Tap an emoji: same one again removes it, another replaces it. */
+  const react = useCallback(async (m, emoji) => {
+    if (!m || m.temp || !me) return;
+    const id = String(m.id);
+    const before = reactions[id]?.[me] || null;
+    const next = before === emoji ? null : emoji;
+    setReactions((cur) => {
+      const row = { ...(cur[id] || {}) };
+      if (next) row[me] = next; else delete row[me];
+      return { ...cur, [id]: row };
+    });
+    try {
+      await setReaction(chat, id, next, me);
+    } catch (e) {
+      setReactions((cur) => {
+        const row = { ...(cur[id] || {}) };
+        if (before) row[me] = before; else delete row[me];
+        return { ...cur, [id]: row };
+      });
+      toast.error("Couldn't react — try again.");
+    }
+  }, [reactions, me, chat]);
+
+  const summary = (m) => {
+    const row = reactions[String(m.id)];
+    if (!row) return null;
+    const counts = {};
+    Object.entries(row).forEach(([uid, e]) => { counts[e] = counts[e] || { emoji: e, count: 0, mine: false }; counts[e].count += 1; if (uid === me) counts[e].mine = true; });
+    const list = Object.values(counts).sort((a, b) => b.count - a.count);
+    return list.length ? list : null;
+  };
 
   const loadOlder = async () => {
     if (older || ended || !msgs.length) return;
@@ -439,7 +488,10 @@ function Conversation({ chat, me, onBack }) {
                 author={people[item.m.authorId]}
                 parent={parentOf(item.m)}
                 status={statusOf(item.m)}
-                onLongPress={() => !item.m.temp && setMenu(item.m)}
+                onLongPress={() => { if (!item.m.temp) { setMoreEmoji(false); setMenu(item.m); } }}
+                reactions={summary(item.m)}
+                onReact={(e) => react(item.m, e)}
+                onDoubleTap={() => react(item.m, '❤️')}
                 onPressImage={setViewer}
                 onPressAuthor={() => openProfile(item.m.authorId)}
               />
@@ -507,6 +559,23 @@ function Conversation({ chat, me, onBack }) {
       <GelModal visible={!!menu} onClose={() => setMenu(null)} variant="sheet" title="Message">
         {menu ? (
           <View style={{ marginTop: 6 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6, paddingVertical: 8, marginBottom: 8, borderRadius: 24, backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : `rgba(${colors.accentRgb},0.06)` }}>
+              {(moreEmoji ? [...QUICK_REACTIONS, ...MORE_REACTIONS] : QUICK_REACTIONS).map((e) => {
+                const on = reactions[String(menu.id)]?.[me] === e;
+                return (
+                  <Pressable key={e} onPress={() => { react(menu, e); setMenu(null); }} accessibilityRole="button" accessibilityLabel={`React ${e}`}
+                    style={({ pressed }) => ({ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? `rgba(${colors.accentRgb},0.22)` : 'transparent', transform: [{ scale: pressed ? 1.25 : 1 }] })}>
+                    <Text style={{ fontSize: 26 }}>{e}</Text>
+                  </Pressable>
+                );
+              })}
+              {!moreEmoji ? (
+                <Pressable onPress={() => setMoreEmoji(true)} accessibilityRole="button" accessibilityLabel="More emojis"
+                  style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#FFFFFF' }}>
+                  <Text style={{ fontSize: 20, color: colors.textSecondary, fontWeight: '800' }}>+</Text>
+                </Pressable>
+              ) : null}
+            </View>
             <GelOption icon="reply" title="Reply" onPress={() => { setReplyTo(menu); setMenu(null); }} />
             {menu.content ? (
               <GelOption icon="copy" title="Copy text" onPress={async () => { try { await Clipboard.setStringAsync(menu.content); toast.success('Copied'); } catch {} setMenu(null); }} />

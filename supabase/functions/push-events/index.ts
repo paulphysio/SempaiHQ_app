@@ -85,6 +85,24 @@ const handlers: Record<string, (r: any, old: any) => Promise<void>> = {
     });
   },
 
+  // Reaction → the message's author (once per person per message)
+  async chat_reactions(r) {
+    if (!(await once(`react:${r.scope}:${r.message_id}:${r.user_id}`))) return;
+    const table = r.scope === 'group' ? 'messages' : 'private_messages';
+    const col = r.scope === 'group' ? 'user_id' : 'sender_id';
+    const { data: msg } = await admin.from(table).select(`${col}, content`).eq('id', r.message_id).maybeSingle();
+    const author = msg?.[col];
+    if (!author || author === r.user_id) return;
+    const who = nameOf(await person(r.user_id));
+    await sendPush(admin, [author], {
+      title: `${who} reacted ${r.emoji}`,
+      body: msg.content ? `to: “${clip(msg.content, 120)}”` : 'to your message',
+      data: r.scope === 'group' ? { type: 'community' } : { type: 'dm', userId: r.user_id },
+      category: r.scope === 'group' ? 'community' : 'messages',
+      collapseId: `react-${r.message_id}`,
+    });
+  },
+
   // Community chat → only the person you replied to
   async messages(r) {
     if (!r.parent_id) return;

@@ -60,7 +60,12 @@ export function DayPill({ label }) {
  * parent     { name, content, media } of the message being replied to
  * status     'sending' | 'failed' | 'sent' | 'read'
  */
-export function Bubble({ msg, mine, first, last, showAuthor, author, parent, status, onLongPress, onPressImage, onPressAuthor, onPressParent }) {
+export function Bubble({ msg, mine, first, last, showAuthor, author, parent, status, onLongPress, onPressImage, onPressAuthor, onPressParent, reactions, onReact, onDoubleTap }) {
+  const lastTap = React.useRef(0);
+  const onTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 280) { lastTap.current = 0; onDoubleTap?.(); } else lastTap.current = now;
+  };
   const { isDark, colors } = useTheme();
   const textColor = mine ? '#FFFFFF' : colors.textPrimary;
   const sub = mine ? 'rgba(255,255,255,0.78)' : colors.textMuted;
@@ -135,9 +140,33 @@ export function Bubble({ msg, mine, first, last, showAuthor, author, parent, sta
           {last ? <Avatar user={author} size={28} onPress={onPressAuthor} /> : null}
         </View>
       ) : null}
-      <Pressable onLongPress={onLongPress} delayLongPress={280} style={{ maxWidth: '80%' }} accessibilityHint="Long press for options">
-        {body}
-      </Pressable>
+      <View style={{ maxWidth: '80%', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+        <Pressable onPress={onTap} onLongPress={onLongPress} delayLongPress={280} accessibilityHint="Double tap to like, long press for reactions and options">
+          {body}
+        </Pressable>
+        {reactions?.length ? (
+          <View style={[k.reacts, mine ? { marginRight: 8 } : { marginLeft: 8 }]}>
+            {reactions.map((r) => (
+              <Pressable
+                key={r.emoji}
+                onPress={() => onReact?.(r.emoji)}
+                accessibilityRole="button"
+                accessibilityLabel={`${r.emoji} ${r.count}${r.mine ? ', yours — tap to remove' : ''}`}
+                style={[
+                  k.react,
+                  {
+                    backgroundColor: r.mine ? `rgba(${colors.accentRgb},0.22)` : isDark ? '#1E1F2B' : '#FFFFFF',
+                    borderColor: r.mine ? colors.accent : isDark ? 'rgba(255,255,255,0.12)' : `rgba(${colors.accentRgb},0.18)`,
+                  },
+                ]}
+              >
+                <Text style={{ fontSize: 14 }}>{r.emoji}</Text>
+                {r.count > 1 ? <Text style={{ fontSize: 12, fontWeight: '800', marginLeft: 3, color: r.mine ? colors.accent : colors.textSecondary }}>{r.count}</Text> : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -180,6 +209,8 @@ export function ChatRow({ title, user, icon, preview, time, unread, onPress }) {
 }
 
 const k = StyleSheet.create({
+  reacts: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: -8, zIndex: 2 },
+  react: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 7, height: 26, borderRadius: 13, borderWidth: 1, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   row: { flexDirection: 'row', alignItems: 'flex-end', paddingHorizontal: 12, gap: 6 },
   bubble: { borderRadius: 20, paddingHorizontal: 13, paddingTop: 8, paddingBottom: 6, overflow: 'hidden', borderWidth: 1, minWidth: 64 },
   author: { fontSize: 13, fontWeight: '800', marginBottom: 2 },
