@@ -45,9 +45,9 @@ const GuardedHome = withScreenBoundary(HomeScreen, 'Home');
 const GuardedSignIn = withScreenBoundary(SignIn, 'SignIn');
 
 // Full-screen experiences: no floating tab bar over the content.
-const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader', 'BazaarReader', 'Chat']);
+const IMMERSIVE_ROUTES = new Set(['KaitoAdventure', 'Kaiji', 'Chapter', 'MangaChapter', 'Reader', 'BazaarReader', 'Chat', 'Browser']);
 // Book readers bring their own slim bar; the app header would eat reading space.
-const NO_NAVBAR_ROUTES = new Set(['Kaiji', 'Chapter', 'Reader', 'BazaarReader', 'Feed', 'Chat']);
+const NO_NAVBAR_ROUTES = new Set(['Kaiji', 'Chapter', 'Reader', 'BazaarReader', 'Feed', 'Chat', 'Browser']);
 
 // Keep the native splash up until fonts + auth are ready, instead of flashing
 // a blank screen while the app boots.
@@ -82,6 +82,7 @@ const LAZY_SCREENS = [
   ['FeedScreen', () => require('./screens/FeedScreen').default],
   ['Ramp', () => require('./screens/RampScreen').default],
   ['NotificationSettings', () => require('./screens/NotificationSettingsScreen').default],
+  ['Browser', () => require('./screens/BrowserScreen').default],
   ['Marketplace', () => require('./screens/MarketplaceScreen').default],
   ['WalletImport', () => require('./screens/WalletImportScreen').default],
   ['Mint', () => require('./screens/MintScreen').default],

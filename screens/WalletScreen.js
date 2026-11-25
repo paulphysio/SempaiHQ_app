@@ -412,6 +412,7 @@ const NexusScreen = () => {
           <GelOption icon="credit-card" title="Buy crypto" description="USDC or SOL with a card, fees shown first" onPress={() => navigation.navigate('Ramp')} />
           <GelOption icon="university" title="Cash out USDC" description="To your bank through Jupiter" onPress={() => navigation.navigate('Ramp', { tab: 'cashout' })} />
           <GelOption icon="exchange-alt" title="Swap tokens" description="Trade between SOL, USDC, SMP and more" onPress={() => navigation.navigate('Swap')} />
+          <GelOption icon="globe" title="Browser" description="Open any site or Solana app — your wallet connects inside" onPress={() => navigation.navigate('Browser')} />
         </View>
       </ScrollView>
     </KeyboardSafe>

@@ -50,6 +50,7 @@ const GROUPS = [
     title: 'Nexus',
     icon: 'wallet',
     items: [
+      { name: 'Browser', screen: 'Browser', icon: 'globe' },
       { name: 'Swap', screen: 'Swap', icon: 'exchange-alt' },
       { name: 'Ramp', screen: 'Ramp', icon: 'credit-card' },
       { name: 'Import Wallet', screen: 'WalletImport', icon: 'wallet' },

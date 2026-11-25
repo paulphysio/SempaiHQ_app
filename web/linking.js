@@ -54,6 +54,7 @@ export const linking = {
       Terms: 'terms',
       Support: 'support',
       NotificationSettings: 'notification-settings',
+      Browser: 'browser',
     },
   },
 };

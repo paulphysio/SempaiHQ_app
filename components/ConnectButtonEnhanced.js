@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as solanaWeb3 from '@solana/web3.js';
 import * as Crypto from 'expo-crypto';
 import bs58 from 'bs58';
+import nacl from 'tweetnacl';
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../services/supabaseClient';
 import { useAuth } from '../context/AuthContext';
@@ -862,6 +863,29 @@ export const EmbeddedWalletProvider = ({ children }) => {
     }
   }, [walletType, wallet, verifyPassword]);
 
+  // Sign an arbitrary message (e.g. "Sign in with Solana" from a site in the in-app browser).
+  // Same password / biometric gate as signing a transaction. Returns the 64-byte signature (base58).
+  const signMessageOnly = useCallback(async (message, inputPassword) => {
+    const bytes = message instanceof Uint8Array ? message : new Uint8Array(message || []);
+    const biometricsEnabled = (await AsyncStorage.getItem('useBiometrics')) === 'true';
+    if (!biometricsEnabled && !inputPassword) {
+      setPendingTransaction(bytes);
+      setPendingMode('message');
+      setPasswordModalVisible(true);
+      return new Promise((resolve, reject) => setResolveTransaction({ resolve, reject }));
+    }
+    if (!wallet?.publicKey) throw new Error('No wallet connected');
+    if (!biometricsEnabled && inputPassword) {
+      const isValid = await verifyPassword(inputPassword);
+      if (!isValid) throw new Error('Invalid password. Please check your credentials.');
+    }
+    const walletDataStr = await secureStoreWrapper.getItemAsync('walletData', biometricsEnabled);
+    if (!walletDataStr) throw new Error('Wallet data unavailable');
+    const keypair = solanaWeb3.Keypair.fromSecretKey(bs58.decode(await privateKeyFromWalletData(JSON.parse(walletDataStr))));
+    if (wallet.publicKey.toString() !== keypair.publicKey.toString()) throw new Error('Wallet security error. Please reconnect your wallet.');
+    return bs58.encode(nacl.sign.detached(bytes, keypair.secretKey));
+  }, [wallet, verifyPassword]);
+
   // ─── Provider ────────────────────────────────────────────────────────────────
 
   // Design-review builds only (EXPO_PUBLIC_UI_AUDIT=1, web): pretend a read-only wallet is connected so
@@ -885,6 +909,7 @@ export const EmbeddedWalletProvider = ({ children }) => {
         loadLegacyWalletKey,
         signAndSendTransaction,
         signTransactionOnly,
+        signMessageOnly,
         isLoading,
         error,
         useBiometrics,
@@ -908,6 +933,8 @@ export const EmbeddedWalletProvider = ({ children }) => {
             try {
               const result = pendingMode === 'sign'
                 ? await signTransactionOnly(pendingTransaction, password)
+                : pendingMode === 'message'
+                ? await signMessageOnly(pendingTransaction, password)
                 : await signAndSendTransaction(pendingTransaction, password);
               resolveTransaction.resolve(result);
             } catch (error) {
@@ -929,6 +956,8 @@ export const EmbeddedWalletProvider = ({ children }) => {
               console.log('[onUseBiometrics] Modal closed, signing transaction...');
               const result = pendingMode === 'sign'
                 ? await signTransactionOnly(pendingTransaction)
+                : pendingMode === 'message'
+                ? await signMessageOnly(pendingTransaction)
                 : await signAndSendTransaction(pendingTransaction);
               console.log('[onUseBiometrics] Transaction signed:', result);
               resolveTransaction.resolve(result);
