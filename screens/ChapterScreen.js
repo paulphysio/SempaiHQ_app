@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
+import ShareSheet from '../components/ShareSheet';
 import { View, Text, StyleSheet, ScrollView, Dimensions, Animated, Image, TouchableOpacity, Modal, StatusBar, SafeAreaView, Linking, ActivityIndicator, Share, TextInput, Platform, Pressable, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1533,22 +1534,9 @@ const ChapterScreen = () => {
     // Autopay disabled - no automatic payments
   }, [loading, novel, pricesAreLive, autopayPreferenceLoaded, isLocked, autopayEnabled, smpBalance, isProcessing, userId, isAdvanceChapter]);
 
-  // Share functionality
-  const handleShare = useCallback(async () => {
-    const shareUrl = `https://sempaihq.com/novel/${novelId}/chapter/${chapterId}`;
-    const shareText = `Read ${novel?.title} - ${novel?.chaptertitles?.[chapterId]} on Sempai HQ!`;
-
-    try {
-      await Share.share({
-        message: `${shareText}\n${shareUrl}`,
-        url: shareUrl,
-      });
-    } catch (error) {
-      console.error('[Share] Error sharing:', error);
-      setError('Failed to share chapter');
-      setTimeout(() => setError(null), 3000);
-    }
-  }, [novelId, chapterId, novel]);
+  // Share: opens the share sheet (card preview · Post on X · Copy link · More)
+  const [shareOpen, setShareOpen] = useState(false);
+  const handleShare = useCallback(() => setShareOpen(true), []);
 
   // Rating functions
   const fetchRatings = useCallback(async () => {
@@ -3493,6 +3481,16 @@ const ChapterScreen = () => {
           <GelRow label="Cost" value="~0.002 SOL" strong />
         </GelInset>
       </GelModal>
+      <ShareSheet
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind="novel"
+        id={novelId}
+        chapter={chapterId}
+        title={novel?.title}
+        chapterLabel={chapterId != null && /^d+$/.test(String(chapterId)) ? `Chapter ${Number(chapterId) + 1}` : null}
+        chapterTitle={novel?.chaptertitles?.[chapterId]}
+      />
     </View>
   );
 };

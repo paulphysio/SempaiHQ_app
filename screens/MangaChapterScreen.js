@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } from 'react';
+import ShareSheet from '../components/ShareSheet';
 import {
   View,
   Text,
@@ -258,6 +259,7 @@ const MangaChapterScreen = () => {
 
   const [manga, setManga] = useState(null);
   const [chapter, setChapter] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [mangaOwner, setMangaOwner] = useState(null);
   const [pages, setPages] = useState([]);
   const [chapterPrice, setChapterPrice] = useState(null);
@@ -1784,6 +1786,7 @@ const MangaChapterScreen = () => {
               <Text numberOfLines={1} style={styles.barTitle}>{manga.title}</Text>
               <Text numberOfLines={1} style={type.caption}>{chapterTitle}</Text>
             </View>
+            <IconButton icon="share-alt" label="Share chapter" onPress={() => setShareOpen(true)} size={38} style={{ marginRight: 6 }} />
             <View style={styles.miniStat}>
               <Icon name="star" size={10} color={colors.gold} solid />
               <Text style={styles.miniStatText}>{weeklyPoints !== null ? formatNumber(weeklyPoints) : '…'}</Text>
@@ -1803,6 +1806,16 @@ const MangaChapterScreen = () => {
           </Animated.View>
         </>
       ) : null}
+      <ShareSheet
+        visible={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind="manga"
+        id={mangaId}
+        chapter={chapter?.id || chapterId}
+        title={manga?.title}
+        chapterLabel={chapterNum ? `Chapter ${chapterNum}` : null}
+        chapterTitle={chapterTitle}
+      />
     </View>
   );
 
