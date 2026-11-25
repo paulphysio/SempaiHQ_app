@@ -1,8 +1,8 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import { space, radius, layout } from '../theme/theme';
 
 export const getStyles = ({ colors, type }) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
+  container: { flex: 1, backgroundColor: colors.bg, ...(Platform.OS === 'web' ? StyleSheet.absoluteFillObject : null) }, // web: pin to the screen so the reader scrolls
   center: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: space.xl },
 
   /* reader chrome */

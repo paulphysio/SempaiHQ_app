@@ -3499,7 +3499,7 @@ const ChapterScreen = () => {
 const READ_GUTTER = 22;
 const makeReaderStyles = (c, isDark) =>
   StyleSheet.create({
-    page: { flex: 1, backgroundColor: c.bg },
+    page: { flex: 1, backgroundColor: c.bg, ...(Platform.OS === 'web' ? StyleSheet.absoluteFillObject : null) }, // web: pin to the screen so the reader scrolls
     center: { flex: 1, justifyContent: 'center' },
 
     // top bar

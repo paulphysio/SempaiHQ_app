@@ -9,6 +9,7 @@ import { getGlobalBottomNavStyles, NAV } from '../styles/GlobalBottomNavStyles';
 import { goToTopLevel, getActiveRouteName } from '../utils/navigation';
 import { useMessagesInbox, MessagesSheet } from './MessagesButton';
 import GelOrb from './nav/GelOrb';
+import { useUnreadDms } from '../services/chatUnread';
 import { haptics } from '../utils/haptics';
 
 /** Total vertical space the floating bar occupies (for screens that pad for it). */
@@ -27,6 +28,7 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
 
   // Sibling of the navigator: follow the active route via container events.
   const [currentRoute, setCurrentRoute] = useState();
+  const unreadDms = useUnreadDms(currentRoute); // badge on the Chats button
   useEffect(() => {
     setCurrentRoute(getActiveRouteName(navigation.getState?.()));
     return navigation.addListener('state', (e) => setCurrentRoute(getActiveRouteName(e?.data?.state)));
@@ -175,7 +177,14 @@ const GlobalBottomNav = ({ onMenuToggle, menuOpen }) => {
                 />
               </View>
               <View style={styles.slot}>
-                <GelOrb icon="comments" size={NAV.buttonSize} lit={currentRoute === 'Chat' || currentRoute === 'Inbox'} onPress={goInbox} label="Chats" />
+                <GelOrb
+                  icon="comments"
+                  size={NAV.buttonSize}
+                  lit={currentRoute === 'Chat' || currentRoute === 'Inbox' || unreadDms > 0}
+                  badge={unreadDms}
+                  onPress={goInbox}
+                  label={unreadDms > 0 ? `Chats, ${unreadDms} unread` : 'Chats'}
+                />
               </View>
               <View style={styles.slot}>
                 <GelOrb icon="exchange-alt" size={NAV.buttonSize} lit={currentRoute === 'Swap'} onPress={goSwap} label="Swap tokens" />
