@@ -5,8 +5,11 @@
  */
 import { getStateFromPath } from '@react-navigation/native';
 
+// React Native also defines `window` (without `location`), so check for a real browser location.
+const LOC = typeof window !== 'undefined' && window.location ? window.location : null;
+
 export const linking = {
-  prefixes: typeof window !== 'undefined' ? [window.location.origin] : [],
+  prefixes: LOC ? [LOC.origin] : [],
   config: {
     screens: {
       Welcome: 'welcome',
@@ -60,12 +63,12 @@ export const linking = {
 };
 
 // The address the visitor arrived on (before the app changes it).
-export const initialWebPath = typeof window !== 'undefined'
-  ? window.location.pathname + window.location.search
+export const initialWebPath = LOC
+  ? LOC.pathname + LOC.search
   : '/';
 
 export const hasDeepLink = () => {
-  const p = (typeof window !== 'undefined' ? window.location.pathname : '/') || '/';
+  const p = (LOC ? LOC.pathname : '/') || '/';
   return p !== '/' && p !== '';
 };
 
