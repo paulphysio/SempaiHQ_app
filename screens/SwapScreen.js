@@ -27,6 +27,7 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import * as Clipboard from 'expo-clipboard';
 import { GelModal, GelInput, GelInset, GelGlass, GelButton } from '../components/gel/GelKit';
 import GelOrb from '../components/nav/GelOrb';
+import { gelAlert } from '../components/gel/GelAlert';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
 import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, WEB_API_BASE_URL } from '../constants';
@@ -505,11 +506,77 @@ const SwapScreen = () => {
       return;
     }
 
+    // Swap right here through Jupiter's swap API: best route quote → one transaction signed by
+    // this wallet. Works the same on phones and on the web (jup.ag can't be embedded on the web).
     const inputMint = TOKEN_MINTS[coinFrom].toString();
     const outputMint = TOKEN_MINTS[coinTo].toString();
-    setJupiterSwapUrl(`https://jup.ag/swap?inputMint=${inputMint}&outputMint=${outputMint}`);
-    setJupiterPrefillAmount(amount);
-    setShowJupiterWebView(true);
+    const units = Math.round(parseFloat(amount) * 10 ** TOKEN_DECIMALS[coinFrom]);
+    setLoading(true);
+    setError(null);
+    let quote;
+    try {
+      const res = await fetch(`https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${units}&slippageBps=50`);
+      quote = await res.json();
+      if (!res.ok || !quote?.outAmount) throw new Error(quote?.error || 'No route for this pair right now');
+    } catch (e) {
+      setLoading(false);
+      setError(`Could not get a price — ${e.message}`);
+      return;
+    }
+    setLoading(false);
+    const out = Number(quote.outAmount) / 10 ** TOKEN_DECIMALS[coinTo];
+    const min = Number(quote.otherAmountThreshold) / 10 ** TOKEN_DECIMALS[coinTo];
+    const impact = Number(quote.priceImpactPct || 0) * 100;
+    gelAlert(
+      `Swap ${amount} ${coinFrom}?`,
+      `You get about ${formatToken(out, 6)} ${coinTo}
+At least ${formatToken(min, 6)} ${coinTo} (0.5% slippage)
+Price impact ${impact < 0.01 ? '<0.01' : impact.toFixed(2)}%
+Routed by Jupiter · a small Solana network fee applies`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Swap',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const r2 = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  quoteResponse: quote,
+                  userPublicKey: activeWalletAddress,
+                  dynamicComputeUnitLimit: true,
+                  prioritizationFeeLamports: 'auto',
+                }),
+              });
+              const j = await r2.json();
+              if (!r2.ok || !j?.swapTransaction) throw new Error(j?.error || 'Jupiter could not build the swap');
+              const tx = VersionedTransaction.deserialize(Buffer.from(j.swapTransaction, 'base64'));
+              const signature = await signAndSendTransaction(tx); // password / biometrics prompt
+              logMoneyEvent({
+                event_type: 'jupiter_swap',
+                direction: 'swap',
+                asset: coinFrom,
+                amount: parseFloat(amount) || null,
+                wallet: activeWalletAddress,
+                title: `Swap ${coinFrom} → ${coinTo}`,
+                detail: `${amount} ${coinFrom} → ~${formatToken(out, 4)} ${coinTo}`,
+                tx_sig: signature,
+                meta: { from: coinFrom, to: coinTo, amountIn: amount, amountOut: out },
+              });
+              setSuccessMessage(`Swapped ${amount} ${coinFrom} for ~${formatToken(out, 4)} ${coinTo}`);
+              setAmount('');
+              await Promise.all([checkBalance(), checkAllBalances()]);
+            } catch (e) {
+              if (e?.message !== 'Password entry cancelled') setError(`Swap failed: ${e.message}`);
+            } finally {
+              setLoading(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   // Log a completed Jupiter swap signing to the DAO money feed. The signed tx's
