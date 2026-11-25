@@ -33,6 +33,13 @@ import GlobalSidebar from './components/GlobalSidebar';
 
 // Web: page addresses (old website links keep working). Phones don't use this.
 const WEB_LINKS = Platform.OS === 'web' ? require('./web/linking') : null;
+// Phones: shared links (app.sempaihq.com/novel/…, sempaihq://…) open the same screens as on the web.
+// Android hands https links to the app once the APK has the intent filters (app.config.js) and
+// app.sempaihq.com/.well-known/assetlinks.json verifies it.
+const NATIVE_LINKING = Platform.OS === 'web' ? null : {
+  prefixes: ['https://app.sempaihq.com', 'https://www.sempaihq.com', 'https://sempaihq.com', 'sempaihq://'],
+  config: require('./web/linking').linking.config,
+};
 const WEB_DEEP_LINK_AT_START = !!(WEB_LINKS && WEB_LINKS.hasDeepLink());
 import { ToastHost, toast } from './components/Toast';
 import { GelAlertHost } from './components/gel/GelAlert';
@@ -486,7 +493,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
       theme={navTheme}
       onReady={syncRoute}
       onStateChange={syncRoute}
-      linking={WEB_LINKS ? WEB_LINKS.linking : undefined}
+      linking={WEB_LINKS ? WEB_LINKS.linking : NATIVE_LINKING}
       documentTitle={{ formatter: (options, route) => (route?.name && route.name !== 'Home' ? `${options?.title || route.name} · SempaiHQ` : 'SempaiHQ — Read, earn, own') }}
     >
       <View style={[shellStyles.root, { backgroundColor: colors.bg }]}>

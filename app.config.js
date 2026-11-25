@@ -16,8 +16,24 @@ export default ({ config }) => ({
   },
   assetBundlePatterns: ['assets/**/*'],
   platforms: ['android'],
+  scheme: 'sempaihq',
   android: {
     package: 'com.turningpointKS.sempaihq',
+    // Shared links open the app (verified by app.sempaihq.com/.well-known/assetlinks.json). Needs a new APK.
+    intentFilters: [
+      {
+        action: 'VIEW',
+        autoVerify: true,
+        data: [
+          { scheme: 'https', host: 'app.sempaihq.com', pathPrefix: '/novel' },
+          { scheme: 'https', host: 'app.sempaihq.com', pathPrefix: '/manga' },
+          { scheme: 'https', host: 'app.sempaihq.com', pathPrefix: '/bazaar' },
+          { scheme: 'https', host: 'app.sempaihq.com', pathPrefix: '/profile' },
+          { scheme: 'https', host: 'app.sempaihq.com', pathPrefix: '/kaiji' },
+        ],
+        category: ['BROWSABLE', 'DEFAULT'],
+      },
+    ],
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
