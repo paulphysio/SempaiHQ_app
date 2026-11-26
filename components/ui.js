@@ -10,6 +10,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/FontAwesome5';
@@ -516,6 +517,7 @@ export const EmptyState = ({ icon = 'book-open', title, subtitle, action, onActi
 export const Sheet = ({ visible, onClose, title, children, footer, tall }) => {
   const t = useMangaTheme();
   const { colors, type } = t;
+  const win = useWindowDimensions();
   // The backdrop is its own layer *behind* the panel. (The panel used to sit
   // inside a TouchableWithoutFeedback to stop taps closing it — on Android
   // that wrapper also swallowed drag gestures, so lists inside sheets could
@@ -531,9 +533,10 @@ export const Sheet = ({ visible, onClose, title, children, footer, tall }) => {
         />
         <Animated.View
           entering={FadeInDown.springify().damping(18)}
-          // Tall sheets get a fixed height: sized-to-content, they opened at the small "loading" size and
-          // Android didn't grow them when the list arrived (it only did after another tap).
-          style={tall ? { height: '88%', marginHorizontal: 10, marginBottom: 10 } : { maxHeight: '80%', marginHorizontal: 10, marginBottom: 10 }}
+          // Heights in pixels, from the screen size. On Android the entering animation measured a
+          // percentage height before the Modal window had a size (→ a sliver) and only corrected on the
+          // next re-render (a filter tap). Tall sheets are a fixed height so the list fills them at once.
+          style={tall ? { height: Math.round(win.height * 0.88), marginHorizontal: 10, marginBottom: 10 } : { maxHeight: Math.round(win.height * 0.8), marginHorizontal: 10, marginBottom: 10 }}
         >
           <GelGlass radius={30} style={tall ? { flex: 1 } : { flexShrink: 1 }} innerStyle={tall ? { flex: 1, paddingTop: 10 } : { flexShrink: 1, paddingTop: 10 }}>
           <View style={{ alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: colors.lineStrong, marginBottom: 10 }} />
