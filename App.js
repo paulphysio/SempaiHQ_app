@@ -1,6 +1,6 @@
 import './utils/fontScale';
 import 'react-native-get-random-values';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 import { NavigationContainer, useNavigationContainerRef, DarkTheme, DefaultTheme } from '@react-navigation/native';
@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as NavigationBar from 'expo-navigation-bar';
 import * as Notifications from 'expo-notifications';
 import { getActiveChat } from './services/activeChat';
+import { getOpenBook } from './services/bookShelf';
 import Constants from 'expo-constants';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -277,6 +278,30 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   }, []);
 
   const ready = fontsLoaded && authBooted && showWelcome !== null;
+
+  // Reopen the e-book that was open when the app was closed (like a dedicated e-reader).
+  // Only on a normal launch: not when opened from a notification or a link, and only once.
+  const reopenedBook = useRef(false);
+  useEffect(() => {
+    if (reopenedBook.current || !ready || !user || showWelcome || WEB_DEEP_LINK_AT_START) return;
+    reopenedBook.current = true;
+    (async () => {
+      try {
+        const last = await Notifications.getLastNotificationResponseAsync().catch(() => null);
+        const fromPush = last?.notification?.date && Date.now() - last.notification.date < 15000;
+        if (fromPush) return;
+        const book = await getOpenBook();
+        if (!book || Date.now() - (book.at || 0) > 30 * 86400000) return;
+        const go = () => {
+          if (!navigationRef.isReady()) return false;
+          const { at, ...params } = book;
+          navigationRef.navigate('BazaarReader', params);
+          return true;
+        };
+        if (!go()) setTimeout(go, 600);
+      } catch { /* just start normally */ }
+    })();
+  }, [ready, user, showWelcome, navigationRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Web: someone opening a shared link (e.g. /novel/123) goes straight to it as
   // a guest — no intro, no sign-in wall. Signing in stays one tap away.

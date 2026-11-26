@@ -1,22 +1,40 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, Pressable, Platform, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Pressable, Platform, StyleSheet, AppState } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
 import EPUBReader from '../components/EPUBReader';
 import PDFReader from '../components/PDFReader';
-import { getBookFileUrl } from '../utils/bazaar';
+import { callBazaarFunction } from '../utils/bazaar';
+import { localBook, saveBookFile, removeBookFile, markBookOpen, clearOpenBook } from '../services/bookShelf';
 import { createBazaarReadTracker } from '../services/bazaarReadTracker';
 import { myId, getBookPosition, saveBookPosition } from '../services/bookProgress';
 import { toast } from '../components/Toast';
 import { useTheme } from '../context/ThemeContext';
 
 /*
- * Reading a Bazaar book, full screen (no app bars). The file comes from a
- * short-lived private link; on phones it is kept in the cache only while the
- * book is open. It reopens where you stopped (saved on the phone and to your
- * account), and pages/time are tracked for refund reviews.
+ * Reading a Bazaar book, full screen (no app bars), like a dedicated e-reader:
+ *  · the book is kept on the phone after the first open — instant and offline next time; access is
+ *    re-checked whenever you're online, and the copy is removed if it has ended (e.g. a loan);
+ *  · it reopens exactly where you stopped (saved on the phone and to your account, and saved the
+ *    moment the app goes to the background);
+ *  · if you leave the app while reading, the app reopens straight into this book next time.
+ * Pages/time are tracked for refund reviews.
  */
+const ACCESS_TIMEOUT_MS = 6000;
+
+/** { url } when allowed · { denied: message } when access has ended · throws when offline. */
+async function checkAccess(bookId) {
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('offline')), ACCESS_TIMEOUT_MS));
+  const res = await Promise.race([callBazaarFunction('get-bazaar-book-url', { bookId }), timeout]);
+  if (res.ok && res.data?.url) return { url: res.data.url };
+  // Only the server's clear "access has ended" answers remove the copy on the phone. Anything else
+  // (expired login, paused book, server trouble) just means "read the saved copy for now".
+  const msg = String(res.data?.error || '');
+  if ((res.status === 403 && /access/i.test(msg)) || (res.status === 404 && /book not found/i.test(msg))) {
+    return { denied: msg || 'You no longer have access to this book.' };
+  }
+  throw new Error(msg || 'offline');
+}
 const SAVE_EVERY_MS = 1500;
 
 export default function BazaarReaderScreen() {
@@ -34,6 +52,7 @@ export default function BazaarReaderScreen() {
   const latestRef = useRef(null); // newest position, waiting to be saved
   const savedPctRef = useRef(0);
   const timerRef = useRef(null);
+  const offlineRef = useRef(false);
 
   const flush = () => {
     clearTimeout(timerRef.current);
@@ -52,19 +71,31 @@ export default function BazaarReaderScreen() {
     let alive = true;
     (async () => {
       try {
-        const [url, me] = await Promise.all([getBookFileUrl(bookId), myId()]);
-        meRef.current = me;
-        const pos = me ? await getBookPosition(me, bookId).catch(() => null) : null;
         const ext = isPdf ? 'pdf' : 'epub';
-        let uri = url;
-        if (Platform.OS !== 'web') {
-          const local = `${FileSystem.cacheDirectory}bazaar-${bookId}-${Date.now()}.${ext}`;
-          const dl = await FileSystem.downloadAsync(url, local);
-          if (dl.status !== 200) throw new Error('The book could not be downloaded. Check your connection.');
-          uri = dl.uri;
-          localUriRef.current = dl.uri;
+        const me = await myId();
+        meRef.current = me;
+        const [pos, local] = await Promise.all([
+          me ? getBookPosition(me, bookId).catch(() => null) : null,
+          localBook(bookId, ext),
+        ]);
+        let access = null;
+        try {
+          access = await checkAccess(bookId);
+        } catch {
+          offlineRef.current = true; // offline: read the copy on the phone if there is one
+        }
+        if (access?.denied) {
+          await removeBookFile(bookId);
+          throw new Error(access.denied);
+        }
+        let uri = local;
+        if (!uri) {
+          if (!access?.url) throw new Error("This book isn't saved on your phone yet, and it couldn't be downloaded right now. Check your connection and try again.");
+          uri = await saveBookFile(bookId, ext, access.url); // web: just the link
         }
         if (!alive) return;
+        localUriRef.current = uri;
+        markBookOpen({ bookId, title, fileType, fileName, purchaseId: purchaseId || null, userId: userId || me || null, walletAddress: walletAddress || null });
         trackerRef.current = createBazaarReadTracker({
           purchaseId: purchaseId || null,
           bookId,
@@ -82,16 +113,22 @@ export default function BazaarReaderScreen() {
         if (alive) setError(e?.message || 'The book could not be opened.');
       }
     })();
+    // Save the exact spot the moment the app goes to the background (it may never come back).
+    const sub = AppState.addEventListener('change', (st) => { if (st !== 'active') flush(); });
     return () => {
       alive = false;
+      sub.remove();
       flush();
       trackerRef.current?.close();
       trackerRef.current = null;
-      if (localUriRef.current) FileSystem.deleteAsync(localUriRef.current, { idempotent: true }).catch(() => {});
     };
   }, [bookId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const close = () => (navigation.canGoBack() ? navigation.goBack() : navigation.navigate('BazaarBook', { bookId }));
+  const close = () => {
+    clearOpenBook(); // closed on purpose: don't reopen it on the next launch
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.navigate('BazaarBook', { bookId });
+  };
 
   if (error) {
     return (

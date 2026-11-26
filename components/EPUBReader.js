@@ -9,14 +9,17 @@ import { useTheme } from '../context/ThemeContext';
 import ReaderShell, { TextSizePanel } from './reader/ReaderShell';
 
 /*
- * EPUB reader: the whole book scrolls top to bottom like a web page (no page
- * flipping), comfortable 16px text by default, text size the reader can
- * change (remembered), contents list, and full screen.
+ * EPUB reader. Two ways to read (remembered):
+ *   Pages  — swipe left/right (or tap the edges) to turn pages; swiping past the end of a chapter
+ *            goes straight into the next one. Tap the middle to hide/show the bars.
+ *   Scroll — the whole book scrolls top to bottom like a web page.
+ * Comfortable 16px text by default, text size (remembered), contents list, full screen.
  */
 const JSZIP_CDN = 'https://cdn.jsdelivr.net/npm/jszip@3.1.5/dist/jszip.min.js';
 const EPUBJS_CDN = 'https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js';
 const CHUNK_SIZE = 512 * 1024; // base64 chars per injected chunk
 const SIZE_KEY = 'reader:epubTextSize';
+const FLOW_KEY = 'reader:epubFlow'; // 'pages' | 'scroll'
 const MIN_SIZE = 12;
 const MAX_SIZE = 24;
 const DEFAULT_SIZE = 16;
@@ -33,6 +36,10 @@ const buildHtml = (p) => `<!DOCTYPE html>
   #viewer { width: 100%; height: 100%; }
   #viewer .epub-container { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
   #viewer iframe { background: ${p.bg} !important; }
+  #viewer.turn-next { animation: turnNext .32s cubic-bezier(.2,.8,.2,1); }
+  #viewer.turn-prev { animation: turnPrev .32s cubic-bezier(.2,.8,.2,1); }
+  @keyframes turnNext { from { transform: translateX(42px); opacity: .35; } to { transform: none; opacity: 1; } }
+  @keyframes turnPrev { from { transform: translateX(-42px); opacity: .35; } to { transform: none; opacity: 1; } }
   #status { position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%); text-align: center;
             color: ${p.muted}; font: 14px sans-serif; pointer-events: none; }
 </style>
@@ -41,7 +48,7 @@ const buildHtml = (p) => `<!DOCTYPE html>
 <div id="viewer"></div>
 <div id="status">Opening book…</div>
 <script>
-  var book = null, rendition = null, toc = [], current = -1, chunks = [], ready = false;
+  var book = null, rendition = null, toc = [], current = -1, chunks = [], ready = false, flow = 'pages', textPx = 16;
   function post(m) { try { window.ReactNativeWebView.postMessage(JSON.stringify(m)); } catch (e) {} }
   window.addChunk = function (s) { chunks.push(s); };
   function bytesFrom(b64) {
@@ -69,9 +76,75 @@ const buildHtml = (p) => `<!DOCTYPE html>
     return best;
   }
   window.setTextSize = function (px) {
+    textPx = px;
     if (!rendition) return;
     rendition.themes.fontSize(px + 'px');
   };
+
+  // ── page turning (Pages mode): swipe or tap the edges; swiping past the last page of a
+  //    chapter goes straight into the next chapter (and back).
+  function turn(dir) {
+    if (!rendition) return;
+    var v = document.getElementById('viewer');
+    var go = dir > 0 ? rendition.next() : rendition.prev();
+    Promise.resolve(go).then(function () {
+      v.classList.remove('turn-next', 'turn-prev'); void v.offsetWidth;
+      v.classList.add(dir > 0 ? 'turn-next' : 'turn-prev');
+    });
+  }
+  window.nextPage = function () { turn(1); };
+  window.prevPage = function () { turn(-1); };
+  function attachGestures(doc, win) {
+    var x0 = 0, y0 = 0, t0 = 0, moved = false;
+    doc.addEventListener('touchstart', function (e) { var t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY; t0 = Date.now(); moved = false; }, { passive: true });
+    doc.addEventListener('touchmove', function () { moved = true; }, { passive: true });
+    doc.addEventListener('touchend', function (e) {
+      if (flow !== 'pages') return;
+      var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+      var sel = win.getSelection && String(win.getSelection() || '');
+      if (sel) return; // selecting text — not a page turn
+      if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.2) { turn(dx < 0 ? 1 : -1); return; }
+      if (!moved && Date.now() - t0 < 350 && Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        var w = win.innerWidth || window.innerWidth;
+        var x = t.clientX % w; // paginated iframes are wider than the screen
+        if (x < w * 0.28) turn(-1);
+        else if (x > w * 0.72) turn(1);
+        else post({ type: 'tap' });
+      }
+    }, { passive: true });
+  }
+
+  // Build (or rebuild) the view in the current mode, at a given spot.
+  function render(at) {
+    if (rendition) { try { rendition.destroy(); } catch (e) {} }
+    document.getElementById('viewer').innerHTML = '';
+    rendition = flow === 'pages'
+      ? book.renderTo('viewer', { width: '100%', height: '100%', flow: 'paginated', spread: 'none', manager: 'default' })
+      : book.renderTo('viewer', { width: '100%', height: '100%', flow: 'scrolled', manager: 'continuous', spread: 'none' });
+    rendition.hooks.content.register(function (contents) { attachGestures(contents.document, contents.window); });
+    theme(textPx);
+    rendition.on('relocated', onRelocated);
+    return (at ? rendition.display(at).catch(function () { return rendition.display(); }) : rendition.display());
+  }
+  window.setFlow = function (mode) {
+    if (!book || mode === flow) return;
+    var at = null;
+    try { at = rendition && rendition.currentLocation() && rendition.currentLocation().start.cfi; } catch (e) {}
+    flow = mode;
+    render(at);
+  };
+  function onRelocated(loc) {
+    var href = loc && loc.start && loc.start.href;
+    var i = indexOf(href);
+    if (i >= 0) current = i;
+    var pct = null;
+    try {
+      if (book.locations && book.locations.length() && loc.start.cfi) pct = book.locations.percentageFromCfi(loc.start.cfi);
+    } catch (e) {}
+    var page = null, pages = null;
+    try { if (flow === 'pages' && loc.start.displayed) { page = loc.start.displayed.page; pages = loc.start.displayed.total; } } catch (e) {}
+    post({ type: 'loc', index: current, pct: pct, cfi: (loc && loc.start && loc.start.cfi) || null, page: page, pages: pages, atEnd: !!(loc && loc.atEnd) });
+  }
   function theme(px) {
     rendition.themes.default({
       'html, body': { 'background': '${p.bg} !important', 'color': '${p.text} !important' },
@@ -90,7 +163,9 @@ const buildHtml = (p) => `<!DOCTYPE html>
     });
     window.setTextSize(px);
   }
-  window.finishLoad = function (px, startAt) {
+  window.finishLoad = function (px, startAt, mode) {
+    flow = mode === 'scroll' ? 'scroll' : 'pages';
+    textPx = px;
     try {
       if (typeof JSZip === 'undefined' || typeof ePub !== 'function') {
         post({ type: 'error', message: 'The book engine did not load. Check your connection and try again.' });
@@ -98,18 +173,6 @@ const buildHtml = (p) => `<!DOCTYPE html>
       }
       var data = bytesFrom(chunks.join('')); chunks = null;
       book = ePub(data.buffer);
-      rendition = book.renderTo('viewer', { width: '100%', height: '100%', flow: 'scrolled', manager: 'continuous', spread: 'none' });
-      theme(px);
-      rendition.on('relocated', function (loc) {
-        var href = loc && loc.start && loc.start.href;
-        var i = indexOf(href);
-        if (i >= 0) current = i;
-        var pct = null;
-        try {
-          if (book.locations && book.locations.length() && loc.start.cfi) pct = book.locations.percentageFromCfi(loc.start.cfi);
-        } catch (e) {}
-        post({ type: 'loc', index: current, pct: pct, cfi: (loc && loc.start && loc.start.cfi) || null });
-      });
       book.ready.then(function () {
         toc = flatten(book.navigation && book.navigation.toc, 0, []);
         if (!toc.length) {
@@ -117,8 +180,7 @@ const buildHtml = (p) => `<!DOCTYPE html>
         }
         post({ type: 'toc', chapters: toc.map(function (c) { return { label: c.label, depth: c.depth || 0 }; }) });
         // Reopen where the reader stopped; if that spot can't be found, start at the top.
-        if (startAt) return rendition.display(startAt).catch(function () { return rendition.display(); });
-        return rendition.display();
+        return render(startAt);
       }).then(function () {
         var st = document.getElementById('status'); if (st) st.style.display = 'none';
         ready = true;
@@ -178,26 +240,39 @@ const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
   const [sizeOpen, setSizeOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [textSize, setTextSize] = useState(DEFAULT_SIZE);
+  const [flow, setFlow] = useState('pages');
+  const [pageInfo, setPageInfo] = useState(null); // { page, pages } in the current chapter
 
   const webRef = useRef(null);
   const b64Ref = useRef(null);
   const pageLoadedRef = useRef(false);
   const startedRef = useRef(false);
   const sizeRef = useRef(DEFAULT_SIZE);
+  const flowRef = useRef('pages');
+  const prefsLoaded = useRef(false);
   const chaptersRef = useRef([]);
   const startRef = useRef(startAt);
   const pctRef = useRef(null);
 
-  // remembered text size
+  // remembered text size + reading mode (loaded before the book opens)
   useEffect(() => {
-    AsyncStorage.getItem(SIZE_KEY).then((v) => {
+    Promise.all([AsyncStorage.getItem(SIZE_KEY), AsyncStorage.getItem(FLOW_KEY)]).then(([v, fl]) => {
       const n = Number(v);
       if (n >= MIN_SIZE && n <= MAX_SIZE) { sizeRef.current = n; setTextSize(n); }
-    }).catch(() => {});
-  }, []);
+      if (fl === 'scroll' || fl === 'pages') { flowRef.current = fl; setFlow(fl); }
+    }).catch(() => {}).finally(() => { prefsLoaded.current = true; start(); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const changeFlow = (mode) => {
+    flowRef.current = mode;
+    setFlow(mode);
+    setPageInfo(null);
+    AsyncStorage.setItem(FLOW_KEY, mode).catch(() => {});
+    webRef.current?.injectJavaScript(`window.setFlow(${JSON.stringify(mode)}); true;`);
+  };
 
   const start = useCallback(() => {
-    if (startedRef.current || !b64Ref.current || !pageLoadedRef.current) return;
+    if (startedRef.current || !b64Ref.current || !pageLoadedRef.current || !prefsLoaded.current) return;
     startedRef.current = true;
     setPhase('opening');
     const b64 = b64Ref.current;
@@ -205,7 +280,7 @@ const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
     let i = 0;
     const next = () => {
       if (i >= b64.length) {
-        webRef.current?.injectJavaScript(`window.finishLoad(${sizeRef.current}, ${JSON.stringify(startRef.current || null)}); true;`);
+        webRef.current?.injectJavaScript(`window.finishLoad(${sizeRef.current}, ${JSON.stringify(startRef.current || null)}, ${JSON.stringify(flowRef.current)}); true;`);
         return;
       }
       webRef.current?.injectJavaScript(`window.addChunk(${JSON.stringify(b64.substring(i, i + CHUNK_SIZE))}); true;`);
@@ -250,12 +325,16 @@ const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
     } else if (d.type === 'loc') {
       if (d.index >= 0) setCurrent(d.index);
       if (typeof d.pct === 'number') { setPct(d.pct); pctRef.current = d.pct; }
+      setPageInfo(d.page && d.pages ? { page: d.page, pages: d.pages } : null);
       onProgress?.({
         index: d.index >= 0 ? d.index : 0,
         total: chaptersRef.current.length,
         cfi: d.cfi || null,
         pct: typeof d.pct === 'number' ? d.pct : pctRef.current,
       });
+    } else if (d.type === 'tap') {
+      setSizeOpen(false);
+      setFullscreen((f) => !f);
     } else if (d.type === 'ready') {
       setPhase('ready');
     } else if (d.type === 'error') {
@@ -267,7 +346,7 @@ const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
   const chapterLabel = chapters[current]?.label;
   const subtitle = phase !== 'ready'
     ? 'Opening…'
-    : [chapterLabel, pct != null ? `${Math.round(pct * 100)}%` : null].filter(Boolean).join(' · ');
+    : [chapterLabel, pageInfo ? `p. ${pageInfo.page}/${pageInfo.pages}` : null, pct != null ? `${Math.round(pct * 100)}%` : null].filter(Boolean).join(' · ');
 
   return (
     <ReaderShell
@@ -278,6 +357,7 @@ const EPUBReader = ({ file, title, onBack, onProgress, startAt = null }) => {
       fullscreen={fullscreen}
       onToggleFullscreen={() => { setSizeOpen(false); setFullscreen((f) => !f); }}
       tools={[
+        { icon: flow === 'pages' ? 'swap-vertical-outline' : 'book-outline', label: flow === 'pages' ? 'Switch to scrolling' : 'Switch to pages', onPress: () => changeFlow(flow === 'pages' ? 'scroll' : 'pages') },
         { icon: 'text-outline', label: 'Text size', onPress: () => setSizeOpen((o) => !o), active: sizeOpen },
         ...(chapters.length > 1 ? [{ icon: 'list-outline', label: 'Contents', onPress: () => setTocOpen(true) }] : []),
       ]}
