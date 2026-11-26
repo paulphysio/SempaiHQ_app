@@ -531,9 +531,11 @@ export const Sheet = ({ visible, onClose, title, children, footer, tall }) => {
         />
         <Animated.View
           entering={FadeInDown.springify().damping(18)}
-          style={{ maxHeight: tall ? '90%' : '80%', marginHorizontal: 10, marginBottom: 10 }}
+          // Tall sheets get a fixed height: sized-to-content, they opened at the small "loading" size and
+          // Android didn't grow them when the list arrived (it only did after another tap).
+          style={tall ? { height: '88%', marginHorizontal: 10, marginBottom: 10 } : { maxHeight: '80%', marginHorizontal: 10, marginBottom: 10 }}
         >
-          <GelGlass radius={30} style={{ flexShrink: 1 }} innerStyle={{ flexShrink: 1, paddingTop: 10 }}>
+          <GelGlass radius={30} style={tall ? { flex: 1 } : { flexShrink: 1 }} innerStyle={tall ? { flex: 1, paddingTop: 10 } : { flexShrink: 1, paddingTop: 10 }}>
           <View style={{ alignSelf: 'center', width: 44, height: 4, borderRadius: 2, backgroundColor: colors.lineStrong, marginBottom: 10 }} />
           {title ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingBottom: space.md }}>
@@ -542,7 +544,7 @@ export const Sheet = ({ visible, onClose, title, children, footer, tall }) => {
             </View>
           ) : null}
           {/* flexShrink lets a ScrollView child take the remaining height and scroll */}
-          <View style={{ paddingHorizontal: space.xl, flexShrink: 1 }}>{children}</View>
+          <View style={{ paddingHorizontal: space.xl, ...(tall ? { flex: 1 } : { flexShrink: 1 }) }}>{children}</View>
           {footer ? <View style={{ padding: space.xl, paddingTop: space.md }}>{footer}</View> : <View style={{ height: space.lg }} />}
           </GelGlass>
         </Animated.View>

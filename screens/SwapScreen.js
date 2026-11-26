@@ -85,22 +85,21 @@ const PRICE_ENDPOINT = (ids) => `https://lite-api.jup.ag/price/v3?ids=${ids.join
 const QUOTE_ENDPOINT = (inputMint, amountBaseUnits) =>
   `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amountBaseUnits}&slippageBps=50`;
 
+// A token's live price in USDC, from what $1 of USDC buys right now. Asking it this way round keeps
+// very cheap tokens (SMP is a tiny fraction of a cent) precise — "what is 1 SMP worth" rounds to 0.
+// Ultra (what jup.ag uses) first, since the classic quote API refuses some tokens, SMP included.
 async function fetchQuoteDerivedPrice(mint, decimals) {
-  const amount = Math.round(10 ** decimals);
-  try {
-    const res = await fetch(QUOTE_ENDPOINT(mint, amount));
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.outAmount) return Number(data.outAmount) / 10 ** 6;
-    }
-  } catch { /* try Ultra */ }
-  // Jupiter Ultra (what jup.ag uses) routes tokens the classic API calls "not tradable" — e.g. SMP.
-  try {
-    const res = await fetch(`${ULTRA}/order?inputMint=${mint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amount}`);
-    const data = await res.json();
-    if (data?.outAmount) return Number(data.outAmount) / 10 ** 6;
-  } catch (err) {
-    console.warn(`Price fallback failed for ${mint}:`, err?.message);
+  const usdc = USDC_MINT_ADDRESS.toString();
+  const urls = [
+    `${ULTRA}/order?inputMint=${usdc}&outputMint=${mint}&amount=1000000`,
+    `https://lite-api.jup.ag/swap/v1/quote?inputMint=${usdc}&outputMint=${mint}&amount=1000000&slippageBps=50`,
+  ];
+  for (const url of urls) {
+    try {
+      const data = await (await fetch(url)).json();
+      const out = Number(data?.outAmount);
+      if (out > 0) return 1 / (out / 10 ** decimals);
+    } catch { /* next source */ }
   }
   return null;
 }
@@ -130,6 +129,8 @@ const formatUsd = (value, opts = {}) => {
   if (compact && value >= 1000) {
     return `$${Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 }).format(value)}`;
   }
+  // very cheap tokens (SMP is about $0.0000000222): show enough decimals to see the real price
+  if (value > 0 && value < 0.0001) return `$${value.toFixed(Math.min(14, 2 - Math.floor(Math.log10(value))))}`;
   const digits = value !== 0 && value < 1 ? 4 : 2;
   return `$${value.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}`;
 };
