@@ -27,6 +27,7 @@ import {
   AMETHYST_MINT_ADDRESS,
   AMETHYST_DECIMALS,
   WEB_API_BASE_URL,
+  SITE_API,
 } from '../constants';
 import CommentSection from '../components/Comments/CommentSection';
 import UBBadge from '../components/UBBadge';
@@ -277,23 +278,30 @@ const priceV3Endpoint = (ids) => `https://lite-api.jup.ag/price/v3?ids=${ids.joi
 const quoteEndpoint = (inputMint, amountBaseUnits) =>
   `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amountBaseUnits}&slippageBps=50`;
 
+// A token's live USD price from what $1 of USDC buys right now. Asked this way round so very cheap
+// tokens stay precise ("what is 1 SMP worth" rounds to $0). Jupiter Ultra first — the classic quote
+// API refuses some tokens (SMP included) — then the classic quote.
 async function fetchQuoteDerivedUsdcPrice(mint, decimals) {
-  try {
-    const amount = Math.round(10 ** decimals); // 1 whole token, in base units
-    const res = await fetch(quoteEndpoint(mint, amount));
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data?.outAmount) return null;
-    return Number(data.outAmount) / 10 ** 6; // USDC has 6 decimals
-  } catch (err) {
-    console.error('[fetchQuoteDerivedUsdcPrice] Error:', err.message);
-    return null;
+  const usdc = USDC_MINT_ADDRESS.toString();
+  const urls = [
+    `https://lite-api.jup.ag/ultra/v1/order?inputMint=${usdc}&outputMint=${mint}&amount=1000000`,
+    `https://lite-api.jup.ag/swap/v1/quote?inputMint=${usdc}&outputMint=${mint}&amount=1000000&slippageBps=50`,
+  ];
+  for (const url of urls) {
+    try {
+      const data = await (await fetch(url)).json();
+      const out = Number(data?.outAmount);
+      if (out > 0) return 1 / (out / 10 ** decimals);
+    } catch (err) {
+      console.warn('[fetchQuoteDerivedUsdcPrice]', err?.message);
+    }
   }
+  return null;
 }
 
 async function fetchSmpFallbackPrice() {
   try {
-    const res = await fetch(`${WEB_API_BASE_URL}/api/smp-fallback-price`);
+    const res = await fetch(`${SITE_API}/smp-fallback-price`); // same site on the web (cross-site calls are blocked)
     if (!res.ok) {
       console.warn('[fetchSmpFallbackPrice] Web API unavailable');
       return null;
@@ -620,7 +628,7 @@ const ChapterScreen = () => {
   const SMP_READ_COST = useMemo(() => {
     if (!smpPrice || smpPrice <= 0) {
       console.warn('[SMP_READ_COST] Invalid SMP price, using default value');
-      return 2500000000; // Fallback (no live price): 0.025 USD at the 0.00000001 USD fallback rate, in 6-decimal base units
+      return 2500000000000; // Fallback (no live price): 0.025 USD at the 0.00000001 USD fallback rate = 2,500,000 SMP, in 6-decimal base units
     }
     const costInSmp = Math.ceil((chapterUsdCost() / smpPrice) * 10 ** SMP_DECIMALS);
     if (__DEV__) console.log('[SMP_READ_COST] Calculated SMP cost for $' + chapterUsdCost() + ':', costInSmp, 'SMP price:', smpPrice);

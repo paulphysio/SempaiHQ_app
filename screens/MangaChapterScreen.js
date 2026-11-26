@@ -44,6 +44,7 @@ import {
   SMP_DECIMALS,
   AMETHYST_MINT_ADDRESS,
   WEB_API_BASE_URL,
+  SITE_API,
 } from '../constants';
 import bs58 from 'bs58';
 import MangaCommentSection from '../components/MangaCommentSection';
@@ -228,7 +229,7 @@ const fetchSolPrice = async () => {
 // Fetch fallback SMP price from web API (when Jupiter fails)
 const fetchSmpFallbackPrice = async () => {
   try {
-    const res = await fetch(`${WEB_API_BASE_URL}/api/smp-fallback-price`);
+    const res = await fetch(`${SITE_API}/smp-fallback-price`); // same site on the web (cross-site calls are blocked)
     if (!res.ok) {
       console.warn('[fetchSmpFallbackPrice] Web API unavailable');
       return null;
