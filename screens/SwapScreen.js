@@ -30,7 +30,7 @@ import GelOrb from '../components/nav/GelOrb';
 import { gelAlert } from '../components/gel/GelAlert';
 import { EmbeddedWalletContext } from '../components/ConnectButtonEnhanced';
 import JupiterSwapWebView from '../components/JupiterSwapWebView';
-import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, WEB_API_BASE_URL } from '../constants';
+import { AMETHYST_MINT_ADDRESS, SMP_MINT_ADDRESS, USDC_MINT_ADDRESS, SKR_MINT_ADDRESS, RPC_URL, SITE_API } from '../constants';
 import { AnimatedPressable, useCountUp, usePulse, useEntrance, useAnimatedVisibility, useStaggeredEntrance } from '../utils/animations';
 import { logMoneyEvent } from '../services/moneyFeed';
 import bs58 from 'bs58';
@@ -80,27 +80,34 @@ const TOKEN_DECIMALS = {
 
 const PRICE_REFRESH_MS = 30000;
 const SOL_SEND_FEE_RESERVE = 0.00001;
+const ULTRA = 'https://lite-api.jup.ag/ultra/v1';
 const PRICE_ENDPOINT = (ids) => `https://lite-api.jup.ag/price/v3?ids=${ids.join(',')}`;
 const QUOTE_ENDPOINT = (inputMint, amountBaseUnits) =>
   `https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amountBaseUnits}&slippageBps=50`;
 
 async function fetchQuoteDerivedPrice(mint, decimals) {
+  const amount = Math.round(10 ** decimals);
   try {
-    const amount = Math.round(10 ** decimals);
     const res = await fetch(QUOTE_ENDPOINT(mint, amount));
-    if (!res.ok) return null;
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.outAmount) return Number(data.outAmount) / 10 ** 6;
+    }
+  } catch { /* try Ultra */ }
+  // Jupiter Ultra (what jup.ag uses) routes tokens the classic API calls "not tradable" — e.g. SMP.
+  try {
+    const res = await fetch(`${ULTRA}/order?inputMint=${mint}&outputMint=${USDC_MINT_ADDRESS.toString()}&amount=${amount}`);
     const data = await res.json();
-    if (!data?.outAmount) return null;
-    return Number(data.outAmount) / 10 ** 6;
+    if (data?.outAmount) return Number(data.outAmount) / 10 ** 6;
   } catch (err) {
-    console.error(`Quote fallback failed for ${mint}:`, err);
-    return null;
+    console.warn(`Price fallback failed for ${mint}:`, err?.message);
   }
+  return null;
 }
 
 async function fetchSmpFallbackPrice() {
   try {
-    const res = await fetch(`${WEB_API_BASE_URL}/api/smp-fallback-price`);
+    const res = await fetch(`${SITE_API}/smp-fallback-price`);
     if (!res.ok) {
       console.warn('[fetchSmpFallbackPrice] Web API unavailable');
       return null;
@@ -506,33 +513,45 @@ const SwapScreen = () => {
       return;
     }
 
-    // Swap right here through Jupiter's swap API: best route quote → one transaction signed by
-    // this wallet. Works the same on phones and on the web (jup.ag can't be embedded on the web).
+    // Swap right here through Jupiter Ultra — the same engine jup.ag uses, so every token jup.ag can
+    // trade (including SMP) works. Jupiter builds the transaction, this wallet signs it, Jupiter sends it.
     const inputMint = TOKEN_MINTS[coinFrom].toString();
     const outputMint = TOKEN_MINTS[coinTo].toString();
     const units = Math.round(parseFloat(amount) * 10 ** TOKEN_DECIMALS[coinFrom]);
+    const orderUrl = `${ULTRA}/order?inputMint=${inputMint}&outputMint=${outputMint}&amount=${units}&taker=${activeWalletAddress}`;
+    const friendly = (o) => {
+      const m = o?.errorMessage || o?.error || '';
+      if (/insufficient/i.test(m)) return `Not enough ${coinFrom} (or SOL for fees).`;
+      if (/minimum \$?5 for gasless/i.test(m)) return 'You need a little SOL for network fees (or swap at least $5).';
+      if (/no route|failed to get quotes/i.test(m)) return 'No route for this pair right now — try a different amount.';
+      return m || 'Jupiter could not price this swap.';
+    };
     setLoading(true);
     setError(null);
-    let quote;
+    let order;
     try {
-      const res = await fetch(`https://lite-api.jup.ag/swap/v1/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${units}&slippageBps=50`);
-      quote = await res.json();
-      if (!res.ok || !quote?.outAmount) throw new Error(quote?.error || 'No route for this pair right now');
+      order = await (await fetch(orderUrl)).json();
+      if (!order?.outAmount) throw new Error(friendly(order));
+      if (!order.transaction) throw new Error(friendly(order));
     } catch (e) {
       setLoading(false);
       setError(`Could not get a price — ${e.message}`);
       return;
     }
     setLoading(false);
-    const out = Number(quote.outAmount) / 10 ** TOKEN_DECIMALS[coinTo];
-    const min = Number(quote.otherAmountThreshold) / 10 ** TOKEN_DECIMALS[coinTo];
-    const impact = Number(quote.priceImpactPct || 0) * 100;
+    const out = Number(order.outAmount) / 10 ** TOKEN_DECIMALS[coinTo];
+    const min = Number(order.otherAmountThreshold || order.outAmount) / 10 ** TOKEN_DECIMALS[coinTo];
+    const feePct = Number(order.feeBps || 0) / 100;
+    const impact = Number(order.priceImpact);
     gelAlert(
       `Swap ${amount} ${coinFrom}?`,
-      `You get about ${formatToken(out, 6)} ${coinTo}
-At least ${formatToken(min, 6)} ${coinTo} (0.5% slippage)
-Price impact ${impact < 0.01 ? '<0.01' : impact.toFixed(2)}%
-Routed by Jupiter · a small Solana network fee applies`,
+      [
+        `You get about ${formatToken(out, 6)} ${coinTo}`,
+        `At least ${formatToken(min, 6)} ${coinTo} (${(Number(order.slippageBps || 0) / 100).toFixed(1)}% slippage)`,
+        `Jupiter fee ${feePct}%${feePct >= 5 ? ' — high because this token trades thinly' : ''}`,
+        Number.isFinite(impact) && impact > -100 ? `Price impact ${Math.abs(impact) < 0.01 ? '<0.01' : Math.abs(impact).toFixed(2)}%` : null,
+        order.gasless ? 'Network fee covered by Jupiter' : 'A small Solana network fee applies',
+      ].filter(Boolean).join('\n'),
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -540,20 +559,19 @@ Routed by Jupiter · a small Solana network fee applies`,
           onPress: async () => {
             setLoading(true);
             try {
-              const r2 = await fetch('https://lite-api.jup.ag/swap/v1/swap', {
+              // fresh order so it can't expire while the password prompt is open
+              const fresh = await (await fetch(orderUrl)).json();
+              if (!fresh?.transaction) throw new Error(friendly(fresh));
+              const tx = VersionedTransaction.deserialize(Buffer.from(fresh.transaction, 'base64'));
+              const signed = await signTransactionOnly(tx); // password / biometrics
+              const res = await fetch(`${ULTRA}/execute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  quoteResponse: quote,
-                  userPublicKey: activeWalletAddress,
-                  dynamicComputeUnitLimit: true,
-                  prioritizationFeeLamports: 'auto',
-                }),
+                body: JSON.stringify({ signedTransaction: signed, requestId: fresh.requestId }),
               });
-              const j = await r2.json();
-              if (!r2.ok || !j?.swapTransaction) throw new Error(j?.error || 'Jupiter could not build the swap');
-              const tx = VersionedTransaction.deserialize(Buffer.from(j.swapTransaction, 'base64'));
-              const signature = await signAndSendTransaction(tx); // password / biometrics prompt
+              const done = await res.json().catch(() => ({}));
+              if (done?.status !== 'Success') throw new Error(done?.error || done?.message || 'The swap did not go through');
+              const got = Number(done.outputAmountResult || fresh.outAmount) / 10 ** TOKEN_DECIMALS[coinTo];
               logMoneyEvent({
                 event_type: 'jupiter_swap',
                 direction: 'swap',
@@ -561,11 +579,11 @@ Routed by Jupiter · a small Solana network fee applies`,
                 amount: parseFloat(amount) || null,
                 wallet: activeWalletAddress,
                 title: `Swap ${coinFrom} → ${coinTo}`,
-                detail: `${amount} ${coinFrom} → ~${formatToken(out, 4)} ${coinTo}`,
-                tx_sig: signature,
-                meta: { from: coinFrom, to: coinTo, amountIn: amount, amountOut: out },
+                detail: `${amount} ${coinFrom} → ${formatToken(got, 4)} ${coinTo}`,
+                tx_sig: done.signature,
+                meta: { from: coinFrom, to: coinTo, amountIn: amount, amountOut: got, via: 'jupiter-ultra' },
               });
-              setSuccessMessage(`Swapped ${amount} ${coinFrom} for ~${formatToken(out, 4)} ${coinTo}`);
+              setSuccessMessage(`Swapped ${amount} ${coinFrom} for ${formatToken(got, 4)} ${coinTo}`);
               setAmount('');
               await Promise.all([checkBalance(), checkAllBalances()]);
             } catch (e) {
