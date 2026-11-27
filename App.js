@@ -31,6 +31,9 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import GlobalNavbar from './components/GlobalNavbar';
 import GlobalBottomNav from './components/GlobalBottomNav';
 import GlobalSidebar from './components/GlobalSidebar';
+import UpdateRequired, { isDeprecatedBuild } from './components/UpdateRequired';
+// APKs older than build 45 are deprecated — checked once at launch.
+const DEPRECATED_BUILD = isDeprecatedBuild();
 
 // Web: page addresses (old website links keep working). Phones don't use this.
 const WEB_LINKS = Platform.OS === 'web' ? require('./web/linking') : null;
@@ -91,6 +94,7 @@ const LAZY_SCREENS = [
   ['Ramp', () => require('./screens/RampScreen').default],
   ['NotificationSettings', () => require('./screens/NotificationSettingsScreen').default],
   ['Browser', () => require('./screens/BrowserScreen').default],
+  ['HQPass', () => require('./screens/HQPassScreen').default],
   ['Marketplace', () => require('./screens/MarketplaceScreen').default],
   ['WalletImport', () => require('./screens/WalletImportScreen').default],
   ['Mint', () => require('./screens/MintScreen').default],
@@ -504,6 +508,7 @@ const AppContent = ({ setIsStatusBarHidden }) => {
   if (!ready) {
     return null; // the native splash is still covering the screen
   }
+  if (DEPRECATED_BUILD) return <UpdateRequired />;
 
   // Global chrome belongs to the signed-in app only — not the intro or sign-in.
   const inApp = !showWelcome && !!user;

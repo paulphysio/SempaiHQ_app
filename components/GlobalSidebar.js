@@ -91,6 +91,7 @@ const GROUPS = [
     icon: 'store',
     items: [
       { name: 'Bazaar', screen: 'Bazaar', icon: 'book' },
+      { name: 'HQ Access Pass', screen: 'HQPass', icon: 'ticket-alt' },
       { name: 'Upload Book', screen: 'UploadBook', icon: 'cloud-upload-alt' },
       { name: 'My Bazaar', screen: 'BazaarDashboard', icon: 'chart-line' },
       { name: 'Reader', screen: 'Reader', icon: 'book-reader' },

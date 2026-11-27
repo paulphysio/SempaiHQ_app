@@ -409,3 +409,6 @@ verify_jwt = false
 
 [functions.push-events]
 verify_jwt = false
+
+[functions.lending-rewards]
+verify_jwt = false

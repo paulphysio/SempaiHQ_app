@@ -19,6 +19,8 @@ import {
   recordPurchase,
 } from '../utils/bazaar';
 import { toast } from '../components/Toast';
+import { gelAlert } from '../components/gel/GelAlert';
+import { lendCheck } from '../services/hqPass';
 import { myId, getBookPosition, positionLabel } from '../services/bookProgress';
 import ScreenSkeleton from '../components/ScreenSkeleton';
 import { EmptyState } from '../components/ui';
@@ -116,7 +118,7 @@ const BazaarBookScreen = () => {
 
         const { data: purchases } = await supabase
           .from('bazaar_purchases')
-          .select('id, status, created_at')
+          .select('id, status, created_at, access_type, expires_at')
           .eq('book_id', bookId)
           .or(`buyer_id.eq.${userData?.id || ZERO_UUID},buyer_wallet.eq.${activePublicKey.toString()}`)
           .order('created_at', { ascending: false })
@@ -153,7 +155,10 @@ const BazaarBookScreen = () => {
   }, []);
 
   const isAuthor = !!(user && book && user.id === book.author_id);
-  const hasAccess = !!purchase && purchase.status !== 'refunded';
+  // a borrow made with the HQ Pass is a 7-day loan (purchases and older borrows have no end)
+  const loanEnded = !!purchase?.expires_at && new Date(purchase.expires_at) <= new Date();
+  const hasAccess = !!purchase && purchase.status !== 'refunded' && !loanEnded;
+  const loanEndsAt = purchase?.expires_at && !loanEnded ? new Date(purchase.expires_at) : null;
   const canRead = isAuthor || hasAccess;
 
   const priceUsd = Number(book?.price_usd ?? 1);
@@ -191,6 +196,27 @@ const BazaarBookScreen = () => {
     if (accessType === 'purchase' && currency === 'SOL' && !solPrice) {
       toast.info('Pricing unavailable — Could not fetch SOL price. Try USDC instead.');
       return;
+    }
+
+    // Borrowing needs an HQ Access Pass (5 borrows a week). Check before any money moves.
+    if (accessType === 'lend') {
+      setPaying(true);
+      let check = null;
+      try { check = await lendCheck(); } catch (e) { check = { ok: false, error: e.message }; }
+      if (!check?.ok) {
+        setPaying(false);
+        if (check?.reason === 'pass_required') {
+          gelAlert('HQ Access Pass needed', 'Borrowing Bazaar books needs the HQ Access Pass — $1 for 30 days, up to 5 borrows a week.', [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Get the pass', onPress: () => navigation.navigate('HQPass') },
+          ]);
+        } else if (check?.reason === 'weekly_limit') {
+          toast.info(`You've borrowed ${check.limit} books this week — that's the limit with the HQ Pass. Try again in a few days.`);
+        } else {
+          toast.error(check?.error || 'Could not check your HQ Pass. Try again.');
+        }
+        return;
+      }
     }
 
     setPaying(true);
@@ -415,9 +441,11 @@ const BazaarBookScreen = () => {
               </>
             ) : hasAccess ? (
               <>
-                <Text style={cardTitle}>Unlocked</Text>
+                <Text style={cardTitle}>{loanEndsAt ? 'Borrowed' : 'Unlocked'}</Text>
                 <Text style={cardNote}>
-                  You own this book — enjoy the read.
+                  {loanEndsAt
+                    ? `Your loan runs until ${loanEndsAt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} — enjoy the read.`
+                    : 'You own this book — enjoy the read.'}
                   {purchase?.status === 'refund_pending' ? ' A refund request is pending review.' : ''}
                 </Text>
               </>
@@ -452,7 +480,7 @@ const BazaarBookScreen = () => {
                 ) : null}
                 {book.lending_enabled ? (
                   <Text style={[cardNote, { marginTop: space.sm }]}>
-                    Borrowing costs {lendPrice.toLocaleString()} SMP once, for permanent access.
+                    {loanEnded ? 'Your loan has ended. ' : ''}Borrowing costs {lendPrice.toLocaleString()} SMP for a 7-day loan and needs the HQ Access Pass (up to 5 borrows a week). 5% of every borrow is burned.
                   </Text>
                 ) : null}
                 {!isWalletConnected ? (

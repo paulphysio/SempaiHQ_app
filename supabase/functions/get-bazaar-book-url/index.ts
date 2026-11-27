@@ -72,6 +72,8 @@ serve(withCors(async (req) => {
         .eq("book_id", book.id)
         .or(`buyer_id.eq.${user.id},buyer_wallet.eq.${user.wallet_address || "none"}`)
         .neq("status", "refunded")
+        // purchases and old borrows have no end; a borrow made with an HQ Pass is a 7-day loan
+        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .limit(1)
         .maybeSingle();
       allowed = !!purchase;

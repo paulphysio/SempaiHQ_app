@@ -344,7 +344,7 @@ const UploadBookScreen = () => {
             <Text style={{ color: BAZAAR_COLORS.accent, fontWeight: '700' }}>Sell</Text> — if you own the book, sell a limited edition
             for $1 (100 copies) or $3 (50 copies). You receive {BAZAAR_AUTHOR_SHARE_PCT}% of every sale directly to your wallet.{"\n\n"}
             <Text style={{ color: BAZAAR_COLORS.gold, fontWeight: '700' }}>Lend</Text> — anyone can offer a book for borrowing at a flat {BAZAAR_LEND_PRICE_SMP.toLocaleString()} SMP.
-            The full amount goes to the platform; you earn nothing from lends.{"\n\n"}
+            Borrowers need the HQ Access Pass and get a 7-day loan; 5% of each borrow is burned. Each month the uploaders of the 3 most-borrowed books share 30% of all lending fees.{"\n\n"}
             If you don't own the book, only lending is allowed.
           </Text>
         </View>
@@ -403,7 +403,7 @@ const UploadBookScreen = () => {
             {allowLending && <Ionicons name="checkmark" size={14} color="#fff" />}
           </View>
           <Text style={styles.checkboxLabel}>
-            Allow others to borrow this book for {BAZAAR_LEND_PRICE_SMP.toLocaleString()} SMP (one-time, permanent access).
+            Allow others to borrow this book for {BAZAAR_LEND_PRICE_SMP.toLocaleString()} SMP (a 7-day loan for HQ Pass holders).
           </Text>
         </TouchableOpacity>
 

@@ -1161,6 +1161,25 @@ async function refundTourneyPlayer(t: any, p: any) {
     .eq('tourney_id', t.id).eq('wallet', p.wallet);
 }
 
+// Tournaments run Friday, Saturday and Sunday (West Africa Time, UTC+1) and need an HQ Access Pass.
+const TOURNEY_TZ_OFFSET_H = 1;
+function tourneyWindow(now = new Date()) {
+  const local = new Date(now.getTime() + TOURNEY_TZ_OFFSET_H * 3600000);
+  const day = local.getUTCDay(); // 0 Sun … 5 Fri, 6 Sat
+  const open = day === 5 || day === 6 || day === 0;
+  // next Friday 00:00 local, as an ISO time
+  const daysToFri = (5 - day + 7) % 7 || 7;
+  const friLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + (open ? 0 : daysToFri));
+  const opensAt = open ? null : new Date(friLocal - TOURNEY_TZ_OFFSET_H * 3600000).toISOString();
+  return { open, opensAt };
+}
+async function hasHqPass(wallet: string) {
+  const u = await userByWallet(wallet);
+  if (!u?.id) return false;
+  const { data } = await db().rpc('hq_pass_expiry', { p_user: u.id });
+  return !!data;
+}
+
 async function tourneyJoin(signature: string, size: number, entryTokens: number, secret: unknown) {
   const sec = validSecret(secret);
   const hash = await sha256Hex(sec);
@@ -1192,6 +1211,8 @@ async function tourneyJoin(signature: string, size: number, entryTokens: number,
     throw new Error(code);
   };
   if (c.allowedWallets.length && !c.allowedWallets.includes(wallet)) return reject('not_allowed');
+  if (!tourneyWindow().open) return reject('tourney_closed_today');
+  if (!(await hasHqPass(wallet))) return reject('pass_required');
   if (await openMatchByWallet(wallet)) return reject('already_in_match');
   if (await activeTourneyOf(wallet)) return reject('already_in_tourney');
 
@@ -1251,7 +1272,16 @@ async function tourneyList(secret?: unknown) {
       if (data?.[0]) mine = data[0].tourney_id;
     } catch { /* no secret */ }
   }
-  return { lobbies, mine, sizes: TOURNEY.sizes, entries: TOURNEY.entries, fillMinutes: TOURNEY.fillMinutes, prizeBps: TOURNEY.prizeBps, feeBps: RULES.feeBps };
+  const win = tourneyWindow();
+  let pass: boolean | null = null;
+  if (secret) {
+    try {
+      const hash = await sha256Hex(validSecret(secret));
+      const { data: me } = await db().from('kaiji_tourney_players').select('wallet').eq('token', hash).limit(1);
+      if (me?.[0]?.wallet) pass = await hasHqPass(me[0].wallet);
+    } catch { /* unknown */ }
+  }
+  return { lobbies, mine, sizes: TOURNEY.sizes, entries: TOURNEY.entries, fillMinutes: TOURNEY.fillMinutes, prizeBps: TOURNEY.prizeBps, feeBps: RULES.feeBps, open: win.open, opensAt: win.opensAt, pass };
 }
 
 /** Everything the tourney screen needs; with the player's hash it also says which match is theirs. */

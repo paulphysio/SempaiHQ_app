@@ -58,6 +58,7 @@ export const linking = {
       Support: 'support',
       NotificationSettings: 'notification-settings',
       Browser: 'browser',
+      HQPass: 'hq-pass',
     },
   },
 };

@@ -32,6 +32,7 @@ const MINTS: Record<string, string> = {
   USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
   SKR: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
   SOL: "So11111111111111111111111111111111111111112",
+  SMP: "SMP1xiPwpMiLPpnJtdEmsDGSL9fR1rvat6NFGznKPor",
 };
 
 const CORS = {
@@ -147,7 +148,12 @@ async function rpc(method: string, params: unknown[]) {
 async function usdPrice(currency: string): Promise<number | null> {
   if (currency === "USDC") return 1;
   if (currency === "SMP") {
-    // SMP isn't tradable on Jupiter — same price the app charges with.
+    // Live: what $1 of USDC buys on Jupiter Ultra (the classic quote API refuses SMP).
+    try {
+      const r = await fetch(`https://lite-api.jup.ag/ultra/v1/order?inputMint=${MINTS.USDC}&outputMint=${MINTS.SMP}&amount=1000000`, { signal: AbortSignal.timeout(4000) });
+      const out = Number((await r.json())?.outAmount);
+      if (out > 0) return 1 / (out / 1e6);
+    } catch { /* fall back to the website's figure */ }
     try {
       const r = await fetch("https://www.sempaihq.com/api/smp-fallback-price", { signal: AbortSignal.timeout(4000) });
       const perUsd = Number((await r.json())?.fallbackPrice);
@@ -197,13 +203,96 @@ async function verifiedUsdReceived(signature: string, payer: string, authorWalle
   }
   if (raw <= 0) throw new Refuse("This transaction didn't pay the writer");
   const price = await usdPrice(currency);
-  return { usd: price ? (raw / 10 ** decimals) * price : null, raw };
+  return { usd: price ? (raw / 10 ** decimals) * price : null, raw, tx };
 }
+
+function memosOf(tx: any): string[] {
+  const out: string[] = [];
+  const all: any[] = [...(tx?.transaction?.message?.instructions || [])];
+  for (const inner of tx?.meta?.innerInstructions || []) all.push(...(inner.instructions || []));
+  for (const ix of all) {
+    if (ix?.program === "spl-memo" && typeof ix.parsed === "string") out.push(ix.parsed);
+  }
+  return out;
+}
+
+// HQ Access Pass: $1, 30 days, renewals stack onto the current expiry.
+const HQ_PASS_USD = 1;
+const HQ_PASS_DAYS = 30;
+const BORROWS_PER_WEEK = 5;
 
 // ─── actions ───────────────────────────────────────────────────────────────
 type Ctx = Awaited<ReturnType<typeof caller>>;
 
 const actions: Record<string, (ctx: Ctx, p: any) => Promise<unknown>> = {
+  // ── HQ Access Pass ──────────────────────────────────────────────────────
+  async hq_pass_status({ user }) {
+    const { data: until } = await admin.rpc("hq_pass_expiry", { p_user: user.id });
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { count } = await admin.from("bazaar_purchases").select("id", { count: "exact", head: true })
+      .eq("buyer_id", user.id).eq("access_type", "lend").gte("created_at", since);
+    return { expiresAt: until || null, active: !!until, borrowsThisWeek: count || 0, borrowLimit: BORROWS_PER_WEEK, priceUsd: HQ_PASS_USD, days: HQ_PASS_DAYS };
+  },
+
+  async hq_pass_buy({ user, myWallets }, p) {
+    const wallet = String(p.walletAddress || "");
+    const signature = String(p.signature || "");
+    const currency = String(p.currency || "");
+    if (!myWallets.has(wallet)) throw new Refuse("That wallet isn't yours");
+    if (!signature) throw new Refuse("Missing payment");
+    if (!["SOL", "USDC", "SMP"].includes(currency)) throw new Refuse("Pay with SOL, USDC or SMP");
+
+    const { data: used } = await admin.from("hq_passes").select("user_id, expires_at").eq("tx_signature", signature).maybeSingle();
+    if (used) {
+      if (used.user_id === user.id) return { active: true, expiresAt: used.expires_at, already: true };
+      throw new Refuse("This payment was already used");
+    }
+
+    const { usd, raw, tx } = await verifiedUsdReceived(signature, wallet, PLATFORM_WALLET, currency);
+    if (!memosOf(tx).some((m) => m.includes(`hqpass:${user.id}`))) throw new Refuse("This payment isn't tagged for an HQ Pass");
+    if (usd != null && usd < HQ_PASS_USD * 0.8) throw new Refuse("Payment is below the $1 pass price");
+
+    const { data: current } = await admin.rpc("hq_pass_expiry", { p_user: user.id });
+    const startsAt = current && new Date(current) > new Date() ? new Date(current) : new Date();
+    const expiresAt = new Date(startsAt.getTime() + HQ_PASS_DAYS * 86400000);
+    const decimals = currency === "SOL" ? 9 : 6;
+    const { error } = await admin.from("hq_passes").insert({
+      user_id: user.id, wallet, tx_signature: signature, currency, amount: raw / 10 ** decimals,
+      usd: usd ?? HQ_PASS_USD, starts_at: startsAt.toISOString(), expires_at: expiresAt.toISOString(),
+    });
+    if (error) {
+      if ((error as any).code === "23505") return { active: true, already: true };
+      throw new Error(error.message);
+    }
+    return { active: true, expiresAt: expiresAt.toISOString() };
+  },
+
+  // Before paying for a borrow: does this person have a pass, and borrows left this week?
+  async lend_check({ user }) {
+    const { data: until } = await admin.rpc("hq_pass_expiry", { p_user: user.id });
+    if (!until) return { ok: false, reason: "pass_required" };
+    const since = new Date(Date.now() - 7 * 86400000).toISOString();
+    const { count } = await admin.from("bazaar_purchases").select("id", { count: "exact", head: true })
+      .eq("buyer_id", user.id).eq("access_type", "lend").gte("created_at", since);
+    if ((count || 0) >= BORROWS_PER_WEEK) return { ok: false, reason: "weekly_limit", used: count, limit: BORROWS_PER_WEEK };
+    return { ok: true, used: count || 0, limit: BORROWS_PER_WEEK, passExpiresAt: until };
+  },
+
+  // ── Admin: who the admins are ───────────────────────────────────────────
+  async admin_list_admins({ isAdmin }) {
+    if (!isAdmin) throw new Refuse("Admins only", 403);
+    const { data, error } = await admin.from("users")
+      .select("id, name, image, email, wallet_address, created_at")
+      .eq("isSuperuser", true)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    const { count: passes } = await admin.from("hq_passes").select("user_id", { count: "exact", head: true }).gt("expires_at", new Date().toISOString());
+    const { data: rewards } = await admin.from("lending_rewards")
+      .select("period, rank, borrows, amount_smp, pool_smp, status, error, tx_signature, bazaar_books(title)")
+      .order("period", { ascending: false }).order("rank", { ascending: true }).limit(9);
+    return { count: data?.length || 0, admins: data || [], activePasses: passes || 0, lendingRewards: rewards || [] };
+  },
+
   async ad_unlock({ user, myWallets }, p) {
     const novelId = String(p.novelId || "");
     const chapterNumber = parseInt(p.chapterNumber, 10);

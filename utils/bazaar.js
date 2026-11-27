@@ -3,6 +3,7 @@ import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountInstruction,
   createTransferInstruction,
+  createBurnCheckedInstruction,
 } from '@solana/spl-token';
 import { RPC_URL, USDC_MINT_ADDRESS, SMP_MINT_ADDRESS, SMP_DECIMALS } from '../constants';
 import { supabase, FUNCTIONS_URL } from '../services/supabaseClient';
@@ -13,6 +14,8 @@ export const BAZAAR_HQ_WALLET = new PublicKey('71fLWcS1rvkfyYZvBjHUwHZQbcenk5Bdj
 export const BAZAAR_BOOK_PRICE_USD = 1.0;
 export const BAZAAR_AUTHOR_SHARE_PCT = 70;
 export const BAZAAR_LEND_PRICE_SMP = 12500;
+export const BAZAAR_LEND_BURN_PCT = 5;   // of every borrow, burned
+export const BAZAAR_LOAN_DAYS = 7;       // a borrow is a 7-day loan (HQ Access Pass)
 
 // Limited editions: the author picks one when uploading. The server enforces
 // the same pairs (migrations/20261201_bazaar_editions.sql).
@@ -146,13 +149,18 @@ export async function createBazaarLendTransaction({ book, paymentAmount, userPub
   if (!hqAtaInfo) {
     instructions.push(createAssociatedTokenAccountInstruction(userPublicKey, hqAta, BAZAAR_HQ_WALLET, mint));
   }
-  instructions.push(createTransferInstruction(userAta, hqAta, userPublicKey, paymentAmount));
+  // 95% to the platform, 5% burned (the server checks both).
+  const total = BigInt(paymentAmount);
+  const toHq = (total * BigInt(100 - BAZAAR_LEND_BURN_PCT)) / 100n;
+  const burn = total - toHq;
+  instructions.push(createTransferInstruction(userAta, hqAta, userPublicKey, toHq));
+  if (burn > 0n) instructions.push(createBurnCheckedInstruction(userAta, mint, userPublicKey, burn, SMP_DECIMALS));
   instructions.push(memoInstruction(userPublicKey, bazaarMemoText(book.id, 'lend')));
 
   const tx = new Transaction();
   tx.add(...instructions);
   tx.feePayer = userPublicKey;
-  return { tx, authorAmount: 0, platformAmount: paymentAmount };
+  return { tx, authorAmount: 0, platformAmount: Number(toHq), burned: Number(burn) };
 }
 
 export async function callBazaarFunction(fnName, body) {

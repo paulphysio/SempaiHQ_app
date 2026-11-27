@@ -33,12 +33,14 @@ import { useTheme } from '../context/ThemeContext';
 import { toast } from '../components/Toast';
 
 import { gelAlert } from '../components/gel/GelAlert';
+import { getPassStatus } from '../services/hqPass';
 // ---------------------------------------------------------------------------
 // Config
 // ---------------------------------------------------------------------------
 const ADMIN_ONLY = false; // the server-side wallet allowlist is the real gate; true also hides the screen from non-admins
 const NORMAL_MODE_ENABLED = true; // needs the deployed `kaiji` edge function
 const TOURNEY_ENABLED = true;
+const nextOpenLabel = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { weekday: 'long', hour: 'numeric', minute: '2-digit' }) : 'Friday');
 const WAGER_OPTIONS = [1, 5, 10, 25]; // tokens; filtered by the server's min/max
 
 const CARD_BACK_SWIRL = require('../assets/kaiji/card-back-swirl.png');
@@ -91,6 +93,8 @@ const ERRORS = {
   in_tourney: 'You are in a tournament — play your tournament matches first.',
   tourney_started: 'The tournament has already started.',
   bad_tourney: 'That tournament size or entry is not available.',
+  tourney_closed_today: 'Tournaments run Friday to Sunday — your entry has been refunded.',
+  pass_required: 'Tournaments need the HQ Access Pass — your entry has been refunded.',
   'Password entry cancelled': 'Cancelled.',
 };
 const friendlyError = (m) => ERRORS[m] ?? m;
@@ -1257,6 +1261,21 @@ const KaijiScreen = () => {
   const joinTable = useCallback(async () => {
     if (tBusy) return;
     if (!isWalletConnected || !wallet || !signTransactionOnly) return connectPrompt();
+    // Tournaments run Friday–Sunday and need the HQ Access Pass — check before any SKR moves.
+    if (tLobby && tLobby.open === false) {
+      return toast.info('Tournaments run Friday to Sunday — next one opens ' + nextOpenLabel(tLobby.opensAt) + '.');
+    }
+    try {
+      const pass = await getPassStatus();
+      if (!pass?.active) {
+        return gelAlert('HQ Access Pass needed', 'Kaiji tournaments are for HQ Access Pass holders — $1 for 30 days.', [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Get the pass', onPress: () => navigation.navigate('HQPass') },
+        ]);
+      }
+    } catch (e) {
+      return toast.error('Could not check your HQ Pass — try again.');
+    }
     setTBusy(true);
     try {
       const st = await joinTourney({ wallet, signTransactionOnly, size: tSize, entry: tEntry });
@@ -1270,7 +1289,7 @@ const KaijiScreen = () => {
     } finally {
       setTBusy(false);
     }
-  }, [tBusy, isWalletConnected, wallet, signTransactionOnly, tSize, tEntry]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tBusy, isWalletConnected, wallet, signTransactionOnly, tSize, tEntry, tLobby]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const leaveTable = useCallback(async () => {
     if (tBusy || !tourneyId) return;
@@ -1508,7 +1527,7 @@ const KaijiScreen = () => {
           </ModeTile>
           <ModeTile
             title="Tourney Mode"
-            tagline="6, 12 or 24 players · 25–100 $SKR entry · top 3 win."
+            tagline="Fri–Sun · HQ Pass · 6–24 players · top 3 win."
             badge={TOURNEY_ENABLED ? "NEW" : "SOON"}
             locked={!TOURNEY_ENABLED}
             onPress={onTourney}
@@ -1653,7 +1672,8 @@ const KaijiScreen = () => {
             />
             {!afford && <Text style={styles.warn}>Not enough SKR for this entry.</Text>}
             <Text style={styles.note}>
-              Starts the moment {tSize} players join. Not full in {tLobby?.fillMinutes ?? 30} min? Everyone is refunded.
+              {tLobby && tLobby.open === false ? 'Closed today — tournaments run Friday to Sunday; next one opens ' + nextOpenLabel(tLobby.opensAt) + '. ' : ''}
+              Needs the HQ Access Pass. Starts the moment {tSize} players join. Not full in {tLobby?.fillMinutes ?? 30} min? Everyone is refunded.
               Knockout, first to 3 each match. 10% fee; prizes 60 / 30 / 10%.
             </Text>
           </View>

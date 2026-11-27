@@ -11,6 +11,7 @@ import { toast } from '../components/Toast';
 
 import { gelAlert } from '../components/gel/GelAlert';
 import { GelModal } from '../components/gel/GelKit';
+import AdminTeam from '../components/admin/AdminTeam';
 const TABS = [
   { key: 'overview', label: 'Overview', icon: 'chart-line' },
   { key: 'applications', label: 'Applications', icon: 'user-plus' },
@@ -803,6 +804,7 @@ const AdminScreen = () => {
                     </View>
                   ))}
                 </View>
+                <AdminTeam />
               </>
             )}
 

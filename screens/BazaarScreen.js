@@ -135,12 +135,19 @@ const BazaarScreen = () => {
         />
       }
     >
+      <Image
+        source={require('../assets/bazaar.png')}
+        style={{ width: 150, height: 150, alignSelf: 'center', marginTop: 4, marginBottom: -6 }}
+        resizeMode="contain"
+        accessibilityLabel="Sempai HQ Bazaar"
+      />
       <PageHeader
         eyebrow="Marketplace"
         title="Bazaar"
         subtitle="Indie books, sold and lent by their authors."
         right={
           <>
+            <GelOrb icon="ticket-alt" size={40} onPress={() => navigation.navigate('HQPass')} label="HQ Access Pass" breathe={false} />
             <GelOrb icon="chart-line" size={40} onPress={() => navigation.navigate('BazaarDashboard')} label="My Bazaar sales" breathe={false} />
             <GelOrb icon="cloud-upload-alt" size={40} lit onPress={() => navigation.navigate('UploadBook')} label="Upload a book" breathe={false} />
           </>

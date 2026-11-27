@@ -98,6 +98,21 @@ function sumTokenTo(tx: any, mint: string, owner: string): number {
   return total;
 }
 
+// SMP burned by the buyer in this transaction (top-level and inner instructions).
+function sumBurned(tx: any, mint: string, owner: string): number {
+  const all: any[] = [...(tx?.transaction?.message?.instructions || [])];
+  for (const inner of tx?.meta?.innerInstructions || []) all.push(...(inner.instructions || []));
+  let total = 0;
+  for (const ix of all) {
+    const t = ix?.parsed?.type;
+    const info = ix?.parsed?.info;
+    if ((t === 'burn' || t === 'burnChecked') && info?.mint === mint && (info?.authority === owner || info?.multisigAuthority === owner)) {
+      total += Number(info?.amount ?? info?.tokenAmount?.amount ?? 0);
+    }
+  }
+  return total;
+}
+
 function verifyPayment(p: {
   tx: any;
   type: "purchase" | "lend";
@@ -126,7 +141,12 @@ function verifyPayment(p: {
     if (currency !== "SMP") return fail("Lending currency must be SMP");
     const expected = Math.floor(Number(book.lend_price_smp) * 10 ** SMP_DECIMALS);
     const hq = sumTokenTo(tx, SMP_MINT, HQ_WALLET);
-    if (hq < expected) return fail("Lending payment is short. The full SMP amount must reach the platform wallet.");
+    const burned = sumBurned(tx, SMP_MINT, buyerWallet);
+    // New split: 95% to the platform + 5% burned. (Older apps that send the full amount are fine too.)
+    const hqNeeded = Math.floor(expected * (1 - LEND_BURN_PCT / 100));
+    const burnNeeded = expected - hqNeeded;
+    const ok = hq >= expected || (hq >= hqNeeded && burned >= burnNeeded);
+    if (!ok) return fail("Lending payment is short: 95% must reach the platform wallet and 5% must be burned.");
     return { ok: true, author: 0, platform: hq / 10 ** SMP_DECIMALS };
   }
 
@@ -157,6 +177,11 @@ function verifyPayment(p: {
   return fail("Purchase currency must be SOL or USDC");
 }
 // ---------- End payment verification ----------
+
+// Borrowing rules (HQ Access Pass)
+const LEND_BURN_PCT = 5;          // of every borrow fee, burned
+const LOAN_DAYS = 7;              // a borrow is a 7-day loan
+const BORROWS_PER_WEEK = 5;       // per pass holder, rolling 7 days
 
 const RPC_URL =
   Deno.env.get("SOLANA_RPC_URL") ||
@@ -280,6 +305,21 @@ serve(withCors(async (req) => {
     if (!author?.wallet_address) return json({ error: "Author wallet not found" }, 500);
     if (author.wallet_address === HQ_WALLET) return json({ error: "Invalid author wallet" }, 500);
 
+    if (type === "lend") {
+      const { data: passEnd } = await supabaseAdmin.rpc("hq_pass_expiry", { p_user: buyer.id });
+      if (!passEnd) return json({ error: "Borrowing needs an HQ Access Pass. Get one in the app (Bazaar → HQ Pass).", code: "pass_required" }, 403);
+      const since = new Date(Date.now() - 7 * 86400000).toISOString();
+      const { count } = await supabaseAdmin
+        .from("bazaar_purchases")
+        .select("id", { count: "exact", head: true })
+        .eq("buyer_id", buyer.id)
+        .eq("access_type", "lend")
+        .gte("created_at", since);
+      if ((count || 0) >= BORROWS_PER_WEEK) {
+        return json({ error: `You've borrowed ${BORROWS_PER_WEEK} books this week — the limit with an HQ Pass. Try again in a few days.`, code: "weekly_limit" }, 429);
+      }
+    }
+
     const tx = await getTransaction(signature);
     if (!tx) return json({ error: "Transaction not found on-chain yet. Try again in a few seconds.", retriable: true }, 503);
 
@@ -313,6 +353,7 @@ serve(withCors(async (req) => {
         tx_signature: signature,
         verification_status: "verified",
         status: "completed",
+        expires_at: type === "lend" ? new Date(Date.now() + LOAN_DAYS * 86400000).toISOString() : null,
       })
       .select("id")
       .single();
